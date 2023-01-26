@@ -119,6 +119,8 @@ struct state_t {
     VkResult create_data_buffer(VkDeviceSize size, VkBufferUsageFlags usage, gpu_buffer_t* buffer);
     VkResult create_uniform_buffer(VkDeviceSize size, uniform_buffer_t* buffer);
     VkResult create_vertex_buffer(VkDeviceSize size, vertex_buffer_t* buffer);
+    VkResult create_index_buffer(VkDeviceSize size, index_buffer_t* buffer);
+
     VkResult fill_data_buffer(uniform_buffer_t* buffer, void* data);
     VkResult fill_data_buffer(uniform_buffer_t* buffer, void* data, size_t size);
 

@@ -65,7 +65,7 @@ using m44 = glm::mat4x4;
 #define kilobytes(x) (x*1024ull)
 #define megabytes(x) (kilobytes(x)*1024ull)
 #define gigabytes(x) (megabytes(x)*1024ull)
-#define terabytes(x) (terabytes(x)*1024ull)
+#define terabytes(x) (gigabytes(x)*1024ull)
 #define align16(val) ((val + 15) & ~15)
 #define align4(val) ((val + 3) & ~3)
 
@@ -126,6 +126,10 @@ struct app_memory_t {
     app_input_t input;
 
     bool running{true};
+
+    void* (__cdecl* malloc)(size_t);
+    void* (__cdecl* realloc)(void*, size_t);
+    void (__cdecl* free)(void*);
 };
 
 using app_func_t = void(__cdecl *)(app_memory_t*);

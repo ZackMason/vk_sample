@@ -925,6 +925,14 @@ state_t::create_data_buffer(
 }
 
 VkResult 
+state_t::create_index_buffer(
+    VkDeviceSize size, 
+    vertex_buffer_t* buffer
+) {
+    return create_data_buffer(size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, buffer);
+}
+
+VkResult 
 state_t::create_vertex_buffer(
     VkDeviceSize size, 
     vertex_buffer_t* buffer
