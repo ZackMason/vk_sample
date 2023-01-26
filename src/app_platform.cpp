@@ -1,6 +1,7 @@
 #include "core.hpp"
 
 #include <thread>
+#include <semaphore>
 #include <iostream>
 #include <filesystem>
 
@@ -21,6 +22,22 @@
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
+
+
+struct work_queue_t {
+    struct job_t {
+        work_queue_t* queue;
+        void* job;
+    };
+
+    volatile u32 write{0};
+    volatile u32 read{0};
+    volatile u32 completed{0};
+
+    job_t jobs[256];
+
+    std::counting_semaphore<256> signal;
+};
 
 GLFWwindow* 
 init_glfw(app_memory_t* app_mem) {
@@ -127,6 +144,9 @@ int
 main() {
     gen_info("win32", "Loading Platform Layer");
     app_memory_t app_mem{};
+    app_mem.malloc = malloc;
+    app_mem.free = free;
+    app_mem.realloc = realloc;
     app_mem.perm_memory_size = megabytes(256);
     app_mem.perm_memory = 
 

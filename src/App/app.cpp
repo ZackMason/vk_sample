@@ -2,7 +2,40 @@
 
 #include "App/vk_state.hpp"
 
+template <typename T>
+struct dll_allocator_t {
+    using value_type = T;
+    using pointer = T*;
+    using const_pointer = const T*;
+    using ref = T&;
 
+    template <typename U>
+    struct rebind {
+        using other = dll_allocator_t<U>;
+    };
+
+    app_memory_t* _app_mem;
+
+    dll_allocator_t(app_memory_t* app_mem)
+        : _app_mem{app_mem}
+    {}
+
+    virtual ~dll_allocator_t() = default;
+
+    [[nodiscard]] pointer allocate(std::size_t size) {
+        auto* ptr = (pointer)_app_mem->malloc(size);
+        return ptr;
+    }
+
+    void deallocate(pointer p, std::size_t size) {
+        _app_mem->free(p);
+    }
+};
+
+using dll_string = std::basic_string<char, std::char_traits<char>, dll_allocator_t<char>>;
+
+template<typename T>
+using dll_vector = std::vector<T, dll_allocator_t<T>>;
 
 struct mesh_builder_t {
     // note(zack): assumes nothing else will push to this arena during usage
@@ -75,7 +108,7 @@ export_fn(void)
 app_on_init(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
     new (app) app_t;
-    
+
     app->app_mem = app_mem;
     app->main_arena.start = (u8*)app_mem->perm_memory + sizeof(app_t);
     app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
@@ -127,9 +160,20 @@ export_fn(void)
 app_on_update2(app_memory_t* app_mem) {
 }
 
+void 
+app_on_input(app_t* app, app_input_t* input) {
+    if (input->keys['M']) {
+        app->scene.sporadic_buffer.mode = 1;
+    } else if (input->keys['N']) {
+        app->scene.sporadic_buffer.mode = 0;
+    }
+}
+
 export_fn(void) 
 app_on_update(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
+
+    app_on_input(app, &app_mem->input);
 
     gfx::vul::state_t& vk_gfx = app->gfx;
 
@@ -139,12 +183,13 @@ app_on_update(app_memory_t* app_mem) {
     }
 
     // update uniforms
-    app->scene.sporadic_buffer.mode = 0;
+    app->scene.sporadic_buffer.mode = 1;
     app->scene.sporadic_buffer.num_instances = 1;
     app->scene.sporadic_buffer.use_lighting = 0;
     vk_gfx.fill_data_buffer(
         &vk_gfx.sporadic_uniform_buffer,
-        &app->scene.sporadic_buffer);
+        &app->scene.sporadic_buffer
+    );
 
     const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
 
