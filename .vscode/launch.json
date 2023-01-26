@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "build debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}\\build\\app_platform.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "preLaunchTask": "debug"
+        }
+    ]
+}
