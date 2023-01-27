@@ -5,8 +5,11 @@
 #include <cstdint>
 #include <cassert>
 #include <cstring>
+#include <stack>
 
 #include <string>
+
+#include "Obj_Loader.hpp"
 
 #define FMT_HEADER_ONLY
 #include <fmt/core.h>
@@ -141,6 +144,22 @@ struct app_dll_t {
     app_func_t on_deinit{nullptr};
 };
 
+template <typename T>
+struct node_t {
+    union {
+        T* left;
+        T* prev;
+    };
+    union {
+        T* right;
+        T* next;
+    };
+    node_t() {
+        right = left = nullptr;
+    }
+};
+
+
 struct arena_t {
     u8* start{0};
     size_t top{0};
@@ -177,3 +196,316 @@ T* arena_emplace(arena_t* arena, size_t count, Args&& ... args) {
     }
     return t;
 }
+
+arena_t 
+arena_sub_arena(arena_t* arena, size_t size) {
+    arena_t res;
+    res.start = arena_alloc(arena, size);
+    res.size = size;
+    res.top = 0;
+    return res;
+}
+
+struct string_t {
+    union {
+        char* data;
+        const char* c_data;
+    };
+    size_t size;
+    bool owns = false;
+
+    string_t()
+        : data{nullptr}, size{0}
+    {
+
+    }
+
+    const char* c_str() const {
+        return data;
+    }
+
+    void view(const char* str) {
+        size = std::strlen(str) + 1;
+        c_data = str;
+        owns = false;
+    }
+    
+    void own(arena_t* arena, const char* str) {
+        size = std::strlen(str) + 1;
+        data = (char*)arena_alloc(arena, size);
+        std::memcpy(data, str, size);
+        owns = true;
+    }
+};
+
+struct string_node_t : node_t<string_node_t> {
+    string_t string;
+};
+
+#define node_next(node) (node = node->next)
+#define node_push(node, list) do { node->next = list; list = node; } while(0)
+#define node_pop(node, list) do { node = list; list = list->next; } while(0)
+
+#define node_for(type, node, itr) for(type* itr = (node); (itr); node_next(itr))
+
+namespace utl {
+
+template <typename T>
+struct deque {
+private:
+    T* head_{nullptr};
+    T* tail_{nullptr};
+    size_t size_{0};
+public:
+
+    [[nodiscard]] size_t size() const noexcept {
+        return size_;
+    }
+
+    [[nodiscard]] bool is_empty() const noexcept {
+        return head_ == nullptr;
+    }
+
+    const T* front() const noexcept {
+        return head_;
+    }
+
+    const T* back() const noexcept {
+        return tail_;
+    }
+
+    // returns null if failed
+    T* remove(T* val) noexcept {
+        if (is_empty()) {
+            return nullptr;
+        }
+        if (front() == val) {
+            return pop_front();
+        } else if (back() == val) {
+            return pop_back();
+        }
+
+        for (T* n{head_->next}; n; n->next) {
+            if (n == val) {
+                if (val->next) {
+                    val->next->prev = val->prev;
+                }
+                if (val->prev) {
+                    val->prev->next = val->next;
+                }
+
+                val->next = val->prev = nullptr;
+                return val;
+            }
+        }
+        return nullptr;
+    }
+
+    T* erase(size_t index) noexcept {
+        return nullptr;
+    }
+
+    T* pop_front() noexcept {
+        if (is_empty()) {
+            return nullptr;
+        }
+        T* old = head_;
+        head_ = head_->next;
+        if (head_ == nullptr) {
+            tail_ = nullptr;
+        } else {
+            head_->prev = nullptr;
+        }
+        return old;
+    }
+
+    T* pop_back() noexcept {
+        if (is_empty()) {
+            return nullptr;
+        }
+        T* old = tail_;
+        tail_ = tail_->prev;
+        if (tail_ == nullptr) {
+            head_ = nullptr;
+        } else {
+            tail_->next = nullptr;
+        }
+        return old;
+    }
+
+    void push_back(T* val) {
+        val->prev = tail_;
+        val->next = nullptr;
+        if (is_empty()) {
+            head_ = tail_ = val;
+        } else {
+            tail_->next = val;
+            tail_ = val;
+        }
+    }
+
+    void push_front(T* val) {
+        val->prev = nullptr;
+        val->next = head_;
+        if (is_empty()) {
+            head_ = tail_ = val;
+        } else {
+            head_->next = val;
+            head_ = val;
+        }
+    }
+};
+
+template <typename T>
+struct free_list_t {
+    utl::deque<T> deque;
+    T* head{nullptr};
+    T* first_free{nullptr};
+    size_t min_stack_pos{~static_cast<size_t>(0)};
+    size_t count{0};
+    size_t free_count{0};
+
+    template<typename allocator_t>
+    T* alloc(arena_t* arena) {
+        count += 1;
+        if (first_free) { 
+            T* node {nullptr};  
+            node_pop(node, first_free);
+            
+            new (node) T();          
+
+            deque.push_back(head);
+            // node_push(node, head);
+
+            free_count -= 1;
+            return node;
+        } else {
+            // if (allocator.get_marker() < min_stack_pos) {
+            //     min_stack_pos = allocator.get_marker();
+            // }
+            T* node = (T*)arena_alloc(arena, sizeof(T));// allocator.alloc(sizeof(T));
+            new (node) T();
+            
+            // node_push(node, head);
+            deque.push_back(node);
+
+            return node;
+        }
+    }
+
+    void free_index(size_t _i) noexcept {
+        T* c = head;
+        for (size_t i = 0; i < _i && c; i++, node_next(c)) {
+        }
+        if (c) {
+            free(c);
+        }
+    }
+
+    // calls T dtor
+    void free(T*& o) noexcept {
+        if (o == nullptr) { return; }
+
+        T* n = deque.remove(o);
+        if (n) {
+            node_push(n, first_free);
+            o->~T();
+            o = nullptr;
+            count -= 1;
+            free_count += 1;
+        }
+        return;
+
+        if (head == o) { // if node to free is first
+            T* t{nullptr};
+            // node_pop(t, head);
+
+            node_push(t, first_free);
+            o->~T();
+            o = nullptr;
+            count -= 1;
+            free_count += 1;
+            return;
+        }
+        T* c = head; // find node and free it, while keeping list connected
+        while(c && c->next != o) {
+            node_next(c);
+        }
+        if (c && c->next == o) {
+            T* t = c->next;
+            c->next = c->next->next;
+            
+            node_push(t, first_free);
+            o->~T();
+            o = nullptr;
+            count -= 1;
+            free_count += 1;
+        }
+    }
+};
+
+// note(zack): this is in core because it will probably be loaded 
+// in a work thread in platform layer, so that we dont have to worry
+// about halting the thread when we reload the dll
+
+struct vertex_t {
+    v3f pos;
+    v3f nrm;
+    v3f col;
+    v2f tex;
+};
+
+struct parsed_mesh_t {
+    vertex_t* vertices{nullptr};
+    size_t vertex_count{0};
+
+    u32* indices{nullptr};
+    size_t index_count{0};
+
+    string_t mesh_name;
+    // string_t material_name; 
+};
+
+struct load_results_t {
+    parsed_mesh_t* meshes;
+    size_t count;
+};
+
+auto 
+make_v3f(const auto& v) -> v3f {
+    return {v.X, v.Y, v.Z};
+}
+
+load_results_t
+load_mesh(arena_t* arena, std::string_view path) {
+    objl::Loader loader;
+    loader.LoadFile(fmt_str("{}", path).c_str());
+
+    load_results_t results{};
+    results.meshes = (parsed_mesh_t*)arena_alloc(arena,
+        sizeof(parsed_mesh_t) * loader.LoadedMeshes.size());
+
+
+    for (const auto& lmesh: loader.LoadedMeshes) {
+        auto& mesh = results.meshes[results.count++];
+        mesh.vertices = (vertex_t*)arena_get_top(arena);
+        mesh.vertex_count = lmesh.Vertices.size();
+        for (const auto& vert: lmesh.Vertices) {
+            vertex_t v;
+            v.pos = make_v3f(vert.Position);
+            v.nrm = make_v3f(vert.Normal);
+            v.tex = v2f(vert.TextureCoordinate.X, vert.TextureCoordinate.Y);
+            *(vertex_t*)arena_alloc(arena, sizeof(vertex_t)) = v;
+        }
+        
+        mesh.indices = (u32*)arena_get_top(arena);
+        mesh.index_count = lmesh.Indices.size();
+        for (u32 idx: lmesh.Indices) {
+            *(u32*)arena_alloc(arena, sizeof(u32)) = idx;
+        }
+    }
+
+    return results;
+}
+
+};

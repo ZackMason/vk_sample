@@ -129,13 +129,6 @@ struct state_t {
 
 using index_t = u32;
 
-struct vertex_t {
-    v3f pos;
-    v3f nrm;
-    v3f col;
-    v2f tex;
-};
-
 struct object_buffer_t {
     m44     model;
     v4f     color;

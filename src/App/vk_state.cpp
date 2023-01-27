@@ -10,6 +10,14 @@
 #include <span>
 #include <set>
 
+
+struct vertex_t {
+    v3f pos;
+    v3f nrm;
+    v3f col;
+    v2f tex;
+};
+
 namespace gfx::vul {
 
 
@@ -988,22 +996,22 @@ void state_t::create_graphics_pipeline() {
     vviad[0].location = 0;
     vviad[0].binding  = 0;
     vviad[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vviad[0].offset = offsetof(vertex_t, pos);
+    vviad[0].offset = offsetof(::vertex_t, pos);
 
     vviad[1].location = 1;
     vviad[1].binding  = 0;
     vviad[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vviad[1].offset = offsetof(vertex_t, nrm);
+    vviad[1].offset = offsetof(::vertex_t, nrm);
 
     vviad[2].location = 2;
     vviad[2].binding  = 0;
     vviad[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vviad[2].offset = offsetof(vertex_t, col);
+    vviad[2].offset = offsetof(::vertex_t, col);
 
     vviad[3].location = 3;
     vviad[3].binding  = 0;
     vviad[3].format = VK_FORMAT_R32G32_SFLOAT;
-    vviad[3].offset = offsetof(vertex_t, tex);
+    vviad[3].offset = offsetof(::vertex_t, tex);
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;

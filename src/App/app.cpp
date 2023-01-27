@@ -2,62 +2,27 @@
 
 #include "App/vk_state.hpp"
 
-template <typename T>
-struct dll_allocator_t {
-    using value_type = T;
-    using pointer = T*;
-    using const_pointer = const T*;
-    using ref = T&;
-
-    template <typename U>
-    struct rebind {
-        using other = dll_allocator_t<U>;
-    };
-
-    app_memory_t* _app_mem;
-
-    dll_allocator_t(app_memory_t* app_mem)
-        : _app_mem{app_mem}
-    {}
-
-    virtual ~dll_allocator_t() = default;
-
-    [[nodiscard]] pointer allocate(std::size_t size) {
-        auto* ptr = (pointer)_app_mem->malloc(size);
-        return ptr;
-    }
-
-    void deallocate(pointer p, std::size_t size) {
-        _app_mem->free(p);
-    }
-};
-
-using dll_string = std::basic_string<char, std::char_traits<char>, dll_allocator_t<char>>;
-
-template<typename T>
-using dll_vector = std::vector<T, dll_allocator_t<T>>;
-
 struct mesh_builder_t {
     // note(zack): assumes nothing else will push to this arena during usage
     arena_t* arena; 
-    gfx::vul::vertex_t* vertices{nullptr};
+    vertex_t* vertices{nullptr};
     u32 vertex_count{0};
     gfx::vul::index_t* indices{nullptr};
     u32 index_count{0};
 
     mesh_builder_t(arena_t* _arena) 
         : arena{_arena}, 
-        vertices{(gfx::vul::vertex_t*)arena_get_top(arena)}
+        vertices{(vertex_t*)arena_get_top(arena)}
     {
     }
  
-    mesh_builder_t& add_vertex(gfx::vul::vertex_t v) {
+    mesh_builder_t& add_vertex(vertex_t v) {
         // note(zack):
         // must not have indices at this point
         // else the arrays are not linear
         assert(!indices);
 
-        *(gfx::vul::vertex_t*)arena_alloc(arena, sizeof(gfx::vul::vertex_t)) = v;
+        *(vertex_t*)arena_alloc(arena, sizeof(vertex_t)) = v;
         ++vertex_count;
         return *this;
     }
@@ -85,10 +50,18 @@ struct mesh_builder_t {
 
 struct app_t {
     app_memory_t*       app_mem{nullptr};
+
+    // arenas
     arena_t             main_arena;
+    arena_t             temp_arena;
+    arena_t             string_arena;
+    arena_t             mesh_arena;
+    arena_t             texture_arena;
+    
     gfx::vul::state_t   gfx;
 
     gfx::vul::vertex_buffer_t vertices;
+    gfx::vul::index_buffer_t indices;
 
     struct scene_t {
         gfx::vul::scene_buffer_t scene_buffer;
@@ -96,7 +69,10 @@ struct app_t {
         gfx::vul::sporadic_buffer_t sporadic_buffer;
     } scene;
 
-    mesh_builder_t* mesh;
+    string_t test;
+
+    u32 v_count;
+    u32 i_count;
 };
 
 app_t*
@@ -106,26 +82,61 @@ get_app(app_memory_t* mem) {
 
 export_fn(void) 
 app_on_init(app_memory_t* app_mem) {
+    // s_app_mem = app_mem;
+
     app_t* app = get_app(app_mem);
     new (app) app_t;
+
 
     app->app_mem = app_mem;
     app->main_arena.start = (u8*)app_mem->perm_memory + sizeof(app_t);
     app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
 
+    app->temp_arena = arena_sub_arena(&app->main_arena, megabytes(4));
+    app->string_arena = arena_sub_arena(&app->main_arena, megabytes(16));
+    app->mesh_arena = arena_sub_arena(&app->main_arena, megabytes(64));
+    app->texture_arena = arena_sub_arena(&app->main_arena, megabytes(64));
+
+    // app->test = (std::string*)arena_alloc(&app->main_arena, sizeof(std::string));
+    // new (app->test) std::string;
+
+    app->test.own(&app->string_arena, "hello world");
+
     gfx::vul::state_t& vk_gfx = app->gfx;
     app->gfx.init(&app_mem->config);
 
-    app->mesh = (mesh_builder_t*)arena_alloc(&app->main_arena, sizeof(mesh_builder_t));
-    new (app->mesh) mesh_builder_t{&app->main_arena};
-    (*app->mesh)
-        .add_vertex({ .pos = v3f{-1,0,0}, .nrm = v3f{0,0,1}, .col = {1, 0, 0}, .tex = {0, 0}})
-        .add_vertex({ .pos = v3f{1,0,0}, .nrm = v3f{0,0,1}, .col = {0, 0, 1}, .tex = {1, 0}})
-        .add_vertex({ .pos = v3f{0,1,0}, .nrm = v3f{0,0,1}, .col = {0, 1, 0}, .tex = {0.5f, 1.f}});
+    auto loaded_mesh = utl::load_mesh(
+        &app->temp_arena, 
+        "./assets/models/utah-teapot.obj"
+    );
 
-    vk_gfx.create_vertex_buffer(1000*sizeof(gfx::vul::vertex_t), &app->vertices);
+    assert(loaded_mesh.count == 1);
+
+    app->v_count = safe_truncate_u64(loaded_mesh.meshes[0].vertex_count);
+    app->i_count = safe_truncate_u64(loaded_mesh.meshes[0].index_count);
+    vk_gfx.create_vertex_buffer(
+        loaded_mesh.meshes[0].vertex_count*sizeof(vertex_t), 
+        &app->vertices
+    );
     
-    vk_gfx.fill_data_buffer(&app->vertices, (void*)app->mesh->vertices, app->mesh->vertex_count * sizeof(gfx::vul::vertex_t));
+    vk_gfx.fill_data_buffer(
+        &app->vertices, 
+        (void*)loaded_mesh.meshes[0].vertices, 
+        loaded_mesh.meshes[0].vertex_count * sizeof(vertex_t)
+    );
+
+    vk_gfx.create_index_buffer(
+        loaded_mesh.meshes[0].index_count*sizeof(u32), 
+        &app->indices
+    );
+    
+    vk_gfx.fill_data_buffer(
+        &app->indices, 
+        (void*)loaded_mesh.meshes[0].indices, 
+        loaded_mesh.meshes[0].index_count * sizeof(u32)
+    );
+
+    arena_clear(&app->temp_arena);
 
     vk_gfx.fill_data_buffer(&vk_gfx.scene_uniform_buffer,    (void*)&app->scene.scene_buffer);
     vk_gfx.fill_data_buffer(&vk_gfx.object_uniform_buffer,   (void*)&app->scene.object_buffer);
@@ -151,6 +162,7 @@ app_on_unload(app_memory_t* app_mem) {
 
 export_fn(void)
 app_on_reload(app_memory_t* app_mem) {
+    // s_app_mem = app_mem;
     app_t* app = get_app(app_mem);
 
     app->gfx.init(&app_mem->config);
@@ -198,7 +210,7 @@ app_on_update(app_memory_t* app_mem) {
     app->scene.scene_buffer.proj = glm::perspective(45.0f, aspect, 0.1f, 100.0f);
     app->scene.scene_buffer.proj[1][1] *= -1.0f;
 
-    app->scene.scene_buffer.scene = glm::rotate(glm::mat4{1.0f}, app_mem->input.time * 1000.0f, v3f{0,1,0});
+    app->scene.scene_buffer.scene = glm::rotate(glm::mat4{1.f}, app_mem->input.time * 1000.0f, v3f{0,1,0});
     app->scene.scene_buffer.light_pos = v4f{3,3,3,0};
     app->scene.scene_buffer.light_col = v4f{0.2f, 0.1f, 0.8f, 1.0f};
     app->scene.scene_buffer.light_KaKdKs = v4f{0.5f};
@@ -207,7 +219,7 @@ app_on_update(app_memory_t* app_mem) {
         &vk_gfx.scene_uniform_buffer,
         &app->scene.scene_buffer);
 
-    app->scene.object_buffer.model = glm::mat4{1.0f};
+    app->scene.object_buffer.model = glm::scale(m44{1.0f}, v3f{0.1f});
     app->scene.object_buffer.color = v4f{1.0f};
     app->scene.object_buffer.shininess = 2.0f;
 
@@ -237,8 +249,12 @@ app_on_update(app_memory_t* app_mem) {
         vkCmdBindVertexBuffers(vk_gfx.command_buffer,
             0, 1, buffers, offsets);
 
-        const u32 vertex_count = app->mesh->vertex_count;
-        const u32 index_count = 0;
+        vkCmdBindIndexBuffer(vk_gfx.command_buffer,
+            app->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+        );
+
+        const u32 vertex_count = app->v_count;
+        const u32 index_count = app->i_count;
         const u32 instance_count = 1;
         const u32 first_vertex = 0;
         const u32 first_index = 0;
