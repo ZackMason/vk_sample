@@ -11,6 +11,7 @@ layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 	int		uMode;
 	int		uUseLighting;
 	int		uNumInstances;
+	int 	pad;
 } Sporadic;
         
 layout( std140, set = 1, binding = 0 ) uniform sceneBuf
@@ -27,7 +28,6 @@ layout( std140, set = 1, binding = 0 ) uniform sceneBuf
 layout( std140, set = 2, binding = 0 ) uniform objectBuf
 {
 	mat4		uModel;
-	mat4		uNormal;
 	vec4		uColor;
 	float		uShininess;
 } Object; 

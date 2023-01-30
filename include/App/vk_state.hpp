@@ -23,11 +23,28 @@ struct gpu_buffer_t {
 	VkDataBuffer		buffer;
 	VkDeviceMemory		vdm;
 	VkDeviceSize		size;
+    virtual ~gpu_buffer_t() = default;
 };
 
-using uniform_buffer_t = gpu_buffer_t;
-using vertex_buffer_t = gpu_buffer_t;
-using index_buffer_t = gpu_buffer_t;
+template <typename T>
+struct uniform_buffer_t : public gpu_buffer_t {
+    using gpu_buffer_t::gpu_buffer_t;
+    T* data{nullptr};
+};
+
+template <typename T, size_t N>
+struct vertex_buffer_t : public gpu_buffer_t {
+    using gpu_buffer_t::gpu_buffer_t;
+    utl::pool_t<T> pool{};
+};
+
+
+template <size_t N>
+struct index_buffer_t : public gpu_buffer_t {
+    using gpu_buffer_t::gpu_buffer_t;
+    utl::pool_t<u32> pool{};
+};
+
 
 struct texture_2d_t {
     i32 size[2];
@@ -37,6 +54,29 @@ struct texture_2d_t {
     VkImageLayout image_layout;
     VkSampler sampler;
     VkDeviceMemory vdm;
+};
+
+struct object_buffer_t {
+    m44     model;
+    v4f     color;
+    float   shininess;
+};
+
+struct scene_buffer_t {
+    m44         proj;
+    m44         view;
+    m44         scene;
+    v4f         light_pos;
+    v4f         light_col;
+    v4f         light_KaKdKs;
+    float       time;
+};
+
+struct sporadic_buffer_t {
+    int mode;
+    int use_lighting;
+    int num_instances;
+    int padd;
 };
 
 struct state_t {
@@ -75,11 +115,12 @@ struct state_t {
     VkSemaphore render_finished_semaphore;
     VkFence in_flight_fence;
 
-    uniform_buffer_t scene_uniform_buffer;
-    uniform_buffer_t object_uniform_buffer;
-    uniform_buffer_t sporadic_uniform_buffer;
+    uniform_buffer_t<scene_buffer_t>    scene_uniform_buffer;
+    uniform_buffer_t<object_buffer_t>   object_uniform_buffer;
+    uniform_buffer_t<sporadic_buffer_t> sporadic_uniform_buffer;
 
     texture_2d_t null_texture;
+    texture_2d_t depth_stencil_texture;
 
     VkDebugUtilsMessengerEXT debug_messenger;
 
@@ -95,6 +136,7 @@ struct state_t {
     void create_logical_device();
     void create_swap_chain(int width, int height);
     void create_image_views();
+    void create_depth_stencil_image(texture_2d_t* texture, int width, int height);
     void create_graphics_pipeline();
     void create_render_pass();
     void create_framebuffers();
@@ -116,39 +158,43 @@ struct state_t {
 
     void load_texture_sampler(texture_2d_t* texture, std::string_view path, arena_t* arena);
 
-    VkResult create_data_buffer(VkDeviceSize size, VkBufferUsageFlags usage, gpu_buffer_t* buffer);
-    VkResult create_uniform_buffer(VkDeviceSize size, uniform_buffer_t* buffer);
-    VkResult create_vertex_buffer(VkDeviceSize size, vertex_buffer_t* buffer);
-    VkResult create_index_buffer(VkDeviceSize size, index_buffer_t* buffer);
+    template <typename T>
+    VkResult create_uniform_buffer(uniform_buffer_t<T>* buffer) {
+        const auto r = create_data_buffer(sizeof(T), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, buffer);
+        void* gpu_ptr{0};
+        vkMapMemory(device, buffer->vdm, 0, sizeof(T), 0, &gpu_ptr);
+        buffer->data = (T*)gpu_ptr;
+        return r;
+    }
 
-    VkResult fill_data_buffer(uniform_buffer_t* buffer, void* data);
-    VkResult fill_data_buffer(uniform_buffer_t* buffer, void* data, size_t size);
+    template <typename T, size_t N>
+    VkResult create_vertex_buffer(vertex_buffer_t<T, N>* buffer) {
+        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, buffer);
+        void* gpu_ptr{0};
+        vkMapMemory(device, buffer->vdm, 0, sizeof(T) * N, 0, &gpu_ptr);
+        buffer->pool = utl::pool_t<T>{(T*)gpu_ptr, N};
+        return r;
+    }
+
+    template <size_t N>
+    VkResult create_index_buffer(index_buffer_t<N>* buffer) {
+        const auto r = create_data_buffer(sizeof(u32) * N, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, buffer);
+        void* gpu_ptr{0};
+        vkMapMemory(device, buffer->vdm, 0, sizeof(u32) * N, 0, &gpu_ptr);
+        buffer->pool = utl::pool_t<u32>{(u32*)gpu_ptr, N};
+        return r;
+    }
+
+    VkResult create_data_buffer(VkDeviceSize size, VkBufferUsageFlags usage, gpu_buffer_t* buffer);
+    // VkResult create_uniform_buffer(VkDeviceSize size, uniform_buffer_t* buffer);
+    // VkResult create_vertex_buffer(VkDeviceSize size, vertex_buffer_t* buffer);
+    // VkResult create_index_buffer(VkDeviceSize size, index_buffer_t* buffer);
+
+    VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data);
+    VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data, size_t size);
 
     void destroy_instance();
 };
 
-using index_t = u32;
-
-struct object_buffer_t {
-    m44     model;
-    v4f     color;
-    float   shininess;
-};
-
-struct scene_buffer_t {
-    m44         proj;
-    m44         view;
-    m44         scene;
-    v4f         light_pos;
-    v4f         light_col;
-    v4f         light_KaKdKs;
-    float       time;
-};
-
-struct sporadic_buffer_t {
-    int mode;
-    int use_lighting;
-    int num_instances;
-};
 
 };

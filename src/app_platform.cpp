@@ -67,7 +67,7 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
     const auto last_input = app_mem->input;
     app_input_reset(&app_mem->input);
 
-    app_mem->input.time = (f32)(glfwGetTime()/1000);
+    app_mem->input.time = (f32)(glfwGetTime());
     app_mem->input.dt = app_mem->input.time - last_input.time;
 
     for (int i = 0; i < array_count(app_mem->input.keys); i++) {
@@ -147,7 +147,7 @@ main() {
     app_mem.malloc = malloc;
     app_mem.free = free;
     app_mem.realloc = realloc;
-    app_mem.perm_memory_size = megabytes(256);
+    app_mem.perm_memory_size = gigabytes(4); // megabytes(256*2);
     app_mem.perm_memory = 
 
 #if _WIN32
@@ -175,7 +175,6 @@ main() {
         }
     };
 
-
     app_dll_t app_dlls;
     reload_dlls(&app_dlls);
 
@@ -190,7 +189,6 @@ main() {
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);
         }
-
 
         glfwPollEvents();
         update_input(&app_mem, window);
