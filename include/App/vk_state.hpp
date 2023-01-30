@@ -10,7 +10,7 @@
 #include <vector>
 #include <functional>
 
-#define VK_OK(res) (res)
+#define VK_OK(res) do { if (res != VK_SUCCESS) { gen_error("vk", "Vulkan Failed"); std::terminate(); } } while(0)
 
 using VkDataBuffer = VkBuffer;
 
@@ -102,18 +102,31 @@ struct state_t {
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
 
+    struct gui_pipeline_t {
+        VkPipeline pipeline;
+        VkPipelineLayout pipeline_layout;
+        VkFramebuffer framebuffer;
+        std::vector<VkFramebuffer> swap_framebuffers;
+        VkRenderPass render_pass;
+
+        // descriptor for samplers
+        VkDescriptorPool descriptor_pool;
+        VkDescriptorSetLayout descriptor_set_layouts[1];
+        VkDescriptorSet descriptor_sets[1];
+    } gui_pipeline;
+
     VkDescriptorPool descriptor_pool;
     VkDescriptorSetLayout descriptor_set_layouts[4];
     VkDescriptorSet descriptor_sets[4];
 
-    std::vector<VkFramebuffer> swap_chain_framebuffers;
+    std::vector<VkFramebuffer> world_framebuffers;
 
     VkCommandPool command_pool;
     VkCommandBuffer command_buffer;
  
     VkSemaphore image_available_semaphore;
     VkSemaphore render_finished_semaphore;
-    VkFence in_flight_fence;
+    VkFence in_flight_fence[2];
 
     uniform_buffer_t<scene_buffer_t>    scene_uniform_buffer;
     uniform_buffer_t<object_buffer_t>   object_uniform_buffer;
@@ -128,6 +141,9 @@ struct state_t {
     void cleanup();
 
     void record_command_buffer(VkCommandBuffer buffer, u32 index, std::function<void(void)> user_fn);
+    void record_pipeline_commands(
+        VkPipeline pipeline, VkRenderPass render_pass, VkFramebuffer framebuffer,
+        VkCommandBuffer buffer, u32 index, std::function<void(void)> user_fn, bool should_clear = true);
 
     void create_instance(app_config_t* info);
     void create_debug_messenger();
@@ -138,11 +154,14 @@ struct state_t {
     void create_image_views();
     void create_depth_stencil_image(texture_2d_t* texture, int width, int height);
     void create_graphics_pipeline();
+    void create_gui_pipeline();
     void create_render_pass();
     void create_framebuffers();
     void create_command_pool();
     void create_command_buffer();
     void create_sync_objects();
+    
+    void create_gui_descriptor_sets();
     void create_descriptor_set_pool();
     void create_descriptor_set_layouts();
     void create_descriptor_sets();
@@ -155,8 +174,15 @@ struct state_t {
     VkCommandBuffer begin_single_time_commands();
     void end_single_time_commands(VkCommandBuffer command_buffer);
 
+    VkDescriptorSet create_image_descriptor_set(
+        VkDescriptorPool descriptor_pool,
+        VkDescriptorSetLayout descriptor_set_layout,
+        texture_2d_t** texture,
+        size_t count
+    );
 
     void load_texture_sampler(texture_2d_t* texture, std::string_view path, arena_t* arena);
+    void load_font_sampler(arena_t* arena, texture_2d_t* texture, font_t* font);
 
     template <typename T>
     VkResult create_uniform_buffer(uniform_buffer_t<T>* buffer) {
