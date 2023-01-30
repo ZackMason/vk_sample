@@ -9,6 +9,7 @@ layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 	int		uMode;
 	int		uUseLighting;
 	int		uNumInstances;
+	int 	pad;
 } Sporadic;
         
 layout( std140, set = 1, binding = 0 ) uniform sceneBuf
