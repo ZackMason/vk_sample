@@ -209,6 +209,15 @@ struct frame_arena_t {
 
 using temp_arena_t = arena_t;
 
+inline size_t
+arena_get_mark(arena_t* arena) {
+    return arena->top;
+}
+
+inline void
+arena_set_mark(arena_t* arena, size_t m) {
+    arena->top = m;
+}
 
 inline void
 arena_clear(arena_t* arena) {
@@ -219,6 +228,15 @@ inline u8*
 arena_get_top(arena_t* arena) {
     return arena->start + arena->top;
 }
+
+#define arena_display_info(arena, name) \
+    (fmt_str("{}: {} {} / {} {} - {:.2f}%", \
+    (name), \
+    (arena)->top > gigabytes(1) ? (arena)->top/gigabytes(1) : (arena)->top > megabytes(1) ? (arena)->top/megabytes(1) : (arena)->top,\
+    (arena)->top > gigabytes(1) ? "Gb" : (arena)->top > megabytes(1) ? "Mb" : "B",\
+    (arena)->size > gigabytes(1) ? (arena)->size/gigabytes(1) : (arena)->size > megabytes(1) ? (arena)->size/megabytes(1) : (arena)->size,\
+    (arena)->size > gigabytes(1) ? "Gb" : (arena)->size > megabytes(1) ? "Mb" : "B",\
+    (f32((arena)->top) / f32((arena)->size) * 100.0f)))
 
 inline u8*
 arena_alloc(arena_t* arena, size_t bytes) {
@@ -282,6 +300,78 @@ arena_create_frame_arena(
     return frame;
 }
 
+namespace utl {
+
+template <typename T>
+struct pool_t : public arena_t {
+    size_t count{0};
+    size_t capacity{0};
+
+    pool_t() = default;
+
+    explicit pool_t(T* data, size_t _cap) 
+        : capacity{_cap}
+    {
+        start = (u8*)data;
+        size = _cap * sizeof(T);
+    }
+
+    pool_t(arena_t* arena, size_t _cap)
+        : capacity{_cap}
+    {
+        auto sub_arena = arena_sub_arena(arena, _cap*sizeof(T));
+        start = sub_arena.start;
+        size = sub_arena.size;
+    }
+
+    T& operator[](size_t id) {
+        return data()[id];
+    }
+
+    T& back() {
+        return operator[](count-1);
+    }
+
+    T& front() {
+        return operator[](0);
+    }
+
+    T* data() {
+        return (T*)start;
+    }
+
+    T* create(size_t p_count) {
+        T* o = allocate(p_count);
+        for (size_t i = 0; i < p_count; i++) {
+            new (o+i) T();
+        }
+        return o;
+    }
+
+    T* allocate(size_t p_count) {
+        count += p_count;
+        return (T*)arena_alloc(this, sizeof(T) * p_count);
+    }
+
+    void free(T* ptr) {
+        ptr->~T();
+        std::swap(*ptr, back());
+        count--;
+    }
+
+    // note(zack): calls T dtor
+    void clear() {
+        if constexpr (std::is_trivially_destructible_v<T>) {
+            for (size_t i = 0; i < count; i++) {
+                (data() + i)->~T();
+            }
+        }
+        arena_clear(this);
+        count = 0;
+    }    
+};
+
+}; // namespace utl
 
 
 // string
@@ -418,9 +508,6 @@ struct aabb_t {
     // }
 };
 
-
-
-
 }; // namespace math
 
 
@@ -434,31 +521,23 @@ namespace gfx {
 using color4 = v4f;
 using color3 = v3f;
 using color32 = u32;
+struct font_t;
 
-struct vertex_t {
-    v3f pos;
-    v3f nrm;
-    color3 col;
-    v2f tex;
+namespace gui {
+    struct vertex_t;
 };
 
-using index32_t = u32;
+inline void
+font_render(
+    arena_t* arena,
+    font_t* font,
+    std::string_view text,
+    v2f position,
+    v2f screen_size,
+    utl::pool_t<gui::vertex_t>* vertices,
+    utl::pool_t<u32>* indices,
+    color32 text_color);
 
-struct mesh_t {
-    vertex_t*   vertices{nullptr};
-    u32         vertex_count{0};
-    index32_t*  indices{nullptr};
-    u32         index_count{0};
-};
-
-struct mesh_view_t {
-    u32 vertex_start{};
-    u32 vertex_count{};
-    u32 index_start{};
-    u32 index_count{};
-    u32 instance_start{};
-    u32 instance_count{};
-};
 
 namespace color {
     constexpr color32 to_color32(const color4& c) {
@@ -601,6 +680,297 @@ namespace color {
     };
 
 }; // namespace color
+
+
+namespace gui {
+    struct vertex_t {
+        v2f pos;
+        v2f tex;
+        u32 img;
+        u32 col;
+    };
+
+    struct ctx_t {
+        utl::pool_t<vertex_t>* vertices;
+        utl::pool_t<u32>* indices;
+        gfx::font_t* font;
+        app_input_t* input;
+        v2f screen_size{};
+    };
+
+    enum eTypeFlag {
+        eTypeFlag_Theme,
+        eTypeFlag_Panel,
+        eTypeFlag_Text,
+
+        eTypeFlag_None,
+    };
+
+    struct theme_t {
+        color32 fg_color{};
+        color32 bg_color{};
+        color32 text_color{color::rgba::cream};
+        color32 border_color{};
+        u32     shadow_distance{};
+        color32 shadow_color{};
+    };
+
+    struct text_t;
+    struct image_t;
+    struct button_t;
+
+    struct panel_t : public math::aabb_t<v2f> {
+        eTypeFlag flag{eTypeFlag_Panel};
+        panel_t* next{nullptr};
+
+        text_t* text_widgets{nullptr};
+        button_t* button_widgets{nullptr};
+
+        sid_t name;
+
+        theme_t theme;
+    };
+
+    struct button_t : public math::aabb_t<v2f> {
+        void* user_data{0};
+        
+        using callback_fn = void(*)(void*);
+        callback_fn on_press{0};
+
+        theme_t theme;
+    };
+
+    struct text_t {
+        eTypeFlag type{eTypeFlag_Text};
+        text_t* next{nullptr};
+
+        string_t text{};
+        v2f offset{};
+        u32 font_size{};
+
+        theme_t theme;
+    };
+    
+    inline void
+    ctx_clear(
+        ctx_t* ctx
+    ) {
+        ctx->vertices->clear();
+        ctx->indices->clear();
+    }
+
+    inline void 
+    text_render(
+        ctx_t* ctx,
+        panel_t* parent,
+        text_t* text
+    ) {
+        font_render(0, ctx->font, 
+            text->text.c_str(), 
+            parent->min + text->offset,
+            ctx->screen_size,
+            ctx->vertices,
+            ctx->indices,
+            text->theme.text_color
+        );
+
+        if (text->theme.shadow_distance) {
+            font_render(0, ctx->font, 
+                text->text.c_str(), 
+                parent->min + text->offset + v2f{(f32)text->theme.shadow_distance},
+                ctx->screen_size,
+                ctx->vertices,
+                ctx->indices,
+                text->theme.shadow_color
+            );
+        }
+
+        if (text->next) {
+            text_render(ctx, parent, text->next);
+        }
+    }
+
+    inline void
+    panel_render(
+        ctx_t* ctx,
+        panel_t* panel
+    ) {
+        if (panel->next) { panel_render(ctx, panel->next); }
+
+        if (panel->text_widgets) {
+            text_render(ctx, panel, panel->text_widgets);
+        }
+
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
+        const u32 i_start = safe_truncate_u64(ctx->indices->count);
+
+        const v2f p0 = panel->min;
+        const v2f p1 = v2f{panel->min.x, panel->max.y};
+        const v2f p2 = v2f{panel->max.x, panel->min.y};
+        const v2f p3 = panel->max;
+
+        vertex_t* v = ctx->vertices->allocate(4);
+        u32* i = ctx->indices->allocate(6);
+        v[0] = vertex_t { .pos = p0 / ctx->screen_size, .tex = v2f{0.0f, 1.0f}, .img = ~(0ui32), .col = panel->theme.bg_color};
+        v[1] = vertex_t { .pos = p1 / ctx->screen_size, .tex = v2f{0.0f, 0.0f}, .img = ~(0ui32), .col = panel->theme.bg_color};
+        v[2] = vertex_t { .pos = p2 / ctx->screen_size, .tex = v2f{1.0f, 0.0f}, .img = ~(0ui32), .col = panel->theme.bg_color};
+        v[3] = vertex_t { .pos = p3 / ctx->screen_size, .tex = v2f{1.0f, 1.0f}, .img = ~(0ui32), .col = panel->theme.bg_color};
+
+        i[0] = v_start + 0;
+        i[1] = v_start + 1;
+        i[2] = v_start + 2;
+
+        i[3] = v_start + 2;
+        i[4] = v_start + 1;
+        i[5] = v_start + 3;
+
+    }
+
+}; // namespace gui
+
+#include "stb/stb_truetype.h"
+
+struct font_t {
+    struct glyph_t {
+        char c{};
+        math::aabb_t<v2f> screen{};
+        math::aabb_t<v2f> texture{};
+    };
+    f32 size{12.0f};
+    u32 pixel_count{512>>1};
+
+    u8* ttf_buffer{0};
+    u8* bitmap{0};
+    stbtt_bakedchar cdata[96];
+};
+
+inline void
+font_load(
+    arena_t* arena,
+    font_t* font,
+    std::string_view path,
+    float size
+) {
+    font->size = size;
+
+    font->bitmap = arena_alloc(arena, font->pixel_count*font->pixel_count);
+    size_t stack_mark = arena_get_mark(arena);
+
+        font->ttf_buffer = arena_alloc(arena, 1<<20);
+        
+        FILE* file;
+        fopen_s(&file, path.data(), "rb");
+
+        fread(font->ttf_buffer, 1, 1<<20, file);
+        stbtt_BakeFontBitmap(font->ttf_buffer, 0, size, font->bitmap, font->pixel_count, font->pixel_count, 32, 96, font->cdata);
+                
+        fclose(file);
+
+    arena_set_mark(arena, stack_mark);
+}
+
+inline font_t::glyph_t
+font_get_glyph(font_t* font, f32 x, f32 y, char c) {
+
+    math::aabb_t<v2f> screen{};
+    math::aabb_t<v2f> texture{};
+    
+    stbtt_aligned_quad q;
+    stbtt_GetBakedQuad(font->cdata, font->pixel_count, font->pixel_count, c - 32, &x,&y, &q, 1);
+
+    texture.expand(v2f{q.s0, q.t0});
+    texture.expand(v2f{q.s1, q.t1});
+
+    screen.expand(v2f{q.x0, q.y0});
+    screen.expand(v2f{q.x1, q.y1});
+
+    return font_t::glyph_t {
+        c, 
+        screen,
+        texture
+    };
+}
+
+struct vertex_t;
+
+inline void
+font_render(
+    arena_t* arena,
+    font_t* font,
+    std::string_view text,
+    v2f position,
+    v2f screen_size,
+    utl::pool_t<gui::vertex_t>* vertices,
+    utl::pool_t<u32>* indices,
+    color32 text_color = color::rgba::cream
+) {
+    assert(screen_size.x && screen_size.y);
+    v2f cursor = position;
+    for (const char c : text) {
+        if (c > 32 && c < 128) {
+            const auto glyph = font_get_glyph(font, cursor.x, cursor.y, c);
+
+            const u32 v_start = safe_truncate_u64(vertices->count);
+            gui::vertex_t* v = vertices->allocate(4);            
+            u32* i = indices->allocate(6);            
+
+            const v2f p0 = v2f{glyph.screen.min.x, glyph.screen.min.y} / screen_size;
+            const v2f p1 = v2f{glyph.screen.min.x, glyph.screen.max.y} / screen_size;
+            const v2f p2 = v2f{glyph.screen.max.x, glyph.screen.min.y} / screen_size;
+            const v2f p3 = v2f{glyph.screen.max.x, glyph.screen.max.y} / screen_size;
+            
+            const v2f c0 = v2f{glyph.texture.min.x, glyph.texture.min.y};
+            const v2f c1 = v2f{glyph.texture.min.x, glyph.texture.max.y};
+            const v2f c2 = v2f{glyph.texture.max.x, glyph.texture.min.y};
+            const v2f c3 = v2f{glyph.texture.max.x, glyph.texture.max.y};
+
+            v[0] = gui::vertex_t{ .pos = p0, .tex = c0, .img = 0|BIT(30), .col = text_color};
+            v[1] = gui::vertex_t{ .pos = p1, .tex = c1, .img = 0|BIT(30), .col = text_color};
+            v[2] = gui::vertex_t{ .pos = p2, .tex = c2, .img = 0|BIT(30), .col = text_color};
+            v[3] = gui::vertex_t{ .pos = p3, .tex = c3, .img = 0|BIT(30), .col = text_color};
+
+            i[0] = v_start + 0;
+            i[1] = v_start + 2;
+            i[2] = v_start + 1;
+
+            i[3] = v_start + 1;
+            i[4] = v_start + 2;
+            i[5] = v_start + 3;
+
+            cursor.x += glyph.screen.size().x + 1;
+        } else if (c == ' ') {
+            cursor.x += font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1;
+        } else if (c == '\t') {
+            cursor.x += (font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1) * 5;
+        }
+    }
+}
+
+struct vertex_t {
+    v3f pos;
+    v3f nrm;
+    color3 col;
+    v2f tex;
+};
+
+using index32_t = u32;
+
+struct mesh_t {
+    vertex_t*   vertices{nullptr};
+    u32         vertex_count{0};
+    index32_t*  indices{nullptr};
+    u32         index_count{0};
+};
+
+struct mesh_view_t {
+    u32 vertex_start{};
+    u32 vertex_count{};
+    u32 index_start{};
+    u32 index_count{};
+    u32 instance_start{};
+    u32 instance_count{1};
+};
+
 
 
 }; // namespace gfx
@@ -793,73 +1163,6 @@ struct random_s {
 };
 
 }; // namespace rng
-
-
-template <typename T>
-struct pool_t : public arena_t {
-    size_t count{0};
-    size_t capacity{0};
-
-    pool_t() = default;
-
-    explicit pool_t(T* data, size_t _cap) 
-        : capacity{_cap}
-    {
-        start = (u8*)data;
-        size = _cap * sizeof(T);
-    }
-
-    pool_t(arena_t* arena, size_t _cap)
-        : capacity{_cap}
-    {
-        auto sub_arena = arena_sub_arena(arena, _cap*sizeof(T));
-        start = sub_arena.start;
-        size = sub_arena.size;
-    }
-
-    T& operator[](size_t id) {
-        return data()[id];
-    }
-
-    T& back() {
-        return operator[](count-1);
-    }
-
-    T& front() {
-        return operator[](0);
-    }
-
-    T* data() {
-        return (T*)start;
-    }
-
-    T* create(size_t p_count) {
-        T* o = allocate(p_count);
-        for (size_t i = 0; i < p_count; i++) {
-            new (o+i) T();
-        }
-        return o;
-    }
-
-    T* allocate(size_t p_count) {
-        count += p_count;
-        return (T*)arena_alloc(this, sizeof(T) * p_count);
-    }
-
-    void free(T* ptr) {
-        ptr->~T();
-        std::swap(*ptr, back());
-        count--;
-    }
-
-    // note(zack): calls T dtor
-    void clear() {
-        for (size_t i = 0; i < count; i++) {
-            data()[i]->~T();
-        }
-        count = 0;
-    }    
-};
 
 
 // Generated with ChatGPT
@@ -1313,6 +1616,7 @@ namespace entity {
         arena_t* arena, 
         size_t bytes
     ) noexcept {
+        assert(bytes > (max_entities * sizeof(component_list_t)*2));
         world_t* w =  arena_alloc_ctor<world_t>(arena, 1, world_t{});
         w->arena = arena_sub_arena(arena, bytes);
         w->entities =  arena_alloc_ctor<entity_pool_t>(&w->arena, 1, &w->arena, max_entities);
@@ -1339,6 +1643,7 @@ namespace entity {
         Args&& ... args
     ) noexcept {
         T* c = arena_alloc_ctor<T>(&world->arena, 1, std::forward<Args>(args)...);
+        world_add_component(world, e, c);
         return c;
     }
 
@@ -1358,7 +1663,10 @@ namespace entity {
         world_t* world, 
         entity_t e
     ) noexcept {
-        return (T*)world->components[0][e][T::type_id()];
+        if (world->entities[0][e][T::type_id()]) {
+            return (T*)&world->components[0][e][T::type_id()];
+        }
+        return nullptr;
     }
 };
 

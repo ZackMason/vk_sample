@@ -159,8 +159,8 @@ main() {
     assert(app_mem.perm_memory);
 
     auto& config = app_mem.config;
-    config.window_size[0] = 1024;
-    config.window_size[1] = 1024;
+    config.window_size[0] = 640;
+    config.window_size[1] = 480;
 
     app_mem.config.create_vk_surface = [](void* instance, void* surface, void* window_handle) {
         VkWin32SurfaceCreateInfoKHR createInfo{};
