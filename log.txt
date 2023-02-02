@@ -1,0 +1,7 @@
+[1m[38;2;255;255;255m[info][win32]: Loading Platform Layer
+[0m
+Found 2 GLFW Required Instance Extensions:
+	VK_KHR_surface
+	VK_KHR_win32_surface
+[1m[38;2;255;255;255m[info][win32]: Platform Initialization Completed
+[0m

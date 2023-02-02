@@ -24,20 +24,19 @@
 #include <GLFW/glfw3native.h>
 
 
-struct work_queue_t {
-    struct job_t {
-        work_queue_t* queue;
-        void* job;
-    };
+#define SDL_MAIN_HANDLED
+#include "SDL.h"
+// #include "SDL_main.h"
+#include "SDL_mixer.h"
 
-    volatile u32 write{0};
-    volatile u32 read{0};
-    volatile u32 completed{0};
-
-    job_t jobs[256];
-
-    std::counting_semaphore<256> signal;
+struct audio_cache_t {
+    Mix_Chunk* sounds[1024];
+    u64 sound_count{0};
 };
+
+void __cdecl load_sound(const char* path) {
+
+}
 
 GLFWwindow* 
 init_glfw(app_memory_t* app_mem) {
@@ -64,17 +63,33 @@ init_glfw(app_memory_t* app_mem) {
 
 void
 update_input(app_memory_t* app_mem, GLFWwindow* window) {
-    const auto last_input = app_mem->input;
+    app_input_t last_input;
+    std::memcpy(&last_input, &app_mem->input, sizeof(app_input_t));
+
     app_input_reset(&app_mem->input);
 
     app_mem->input.time = (f32)(glfwGetTime());
     app_mem->input.dt = app_mem->input.time - last_input.time;
+
+    f64 mouse_temp[2];
+    glfwGetCursorPos(window, mouse_temp+0, mouse_temp+1);
+    f32 mouse[2]; 
+    mouse[0] = f32(mouse_temp[0]);
+    mouse[1] = f32(mouse_temp[1]);
+
+    app_mem->input.mouse.pos[0] = mouse[0];
+    app_mem->input.mouse.pos[1] = mouse[1];
+
+    app_mem->input.mouse.delta[0] = mouse[0] - last_input.mouse.pos[0];
+    app_mem->input.mouse.delta[1] = mouse[1] - last_input.mouse.pos[1];
 
     for (int i = 0; i < array_count(app_mem->input.keys); i++) {
         if (i < array_count(app_mem->input.mouse.buttons)) {
             app_mem->input.mouse.buttons[i] = glfwGetMouseButton(window, i) == GLFW_PRESS;
         }
         app_mem->input.keys[i] = glfwGetKey(window, i) == GLFW_PRESS;
+        app_mem->input.pressed.keys[i] = app_mem->input.keys[i] && !last_input.keys[i];
+        app_mem->input.released.keys[i] = !app_mem->input.keys[i] && last_input.keys[i];
     }
 }
 
@@ -141,7 +156,7 @@ update_dlls(app_dll_t* app_dlls) {
 }
 
 int 
-main() {
+main(int argc, char* argv[]) {
     gen_info("win32", "Loading Platform Layer");
     app_memory_t app_mem{};
     app_mem.malloc = malloc;
@@ -153,14 +168,16 @@ main() {
 #if _WIN32
         VirtualAlloc(0, app_mem.perm_memory_size,  MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #else 
-
+        
 #endif
+
+
 
     assert(app_mem.perm_memory);
 
     auto& config = app_mem.config;
-    config.window_size[0] = 640;
-    config.window_size[1] = 480;
+    config.window_size[0] = 800;
+    config.window_size[1] = 600;
 
     app_mem.config.create_vk_surface = [](void* instance, void* surface, void* window_handle) {
         VkWin32SurfaceCreateInfoKHR createInfo{};
@@ -174,6 +191,49 @@ main() {
             std::terminate();
         }
     };
+
+    if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+        gen_info("sdl_mixer", "Couldn't initialize SDL: {}", SDL_GetError());
+        return 255;
+    }
+
+    if (Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, MIX_DEFAULT_CHANNELS, 4096) < 0) {
+        gen_info("sdl_mixer", "Couldn't open audio: {}", SDL_GetError());
+        return 255;
+    }
+
+    audio_cache_t audio_cache{};
+    utl::closure_t load_sound_closure;
+    load_sound_closure.data = &audio_cache;
+    load_sound_closure.func = reinterpret_cast<void(*)(void*)>(
+        +[](void* data, const char* path) -> u64 {
+            gen_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
+
+            auto* cache = (audio_cache_t*)data;
+            cache->sounds[cache->sound_count] = Mix_LoadWAV(path);
+
+            gen_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
+        
+            return cache->sound_count++;
+    });
+    
+    utl::closure_t play_sound_closure;
+    play_sound_closure.data = &audio_cache;
+    play_sound_closure.func = reinterpret_cast<void(*)(void*)>(
+        +[](void* data, u64 id) -> void {
+            gen_info("sdl_mixer::play_sound", "playing Sound: {}", id);
+
+            auto* cache = (audio_cache_t*)data;
+
+            Mix_PlayChannel(0, cache->sounds[id], 0);
+    });
+    
+    app_mem.audio.load_sound_closure = &load_sound_closure;
+    app_mem.audio.play_sound_closure = &play_sound_closure;
+
+    u64 sound = load_sound_closure.dispatch_request<u64>("./assets/audio/unlock.wav");
+    gen_info("sdl_mixer::play_sound", "playing Sound: {}", sound);
+    //play_sound_closure.dispatch(sound);
 
     app_dll_t app_dlls;
     reload_dlls(&app_dlls);

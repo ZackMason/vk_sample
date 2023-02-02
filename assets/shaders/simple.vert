@@ -30,6 +30,21 @@ layout( std140, set = 2, binding = 0 ) uniform objectBuf
 	float		uShininess;
 } Object; 
 
+layout ( push_constant ) uniform object_constants
+{
+	mat4 uM;
+	vec4 albedo;
+
+    float ao;
+    float emission;
+    float metallic;
+    float roughness;
+
+    uint flags;     // for material effects
+    uint opt_flags; // for performance
+    uint padding[2];
+} ObjectConstants;
+
 layout( location = 0 ) in vec3 aVertex;
 layout( location = 1 ) in vec3 aNormal;
 layout( location = 2 ) in vec3 aColor;
@@ -47,7 +62,7 @@ main( )
 	mat4  P = Scene.uProjection;
 	mat4  V = Scene.uView;
 	mat4  SO = Scene.uSceneOrient;
-	mat4  M  = Object.uModel;
+	mat4  M  = ObjectConstants.uM;
 	mat4 VM = V * SO * M;
 	mat4 PVM = P * VM;
 
