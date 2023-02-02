@@ -5,9 +5,8 @@
 #define WIN32_MEAN_AND_LEAN
 #define NOMINMAX
 
-
 #if defined(RAND_GETPID)
-    // Already defined externally
+
 #elif defined(_WIN64) || defined(_WIN32)
     #include <process.h>
     #define RAND_GETPID _getpid()
@@ -31,11 +30,12 @@
 #include <stack>
 #include <span>
 #include <array>
+#include <fstream>
+#include <vector>
 
 #include <string>
 #include <string_view>
 
-#include "Obj_Loader.hpp"
 
 #define FMT_HEADER_ONLY
 #include <fmt/core.h>
@@ -60,7 +60,10 @@ using f64 = double;
 #define GLM_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include "glm/gtc/matrix_transform.hpp"
-#include<glm/gtc/quaternion.hpp>
+
+// #include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/euler_angles.hpp>
 
 using v2f = glm::vec2;
 using v3f = glm::vec3;
@@ -72,7 +75,7 @@ using v4i = glm::ivec4;
 
 using quat = glm::quat;
 using m22 = glm::mat2x2;
-using m33 = glm::mat3;
+using m33 = glm::mat3x3;
 using m34 = glm::mat3x4;
 using m43 = glm::mat4x3;
 using m44 = glm::mat4x4;
@@ -119,14 +122,24 @@ struct app_input_t {
     // keyboard
     u8 keys[512];
 
+    struct pressed_t {
+        u8 keys[512];
+    } pressed;
+    
+    struct released_t {
+        u8 keys[512];
+    } released;
+
     // gamepad
     
     // mouse
     struct mouse_t {
         u8 buttons[12];
-        i32 pos[2];
+        f32 pos[2];
+        f32 delta[2];
         i32 scroll[2];
     } mouse;
+
 };
 
 inline void
@@ -148,6 +161,19 @@ struct app_config_t {
     vk_create_surface_cb create_vk_surface{nullptr};
 };
 
+struct audio_settings_t {
+    u8 channels{100};
+    u8 master_volumn{100};
+    u8 sfx_volumn{100};
+    u8 music_volumn{100};
+
+    u8 mute{0};
+};
+
+namespace utl {
+    struct closure_t;
+};
+
 struct app_memory_t {
     void* perm_memory{nullptr};
     size_t perm_memory_size{};
@@ -160,6 +186,12 @@ struct app_memory_t {
     void* (__cdecl* malloc)(size_t);
     void* (__cdecl* realloc)(void*, size_t);
     void (__cdecl* free)(void*);
+
+    struct audio_closures_t {
+        utl::closure_t* load_sound_closure;
+        utl::closure_t* play_sound_closure;
+        utl::closure_t* stop_sound_closure;
+    } audio;
 };
 
 using app_func_t = void(__cdecl *)(app_memory_t*);
@@ -189,9 +221,10 @@ struct node_t {
         T* right;
         T* next;
     };
-    node_t() {
+    node_t() noexcept {
         right = left = nullptr;
     }
+    virtual ~node_t() = default;
 };
 
 // allocators
@@ -232,11 +265,12 @@ arena_get_top(arena_t* arena) {
 #define arena_display_info(arena, name) \
     (fmt_str("{}: {} {} / {} {} - {:.2f}%", \
     (name), \
-    (arena)->top > gigabytes(1) ? (arena)->top/gigabytes(1) : (arena)->top > megabytes(1) ? (arena)->top/megabytes(1) : (arena)->top,\
-    (arena)->top > gigabytes(1) ? "Gb" : (arena)->top > megabytes(1) ? "Mb" : "B",\
-    (arena)->size > gigabytes(1) ? (arena)->size/gigabytes(1) : (arena)->size > megabytes(1) ? (arena)->size/megabytes(1) : (arena)->size,\
-    (arena)->size > gigabytes(1) ? "Gb" : (arena)->size > megabytes(1) ? "Mb" : "B",\
+    (arena)->top > gigabytes(1) ? (arena)->top/gigabytes(1) : (arena)->top > megabytes(1) ? (arena)->top/megabytes(1) : (arena)->top > kilobytes(1) ? (arena)->top / kilobytes(1) : (arena)->top,\
+    (arena)->top > gigabytes(1) ? "Gb" : (arena)->top > megabytes(1) ? "Mb" : (arena)->top > kilobytes(1) ? "Kb" : "B",\
+    (arena)->size > gigabytes(1) ? (arena)->size/gigabytes(1) : (arena)->size > megabytes(1) ? (arena)->size/megabytes(1) : (arena)->size > kilobytes(1) ? (arena)->size / kilobytes(1) : (arena)->size,\
+    (arena)->size > gigabytes(1) ? "Gb" : (arena)->size > megabytes(1) ? "Mb" : (arena)->size > kilobytes(1) ? "Kb" : "B",\
     (f32((arena)->top) / f32((arena)->size) * 100.0f)))
+    
 
 inline u8*
 arena_alloc(arena_t* arena, size_t bytes) {
@@ -267,7 +301,6 @@ arena_alloc_ctor(arena_t* arena, size_t count, Args&& ... args) {
     }
     return t;
 }
-
 
 template <typename T, typename ... Args>
 T* arena_emplace(arena_t* arena, size_t count, Args&& ... args) {
@@ -301,6 +334,21 @@ arena_create_frame_arena(
 }
 
 namespace utl {
+
+struct closure_t {
+    void (*func)(void*){0};
+    void* data{0};
+
+    template <typename ... Args>
+    void dispatch(Args ... args) {
+        ((void(*)(void*, Args...))func)(data, args...);// std::forward<Args>(args)...);
+    }
+
+    template <typename ReturnType, typename ... Args>
+    ReturnType dispatch_request(Args&& ... args) {
+        return ((ReturnType(*)(void*, Args...))func)(data, std::forward<Args>(args)...);
+    }
+};
 
 template <typename T>
 struct pool_t : public arena_t {
@@ -508,6 +556,125 @@ struct aabb_t {
     // }
 };
 
+struct transform_t {
+	transform_t(const m44& mat = m44{1.0f}) : basis(mat), origin(mat[3]) {};
+	transform_t(const v3f& position, const v3f& scale = {1,1,1}, const v3f& rotation = {0,0,0})
+	    : basis(m33(1.0f)
+    ) {
+		origin = (position);
+		set_rotation(rotation);
+		set_scale(scale);
+	}
+    
+	m44 to_matrix() const {
+        m44 res = basis;
+        res[3] = v4f(origin,1.0f);
+        return res;
+    }
+    
+	operator m44() const {
+		return to_matrix();
+	}
+    
+	void translate(const v3f& delta) {
+        origin += delta;
+    }
+	void scale(const v3f& delta) {
+        basis = glm::scale(m44{basis}, delta);
+    }
+	void rotate(const v3f& delta) {
+        m44 rot = m44(1.0f);
+        rot = glm::rotate(rot, delta.z, { 0,0,1 });
+        rot = glm::rotate(rot, delta.y, { 0,1,0 });
+        rot = glm::rotate(rot, delta.x, { 1,0,0 });
+        basis = (basis) * m33(rot);
+    }
+	void rotate_quat(const glm::quat& delta) {
+        set_rotation(get_orientation() * delta);
+    }
+    
+    glm::quat get_orientation() const {
+        return glm::quat_cast(basis);
+    }
+
+	transform_t inverse() const {
+        transform_t transform;
+        transform.basis = glm::transpose(basis);
+        transform.origin = basis * -origin;
+        return transform;
+    }
+
+	void look_at(const v3f& target, const v3f& up = { 0,1,0 }) {
+        auto mat = glm::lookAt(origin, target, up);
+        basis = mat;
+        origin = mat[3];
+    }
+    void set_scale(const v3f& scale) {
+        for (int i = 0; i < 3; i++) {
+            basis[i] = glm::normalize(basis[i]) * scale[i];
+        }
+    }
+	void set_rotation(const v3f& rotation) {
+        basis = glm::eulerAngleYXZ(rotation.y, rotation.x, rotation.z);
+    }
+	void set_rotation(const glm::quat& quat) {
+        basis = glm::toMat3(glm::normalize(quat));
+    }
+
+    void normalize() {
+        for (decltype(basis)::length_type i = 0; i < 3; i++) {
+            basis[i] = glm::normalize(basis[i]);
+        }
+    }
+
+	// in radians
+	v3f get_euler_rotation() const {
+        return glm::eulerAngles(get_orientation());
+    }
+
+	void affine_invert() {
+		basis = glm::inverse(basis);
+		origin = basis * -origin;
+	}
+
+	v3f inv_xform(const v3f& vector) const
+	{
+		const v3f v = vector - origin;
+		return glm::transpose(basis) * v;
+	}
+
+	v3f xform(const v3f& vector)const
+	{
+		return v3f(basis * vector) + origin;
+	}
+    
+	ray_t xform(const ray_t& ray) const { 
+		return ray_t{
+			xform(ray.origin),
+			glm::normalize(basis * ray.direction)
+		};
+	}
+
+	aabb_t<v3f> xform_aabb(const aabb_t<v3f>& box) const {
+		aabb_t<v3f> t_box;
+		t_box.min = t_box.max = origin;
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+                const auto a = basis[j][i] * box.min[j];
+                const auto b = basis[j][i] * box.max[j];
+                t_box.min[i] += a < b ? a : b;
+                t_box.max[i] += a < b ? b : a;
+            }
+        }
+
+		return t_box;
+	}
+    
+	m33 basis = m33(1.0f);
+	v3f origin = v3f(0, 0, 0);
+};
+
+
 }; // namespace math
 
 
@@ -522,6 +689,19 @@ using color4 = v4f;
 using color3 = v3f;
 using color32 = u32;
 struct font_t;
+
+struct material_t {
+    v4f albedo{};
+
+    f32 ao{};
+    f32 emission{};
+    f32 metallic{};
+    f32 roughness{};
+
+    u32 flags{};     // for material effects
+    u32 opt_flags{}; // for performance
+    u32 padding[2];
+};
 
 namespace gui {
     struct vertex_t;
@@ -953,6 +1133,16 @@ struct vertex_t {
     v2f tex;
 };
 
+struct skinned_vertex_t {
+    v3f position;
+    v3f normal;
+    v2f tex_coord;
+    // v3f tangent;
+    // v3f bitangent;
+    u32 bone_id[4];
+    v4f weight{0.0f};
+};
+
 using index32_t = u32;
 
 struct mesh_t {
@@ -969,14 +1159,14 @@ struct mesh_view_t {
     u32 index_count{};
     u32 instance_start{};
     u32 instance_count{1};
+
+    math::aabb_t<v3f> aabb{};
 };
-
-
 
 }; // namespace gfx
 
 namespace utl {
-    
+
 namespace rng {
 
 uint64_t fnv_hash_u64(uint64_t val) {
@@ -1202,7 +1392,12 @@ private:
 };
 
 struct deserializer_t {
-    deserializer_t(const std::vector<uint8_t>& data) : m_Data(data), m_Offset(0) {}
+    deserializer_t(const std::vector<uint8_t>& data) : m_Data(data.data()), m_Offset(0) {}
+    deserializer_t(const uint8_t* data) : m_Data(data), m_Offset(0) {}
+
+    void advance(size_t bytes) {
+        m_Offset += bytes;
+    }
 
     bool deserialize_bool() { return m_Data[m_Offset++] != 0; }
     int8_t deserialize_i8() { return m_Data[m_Offset++]; }
@@ -1215,6 +1410,10 @@ struct deserializer_t {
     uint64_t deserialize_u64() { uint64_t value = *(uint64_t*)&m_Data[m_Offset]; m_Offset += sizeof(value); return value; }
     float deserialize_f32() { float value = *(float*)&m_Data[m_Offset]; m_Offset += sizeof(value); return value; }
     double deserialize_f64() { double value = *(double*)&m_Data[m_Offset]; m_Offset += sizeof(value); return value; }
+
+    void* data() const {
+        return (void*)(m_Data+m_Offset);
+    }
 
     std::string deserialize_string() {
         size_t length = deserialize_u64();
@@ -1238,7 +1437,7 @@ struct deserializer_t {
     }
 
 private:
-    const std::vector<uint8_t>& m_Data;
+    const uint8_t* m_Data;
     size_t m_Offset;
 
 public:
@@ -1273,12 +1472,21 @@ public:
         return head_ == nullptr;
     }
 
-    const T* front() const noexcept {
+    T* front() noexcept {
         return head_;
     }
 
     const T* back() const noexcept {
         return tail_;
+    }
+
+    T* operator[](size_t i) const {
+        assert(i < size_);
+        T* n = head_;
+        for (size_t j = 0; j < i; j++) {
+            n = n->next;
+        }
+        return n;
     }
 
     // returns null if failed
@@ -1302,6 +1510,7 @@ public:
                 }
 
                 val->next = val->prev = nullptr;
+                size_--;
                 return val;
             }
         }
@@ -1323,6 +1532,7 @@ public:
         } else {
             head_->prev = nullptr;
         }
+        size_--;
         return old;
     }
 
@@ -1337,6 +1547,7 @@ public:
         } else {
             tail_->next = nullptr;
         }
+        size_--;
         return old;
     }
 
@@ -1349,6 +1560,7 @@ public:
             tail_->next = val;
             tail_ = val;
         }
+        size_++;
     }
 
     void push_front(T* val) {
@@ -1360,19 +1572,18 @@ public:
             head_->next = val;
             head_ = val;
         }
+        size_++;
     }
 };
 
 template <typename T>
 struct free_list_t {
-    utl::deque<T> deque;
-    T* head{nullptr};
+    utl::deque<T> deque{};
     T* first_free{nullptr};
     size_t min_stack_pos{~static_cast<size_t>(0)};
     size_t count{0};
     size_t free_count{0};
 
-    template<typename allocator_t>
     T* alloc(arena_t* arena) {
         count += 1;
         if (first_free) { 
@@ -1381,19 +1592,14 @@ struct free_list_t {
             
             new (node) T();          
 
-            deque.push_back(head);
-            // node_push(node, head);
-
+            deque.push_back(node);
+            
             free_count -= 1;
             return node;
         } else {
-            // if (allocator.get_marker() < min_stack_pos) {
-            //     min_stack_pos = allocator.get_marker();
-            // }
-            T* node = (T*)arena_alloc(arena, sizeof(T));// allocator.alloc(sizeof(T));
+            T* node = (T*)arena_alloc(arena, sizeof(T));
             new (node) T();
             
-            // node_push(node, head);
             deque.push_back(node);
 
             return node;
@@ -1401,7 +1607,7 @@ struct free_list_t {
     }
 
     void free_index(size_t _i) noexcept {
-        T* c = head;
+        T* c = deque.front();
         for (size_t i = 0; i < _i && c; i++, node_next(c)) {
         }
         if (c) {
@@ -1423,7 +1629,7 @@ struct free_list_t {
         }
         return;
 
-        if (head == o) { // if node to free is first
+        if (deque.front() == o) { // if node to free is first
             T* t{nullptr};
             // node_pop(t, head);
 
@@ -1434,7 +1640,7 @@ struct free_list_t {
             free_count += 1;
             return;
         }
-        T* c = head; // find node and free it, while keeping list connected
+        T* c = deque.front(); // find node and free it, while keeping list connected
         while(c && c->next != o) {
             node_next(c);
         }
@@ -1451,7 +1657,6 @@ struct free_list_t {
     }
 };
 
-
 struct load_results_t {
     gfx::mesh_view_t* meshes{nullptr};
     size_t count{0};
@@ -1462,74 +1667,37 @@ make_v3f(const auto& v) -> v3f {
     return {v.X, v.Y, v.Z};
 }
 
-inline load_results_t
-pooled_load_mesh(
-    arena_t* arena,
-    pool_t<gfx::vertex_t>* vertices, 
-    pool_t<u32>* indices, 
-    std::string_view path
-) {
-    rng::random_t<rng::xor64_random_t> rng;
-    rng.randomize();
-
-    objl::Loader loader;
-    loader.LoadFile(fmt_str("{}", path).c_str());
-
-    load_results_t results{};
-    results.meshes = (gfx::mesh_view_t*)arena_alloc(arena,
-        sizeof(gfx::mesh_view_t) * loader.LoadedMeshes.size());
-
-#if 0
-struct mesh_view_t {
-    u32 vertex_start{};
-    u32 vertex_count{};
-    u32 index_start{};
-    u32 index_count{};
-    u32 instance_start{};
-    u32 instance_count{};
-};
-#endif
-
-    for (const auto& lmesh: loader.LoadedMeshes) {
-        auto& mesh = results.meshes[results.count++];
-        
-        mesh.vertex_start = safe_truncate_u64(vertices->count);
-        mesh.vertex_count = safe_truncate_u64(lmesh.Vertices.size());
-        for (const auto& vert: lmesh.Vertices) {
-            gfx::vertex_t v;
-            v.pos = make_v3f(vert.Position);
-            v.nrm = make_v3f(vert.Normal);
-            v.tex = v2f(vert.TextureCoordinate.X, vert.TextureCoordinate.Y);
-            v.col = v3f{rng.randf(), rng.randf(), rng.randf()};
-            *(gfx::vertex_t*)arena_alloc(vertices, sizeof(gfx::vertex_t)) = v;
-        }
-        
-        mesh.index_start = safe_truncate_u64(indices->count);
-        mesh.index_count = safe_truncate_u64(lmesh.Indices.size());
-        for (gfx::index32_t idx: lmesh.Indices) {
-            *(gfx::index32_t*)arena_alloc(indices, sizeof(gfx::index32_t)) = idx;
-        }
-    }
-
-    return results;
-}
-
 namespace anim {
 
+using bone_id_t = u32;
+
 template <typename T>
-struct time_value_t {
+struct keyframe {
     f32 time;
     T value;
 };
 
 template <typename T>
-using anim_pool_t = pool_t<time_value_t<T>>;
+using anim_pool_t = pool_t<keyframe<T>>;
+
+struct animation_t {
+    f32 total_time{0.0f};
+    i32 ticks_per_second{24};
+
+    arena_t* arena;
+
+    anim_pool_t<v3f> positions;
+    anim_pool_t<glm::quat> rotations;
+    anim_pool_t<v3f> scales;
+    pool_t<m44> matrices;
+};
+
 
 template <typename T>
 inline void
 anim_pool_add_time_value(anim_pool_t<T>* pool, f32 time, T val) {
     auto* time_value = pool->allocate(1);
-    *time_value = time_value_t<T>{
+    *time_value = keyframe<T>{
         .time = time,
         .value = val
     };
@@ -1552,11 +1720,15 @@ anim_pool_get_time_value(anim_pool_t<T>* pool, f32 time) {
         if (pool->data()[i].time <= time && time <= pool->data()[i+1].time) {
             const auto d = (pool->data()[i+1].time - pool->data()[i].time);
             const auto p = time - pool->data()[i].time;
-            return glm::mix(
-                pool->data()[i].value,
-                pool->data()[i+1].value,
-                p/d
-            );
+            if constexpr (std::is_same_v<T, glm::quat>) {
+                return glm::slerp(pool[0][i], pool[0][i+1], p/d);
+            } else {
+                return glm::mix(
+                    pool->data()[i].value,
+                    pool->data()[i+1].value,
+                    p/d
+                );
+            }
         }
     }
 
@@ -1566,108 +1738,137 @@ anim_pool_get_time_value(anim_pool_t<T>* pool, f32 time) {
 
 }; // namespace anim
 
+namespace res {
 
-}; // namespace utl
-
-namespace entity {
-    inline static constexpr u64 max_entities = 500'000;
-    inline static constexpr u64 max_components = 64;
-
-    using entity_t = u64;
-    using component_id_t = u64;
-    using component_list_t = std::array<u8, max_components>;
-
-    struct component_base_t {
-        [[nodiscard]] static u64 type_id() noexcept {
-            local_persist u64 id_{0};
-            return id_++;
-        }
-        [[nodiscard]] virtual u64  id() const noexcept = 0;
-    };
-
-    template <typename Comp>
-    struct component_t : public component_base_t {
-        using pool_t = utl::pool_t<Comp>;
-
-        [[nodiscard]] static u64 type_id() noexcept {
-            static size_t i{component_base_t::type_id()};
-            return i;
-        }
-
-        [[nodiscard]] u64 id() const noexcept override final {
-            return component_t<Comp>::type_id();
-        }
-    };
-
-    using entity_pool_t = utl::pool_t<component_list_t>;
-    using component_pool_t = utl::pool_t<component_base_t*>;
-
-    inline static constexpr entity_t invalid = 0xffffffffffffffff;
-    inline static constexpr entity_t dead    = 0xefffffffffffffff;
-    
-    struct world_t {
-        arena_t arena;
-        entity_pool_t* entities;
-        component_pool_t* components;
-    };
-
-    inline world_t*
-    world_init(
-        arena_t* arena, 
-        size_t bytes
-    ) noexcept {
-        assert(bytes > (max_entities * sizeof(component_list_t)*2));
-        world_t* w =  arena_alloc_ctor<world_t>(arena, 1, world_t{});
-        w->arena = arena_sub_arena(arena, bytes);
-        w->entities =  arena_alloc_ctor<entity_pool_t>(&w->arena, 1, &w->arena, max_entities);
-        w->components =  arena_alloc_ctor<component_pool_t>(&w->arena, 1, &w->arena, max_entities);
-        
-        return w;
-    }
-
-    inline entity_t
-    world_create_entity(
-        world_t* world
-    ) noexcept {
-        entity_t e = world->entities->count;
-        world->entities->create(1);
-        world->components->create(1);
-        return e;
-    }
-
-    template <typename T, typename ... Args>
-    inline T*
-    world_emplace_component(
-        world_t* world,
-        entity_t e,
-        Args&& ... args
-    ) noexcept {
-        T* c = arena_alloc_ctor<T>(&world->arena, 1, std::forward<Args>(args)...);
-        world_add_component(world, e, c);
-        return c;
-    }
-
-    inline void
-    world_add_component(
-        world_t* world, 
-        entity_t e,
-        component_base_t* component
-    ) noexcept {
-        world->entities[0][e][component->id()] = 1;
-        world->components[0][e] = component;
-    }
-
-    template <typename T>
-    inline T* 
-    world_get_component(
-        world_t* world, 
-        entity_t e
-    ) noexcept {
-        if (world->entities[0][e][T::type_id()]) {
-            return (T*)&world->components[0][e][T::type_id()];
-        }
-        return nullptr;
-    }
+namespace magic {
+    constexpr u64 meta = 0xfeedbeeff04edead;
+    constexpr u64 vers = 0x1;
+    constexpr u64 mesh = 0x1212121212121212;
+    constexpr u64 table_start = 0x7abe17abe1;
 };
 
+struct resource_t {
+    u64 size{0};
+    u8* data{0};
+};
+
+struct resource_table_entry_t {
+    string_t name;
+    u64 size{0};
+};
+
+struct pack_file_t {
+    u64 meta{0};
+    u64 vers{0};
+
+    u64 file_count{0};
+    u64 resource_size{0};
+
+    u64 table_start{0};
+
+    resource_table_entry_t* table{0};
+
+    resource_t* resources{0};
+};
+
+inline pack_file_t* 
+load_pack_file(
+    arena_t* arena,
+    arena_t* string_arena,
+    std::string_view path
+) {
+    std::ifstream file{path.data(), std::ios::binary};
+
+    if(!file.is_open()) {
+        gen_error("res", "Failed to open file");
+        return 0;
+    }
+
+    std::vector<u8> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    deserializer_t loader{data};
+    
+    // eat meta info
+#if NDEBUG
+    loader.deserialize_u64();
+    loader.deserialize_u64();
+#else
+    assert(loader.deserialize_u64() == magic::meta);
+    assert(loader.deserialize_u64() == magic::vers);
+#endif
+
+    pack_file_t* packed_file = arena_alloc_ctor<pack_file_t>(arena, 1);
+
+    packed_file->file_count = loader.deserialize_u64();
+    packed_file->resource_size = loader.deserialize_u64();
+
+#if NDEBUG
+    loader.deserialize_u64();
+#else
+    assert(loader.deserialize_u64()== magic::table_start);
+#endif
+
+    // need to load strings into string_t
+    packed_file->table = arena_alloc_ctor<resource_table_entry_t>(arena, packed_file->file_count);
+    size_t table_size = sizeof(resource_table_entry_t) * packed_file->file_count;
+    loader.deserialize_u64();
+    for (size_t i = 0; i < packed_file->file_count; i++) {
+        resource_table_entry_t* entry = packed_file->table + i;
+        std::string file_name = loader.deserialize_string();
+        entry->name.own(string_arena, file_name.c_str());
+        entry->size = loader.deserialize_u64();
+    }
+    
+    packed_file->resources = arena_alloc_ctor<resource_t>(arena, packed_file->file_count);
+    loader.deserialize_u64();
+    for (size_t i = 0; i < packed_file->file_count; i++) {
+        size_t resource_size = packed_file->resources[i].size = loader.deserialize_u64();
+        packed_file->resources[i].data = arena_alloc(arena, packed_file->resources[i].size);
+        std::memcpy(packed_file->resources[i].data, loader.data(), resource_size);
+        loader.advance(resource_size);
+    }
+
+    gen_info("res", "Loaded Resource File: {}", path);
+    gen_info("res", "Asset File contains: {} files", packed_file->file_count);
+    for (size_t i = 0; i < packed_file->file_count; i++) {
+        gen_info("res", "\tfile: {} - {}", packed_file->table[i].name.c_str(), packed_file->table[i].size);
+    }
+
+    return packed_file;
+}
+
+size_t pack_file_find_file(
+    pack_file_t* pack_file,
+    std::string_view file_name
+) {
+    for (size_t i = 0; i < pack_file->file_count; i++) {
+        if (pack_file->table[i].name.c_str() == file_name) {
+            return i;//pack_file->table[i].offset;
+        }
+    }
+    return ~0ui32;
+}
+
+u64 pack_file_get_file_size(
+    pack_file_t* pack_file,
+    std::string_view file_name
+) {
+    for (size_t i = 0; i < pack_file->file_count; i++) {
+        if (pack_file->table[i].name.c_str() == file_name) {
+            return pack_file->table[i].size;
+        }
+    }
+    return 0;
+}
+
+u8* pack_file_get_file(
+    pack_file_t* pack_file,
+    size_t index
+) {
+    return pack_file->resources[index].data;
+}
+
+}; // namespace res 
+
+
+}; // namespace utl
 
