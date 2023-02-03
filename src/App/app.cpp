@@ -12,19 +12,19 @@
 
 struct mesh_cache_t {
     struct link_t : node_t<link_t> {
-        utl::load_results_t mesh;
+        gfx::mesh_list_t mesh;
     };
 
     utl::deque<link_t> meshes;
 
-    u64 add(arena_t* arena, const utl::load_results_t& r) {
+    u64 add(arena_t* arena, const gfx::mesh_list_t& r) {
         link_t* link = arena_alloc_ctor<link_t>(arena, 1);
         link->mesh = r;
         meshes.push_back(link);
         return meshes.size() - 1;
     }
 
-    const utl::load_results_t& get(u64 id) const {
+    const gfx::mesh_list_t& get(u64 id) const {
         return meshes[id]->mesh;
     }
 };
@@ -88,14 +88,14 @@ struct app_t {
     game::world_t* game_world;
 };
 
-inline utl::load_results_t
+inline gfx::mesh_list_t
 load_bin_mesh_data(
     arena_t* arena,
     u8* data,
     utl::pool_t<gfx::vertex_t>* vertices,
     utl::pool_t<u32>* indices
 ) {
-    utl::load_results_t results;
+    gfx::mesh_list_t results;
 
     utl::deserializer_t mouth{data};
 
@@ -143,7 +143,7 @@ load_bin_mesh_data(
     return results;
 }
 
-inline utl::load_results_t
+inline gfx::mesh_list_t
 load_bin_mesh(
     arena_t* arena,
     utl::res::pack_file_t* packed_file,
@@ -155,7 +155,7 @@ load_bin_mesh(
     
     u8* file_data = utl::res::pack_file_get_file(packed_file, file_index);
 
-    utl::load_results_t results;
+    gfx::mesh_list_t results;
     
     if (file_data) {
         return load_bin_mesh_data(arena, file_data, vertices, indices);
@@ -295,8 +295,36 @@ app_on_init(app_memory_t* app_mem) {
 
     app->scene.sporadic_buffer.mode = 2;
 
+    
+    gfx::mesh_builder_t mesh_builder{
+        app->vertices.pool,
+        app->indices.pool
+    };
+    
+    static constexpr f32 terrain_dim = 100.0f;
+    static constexpr f32 terrain_grid_size = 1.0f;
+
+    for (f32 x = -terrain_dim; x < terrain_dim; x += terrain_grid_size) {
+        for (f32 y = -terrain_dim; y < terrain_dim; y += terrain_grid_size) {
+            gfx::vertex_t v[4];
+            v[0].pos = v3f{x                    , -1.0f, y};
+            v[1].pos = v3f{x + terrain_grid_size, -1.0f, y};
+            v[2].pos = v3f{x                    , -1.0f, y + terrain_grid_size};
+            v[3].pos = v3f{x + terrain_grid_size, -1.0f, y + terrain_grid_size};
+
+            mesh_builder.add_quad(v);
+        }
+    }
+
+    app->mesh_cache.add(
+        &app->mesh_arena,
+        mesh_builder.build(&app->mesh_arena)
+    );
+
     for (size_t i = 0; i < app->resource_file->file_count; i++) {
         u8* file_data = utl::res::pack_file_get_file(app->resource_file, i);
+        
+        if (app->resource_file->table[i].file_type != utl::res::magic::mesh) { continue; }
 
         auto loaded_mesh = load_bin_mesh_data(
             &app->mesh_arena,
@@ -309,6 +337,9 @@ app_on_init(app_memory_t* app_mem) {
             loaded_mesh
         );
     }
+
+
+
 
     // auto loaded_mesh = load_bin_mesh(
     //     &app->mesh_arena, 
