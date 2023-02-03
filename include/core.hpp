@@ -1163,6 +1163,79 @@ struct mesh_view_t {
     math::aabb_t<v3f> aabb{};
 };
 
+struct mesh_list_t {
+    gfx::mesh_view_t* meshes{nullptr};
+    size_t count{0};
+};
+
+
+struct mesh_builder_t {
+    utl::pool_t<vertex_t>& vertices;
+    utl::pool_t<u32>& indices;
+
+    mesh_builder_t(
+        utl::pool_t<vertex_t>& vertices_,
+        utl::pool_t<u32>& indices_
+    ) : vertices{vertices_}, indices{indices_} {
+        vertex_start = safe_truncate_u64(vertices_.count);
+        index_start = safe_truncate_u64(indices_.count);
+    }
+
+    u32 vertex_start{0};
+    u32 vertex_count{0};
+    u32 index_start{0};
+    u32 index_count{0};
+
+    mesh_list_t
+    build(arena_t* arena) {
+        gfx::mesh_list_t m;
+        m.count = 1;
+        m.meshes = arena_alloc_ctor<gfx::mesh_view_t>(arena, 1);
+        m.meshes[0].vertex_start = vertex_start;
+        m.meshes[0].vertex_count = vertex_count;
+        m.meshes[0].index_start = index_start;
+        m.meshes[0].index_count = index_count;
+        return m;
+    }
+
+    mesh_builder_t& add_vertex(
+        v3f pos,
+        v2f uv = v2f{0.0f, 0.0f},
+        v3f nrm = color::v3::green,
+        v3f col = color::v3::white
+    ) {
+        *vertices.allocate(1) = vertex_t{.pos = pos, .nrm = nrm, .col = col, .tex = uv};
+        vertex_count++;
+        return *this;
+    }
+    mesh_builder_t& add_vertex(vertex_t&& vertex) {
+        *vertices.allocate(1) = std::move(vertex);
+        vertex_count++;
+        return *this;
+    }
+    mesh_builder_t& add_index(u32 index) {
+        *indices.allocate(1) = index;
+        index_count++;
+        return *this;
+    }
+
+    mesh_builder_t& add_quad(vertex_t vertex[4]) {
+        u32 v_start = safe_truncate_u64(vertices.count);
+        std::memcpy(vertices.allocate(4), vertex, sizeof(vertex_t) * 4);
+        u32* tris = indices.allocate(6);
+
+        tris[0] = v_start + 0;
+        tris[1] = v_start + 1;
+        tris[2] = v_start + 2;
+
+        tris[3] = v_start + 1;
+        tris[4] = v_start + 3;
+        tris[5] = v_start + 2;
+        return *this;
+    }
+
+};
+
 }; // namespace gfx
 
 namespace utl {
@@ -1353,6 +1426,37 @@ struct random_s {
 };
 
 }; // namespace rng
+
+namespace noise {
+
+inline f32 
+hash21(v2f in) {
+    return glm::fract(
+        glm::sin(glm::dot(in, v2f{12.9898f, 78.233f})
+        * 43758.5453123f)
+    );
+}
+
+inline f32 
+noise21(v2f in) {
+    const v2f i = glm::floor(in);
+    const v2f f = glm::fract(in);
+
+    const f32 a = hash21(in + v2f{0.0f, 0.0f});
+    const f32 b = hash21(in + v2f{1.0f, 0.0f});
+    const f32 c = hash21(in + v2f{0.0f, 1.0f});
+    const f32 d = hash21(in + v2f{1.0f, 1.0f});
+
+    const v2f u = f*f*(3.0f-2.0f*f);
+
+    return glm::mix(a, b, u.x) +
+        (c - a) * u.y * (1.0f - u.x) +
+        (d - b) * u.x * u.y;
+}
+
+
+
+};
 
 
 // Generated with ChatGPT
@@ -1657,10 +1761,6 @@ struct free_list_t {
     }
 };
 
-struct load_results_t {
-    gfx::mesh_view_t* meshes{nullptr};
-    size_t count{0};
-};
 
 inline auto 
 make_v3f(const auto& v) -> v3f {
@@ -1742,8 +1842,9 @@ namespace res {
 
 namespace magic {
     constexpr u64 meta = 0xfeedbeeff04edead;
-    constexpr u64 vers = 0x1;
+    constexpr u64 vers = 0x2;
     constexpr u64 mesh = 0x1212121212121212;
+    constexpr u64 text = 0x1212121212121213;
     constexpr u64 table_start = 0x7abe17abe1;
 };
 
@@ -1754,6 +1855,7 @@ struct resource_t {
 
 struct resource_table_entry_t {
     string_t name;
+    u64 file_type{0};
     u64 size{0};
 };
 
@@ -1788,12 +1890,12 @@ load_pack_file(
     deserializer_t loader{data};
     
     // eat meta info
-#if NDEBUG
-    loader.deserialize_u64();
-    loader.deserialize_u64();
-#else
-    assert(loader.deserialize_u64() == magic::meta);
-    assert(loader.deserialize_u64() == magic::vers);
+    const auto meta = loader.deserialize_u64();
+    const auto vers = loader.deserialize_u64();
+
+#if !NDEBUG
+    assert(meta == magic::meta);
+    assert(vers == magic::vers);
 #endif
 
     pack_file_t* packed_file = arena_alloc_ctor<pack_file_t>(arena, 1);
@@ -1815,6 +1917,7 @@ load_pack_file(
         resource_table_entry_t* entry = packed_file->table + i;
         std::string file_name = loader.deserialize_string();
         entry->name.own(string_arena, file_name.c_str());
+        entry->file_type = loader.deserialize_u64();
         entry->size = loader.deserialize_u64();
     }
     
