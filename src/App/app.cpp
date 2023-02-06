@@ -6,6 +6,8 @@
 
 #include "App/Game/World/world.hpp"
 
+#include <thread>
+
 struct mesh_cache_t {
     struct link_t : node_t<link_t> {
         gfx::mesh_list_t mesh;
@@ -171,6 +173,13 @@ export_fn(void)
 app_on_init(app_memory_t* app_mem) {
     // s_app_mem = app_mem;
 
+    // std::thread([]{
+    //     while(1) {
+    //         puts("do");
+    //         std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    //     }
+    // }).detach();
+
     app_t* app = get_app(app_mem);
     new (app) app_t;
 
@@ -307,10 +316,10 @@ app_on_init(app_memory_t* app_mem) {
             v[2].pos = v3f{x                    , -1.0f, y + terrain_grid_size};
             v[3].pos = v3f{x + terrain_grid_size, -1.0f, y + terrain_grid_size};
 
-            v[0].pos.y -= utl::noise::noise21(v2f{v[0].pos.x, v[0].pos.z} * 0.2f);            
-            v[1].pos.y -= utl::noise::noise21(v2f{v[1].pos.x, v[1].pos.z} * 0.2f);
-            v[2].pos.y -= utl::noise::noise21(v2f{v[2].pos.x, v[2].pos.z} * 0.2f);
-            v[3].pos.y -= utl::noise::noise21(v2f{v[3].pos.x, v[3].pos.z} * 0.2f);
+            // v[0].pos.y -= utl::noise::noise21(v2f{v[0].pos.x, v[0].pos.z} * 0.2f);            
+            // v[1].pos.y -= utl::noise::noise21(v2f{v[1].pos.x, v[1].pos.z} * 0.2f);
+            // v[2].pos.y -= utl::noise::noise21(v2f{v[2].pos.x, v[2].pos.z} * 0.2f);
+            // v[3].pos.y -= utl::noise::noise21(v2f{v[3].pos.x, v[3].pos.z} * 0.2f);
 
             const v3f n = glm::normalize(glm::cross(v[1].pos - v[0].pos, v[2].pos - v[0].pos));
 
@@ -589,9 +598,9 @@ app_on_update(app_memory_t* app_mem) {
         const u32 instance_count = 1;
         const u32 first_instance = 0;
 
+        // loop through type erased pools
         for (size_t pool = 0; pool < game::pool_count(); pool++)  {
-
-            for (auto* e = game::pool_start(app->game_world, pool); e; e = e->next) {
+            for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
                 // const auto& meshes = app->mesh_cache.get(e->gfx.mesh_id);
                 const auto& meshes = app->mesh_cache.get(app->debug.mesh_index%app->mesh_cache.meshes.size());
 
