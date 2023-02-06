@@ -6,10 +6,6 @@
 
 #include "App/Game/World/world.hpp"
 
-#include <thread>   
-
-#include "SDL_mixer.h"
-
 struct mesh_cache_t {
     struct link_t : node_t<link_t> {
         gfx::mesh_list_t mesh;
@@ -178,7 +174,6 @@ app_on_init(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
     new (app) app_t;
 
-
     app->app_mem = app_mem;
     app->main_arena.start = (u8*)app_mem->perm_memory + sizeof(app_t);
     app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
@@ -312,6 +307,18 @@ app_on_init(app_memory_t* app_mem) {
             v[2].pos = v3f{x                    , -1.0f, y + terrain_grid_size};
             v[3].pos = v3f{x + terrain_grid_size, -1.0f, y + terrain_grid_size};
 
+            v[0].pos.y -= utl::noise::noise21(v2f{v[0].pos.x, v[0].pos.z} * 0.2f);            
+            v[1].pos.y -= utl::noise::noise21(v2f{v[1].pos.x, v[1].pos.z} * 0.2f);
+            v[2].pos.y -= utl::noise::noise21(v2f{v[2].pos.x, v[2].pos.z} * 0.2f);
+            v[3].pos.y -= utl::noise::noise21(v2f{v[3].pos.x, v[3].pos.z} * 0.2f);
+
+            const v3f n = glm::normalize(glm::cross(v[1].pos - v[0].pos, v[2].pos - v[0].pos));
+
+            v[0].nrm = n;
+            v[1].nrm = n;
+            v[2].nrm = n;
+            v[3].nrm = n;
+
             mesh_builder.add_quad(v);
         }
     }
@@ -321,6 +328,7 @@ app_on_init(app_memory_t* app_mem) {
         mesh_builder.build(&app->mesh_arena)
     );
 
+    // load all meshes from the resource file
     for (size_t i = 0; i < app->resource_file->file_count; i++) {
         u8* file_data = utl::res::pack_file_get_file(app->resource_file, i);
         
@@ -338,29 +346,13 @@ app_on_init(app_memory_t* app_mem) {
         );
     }
 
-
-
-
-    // auto loaded_mesh = load_bin_mesh(
-    //     &app->mesh_arena, 
-    //     app->resource_file,
-    //     "assets\\models\\utah-teapot.obj",
-    //     &app->vertices.pool,
-    //     &app->indices.pool
-    // );
-
     const auto mesh_id = 0;
-    // app->mesh_cache.add(
-    //     &app->mesh_arena,
-    //     loaded_mesh
-    // );
 
     game::entity::entity_t* e2 = game::world_create_entity(app->game_world);
     e2->gfx.mesh_id = mesh_id;
 
 
     arena_clear(&app->temp_arena);
-
 
     app->camera.origin = v3f{0,20,-25};
     app->camera.look_at(v3f{0.0f});
@@ -416,8 +408,8 @@ camera_input(app_t* app, app_input_t* input) {
             input->mouse.delta[1]
         } / app->gui.ctx.screen_size;
 
-        app->first_person.yaw += mouse_move.x * input->dt*camera_rot_speed;
-        app->first_person.pitch -= mouse_move.y * input->dt*camera_rot_speed;
+        app->first_person.yaw += mouse_move.x * input->dt * camera_rot_speed;
+        app->first_person.pitch -= mouse_move.y * input->dt * camera_rot_speed;
     }
 
     app->first_person.translate((forward * move.y + right * move.x)*10.0f);

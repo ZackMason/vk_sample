@@ -49,7 +49,7 @@ std::string error_string(VkResult errorCode) {
 
 // note(zack): these params are switched compared to vk tut
 u32
-find_memory_by_flag_and_type(VkPhysicalDevice gpu_device, int memoryFlagBits, uint32_t  memoryTypeBits )
+find_memory_by_flag_and_type(VkPhysicalDevice gpu_device, u32 memoryFlagBits, u32 memoryTypeBits)
 {
 	VkPhysicalDeviceMemoryProperties	vpdmp;
 	vkGetPhysicalDeviceMemoryProperties( gpu_device, &vpdmp );
@@ -190,7 +190,7 @@ swapchain_support_details_t querySwapChainSupport(VkPhysicalDevice device, VkSur
     return details;
 }
 
-// todo(zack): validation for create and destroy instance
+
 namespace internal {
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -1772,7 +1772,6 @@ state_t::transistion_image_layout(
 }
 
 // todo(zack): support multiple texture formats
-
 void 
 state_t::load_font_sampler(
     arena_t* arena,
