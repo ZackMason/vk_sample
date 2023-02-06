@@ -114,15 +114,8 @@ load_dlls(app_dll_t* app_dlls) {
 
 void 
 reload_dlls(app_dll_t* app_dlls) {
-    
-    if (app_dlls->dll) {
-#if _WIN32
-        FreeLibrary((HMODULE)app_dlls->dll);
-#else
-#error "No Linux"
-#endif
-        app_dlls->dll = nullptr;
-    }
+
+    // std::filesystem::copy(".\\build\\app_build.dll", ".\\build\\app_build_temp.dll");
 
     app_dlls->dll = 
 
@@ -164,7 +157,7 @@ main(int argc, char* argv[]) {
     app_mem.malloc = malloc;
     app_mem.free = free;
     app_mem.realloc = realloc;
-    app_mem.perm_memory_size = gigabytes(4); // megabytes(256*2);
+    app_mem.perm_memory_size = gigabytes(4) + megabytes(32); // megabytes(256*2);
     app_mem.perm_memory = 
 
 #if _WIN32
