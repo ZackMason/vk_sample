@@ -26,7 +26,6 @@
 
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
-// #include "SDL_main.h"
 #include "SDL_mixer.h"
 
 struct audio_cache_t {
@@ -142,9 +141,12 @@ void
 update_dlls(app_dll_t* app_dlls) {
     bool need_reload = false;
     while (std::filesystem::exists("./build/lock.tmp")) {
+        gen_warn("win32", "Game DLL Reload Detected");
         need_reload = true;
         if (app_dlls->dll) {
-            FreeLibrary((HMODULE)app_dlls->dll);
+            while(FreeLibrary((HMODULE)app_dlls->dll)==0) {
+                gen_error("dll", "Error Freeing Library: {}", GetLastError());
+            }
             app_dlls->dll = nullptr;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

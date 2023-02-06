@@ -1168,7 +1168,7 @@ struct mesh_list_t {
     size_t count{0};
 };
 
-
+// there should only be one running at a time
 struct mesh_builder_t {
     utl::pool_t<vertex_t>& vertices;
     utl::pool_t<u32>& indices;
@@ -1231,6 +1231,9 @@ struct mesh_builder_t {
         tris[3] = v_start + 1;
         tris[4] = v_start + 3;
         tris[5] = v_start + 2;
+
+        vertex_count += 4;
+        index_count += 6;
         return *this;
     }
 
@@ -1272,9 +1275,6 @@ struct xoshiro256_random_t {
             state[1] = static_cast<uint64_t>(time(0) | (~time(0) << 32));
             state[0] = static_cast<uint64_t>(time(0) | (~time(0) << 32));
         }
-
-        // todo(zack): remove this, get better seed
-        for (size_t i = 0; i < 5; i++) { rand(); }
     };
 
     uint64_t rand() {
