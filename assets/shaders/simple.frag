@@ -115,24 +115,6 @@ main( )
 		kD *= 1.0 - metallic;
 
 		rgb = (kD + (NDF*G*F)) * 2.0;
-
-	// // a-d-s lighting equations:
-	// 	vec3 ambient = ka * rgb;
-	// 	float d = 0.;
-	// 	float s = 0.;
-	// 	if( dot(normal,light) > 0. )
-	// 	{
-	// 	        d = dot(normal,light);
-
-	// 	        vec3 ref = reflect( -light, normal );
-	// 	        if( dot(eye,ref) > 0. )
-	// 	        {
-	// 	                s = pow( dot(eye,ref), Object.uShininess );
-	// 	        }
-	// 	}
-	// 	vec3 diffuse  = kd * d * rgb;
-	// 	vec3 specular = ks * s * WHITE;
-	// 	rgb = ambient + diffuse + specular;
 	}
 
 	fFragColor = vec4( rgb, 1. );

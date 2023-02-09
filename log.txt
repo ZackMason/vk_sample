@@ -1,7 +1,142 @@
+UNASSIGNED-khronos-validation-createinstance-status-message(INFO / SPEC): msgNum: -671457468 - Validation Information: [ UNASSIGNED-khronos-validation-createinstance-status-message ] Object 0: handle = 0x116995d2e10, type = VK_OBJECT_TYPE_INSTANCE; | MessageID = 0xd7fa5f44 | Khronos Validation Layer Active:
+    Settings File: Found at C:\Users\crazy\AppData\Local\LunarG\vkconfig\override\vk_layer_settings.txt specified by VkConfig application override.
+    Current Enables: None.
+    Current Disables: VK_VALIDATION_FEATURE_DISABLE_THREAD_SAFETY_EXT.
+
+    Objects: 1
+        [0] 0x116995d2e10, type: 1, name: NULL
 [1m[38;2;255;255;255m[info][win32]: Loading Platform Layer
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./assets/audio/unlock.wav
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Unload Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Unload Threaded Process
 [0m
 Found 2 GLFW Required Instance Extensions:
 	VK_KHR_surface
 	VK_KHR_win32_surface
 [1m[38;2;255;255;255m[info][win32]: Platform Initialization Completed
-[0m
+[0m[1m[38;2;255;255;255m[info][res]: Loaded Resource File: ./assets/res.pack
+[0m[1m[38;2;255;255;255m[info][res]: Asset File contains: 9 files
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\data\config.txt - 49
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\fonts\go\GO.txt - 1920
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\evergreen_01.obj - 1133952
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\katana.obj - 13483
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\lucy.obj - 1243052
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\ring_ruin.obj - 133349
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\ship_001.obj - 101927
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\spaceship_02.obj - 62232
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\utah-teapot.obj - 149129
+[0m[1m[38;2;255;255;255m[info][app]: Pack file test: 8
+[0m[1m[38;2;255;255;255m[info][app]: Pack file test: 4
+[0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 13
+[0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_optimus
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OBS_HOOK
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_RENDERDOC_Capture
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_overlay
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_override
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_api_dump
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_gfxreconstruct
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_profiles
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_synchronization2
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_validation
+[0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_surface
+[0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_win32_surface
+[0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_EXT_debug_utils
+[0m[1m[38;2;255;255;255m[info][vulkan]: 3 extensions loaded
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][vulkan]: instance created
+[0m[1m[38;2;255;255;255m[info][vulkan]: created surface.
+[0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 112
+[0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 154
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][vulkan]: created logical device
+[0m[1m[38;2;255;255;255m[info][vulkan]: created device.
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][vulkan]: created swap chain.
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (160): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::load_texture_sampler]: Loading Texture:
+	./assets/textures/null.png
+
+[0m[1m[38;2;255;255;255m[info][vk::load_texture_sampler]: Texture Info:
+	width: 128
+	height: 128
+	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 65536
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (130): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
+[0m[1m[38;2;255;255;255m[info][vk]: vkCreateDescriptorPool
+[0m[1m[38;2;255;255;255m[info][vulkan]: init finished
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (130): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::load_texture_sampler]: Loading Texture:
+	./assets/textures/brick_01.png
+
+[0m[1m[38;2;255;255;255m[info][vk::load_texture_sampler]: Texture Info:
+	width: 2084
+	height: 2084
+	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 17372224
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (130): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 440000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 120000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.al

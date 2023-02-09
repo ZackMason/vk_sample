@@ -14,11 +14,8 @@ struct camera_t : math::transform_t {
 
 inline v3f 
 get_direction(float yaw, float pitch) noexcept {
-    return v3f{
-        glm::cos((yaw)) * glm::cos((pitch)),
-        glm::sin((pitch)),
-        glm::sin((yaw)) * glm::cos((pitch))
-    };
+    // note(zack): probably dont need to normalize this, but i want to
+    return glm::normalize(math::get_spherical(yaw, pitch));
 }
 
 struct first_person_controller_t {

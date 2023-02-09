@@ -220,13 +220,13 @@ app_on_init(app_memory_t* app_mem) {
         &app->default_font);
 
 
-    gfx::vul::texture_2d_t* ui_textures[32];
+    gfx::vul::texture_2d_t* ui_textures[64];
     for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = app->default_font_texture; }
     
     app->default_font_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
         app->gui_pipeline->descriptor_set_layouts[0],
-        ui_textures, 32);
+        ui_textures, 64);
 
     app->brick_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
     vk_gfx.load_texture_sampler(app->brick_texture, "./assets/textures/brick_01.png", &app->texture_arena);
@@ -298,6 +298,7 @@ app_on_init(app_memory_t* app_mem) {
     panel->next = mesh_info_panel;
 
     app->scene.sporadic_buffer.mode = 2;
+    app->scene.sporadic_buffer.use_lighting = 1;
 
     
     gfx::mesh_builder_t mesh_builder{
@@ -316,18 +317,19 @@ app_on_init(app_memory_t* app_mem) {
             v[2].pos = v3f{x                    , -1.0f, y + terrain_grid_size};
             v[3].pos = v3f{x + terrain_grid_size, -1.0f, y + terrain_grid_size};
 
-            // v[0].pos.y -= utl::noise::noise21(v2f{v[0].pos.x, v[0].pos.z} * 0.2f);            
-            // v[1].pos.y -= utl::noise::noise21(v2f{v[1].pos.x, v[1].pos.z} * 0.2f);
-            // v[2].pos.y -= utl::noise::noise21(v2f{v[2].pos.x, v[2].pos.z} * 0.2f);
-            // v[3].pos.y -= utl::noise::noise21(v2f{v[3].pos.x, v[3].pos.z} * 0.2f);
+            constexpr f32 noise_scale = 0.00000002f;
+            for (size_t i = 0; i < 4; i++) {
+                v[i].pos.y -= utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale);
+                v[i].col = gfx::color::v3::dirt * 
+                    utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) 
+                    * 0.1f;
+            }
 
             const v3f n = glm::normalize(glm::cross(v[1].pos - v[0].pos, v[2].pos - v[0].pos));
-
-            v[0].nrm = n;
-            v[1].nrm = n;
-            v[2].nrm = n;
-            v[3].nrm = n;
-
+            for (size_t i = 0; i < 4; i++) {
+                v[i].nrm = n;
+            }
+            
             mesh_builder.add_quad(v);
         }
     }
@@ -402,14 +404,17 @@ app_on_update2(app_memory_t* app_mem) {
 void 
 camera_input(app_t* app, app_input_t* input) {
     const v2f move = v2f{
-        f32(input->keys['W']) - f32(input->keys['S']),
-        f32(input->keys['D']) - f32(input->keys['A'])
+        f32(input->keys['D']) - f32(input->keys['A']),
+        f32(input->keys['W']) - f32(input->keys['S'])
     };
 
-    const v3f forward = app->first_person.transform.basis[2] * input->dt;
-    const v3f right = app->first_person.transform.basis[0] * input->dt;
+    auto& yaw = app->first_person.yaw;
+    auto& pitch = app->first_person.pitch;
 
-    constexpr f32 camera_rot_speed{2000.0f};
+    const v3f forward = game::cam::get_direction(yaw, pitch);
+    const v3f right   = glm::cross(forward, v3f{0.0f, 1.0f, 0.0f});
+
+    constexpr f32 camera_rot_speed{200.0f};
 
     if (input->mouse.buttons[1]) {
         const v2f mouse_move = v2f{
@@ -417,11 +422,11 @@ camera_input(app_t* app, app_input_t* input) {
             input->mouse.delta[1]
         } / app->gui.ctx.screen_size;
 
-        app->first_person.yaw += mouse_move.x * input->dt * camera_rot_speed;
-        app->first_person.pitch -= mouse_move.y * input->dt * camera_rot_speed;
+        yaw += mouse_move.x * input->dt * camera_rot_speed;
+        pitch -= mouse_move.y * input->dt * camera_rot_speed;
     }
 
-    app->first_person.translate((forward * move.y + right * move.x)*10.0f);
+    app->first_person.translate((forward * move.y + right * move.x)* 10.0f * input->dt);
 }
 
 void 
@@ -528,6 +533,12 @@ app_on_update(app_memory_t* app_mem) {
         app->gui.main_panel
     );
 
+    gfx::gui::string_render(
+        &app->gui.ctx, 
+        string_t{}.view(fmt_str("Lighting Mode: {}", app->scene.sporadic_buffer.use_lighting).c_str()),
+        v2f{10.0f, 300.0f}
+    );
+
     arena_set_mark(&app->string_arena, string_mark);
 
     // update uniforms
@@ -601,7 +612,8 @@ app_on_update(app_memory_t* app_mem) {
         // loop through type erased pools
         for (size_t pool = 0; pool < game::pool_count(); pool++)  {
             for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
-                // const auto& meshes = app->mesh_cache.get(e->gfx.mesh_id);
+                if (e->flags & game::entity::EntityFlags_Renderable) { continue; }
+                
                 const auto& meshes = app->mesh_cache.get(app->debug.mesh_index%app->mesh_cache.meshes.size());
 
                 gfx::vul::object_push_constants_t push_constants;
@@ -611,7 +623,8 @@ app_on_update(app_memory_t* app_mem) {
                 // push constants cannot be bigger
                 static_assert(sizeof(push_constants) <= 256);
                 vkCmdPushConstants(vk_gfx.command_buffer, vk_gfx.pipeline_layout,
-                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(gfx::vul::object_push_constants_t), &push_constants
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+                    0, sizeof(gfx::vul::object_push_constants_t), &push_constants
                 );
             
                 for (size_t j = 0; j < meshes.count; j++) {
@@ -659,7 +672,7 @@ app_on_update(app_memory_t* app_mem) {
                 0,
                 0
             );
-    }, false);
+    });
     
     if (vkEndCommandBuffer(vk_gfx.command_buffer) != VK_SUCCESS) {
         gen_error("vulkan:record_command:end", "failed to record command buffer!");

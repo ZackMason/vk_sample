@@ -17,8 +17,9 @@ namespace game {
         u64     frame_count{0};
 
         struct entity_pools_t {
-                utl::free_list_t<game::entity::entity_t> entities;
-                utl::free_list_t<game::entity::entity_t> badentities;
+            utl::free_list_t<game::entity::entity_t> entities;
+            utl::free_list_t<game::entity::entity_t> badentities;
+            utl::free_list_t<game::entity::physics_entity_t> physics_entities;
         } entity_pools;
         game::entity::player_t player;
 
