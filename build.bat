@@ -21,4 +21,8 @@ if "%~1"=="win32" (
     cl %OptimizationFlags% %IncludeFlags% %CompilerFlags% ..\src\app_platform.cpp /link %LinkFlags% %SDLLinkFlags% glfw3.lib
 )
 
+if "%~1"=="tests" (
+    cl %OptimizationFlags% %IncludeFlags% %CompilerFlags% ..\tests\tests.cpp /link %LinkFlags% %SDLLinkFlags%
+)
+
 popd build

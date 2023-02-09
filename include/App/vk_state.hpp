@@ -183,7 +183,7 @@ struct state_t {
     void record_command_buffer(VkCommandBuffer buffer, u32 index, std::function<void(void)> user_fn);
     void record_pipeline_commands(
         VkPipeline pipeline, VkRenderPass render_pass, VkFramebuffer framebuffer,
-        VkCommandBuffer buffer, u32 index, std::function<void(void)> user_fn, bool should_clear = true);
+        VkCommandBuffer buffer, u32 index, std::function<void(void)> user_fn);
 
     void create_instance(app_config_t* info);
     void create_debug_messenger();
@@ -536,15 +536,16 @@ create_gui_pipeline(arena_t* arena, state_t* state) {
         0, 3, VK_FORMAT_R32_UINT, offsetof(gui::vertex_t, col)
     );
 
+    VkDescriptorImageInfo vdii[64];
+
     create_info->descriptor_count = 1;
     create_info->descriptor_flags[0] = pipeline_state_t::create_info_t::DescriptorFlag_Sampler;
     create_info->descriptor_set_layout_bindings[0] = utl::descriptor_set_layout_binding(
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 32
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, array_count(vdii)
     );
 
     state->create_pipeline_state_descriptors(pipeline, create_info);
 
-    VkDescriptorImageInfo vdii[32];
     for (size_t i = 0; i < array_count(vdii); i++) {
         vdii[i].sampler = state->null_texture.sampler;
         vdii[i].imageView = state->null_texture.image_view;
@@ -553,7 +554,7 @@ create_gui_pipeline(arena_t* arena, state_t* state) {
 
     create_info->write_descriptor_sets[0] = utl::write_descriptor_set(
         pipeline->descriptor_sets[0], 
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, vdii, 32
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, vdii, array_count(vdii)
     );
     
     state->create_pipeline_state(pipeline, create_info);

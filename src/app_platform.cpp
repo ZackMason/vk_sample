@@ -57,6 +57,8 @@ init_glfw(app_memory_t* app_mem) {
 
     assert(window);
 
+    
+
     return window;
 }
 

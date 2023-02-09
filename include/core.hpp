@@ -242,6 +242,14 @@ struct frame_arena_t {
 
 using temp_arena_t = arena_t;
 
+inline arena_t
+arena_create(void* p, size_t bytes) {
+    arena_t arena;
+    arena.start = (u8*)p;
+    arena.size = bytes;
+    return arena;
+}
+
 inline size_t
 arena_get_mark(arena_t* arena) {
     return arena->top;
@@ -435,17 +443,21 @@ struct string_t {
     string_t()
         : data{nullptr}, size{0}
     {
+    }
 
+    operator std::string_view() {
+        return std::string_view{c_data, size-1};
     }
 
     const char* c_str() const {
         return c_data;
     }
 
-    void view(const char* str) {
+    string_t& view(const char* str) {
         size = std::strlen(str) + 1;
         c_data = str;
         owns = false;
+        return *this;
     }
     
     void own(arena_t* arena, const char* str) {
@@ -453,6 +465,10 @@ struct string_t {
         data = (char*)arena_alloc(arena, size);
         std::memcpy(data, str, size);
         owns = true;
+    }
+
+    [[nodiscard]] bool operator==(std::string_view str) {
+        return std::string_view{*this} == str;
     }
 };
 
@@ -488,6 +504,16 @@ constexpr string_id_t operator"" _sid(const char* str, std::size_t size) {
 }
 
 namespace math {
+
+    constexpr v3f get_spherical(f32 yaw, f32 pitch) {
+        return v3f{
+            glm::cos((yaw)) * glm::cos((pitch)),
+            glm::sin((pitch)),
+            glm::sin((yaw)) * glm::cos((pitch))
+        };
+    }
+
+
     template <typename T>
     struct hit_result_t {
         bool intersect{false};
@@ -843,6 +869,7 @@ namespace color {
         static auto cyan  = "#00ffffff"_c4;
         static auto yellow= "#ffff00ff"_c4;
         static auto sand  = "#C2B280ff"_c4;
+        static auto dirt  = "#9b7653ff"_c4;
     };
 
     namespace v3 {
@@ -857,6 +884,7 @@ namespace color {
         static auto purple= "#ff00ffff"_c3;
         static auto yellow= "#ffff00ff"_c3;
         static auto sand  = "#C2B280ff"_c3;
+        static auto dirt  = "#9b7653ff"_c3;
     };
 
 }; // namespace color
@@ -937,6 +965,23 @@ namespace gui {
     ) {
         ctx->vertices->clear();
         ctx->indices->clear();
+    }
+
+    inline void
+    string_render(
+        ctx_t* ctx,
+        string_t text,
+        const v2f& position,
+        const color32& text_color = color::rgba::white
+    ) {
+        font_render(0, ctx->font, 
+            text.c_str(), 
+            position,
+            ctx->screen_size,
+            ctx->vertices,
+            ctx->indices,
+            text_color
+        );
     }
 
     inline void 
@@ -1221,19 +1266,26 @@ struct mesh_builder_t {
 
     mesh_builder_t& add_quad(vertex_t vertex[4]) {
         u32 v_start = safe_truncate_u64(vertices.count);
-        std::memcpy(vertices.allocate(4), vertex, sizeof(vertex_t) * 4);
-        u32* tris = indices.allocate(6);
+        vertex_t* v = vertices.allocate(6);
+        v[0] = vertex[0];
+        v[1] = vertex[1];
+        v[2] = vertex[2];
+        
+        v[3] = vertex[2];
+        v[4] = vertex[1];
+        v[5] = vertex[3];
+        // u32* tris = indices.allocate(6);
 
-        tris[0] = v_start + 0;
-        tris[1] = v_start + 1;
-        tris[2] = v_start + 2;
+        // tris[0] = v_start + 0;
+        // tris[1] = v_start + 1;
+        // tris[2] = v_start + 2;
 
-        tris[3] = v_start + 1;
-        tris[4] = v_start + 3;
-        tris[5] = v_start + 2;
+        // tris[3] = v_start + 1;
+        // tris[4] = v_start + 3;
+        // tris[5] = v_start + 2;
 
-        vertex_count += 4;
-        index_count += 6;
+        vertex_count += 6;
+        // index_count += 6;
         return *this;
     }
 
@@ -1971,6 +2023,200 @@ u8* pack_file_get_file(
 }
 
 }; // namespace res 
+
+template <typename T>
+struct offset_pointer_t {
+    i64 offset{0};
+
+    const T* get() const {
+        return offset ? (T*)((u8*)(&offset) + offset) : nullptr;
+    }
+
+    T* get() {
+        return offset ? (T*)((u8*)(&offset) + offset) : nullptr;
+    }
+
+    T* operator->() {
+		return get();
+    }
+    
+    const T* operator->() const {
+		return get();
+    }
+
+    T& operator*() {
+		return *get();
+	}
+
+    const T& operator*() const {
+		return *get();
+	}
+
+    offset_pointer_t<T>& operator=(T* ptr) {
+        offset = (u8*)(ptr) - (u8*)(&offset);
+        return *this;
+    }
+    offset_pointer_t<T>& operator=(const T* ptr) {
+        offset = (u8*)(ptr) - (u8*)(&offset);
+        return *this;
+    }
+    offset_pointer_t<T>(const T* ptr)
+        : offset{(u8*)(ptr) - (u8*)(&offset)}
+    {
+    }
+    offset_pointer_t<T>(T* ptr)
+        : offset{(u8*)(ptr) - (u8*)(&offset)}
+    {
+    }
+    explicit offset_pointer_t(i64 o) : offset{o} {};
+    explicit offset_pointer_t(const offset_pointer_t<T>& o) : offset{o.offset} {};
+    offset_pointer_t() = default;
+    virtual ~offset_pointer_t() = default;
+
+};
+
+template <typename T>
+struct offset_array_t {
+    offset_pointer_t<T> data;
+    size_t count{0};
+
+    explicit offset_array_t(arena_t* arena, size_t p_count) 
+        : data{arena_alloc_ctor<T>(arena, p_count)}, count{p_count}
+    {
+    }
+
+    explicit offset_array_t(T* p_data, size_t p_count) 
+        : data{p_data}, count{p_count}
+    {
+    }
+
+    
+
+    T& operator[](size_t i) {
+        return data.get()[i];
+    }
+};
+
+struct memory_blob_t {
+    u8* data{0};
+
+    // in bytes
+    size_t allocation_offset{0};
+    size_t serialize_offset{0};
+
+    size_t read_offset{0};
+
+    explicit memory_blob_t(u8* storage)
+    : data{storage}
+    {
+    }
+
+    explicit memory_blob_t(arena_t* arena)
+    : data{arena->start}
+    {
+    }
+
+    template <typename T>
+    void allocate() {
+        allocation_offset += sizeof(T);
+    }
+
+    void allocate(size_t bytes) {
+        allocation_offset += bytes;
+    }
+
+    i64 get_relative_data_offset( void* o_data, size_t offset ) {
+        // data_memory points to the newly allocated data structure to be used at runtime.
+        const i64 data_offset_from_start = ( i64 )(data - ( u8* )o_data );
+        const i64 data_offset = offset + data_offset_from_start;
+        return data_offset;
+    }
+
+    template <typename T>
+    void serialize(
+        arena_t* arena, 
+        offset_pointer_t<T>& ptr
+    ) {
+        allocate(sizeof(T));
+        i64 data_offset = allocation_offset - serialize_offset;
+
+        // gen_info("blob", "data_offset: {}", data_offset);
+        
+        serialize(arena, data_offset);
+
+        u64 cached_serialize_offset = serialize_offset;
+
+        serialize_offset = allocation_offset;
+
+        serialize(arena, *ptr.get());
+        serialize_offset = cached_serialize_offset;
+    }
+
+    template <typename T>
+    void serialize(arena_t* arena, T& obj) {
+        // note(zack): probably dont need to actually pass in arena, but it is safer(?) and more clear
+        u8* elem = arena_alloc(arena, sizeof(T));
+        std::memcpy(elem, (u8*)&obj, sizeof(T));
+
+        allocate<T>();
+        serialize_offset += sizeof(T);
+    }
+
+    template <typename T>
+    void serialize(
+        arena_t* arena, 
+        offset_array_t<T>& array
+    ) {
+        serialize(arena, array.data);
+        for ( u64 i = 0; i < array.count; ++i ) {
+            T* e_data = &array[ i ];
+            serialize( arena, e_data );
+        }
+    }
+
+    void reset() {
+        allocation_offset = 0;
+        serialize_offset = 0;
+        read_offset = 0;
+    }
+
+    template <typename T>
+    offset_pointer_t<T> deserialize_ptr(offset_pointer_t<T>* ptr) {
+        const i64 source_data_offset = deserialize<i64>();
+
+        // gen_info("deserialize_ptr", "data_offset: {}", source_data_offset);
+
+        if (source_data_offset == 0) {
+            ptr->offset = 0;
+            return offset_pointer_t<T>{};
+        }
+
+        ptr->offset = get_relative_data_offset(ptr, source_data_offset);
+        // gen_info("deserialize_ptr", "ptr_offset: {}", ptr->offset);
+
+        // allocate(sizeof(T));
+
+        size_t cached_serialized = serialize_offset;
+
+        serialize_offset = cached_serialized + source_data_offset - sizeof(size_t);
+        
+        *ptr->get() = deserialize<T>();
+        // Restore serialization offset
+        serialize_offset = cached_serialized;
+
+        return offset_pointer_t<T>{*ptr};
+    }
+
+    template <typename T>
+    T deserialize() {
+        const auto t_offset = read_offset;
+        
+        read_offset += sizeof(T);
+
+        return *(T*)(data + t_offset);
+    }
+};
+
 
 
 }; // namespace utl

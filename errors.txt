@@ -1,0 +1,8 @@
+[1m[38;2;255;255;000m[warn][app::load_bin_mesh_data]: Loading 2 meshes
+[0m[1m[38;2;255;255;000m[warn][app::load_bin_mesh_data]: Loading 2 meshes
+[0m[1m[38;2;255;255;000m[warn][app::load_bin_mesh_data]: Loading 1 meshes
+[0m[1m[38;2;255;255;000m[warn][app::load_bin_mesh_data]: Loading 1 meshes
+[0m[1m[38;2;255;255;000m[warn][app::load_bin_mesh_data]: Loading 2 meshes
+[0m[1m[38;2;255;255;000m[warn][app::load_bin_mesh_data]: Loading 2 meshes
+[0m[1m[38;2;255;255;000m[warn][app::load_bin_mesh_data]: Loading 1 meshes
+[0m

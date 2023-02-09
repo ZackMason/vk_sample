@@ -8,7 +8,7 @@ layout ( location = 2 ) flat in uint voColor;
 
 layout ( location = 0 ) out vec4 fFragColor;
 
-layout(set = 0, binding = 0) uniform sampler2D uTextures[32];
+layout(set = 0, binding = 0) uniform sampler2D uTextures[64];
 
 void main() {
     uint is_font = voTexID & (1 << 30);

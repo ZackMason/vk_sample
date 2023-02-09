@@ -21,11 +21,11 @@ BOOL APIENTRY DllMain(
         gen_info("dll_main", "DLL Load Process");
         break;
     case DLL_THREAD_ATTACH:
-        gen_info("dll_main", "DLL Load Threaded Process");
+        gen_info("dll_main", "DLL Load Threaded Process: {}", ul_reason_for_call);
         return FALSE;
         break;
     case DLL_THREAD_DETACH:
-        gen_info("dll_main", "DLL Unload Threaded Process");
+        gen_info("dll_main", "DLL Unload Threaded Process: {}", ul_reason_for_call);
         break;
     case DLL_PROCESS_DETACH:
         gen_info("dll_main", "DLL Unload Process");

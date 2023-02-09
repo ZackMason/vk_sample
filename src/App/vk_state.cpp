@@ -141,12 +141,12 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(std::span<VkSurfaceFormatKHR> availab
 }
 
 VkPresentModeKHR chooseSwapPresentMode(std::span<VkPresentModeKHR> availablePresentModes) {
+    return VK_PRESENT_MODE_FIFO_KHR;
     for (const auto& availablePresentMode : availablePresentModes) {
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
             return availablePresentMode;
         }
     }
-    return VK_PRESENT_MODE_FIFO_KHR;
 }
 
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, int width, int height) {
@@ -411,8 +411,7 @@ void state_t::record_pipeline_commands(
     VkPipeline p_pipeline, 
     VkRenderPass p_render_pass,
     VkFramebuffer framebuffer,
-    VkCommandBuffer buffer, u32 index, std::function<void(void)> user_fn,
-    bool should_clear
+    VkCommandBuffer buffer, u32 index, std::function<void(void)> user_fn
 ) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -2093,7 +2092,7 @@ state_t::create_image_descriptor_set(
 
     VK_OK(vkAllocateDescriptorSets(device, &vdsai, &descriptor_set));
 
-    VkDescriptorImageInfo vdii[32];
+    VkDescriptorImageInfo vdii[64];
         for (size_t i = 0; i < count; i++) {
             vdii[i].sampler = texture[i]->sampler;
             vdii[i].imageView = texture[i]->image_view;
