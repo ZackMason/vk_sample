@@ -288,7 +288,7 @@ app_on_init(app_memory_t* app_mem) {
     vk_gfx.load_texture_sampler(app->brick_texture, "./assets/textures/brick_01.png", &app->texture_arena);
     app->brick_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
-        vk_gfx.descriptor_set_layouts[3],
+        app->mesh_pipeline->descriptor_set_layouts[3],
         &app->brick_texture, 1);
 
     vk_gfx.create_vertex_buffer(
@@ -1021,10 +1021,13 @@ main_menu_on_update(app_memory_t* app_mem) {
         std::terminate();
     }
 
-    vk_gfx.record_command_buffer(vk_gfx.command_buffer, imageIndex, [&]{
+    vk_gfx.record_pipeline_commands(
+        app->mesh_pipeline->pipeline, 
+        app->mesh_pipeline->render_passes[0],
+        app->mesh_pipeline->framebuffers[imageIndex],
+        vk_gfx.command_buffer, imageIndex, [&]{
 
     });
-
     
     vk_gfx.record_pipeline_commands(
         app->gui_pipeline->pipeline, app->gui_pipeline->render_passes[0],
