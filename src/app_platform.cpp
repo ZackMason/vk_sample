@@ -23,13 +23,18 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
+#define USE_SDL 1
 
+#if USE_SDL
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
 #include "SDL_mixer.h"
+#endif
 
 struct audio_cache_t {
+    #if USE_SDL
     Mix_Chunk* sounds[1024];
+    #endif
     u64 sound_count{0};
 };
 
@@ -88,10 +93,73 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
         if (i < array_count(app_mem->input.mouse.buttons)) {
             app_mem->input.mouse.buttons[i] = glfwGetMouseButton(window, i) == GLFW_PRESS;
         }
+
+        if (i <= GLFW_JOYSTICK_LAST && i < array_count(app_mem->input.gamepads)) {
+            const int present = glfwJoystickPresent(i);
+            auto& gamepad = app_mem->input.gamepads[i];
+            if (present) {
+                GLFWgamepadstate state;
+                if (glfwJoystickIsGamepad(i) && glfwGetGamepadState(i, &state)) {
+                    loop_itoa(a, GLFW_GAMEPAD_AXIS_LAST + 1) {
+                        if (std::fabs(state.axes[a]) < 0.1f) { // deadzone
+                            state.axes[a] = 0.0f;
+                        }
+                        // gen_info("input", "axis[{}]:{}", a, axes_[a]);
+                    }
+                                    
+                    gamepad.left_stick.x    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
+                    gamepad.left_stick.y    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
+                    gamepad.right_stick.x   = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
+                    gamepad.right_stick.y   = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y];
+                    gamepad.left_trigger    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER] > 0.5f ? 1.0f : 0.0f;
+                    gamepad.right_trigger   = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER] > 0.5f ? 1.0f : 0.0f;
+
+                    gamepad.action_down.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_CROSS];
+                    gamepad.action_right.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_CIRCLE];
+                    gamepad.action_up.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_TRIANGLE];
+                    gamepad.action_left.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_SQUARE];
+                    
+                    gamepad.dpad_down.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN];
+                    gamepad.dpad_right.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_RIGHT];
+                    gamepad.dpad_up.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP];
+                    gamepad.dpad_left.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_LEFT];
+
+                    gamepad.options.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_BACK];
+                    gamepad.start.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_START];
+
+                    gamepad.shoulder_left.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_BUMPER];
+                    gamepad.shoulder_right.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER];
+
+                    gamepad.guide.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_GUIDE];
+
+                    gamepad.left_thumb.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_THUMB];
+                    gamepad.right_thumb.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_THUMB];
+
+                    gamepad.guide.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_GUIDE];
+
+                } else {
+                    gen_warn("input", "Joystick is not gamepad");
+                }
+            } else {
+                gamepad = {};
+            }
+            gamepad.is_connected = present;
+        }
+
         app_mem->input.keys[i] = glfwGetKey(window, i) == GLFW_PRESS;
         app_mem->input.pressed.keys[i] = app_mem->input.keys[i] && !last_input.keys[i];
         app_mem->input.released.keys[i] = !app_mem->input.keys[i] && last_input.keys[i];
+
+        loop_itoa(g, array_count(app_mem->input.gamepads)) {
+            loop_itoa(b, array_count(app_mem->input.gamepads[g].buttons)) {
+                auto& button = app_mem->input.gamepads[g].buttons[b];
+                button.is_pressed = !last_input.gamepads[g].buttons[b].is_held && button.is_held;
+                button.is_released = last_input.gamepads[g].buttons[b].is_held && !button.is_held;
+            }
+        }
     }
+
+
 }
 
 void 
@@ -134,19 +202,21 @@ reload_dlls(app_dll_t* app_dlls) {
 
 void
 update_dlls(app_dll_t* app_dlls) {
-    bool need_reload = false;
-    while (std::filesystem::exists("./build/lock.tmp")) {
-        gen_warn("win32", "Game DLL Reload Detected");
-        need_reload = true;
-        if (app_dlls->dll) {
-            while(FreeLibrary((HMODULE)app_dlls->dll)==0) {
-                gen_error("dll", "Error Freeing Library: {}", GetLastError());
-            }
-            app_dlls->dll = nullptr;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    bool need_reload = std::filesystem::exists("./build/lock.tmp");
     if (need_reload) {
+        utl::profile_t p{"dll reload time"};
+
+        while (std::filesystem::exists("./build/lock.tmp")) {
+            gen_warn("win32", "Game DLL Reload Detected");
+            need_reload = true;
+            if (app_dlls->dll) {
+                while(FreeLibrary((HMODULE)app_dlls->dll)==0) {
+                    gen_error("dll", "Error Freeing Library: {}", GetLastError());
+                }
+                app_dlls->dll = nullptr;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
         reload_dlls(app_dlls);
         gen_warn("win32", "Game DLL has reloaded");
     }
@@ -189,6 +259,7 @@ main(int argc, char* argv[]) {
         }
     };
 
+#if USE_SDL
     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
         gen_info("sdl_mixer", "Couldn't initialize SDL: {}", SDL_GetError());
         return 255;
@@ -198,6 +269,7 @@ main(int argc, char* argv[]) {
         gen_info("sdl_mixer", "Couldn't open audio: {}", SDL_GetError());
         return 255;
     }
+#endif
 
     audio_cache_t audio_cache{};
     utl::closure_t load_sound_closure;
@@ -207,7 +279,9 @@ main(int argc, char* argv[]) {
             gen_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
 
             auto* cache = (audio_cache_t*)data;
+            #if USE_SDL
             cache->sounds[cache->sound_count] = Mix_LoadWAV(path);
+            #endif
 
             gen_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
         
@@ -222,7 +296,9 @@ main(int argc, char* argv[]) {
 
             auto* cache = (audio_cache_t*)data;
 
+            #if USE_SDL
             Mix_PlayChannel(0, cache->sounds[id], 0);
+            #endif
     });
     
     app_mem.audio.load_sound_closure = &load_sound_closure;
@@ -240,6 +316,7 @@ main(int argc, char* argv[]) {
     gen_info("win32", "Platform Initialization Completed");
 
     app_dlls.on_init(&app_mem);
+    
     while(app_mem.running && !glfwWindowShouldClose(window)) {
         update_dlls(&app_dlls);
         
@@ -249,7 +326,8 @@ main(int argc, char* argv[]) {
 
         glfwPollEvents();
         update_input(&app_mem, window);
-        if (app_mem.input.keys[256]) {
+
+        if (app_mem.input.keys[256] || app_mem.input.gamepads[0].options.is_held) { // esc
             app_mem.running = false;
         }
     };

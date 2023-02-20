@@ -141,12 +141,12 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(std::span<VkSurfaceFormatKHR> availab
 }
 
 VkPresentModeKHR chooseSwapPresentMode(std::span<VkPresentModeKHR> availablePresentModes) {
-    return VK_PRESENT_MODE_FIFO_KHR;
     for (const auto& availablePresentMode : availablePresentModes) {
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
             return availablePresentMode;
         }
     }
+    return VK_PRESENT_MODE_FIFO_KHR;
 }
 
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, int width, int height) {
@@ -317,7 +317,7 @@ void state_t::init(app_config_t* info) {
     create_uniform_buffer(&object_uniform_buffer);
     
     arena_t t;
-    t.start = new u8[2048*2048*4];
+    t.start = new std::byte[2048*2048*4];
     t.size = 2048*2048*4;
     load_texture_sampler(&null_texture, "./assets/textures/null.png", &t);
     // load_texture_sampler(&null_texture, "./assets/textures/checker.png", &t);
@@ -945,8 +945,8 @@ void state_t::create_render_pass() {
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
 
     depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -1237,7 +1237,7 @@ void state_t::create_graphics_pipeline() {
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_NONE;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
@@ -1374,26 +1374,28 @@ state_t::create_pipeline_state_descriptors(
             vdps[i].descriptorCount = 1; // note(zack): not sure what this is for tbh
         }
 
-    VkDescriptorSetLayoutCreateInfo			vdslc[1];
-		vdslc[0].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		vdslc[0].pNext = nullptr;
-		vdslc[0].flags = 0;
-		vdslc[0].bindingCount = create_info->descriptor_count;
-		vdslc[0].pBindings = create_info->descriptor_set_layout_bindings;
-    
+
+    VkDescriptorSetLayoutCreateInfo			vdslc[8];
+		for (u32 i = 0; i < create_info->descriptor_count; i++) {
+            vdslc[i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            vdslc[i].pNext = nullptr;
+            vdslc[i].flags = 0;
+            vdslc[i].bindingCount = 1;
+            vdslc[i].pBindings = create_info->descriptor_set_layout_bindings + i;
+        }
     pipeline->descriptor_count = create_info->descriptor_count;
-    VK_OK(vkCreateDescriptorSetLayout(device, vdslc, 0, pipeline->descriptor_set_layouts));
-
-    VkResult result = VK_SUCCESS;
-
+    
+    for (u32 i = 0; i < create_info->descriptor_count; i++) {
+        VK_OK(vkCreateDescriptorSetLayout(device, vdslc + i, 0, pipeline->descriptor_set_layouts + i));
+    }
     VkDescriptorSetAllocateInfo vdsai;
         vdsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         vdsai.pNext = nullptr;
         vdsai.descriptorPool = descriptor_pool;
         vdsai.descriptorSetCount = create_info->descriptor_count;
-        vdsai.pSetLayouts =  pipeline->descriptor_set_layouts;
+        vdsai.pSetLayouts = pipeline->descriptor_set_layouts;
 
-    result = vkAllocateDescriptorSets(device, &vdsai,  pipeline->descriptor_sets);
+    VK_OK(vkAllocateDescriptorSets(device, &vdsai,  pipeline->descriptor_sets));
 }
 
 void 
@@ -1480,15 +1482,15 @@ state_t::create_pipeline_state(
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-    std::vector<VkDynamicState> dynamicStates = {
+    VkDynamicState dynamicStates[] = {
         VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
+        VK_DYNAMIC_STATE_SCISSOR,
     };
 
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = safe_truncate_u64(dynamicStates.size());
-    dynamicState.pDynamicStates = dynamicStates.data();
+    dynamicState.dynamicStateCount = array_count(dynamicStates);
+    dynamicState.pDynamicStates = dynamicStates;
 
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -1546,21 +1548,23 @@ state_t::create_pipeline_state(
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
 
-    // colorBlendAttachment.blendEnable = VK_TRUE;
-    // colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    // colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    // colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    // colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    // colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    // colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;   
+    // colorBlendAttachment.blendEnable = VK_FALSE;
+    // colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
+    // colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
+    // colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
+    // colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
+    // colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
+    // colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
+
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;   
+
     VkStencilOpState					vsosf;	// front
 		vsosf.failOp = VK_STENCIL_OP_KEEP;
 		vsosf.passOp = VK_STENCIL_OP_KEEP;
@@ -1779,7 +1783,7 @@ state_t::load_font_sampler(
 ) {
     // need to convert R32 to RGBA
     const size_t image_size = font->pixel_count*font->pixel_count*4;
-    u8* t_pix = arena_alloc(arena, image_size);
+    u8* t_pix = (u8*)arena_alloc(arena, image_size);
     for (size_t i = 0; i < font->pixel_count * font->pixel_count; i++) {
         t_pix[4*i+0] = font->bitmap[i];
         t_pix[4*i+1] = 0;
@@ -1889,7 +1893,7 @@ state_t::load_texture_sampler(
     u8* data = stbi_load(path.data(), texture->size + 0, texture->size + 1, &channels, 0);
     assert(data);
     const auto image_size = texture->size[0] * texture->size[1] * channels;
-    texture->pixels = arena_alloc(arena, image_size);
+    texture->pixels = (u8*)arena_alloc(arena, image_size);
     std::memcpy(texture->pixels, data, image_size);
     stbi_image_free(data);
     gen_info("vk::load_texture_sampler", 

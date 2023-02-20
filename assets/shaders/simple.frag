@@ -29,9 +29,7 @@ layout( std140, set = 1, binding = 0 ) uniform sceneBuf
 
 layout( std140, set = 2, binding = 0 ) uniform objectBuf
 {
-	mat4		uModel;
 	vec4		uColor;
-	float		uShininess;
 } Object; 
 
 layout( set = 3, binding = 0 ) uniform sampler2D uSampler;
@@ -54,8 +52,8 @@ layout ( push_constant ) uniform object_constants
 layout ( location = 0 ) in vec3 vColor;
 layout ( location = 1 ) in vec2 vTexCoord;
 layout ( location = 2 ) in vec3 vN;
-layout ( location = 3 ) in vec3 vL;
-layout ( location = 4 ) in vec3 vE;
+layout ( location = 3 ) in vec3 vE;
+layout ( location = 4 ) in vec3 vWorldPos;
 
 layout ( location = 0 ) out vec4 fFragColor;
 
@@ -76,6 +74,7 @@ main( )
 			break;
 
 		case 2:
+			rgb = vColor;
 			rgb = ObjectConstants.albedo.rgb;
 			break;
 
@@ -95,11 +94,13 @@ main( )
 		
 		vec3 F0 = vec3(0.04); 
     	F0 = mix(F0, albedo, metallic);
+
+		vec3 L = normalize(Scene.uLightPos.xyz - vWorldPos);
 	
 		vec3 normal = normalize(vN);
-		vec3 light  = normalize(vL);
+		vec3 light  = L;
 		vec3 eye    = normalize(vE);
-		vec3 H 		= normalize(light+eye);
+		vec3 H 		= normalize(light+vE);
 
 		float NoH = saturate(dot(normal, H));
 		float LoH = saturate(dot(light, H));
@@ -114,7 +115,8 @@ main( )
 		vec3 kD = filament_Burley(roughness, NoV, NoL, LoH) * albedo;
 		kD *= 1.0 - metallic;
 
-		rgb = (kD + (NDF*G*F)) * 2.0;
+		// rgb = (kD + (NDF*G*F)) * 2.0;
+		rgb *= NDF*F*G + kD;
 	}
 
 	fFragColor = vec4( rgb, 1. );

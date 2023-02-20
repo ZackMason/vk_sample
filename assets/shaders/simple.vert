@@ -25,9 +25,7 @@ layout( std140, set = 1, binding = 0 ) uniform sceneBuf
 
 layout( std140, set = 2, binding = 0 ) uniform objectBuf
 {
-	mat4		uModel;
 	vec4		uColor;
-	float		uShininess;
 } Object; 
 
 layout ( push_constant ) uniform object_constants
@@ -53,12 +51,11 @@ layout( location = 3 ) in vec2 aTexCoord;
 layout ( location = 0 ) out vec3 vColor;
 layout ( location = 1 ) out vec2 vTexCoord;
 layout ( location = 2 ) out vec3 vN;
-layout ( location = 3 ) out vec3 vL;
-layout ( location = 4 ) out vec3 vE;
+layout ( location = 3 ) out vec3 vE;
+layout ( location = 4 ) out vec3 vWorldPos;
 
 void
-main( ) 
-{
+main() {
 	mat4  P = Scene.uProjection;
 	mat4  V = Scene.uView;
 	mat4  SO = Scene.uSceneOrient;
@@ -66,17 +63,18 @@ main( )
 	mat4 VM = V * SO * M;
 	mat4 PVM = P * VM;
 
-	vColor    = aColor;
+	vColor = aColor;
 	vTexCoord = aTexCoord;
 
-	vN = normalize( mat3(Object.uModel) * aNormal );		// surface normal vector
+	vE = vec3(
+		V[3][0],
+		V[3][1],
+		V[3][2]
+	);
+	vWorldPos = (M * vec4(aVertex, 1.0)).xyz;
+	vE = normalize(vWorldPos - vE);
 
-	vec4 ECposition = VM * vec4( aVertex, 1. );
-	vec4 lightPos = vec4( Scene.uLightPos.xyz, 1. );        // light source in fixed location because not transformed
-	vL = normalize( lightPos.xyz  -  ECposition.xyz );      // vector from the point to the light
+	vN = normalize(mat3(M) * aNormal);
 
-	vec4 eyePos = vec4( 0., 0., 0., 1. );					// eye position after applying the viewing matrix
-	vE = normalize( eyePos.xyz -  ECposition.xyz );         // vector from the point to the eye
-
-	gl_Position = PVM * vec4( aVertex, 1. );
+	gl_Position = PVM * vec4(aVertex, 1. );
 }
