@@ -1,12 +1,18 @@
 #include <core.hpp>
 
 #include "App/vk_state.hpp"
+#include "App/gfx_pipelines.hpp"
 
 #include "App/Game/Util/camera.hpp"
 
 #include "App/Game/World/world.hpp"
+#include "App/Game/World/Level/level.hpp"
+#include "App/Game/World/Level/Room/room.hpp"
+#include "App/Game/Items/base_item.hpp"
+#include "App/Game/Weapons/base_weapon.hpp"
 
-#include <thread>
+#include "App/Game/Physics/physics_world.hpp"
+
 
 struct mesh_cache_t {
     struct link_t : node_t<link_t> {
@@ -27,6 +33,7 @@ struct mesh_cache_t {
     }
 };
 
+
 static constexpr size_t max_scene_vertex_count{10'000'000};
 static constexpr size_t max_scene_index_count{30'000'000};
 struct app_t {
@@ -42,9 +49,13 @@ struct app_t {
     utl::res::pack_file_t *     resource_file{0};
 
     mesh_cache_t                mesh_cache;
+    utl::str_hash_t                 mesh_hash;
+    utl::str_hash_t                 mesh_hash_meta;
+
     
     gfx::vul::state_t   gfx;
 
+    // todo(zack) clean this up
     gfx::font_t default_font;
     gfx::vul::texture_2d_t* default_font_texture{nullptr};
     VkDescriptorSet default_font_descriptor;
@@ -59,11 +70,13 @@ struct app_t {
         gfx::vul::scene_buffer_t scene_buffer;
         gfx::vul::object_buffer_t object_buffer;
         gfx::vul::sporadic_buffer_t sporadic_buffer;
+
+        gfx::vul::uniform_buffer_t<gfx::vul::scene_buffer_t>    debug_scene_uniform_buffer;
     } scene;
     
-
     gfx::vul::pipeline_state_t* gui_pipeline{0};
-
+    gfx::vul::pipeline_state_t* debug_pipeline{0};
+    gfx::vul::pipeline_state_t* mesh_pipeline{0};
 
     struct gui_state_t {
         gfx::gui::ctx_t ctx;
@@ -77,44 +90,74 @@ struct app_t {
     struct debugging_t {
         u64 mesh_sub_index{0};
         u64 mesh_index{0};
+        gfx::vul::vertex_buffer_t<gfx::vul::debug_line_vertex_t, 100'000> debug_vertices;
+
+        void draw_aabb(const math::aabb_t<v3f>& aabb, gfx::color3 color) {
+            const v3f size = aabb.size();
+            const v3f sxxx = v3f{size.x,0,0};
+            const v3f syyy = v3f{0,size.y,0};
+            const v3f szzz = v3f{0,0,size.z};
+            
+            draw_line(aabb.min, aabb.min + sxxx, color);
+            draw_line(aabb.min, aabb.min + syyy, color);
+            draw_line(aabb.min, aabb.min + szzz, color);
+
+            draw_line(aabb.min + sxxx + syyy, aabb.min + sxxx, color);
+            draw_line(aabb.min + sxxx + syyy, aabb.min + syyy, color);
+            draw_line(aabb.max - sxxx - syyy, aabb.max - sxxx, color);
+            draw_line(aabb.max - sxxx - syyy, aabb.max - syyy, color);
+            
+            draw_line(aabb.min + sxxx, aabb.min + szzz + sxxx, color);
+            draw_line(aabb.min + syyy, aabb.min + szzz + syyy, color);
+            
+            draw_line(aabb.max, aabb.max - sxxx, color);
+            draw_line(aabb.max, aabb.max - syyy, color);
+            draw_line(aabb.max, aabb.max - szzz, color);
+        }
+
+        void draw_line(v3f a, v3f b, gfx::color3 color) {
+            auto* points = debug_vertices.pool.allocate(2);
+            points[0].pos = a;
+            points[1].pos = b;
+            points[0].col = color;
+            points[1].col = color;
+        }
     } debug;
         
-
-    game::cam::camera_t camera;
-    game::cam::first_person_controller_t first_person{&camera};
-
     game::world_t* game_world;
+
+    f32 time_scale = 1.0f;
+    f32 time_text_anim = 0.0f;
 };
 
 inline gfx::mesh_list_t
 load_bin_mesh_data(
     arena_t* arena,
-    u8* data,
+    std::byte* data,
     utl::pool_t<gfx::vertex_t>* vertices,
     utl::pool_t<u32>* indices
 ) {
     gfx::mesh_list_t results;
 
-    utl::deserializer_t mouth{data};
+    utl::memory_blob_t blob{data};
 
-    const auto meta = mouth.deserialize_u64();
-    const auto vers = mouth.deserialize_u64();
-    const auto mesh = mouth.deserialize_u64();
+    // read file meta data
+    const auto meta = blob.deserialize<u64>();
+    const auto vers = blob.deserialize<u64>();
+    const auto mesh = blob.deserialize<u64>();
 
-#if !NDEBUG
     assert(meta == utl::res::magic::meta);
     assert(vers == utl::res::magic::vers);
     assert(mesh == utl::res::magic::mesh);
-#endif
 
-    results.count = mouth.deserialize_u64();
+    results.count = blob.deserialize<u64>();
     gen_warn("app::load_bin_mesh_data", "Loading {} meshes", results.count);
-    results.meshes = arena_alloc_ctor<gfx::mesh_view_t>(arena, results.count);
+    results.meshes  = arena_alloc_ctor<gfx::mesh_view_t>(arena, results.count);
 
     for (size_t i = 0; i < results.count; i++) {
-        std::string name = mouth.deserialize_string();
+        std::string name = blob.deserialize<std::string>();
         gen_info("app::load_bin_mesh_data", "Mesh name: {}", name);
-        const size_t vertex_count = mouth.deserialize_u64();
+        const size_t vertex_count = blob.deserialize<u64>();
         const size_t vertex_bytes = sizeof(gfx::vertex_t) * vertex_count;
 
         const u32 vertex_start = safe_truncate_u64(vertices->count);
@@ -126,16 +169,20 @@ load_bin_mesh_data(
 
         gfx::vertex_t* v = vertices->allocate(vertex_count);
 
-        std::memcpy(v, mouth.data(), vertex_bytes);
-        mouth.advance(vertex_bytes);
+        std::memcpy(v, blob.read_data(), vertex_bytes);
+        blob.advance(vertex_bytes);
 
-        const size_t index_count = mouth.deserialize_u64();
+        loop_itoa(j, results.meshes[i].vertex_count) {
+            results.meshes[i].aabb.expand(v[j].pos);
+        }
+
+        const size_t index_count = blob.deserialize<u64>();
         const size_t index_bytes = sizeof(u32) * index_count;
-        results.meshes[i].index_count =  safe_truncate_u64(index_count);
+        results.meshes[i].index_count = safe_truncate_u64(index_count);
 
         u32* tris = indices->allocate(index_count);
-        std::memcpy(tris, mouth.data(), index_bytes);
-        mouth.advance(index_bytes);
+        std::memcpy(tris, blob.read_data(), index_bytes);
+        blob.advance(index_bytes);
     }
 
     return results;
@@ -151,40 +198,33 @@ load_bin_mesh(
 ) {
     const size_t file_index = utl::res::pack_file_find_file(packed_file, path);
     
-    u8* file_data = utl::res::pack_file_get_file(packed_file, file_index);
+    std::byte* file_data = utl::res::pack_file_get_file(packed_file, file_index);
 
     gfx::mesh_list_t results;
     
     if (file_data) {
         return load_bin_mesh_data(arena, file_data, vertices, indices);
     } else {
-        gen_warn("app::load_bin_mesh", "Failed to open mesh file");
+        gen_warn("app::load_bin_mesh", "Failed to open mesh file: {}", path);
     }
 
     return results;
 }
 
-app_t*
+inline app_t*
 get_app(app_memory_t* mem) {
+    // note(zack): App should always be the first thing initialized in perm_memory
     return (app_t*)mem->perm_memory;
 }
 
 export_fn(void) 
 app_on_init(app_memory_t* app_mem) {
-    // s_app_mem = app_mem;
-
-    // std::thread([]{
-    //     while(1) {
-    //         puts("do");
-    //         std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    //     }
-    // }).detach();
-
+    utl::profile_t p{"app init"};
     app_t* app = get_app(app_mem);
     new (app) app_t;
 
     app->app_mem = app_mem;
-    app->main_arena.start = (u8*)app_mem->perm_memory + sizeof(app_t);
+    app->main_arena.start = (std::byte*)app_mem->perm_memory + sizeof(app_t);
     app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
 
     arena_t* main_arena = &app->main_arena;
@@ -195,22 +235,38 @@ app_on_init(app_memory_t* app_mem) {
     app->texture_arena = arena_sub_arena(&app->main_arena, megabytes(512));
     app->gui.arena = arena_sub_arena(main_arena, megabytes(8));
 
+    gen_info("init", "init physx");
+    static game::phys::physx_state_t physx_state{
+        .default_allocator = {app->main_arena, megabytes(256)}
+    };
+    game::phys::init_physx_state(physx_state);
+
     app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./assets/res.pack");
-    gen_info("app", "Pack file test: {}", utl::res::pack_file_find_file(
-        app->resource_file, "assets\\models\\utah-teapot.obj"
-    ));
-    gen_info("app", "Pack file test: {}", utl::res::pack_file_find_file(
-        app->resource_file, "assets\\models\\lucy.obj"
-    ));
-
-
-    app->game_world = game::world_init(main_arena, &app->camera);
+    
+    app->game_world = game::world_init(main_arena);
     
     // setup graphics
 
     gfx::vul::state_t& vk_gfx = app->gfx;
     app->gfx.init(&app_mem->config);
     app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx);
+    app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx,
+        gfx::vul::mesh_pipeline_info_t{
+            vk_gfx.scene_uniform_buffer.buffer,
+            vk_gfx.sporadic_uniform_buffer.buffer,
+            vk_gfx.object_uniform_buffer.buffer
+        }
+    );
+    assert(app->mesh_pipeline);
+
+    vk_gfx.create_uniform_buffer(&app->scene.debug_scene_uniform_buffer);
+
+    app->debug_pipeline = gfx::vul::create_debug_pipeline(
+        &app->mesh_arena, 
+        &vk_gfx, 
+        app->scene.debug_scene_uniform_buffer.buffer, 
+        sizeof(gfx::vul::scene_buffer_t)
+    );
 
     gfx::font_load(&app->texture_arena, &app->default_font, "./assets/fonts/Go-Mono-Bold.ttf", 15.0f);
     app->default_font_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
@@ -243,12 +299,15 @@ app_on_init(app_memory_t* app_mem) {
     );
 
     vk_gfx.create_vertex_buffer(
+        &app->debug.debug_vertices
+    );
+
+    vk_gfx.create_vertex_buffer(
         &app->gui.vertices
     );
     vk_gfx.create_index_buffer(
         &app->gui.indices
     );
-
 
     app->gui.ctx.vertices = &app->gui.vertices.pool;
     app->gui.ctx.indices = &app->gui.indices.pool;
@@ -312,17 +371,17 @@ app_on_init(app_memory_t* app_mem) {
     for (f32 x = -terrain_dim; x < terrain_dim; x += terrain_grid_size) {
         for (f32 y = -terrain_dim; y < terrain_dim; y += terrain_grid_size) {
             gfx::vertex_t v[4];
-            v[0].pos = v3f{x                    , -1.0f, y};
-            v[1].pos = v3f{x + terrain_grid_size, -1.0f, y};
-            v[2].pos = v3f{x                    , -1.0f, y + terrain_grid_size};
-            v[3].pos = v3f{x + terrain_grid_size, -1.0f, y + terrain_grid_size};
+            v[0].pos = v3f{x                    , 0.0f, y};
+            v[1].pos = v3f{x                    , 0.0f, y + terrain_grid_size};
+            v[2].pos = v3f{x + terrain_grid_size, 0.0f, y};
+            v[3].pos = v3f{x + terrain_grid_size, 0.0f, y + terrain_grid_size};
 
-            constexpr f32 noise_scale = 0.00000002f;
+            constexpr f32 noise_scale = 0.2f;
             for (size_t i = 0; i < 4; i++) {
-                v[i].pos.y -= utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale);
+                v[i].pos.y -= utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) * 4.0f;
                 v[i].col = gfx::color::v3::dirt * 
-                    utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) 
-                    * 0.1f;
+                    (utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) 
+                    * 0.5f + 0.5f);
             }
 
             const v3f n = glm::normalize(glm::cross(v[1].pos - v[0].pos, v[2].pos - v[0].pos));
@@ -338,35 +397,77 @@ app_on_init(app_memory_t* app_mem) {
         &app->mesh_arena,
         mesh_builder.build(&app->mesh_arena)
     );
+    utl::str_hash_create(app->mesh_hash);
+    utl::str_hash_create(app->mesh_hash_meta);
+
+    utl::str_hash_add(app->mesh_hash, "ground", 0);    
+
 
     // load all meshes from the resource file
     for (size_t i = 0; i < app->resource_file->file_count; i++) {
-        u8* file_data = utl::res::pack_file_get_file(app->resource_file, i);
-        
-        if (app->resource_file->table[i].file_type != utl::res::magic::mesh) { continue; }
+        if (app->resource_file->table[i].file_type != utl::res::magic::mesh) { 
+            continue; 
+        }
+
+        std::byte* file_data = utl::res::pack_file_get_file(app->resource_file, i);
 
         auto loaded_mesh = load_bin_mesh_data(
             &app->mesh_arena,
-            file_data, //app->resource_file->resources[i].data,
+            file_data, 
             &app->vertices.pool,
             &app->indices.pool
         );
-        app->mesh_cache.add(
+        const auto mesh_id = app->mesh_cache.add(
             &app->mesh_arena,
             loaded_mesh
         );
+        const char* file_name = app->resource_file->table[i].name.c_data;
+        utl::str_hash_add(app->mesh_hash, file_name, mesh_id);
+
+        assert(utl::str_hash_find(app->mesh_hash, file_name) != utl::invalid_hash);
     }
 
-    const auto mesh_id = 0;
+    game::entity::entity_t* e0 = game::world_create_entity(app->game_world);
+    game::entity::entity_init(e0, 0);
+    e0->transform.origin = v3f{0.0f, -10.0f, 0.0f};
+    e0->name.view("ground");
 
-    game::entity::entity_t* e2 = game::world_create_entity(app->game_world);
-    e2->gfx.mesh_id = mesh_id;
+    game::spawn(app->game_world, app->mesh_hash, game::entity::db::characters::soldier);
+    
+    const auto teapot_mesh = utl::str_hash_find(app->mesh_hash,"assets/models/utah-teapot.obj");
 
+    game::entity::physics_entity_t* e1 =
+        (game::entity::physics_entity_t*)
+        game::world_create_entity(app->game_world, 1);
+    
+    e1->transform.scale(v3f{0.2f});
+    e1->transform.origin = v3f{0,10,0};
+    e1->name.view("Teapot");
 
+    game::entity::physics_entity_init_convex(
+        e1, 
+        teapot_mesh,
+        utl::res::pack_file_get_file_by_name(app->resource_file, "assets/models/utah-teapot.obj.convex.physx"),
+        safe_truncate_u64(utl::res::pack_file_get_file_size(app->resource_file, "assets/models/utah-teapot.obj.convex.physx")),
+        &physx_state
+    );
+
+    game::entity::physics_entity_t* e2 =
+        (game::entity::physics_entity_t*)
+        game::world_create_entity(app->game_world, 1);
+
+    game::entity::physics_entity_init_trimesh(
+        e2, 
+        utl::str_hash_find(app->mesh_hash, "assets/models/rooms/room_0.obj"),
+        utl::res::pack_file_get_file_by_name(app->resource_file, "assets/models/rooms/room_0.obj.trimesh.physx"),
+        safe_truncate_u64(utl::res::pack_file_get_file_size(app->resource_file, "assets/models/rooms/room_0.obj.trimesh.physx")),
+        &physx_state
+    );
+    e2->name.view("room");
+    
     arena_clear(&app->temp_arena);
-
-    app->camera.origin = v3f{0,20,-25};
-    app->camera.look_at(v3f{0.0f});
+    app->game_world->player.transform.origin.y = 5.0f;
+    app->game_world->player.transform.origin.z = -5.0f;
 }
 
 export_fn(void) 
@@ -396,42 +497,64 @@ app_on_reload(app_memory_t* app_mem) {
     // app->gfx.init(&app_mem->config);
 }
 
-export_fn(void) 
-app_on_update2(app_memory_t* app_mem) {
-
-}
 
 void 
 camera_input(app_t* app, app_input_t* input) {
-    const v2f move = v2f{
+    app->game_world->player.camera_controller.transform.origin = 
+        app->game_world->player.transform.origin;
+
+    v3f move = v3f{
         f32(input->keys['D']) - f32(input->keys['A']),
+        f32(input->keys['Q']) - f32(input->keys['E']),
         f32(input->keys['W']) - f32(input->keys['S'])
     };
 
-    auto& yaw = app->first_person.yaw;
-    auto& pitch = app->first_person.pitch;
+    v2f head_move = 200.0f * v2f{
+        input->mouse.delta[0],
+        input->mouse.delta[1]
+    } / app->gui.ctx.screen_size;
 
-    const v3f forward = game::cam::get_direction(yaw, pitch);
-    const v3f right   = glm::cross(forward, v3f{0.0f, 1.0f, 0.0f});
-
-    constexpr f32 camera_rot_speed{200.0f};
-
-    if (input->mouse.buttons[1]) {
-        const v2f mouse_move = v2f{
-            input->mouse.delta[0],
-            input->mouse.delta[1]
-        } / app->gui.ctx.screen_size;
-
-        yaw += mouse_move.x * input->dt * camera_rot_speed;
-        pitch -= mouse_move.y * input->dt * camera_rot_speed;
+    if (input->gamepads[0].is_connected) {
+        move = v3f{
+            input->gamepads[0].left_stick.x,
+            f32(input->gamepads[0].shoulder_left.is_held) - f32(input->gamepads[0].shoulder_right.is_held),
+            -input->gamepads[0].left_stick.y,
+        };
+        head_move = v2f{
+            input->gamepads[0].right_stick.x,
+            input->gamepads[0].right_stick.y,
+        } * 2.0f;
     }
 
-    app->first_person.translate((forward * move.y + right * move.x)* 10.0f * input->dt);
+    auto& yaw = app->game_world->player.camera_controller.yaw;
+    auto& pitch = app->game_world->player.camera_controller.pitch;
+
+    const v3f forward   = game::cam::get_direction(yaw, pitch);
+    const v3f up        = v3f{0.0f, 1.0f, 0.0f};
+    const v3f right     = glm::cross(forward, up);
+
+    if (input->mouse.buttons[1] || input->gamepads[0].is_connected) {
+        yaw += head_move.x * input->dt;
+        pitch -= head_move.y * input->dt;
+    }
+
+    app->game_world->player.camera_controller.translate((forward * move.z + right * move.x + up * move.y) * 10.0f * input->dt);
+    app->game_world->player.transform.origin = 
+        app->game_world->player.camera_controller.transform.origin;
 }
 
 void 
 app_on_input(app_t* app, app_input_t* input) {
     camera_input(app, input);
+
+    if (input->gamepads[0].dpad_left.is_released) {
+        app->time_scale *= 0.5f;
+        app->time_text_anim = 1.0f;
+    }
+    if (input->gamepads[0].dpad_right.is_released) {
+        app->time_scale *= 2.0f;
+        app->time_text_anim = 1.0f;
+    }
 
     if (input->pressed.keys['P']) {
         app->debug.mesh_sub_index++;
@@ -455,14 +578,20 @@ app_on_input(app_t* app, app_input_t* input) {
     }
 }
 
-export_fn(void) 
-app_on_update(app_memory_t* app_mem) {
+void
+game_on_update(app_memory_t* app_mem) {
+    // utl::profile_t p{"on_update"};
     app_t* app = get_app(app_mem);
+
+    app_mem->input.dt *= app->time_scale;
 
     app_on_input(app, &app_mem->input);
 
     gfx::vul::state_t& vk_gfx = app->gfx;
 
+    // note(zack): print the first 3 frames, if 
+    // a bug shows up its helpful to know if 
+    // maybe it only happens on the second frame
     local_persist u32 frame_count = 0;
     if (frame_count++ < 3) {
         gen_info("app::on_update", "frame: {}", frame_count);
@@ -471,6 +600,29 @@ app_on_update(app_memory_t* app_mem) {
     const f32 anim_time = glm::mod(
         app_mem->input.time, 10.0f
     );
+
+    // update uniforms
+
+    app->scene.sporadic_buffer.num_instances = 1;
+
+    const f32 w = (f32)app_mem->config.window_size[0];
+    const f32 h = (f32)app_mem->config.window_size[1];
+    const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
+
+    app->scene.scene_buffer.time = app_mem->input.time;
+    app->scene.scene_buffer.view = app->game_world->camera.to_matrix();
+    app->scene.scene_buffer.proj =
+        app_mem->input.keys['U'] ?
+        glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f,  -1000.0f, 1000.f) :
+        glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
+    app->scene.scene_buffer.proj[1][1] *= -1.0f;
+
+    app->scene.scene_buffer.scene = glm::mat4{0.5f};
+    app->scene.scene_buffer.light_pos = v4f{3,13,3,0};
+    app->scene.scene_buffer.light_col = v4f{0.2f, 0.1f, 0.8f, 1.0f};
+    app->scene.scene_buffer.light_KaKdKs = v4f{0.5f};
+
+    app->scene.object_buffer.color = v4f{1.0f};
 
     // draw gui 
 
@@ -504,7 +656,7 @@ app_on_update(app_memory_t* app_mem) {
         "2D Index",
     };
 
-    app->gui.main_panel->text_widgets[0].text.own(&app->string_arena, fmt_str(" {:.2f} - {:.2f} ms", 1.0f / app_mem->input.dt, app_mem->input.dt).c_str());
+    app->gui.main_panel->text_widgets[0].text.own(&app->string_arena, fmt_str(" {:.2f} - {:.2f} ms", 1.0f / app_mem->input.dt, app_mem->input.dt * 1000.0f).c_str());
     for (size_t i = 1; i < array_count(display_arenas); i++) {
         app->gui.main_panel->text_widgets[i].text.own(&app->string_arena, arena_display_info(display_arenas[i], display_arena_names[i]).c_str());
     }
@@ -524,48 +676,76 @@ app_on_update(app_memory_t* app_mem) {
         app->gui.main_panel->next->text_widgets[i].text.view(display_mesh_info[i].c_str());
     }
 
-    gfx::gui::ctx_clear(
-        &app->gui.ctx
-    );
+    gfx::gui::ctx_clear(&app->gui.ctx);
 
-    gfx::gui::panel_render(
-        &app->gui.ctx,
-        app->gui.main_panel
-    );
+    gfx::gui::panel_render(&app->gui.ctx, app->gui.main_panel);
 
     gfx::gui::string_render(
         &app->gui.ctx, 
         string_t{}.view(fmt_str("Lighting Mode: {}", app->scene.sporadic_buffer.use_lighting).c_str()),
         v2f{10.0f, 300.0f}
     );
+    
+    app->time_text_anim -= app_mem->input.dt;
+    if (app->time_text_anim > 0.0f) {
+        gfx::gui::string_render(
+            &app->gui.ctx, 
+            string_t{}.view(fmt_str("Time Scale: {}", app->time_scale).c_str()),
+            v2f{10.0f, 320.0f}, gfx::color::to_color32(v4f{0.80f, .9f, 1.0f, app->time_text_anim})
+        );
+    }
+
+    const m44 vp = 
+        app->scene.scene_buffer.proj *
+        app->scene.scene_buffer.view;
+
+    {
+        app->scene.scene_buffer.light_pos.w = 1.0f;
+        v4f sp = vp * app->scene.scene_buffer.light_pos;
+
+        sp /= sp.w;
+        sp.x = sp.x * 0.5f + 0.5f;
+        sp.y = sp.y * 0.5f + 0.5f;
+
+        gfx::gui::string_render(
+            &app->gui.ctx, 
+            string_t{}.view("Light"),
+            v2f{sp.x, sp.y} * app->gui.ctx.screen_size, 
+            gfx::color::to_color32(v4f{0.90f, .9f, 0.60f, 1.0f})
+        );
+    }
+
+    for (size_t pool = 0; pool < game::pool_count(); pool++)  {
+        for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
+
+            v4f sp = vp * v4f{e->global_transform().origin, 1.0f};
+
+            sp /= sp.w;
+            sp.x = sp.x * 0.5f + 0.5f;
+            sp.y = sp.y * 0.5f + 0.5f;
+            
+
+            gfx::gui::string_render(
+                &app->gui.ctx, 
+                e->name.c_data ? 
+                string_t{}.view(fmt_str("Entity: {}", std::string_view{e->name}).c_str()) :
+                string_t{}.view(fmt_str("Entity: {}", (void*)e).c_str()),
+                v2f{sp.x, sp.y} * app->gui.ctx.screen_size, 
+                gfx::color::to_color32(v4f{0.80f, .9f, 1.0f, 1.0f})
+            );
+        }
+    }
 
     arena_set_mark(&app->string_arena, string_mark);
 
-    // update uniforms
-
-    app->scene.sporadic_buffer.num_instances = 1;
-
-    const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
-
-    app->scene.scene_buffer.time = app_mem->input.time;
-    app->scene.scene_buffer.view = app->camera.to_matrix();
-    app->scene.scene_buffer.proj = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
-    app->scene.scene_buffer.proj[1][1] *= -1.0f;
-
-    app->scene.scene_buffer.scene = glm::mat4{0.5f};
-    app->scene.scene_buffer.light_pos = v4f{3,13,3,0};
-    app->scene.scene_buffer.light_col = v4f{0.2f, 0.1f, 0.8f, 1.0f};
-    app->scene.scene_buffer.light_KaKdKs = v4f{0.5f};
-
-    app->scene.object_buffer.model = m44{1.0f};
-    app->scene.object_buffer.color = v4f{1.0f};
-    app->scene.object_buffer.shininess = 2.0f;
 
     *vk_gfx.scene_uniform_buffer.data = app->scene.scene_buffer;
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
     *vk_gfx.object_uniform_buffer.data = app->scene.object_buffer;
-
+    *app->scene.debug_scene_uniform_buffer.data = app->scene.scene_buffer;
     // render
+
+    app->debug.debug_vertices.pool.clear();
         
     vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0], VK_TRUE, UINT64_MAX);
     vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0]);
@@ -585,15 +765,19 @@ app_on_update(app_memory_t* app_mem) {
         gen_error("vulkan:record_command", "failed to begin recording command buffer!");
         std::terminate();
     }
-
-    vk_gfx.record_command_buffer(vk_gfx.command_buffer, imageIndex, [&]{
+    
+    vk_gfx.record_pipeline_commands(
+        app->mesh_pipeline->pipeline, 
+        app->mesh_pipeline->render_passes[0],
+        app->mesh_pipeline->framebuffers[imageIndex],
+        vk_gfx.command_buffer, imageIndex, [&]{
 
         vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-            VK_PIPELINE_BIND_POINT_GRAPHICS, vk_gfx.pipeline_layout,
-            0, 3, vk_gfx.descriptor_sets, 0, nullptr);
+            VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
+            0, 3, app->mesh_pipeline->descriptor_sets, 0, nullptr);
 
         vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-            VK_PIPELINE_BIND_POINT_GRAPHICS, vk_gfx.pipeline_layout,
+            VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
             3, 1, &app->brick_descriptor, 0, nullptr);
 
         VkBuffer buffers[1] = { app->vertices.buffer };
@@ -609,44 +793,84 @@ app_on_update(app_memory_t* app_mem) {
         const u32 instance_count = 1;
         const u32 first_instance = 0;
 
-        // loop through type erased pools
-        for (size_t pool = 0; pool < game::pool_count(); pool++)  {
-            for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
-                if (e->flags & game::entity::EntityFlags_Renderable) { continue; }
-                
-                const auto& meshes = app->mesh_cache.get(app->debug.mesh_index%app->mesh_cache.meshes.size());
+        const auto draw = [&](game::entity::entity_t* e) {
+            const auto& meshes = app->mesh_cache.get(e->gfx.mesh_id%app->mesh_cache.meshes.size());
+            gfx::vul::object_push_constants_t push_constants;
 
-                gfx::vul::object_push_constants_t push_constants;
-                push_constants.model = e->global_transform().to_matrix();
-                push_constants.material.albedo = gfx::color::v4::green;
+            if ((e->flags & game::entity::EntityFlags_Renderable) == 0) { 
+                gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
+                return;
+            }
 
-                // push constants cannot be bigger
-                static_assert(sizeof(push_constants) <= 256);
-                vkCmdPushConstants(vk_gfx.command_buffer, vk_gfx.pipeline_layout,
-                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
-                    0, sizeof(gfx::vul::object_push_constants_t), &push_constants
+            push_constants.model = e->global_transform().to_matrix();
+            push_constants.material.albedo = gfx::color::v4::green;
+
+            // push constants cannot be bigger
+            static_assert(sizeof(push_constants) <= 256);
+            vkCmdPushConstants(vk_gfx.command_buffer, app->mesh_pipeline->pipeline_layout,
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+                0, sizeof(gfx::vul::object_push_constants_t), &push_constants
+            );
+        
+            for (size_t j = 0; j < meshes.count; j++) {
+                app->debug.draw_aabb(
+                    e->global_transform().xform_aabb(meshes.meshes[j].aabb),
+                    gfx::color::v3::red
                 );
-            
-                for (size_t j = 0; j < meshes.count; j++) {
-                    if (meshes.meshes[j].index_count) {
-                        vkCmdDrawIndexed(vk_gfx.command_buffer,
-                            meshes.meshes[j].index_count,
-                            instance_count, 
-                            meshes.meshes[j].index_start,
-                            meshes.meshes[j].vertex_start,
-                            first_instance           
-                        );
-                    } else {
-                        vkCmdDraw(vk_gfx.command_buffer,
-                            meshes.meshes[j].vertex_count,
-                            meshes.meshes[j].instance_count,
-                            meshes.meshes[j].vertex_start,
-                            meshes.meshes[j].instance_start
-                        );
-                    }
+                if (meshes.meshes[j].index_count) {
+                    vkCmdDrawIndexed(vk_gfx.command_buffer,
+                        meshes.meshes[j].index_count,
+                        instance_count, 
+                        meshes.meshes[j].index_start,
+                        meshes.meshes[j].vertex_start,
+                        first_instance           
+                    );
+                } else {
+                    vkCmdDraw(vk_gfx.command_buffer,
+                        meshes.meshes[j].vertex_count,
+                        meshes.meshes[j].instance_count,
+                        meshes.meshes[j].vertex_start,
+                        meshes.meshes[j].instance_start
+                    );
                 }
             }
+        };
+
+        // loop through type erased pools
+        draw(&app->game_world->player);                
+        for (size_t pool = 0; pool < game::pool_count(); pool++)  {
+            for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
+                draw(e);                
+            }
         }
+    });
+
+    
+    vk_gfx.record_pipeline_commands(
+        app->debug_pipeline->pipeline, app->debug_pipeline->render_passes[0],
+        app->debug_pipeline->framebuffers[imageIndex],
+        vk_gfx.command_buffer, imageIndex, 
+        [&]{
+
+        vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+            VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline_layout,
+            0, 1, app->debug_pipeline->descriptor_sets, 0, nullptr);
+
+        VkBuffer buffers[1] = { app->debug.debug_vertices.buffer };
+        VkDeviceSize offsets[1] = { 0 };
+
+        vkCmdBindVertexBuffers(vk_gfx.command_buffer,
+            0, 1, buffers, offsets);
+
+        const u32 instance_count = 1;
+        const u32 first_instance = 0;
+
+        vkCmdDraw(vk_gfx.command_buffer,
+            (u32)app->debug.debug_vertices.pool.count,
+            1, // instance count
+            0, // vertex start
+            0 // instance start
+        );
     });
 
     vk_gfx.record_pipeline_commands(
@@ -714,4 +938,175 @@ app_on_update(app_memory_t* app_mem) {
     presentInfo.pResults = nullptr; // Optional
 
     vkQueuePresentKHR(vk_gfx.present_queue, &presentInfo);
+}
+
+void
+main_menu_on_update(app_memory_t* app_mem) {
+    // utl::profile_t p{"on_update"};
+    app_t* app = get_app(app_mem);
+
+    app_mem->input.dt *= app->time_scale;
+
+    gfx::vul::state_t& vk_gfx = app->gfx;
+
+    // note(zack): print the first 3 frames, if 
+    // a bug shows up its helpful to know if 
+    // maybe it only happens on the second frame
+    local_persist u32 frame_count = 0;
+    if (frame_count++ < 3) {
+        gen_info("app::on_update", "frame: {}", frame_count);
+    }
+
+    app->scene.sporadic_buffer.num_instances = 1;
+
+    const f32 w = (f32)app_mem->config.window_size[0];
+    const f32 h = (f32)app_mem->config.window_size[1];
+    const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
+
+    app->scene.scene_buffer.time = app_mem->input.time;
+    app->scene.scene_buffer.view = app->game_world->camera.to_matrix();
+    app->scene.scene_buffer.proj =
+        app_mem->input.keys['U'] ?
+        glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f,  -1000.0f, 1000.f) :
+        glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
+    app->scene.scene_buffer.proj[1][1] *= -1.0f;
+
+    app->scene.scene_buffer.scene = glm::mat4{0.5f};
+    app->scene.scene_buffer.light_pos = v4f{3,13,3,0};
+    app->scene.scene_buffer.light_col = v4f{0.2f, 0.1f, 0.8f, 1.0f};
+    app->scene.scene_buffer.light_KaKdKs = v4f{0.5f};
+
+    app->scene.object_buffer.color = v4f{1.0f};
+
+    // draw gui 
+
+    auto string_mark = arena_get_mark(&app->string_arena);
+
+    gfx::gui::ctx_clear(
+        &app->gui.ctx
+    );
+
+    gfx::gui::string_render(
+        &app->gui.ctx, 
+        string_t{}.view("Play"),
+        app->gui.ctx.screen_size/2.0f
+    );
+
+    arena_set_mark(&app->string_arena, string_mark);
+
+    *vk_gfx.scene_uniform_buffer.data = app->scene.scene_buffer;
+    *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
+    *vk_gfx.object_uniform_buffer.data = app->scene.object_buffer;
+    *app->scene.debug_scene_uniform_buffer.data = app->scene.scene_buffer;
+    // render
+
+    app->debug.debug_vertices.pool.clear();
+        
+    vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0], VK_TRUE, UINT64_MAX);
+    vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0]);
+
+    u32 imageIndex;
+    vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
+        vk_gfx.image_available_semaphore, VK_NULL_HANDLE, &imageIndex);
+
+    vkResetCommandBuffer(vk_gfx.command_buffer, 0);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0; // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+
+    if (vkBeginCommandBuffer(vk_gfx.command_buffer, &beginInfo) != VK_SUCCESS) {
+        gen_error("vulkan:record_command", "failed to begin recording command buffer!");
+        std::terminate();
+    }
+
+    vk_gfx.record_command_buffer(vk_gfx.command_buffer, imageIndex, [&]{
+
+    });
+
+    
+    vk_gfx.record_pipeline_commands(
+        app->gui_pipeline->pipeline, app->gui_pipeline->render_passes[0],
+        app->gui_pipeline->framebuffers[imageIndex],
+        vk_gfx.command_buffer, imageIndex, 
+        [&]{
+            vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+                VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
+                0, 1, &app->default_font_descriptor, 0, nullptr);
+
+            VkDeviceSize offsets[1] = { 0 };
+            vkCmdBindVertexBuffers(vk_gfx.command_buffer,
+                0, 1, &app->gui.vertices.buffer, offsets);
+
+            vkCmdBindIndexBuffer(vk_gfx.command_buffer,
+                app->gui.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+            vkCmdDrawIndexed(vk_gfx.command_buffer,
+                (u32)app->gui.ctx.indices->count,
+                1,
+                0,
+                0,
+                0
+            );
+    });
+    
+    if (vkEndCommandBuffer(vk_gfx.command_buffer) != VK_SUCCESS) {
+        gen_error("vulkan:record_command:end", "failed to record command buffer!");
+        std::terminate();
+    }
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore waitSemaphores[] = {vk_gfx.image_available_semaphore};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &vk_gfx.command_buffer;
+
+    VkSemaphore signalSemaphores[] = {vk_gfx.render_finished_semaphore};
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+    if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[0]) != VK_SUCCESS) {
+        gen_error("vk:submit", "failed to submit draw command buffer!");
+        std::terminate();
+    }
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signalSemaphores;
+
+    VkSwapchainKHR swapChains[] = {vk_gfx.swap_chain};
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+    presentInfo.pImageIndices = &imageIndex;
+
+    presentInfo.pResults = nullptr; // Optional
+
+    vkQueuePresentKHR(vk_gfx.present_queue, &presentInfo);
+}
+
+export_fn(void) 
+app_on_update(app_memory_t* app_mem) {
+    local_persist u64 scene_state = 0;
+    if (app_mem->input.keys[257 /*enter*/]) {
+        scene_state = 1;
+    }
+    switch (scene_state) {
+        case 0: // Main Menu
+            main_menu_on_update(app_mem);
+            break;
+        case 1: // Game
+            game_on_update(app_mem);
+            break;
+        default:
+            gen_warn("scene", "Unknown scene: {}", scene_state);
+    }
 }

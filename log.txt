@@ -1,38 +1,86 @@
-UNASSIGNED-khronos-validation-createinstance-status-message(INFO / SPEC): msgNum: -671457468 - Validation Information: [ UNASSIGNED-khronos-validation-createinstance-status-message ] Object 0: handle = 0x116995d2e10, type = VK_OBJECT_TYPE_INSTANCE; | MessageID = 0xd7fa5f44 | Khronos Validation Layer Active:
-    Settings File: Found at C:\Users\crazy\AppData\Local\LunarG\vkconfig\override\vk_layer_settings.txt specified by VkConfig application override.
-    Current Enables: None.
-    Current Disables: VK_VALIDATION_FEATURE_DISABLE_THREAD_SAFETY_EXT.
-
-    Objects: 1
-        [0] 0x116995d2e10, type: 1, name: NULL
 [1m[38;2;255;255;255m[info][win32]: Loading Platform Layer
 [0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./assets/audio/unlock.wav
 [0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 0
 [0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Unload Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Unload Threaded Process
 [0m
 Found 2 GLFW Required Instance Extensions:
 	VK_KHR_surface
 	VK_KHR_win32_surface
 [1m[38;2;255;255;255m[info][win32]: Platform Initialization Completed
+[0m[1m[38;2;255;255;255m[info][init]: init physx
+[0m[1m[38;2;255;255;255m[info][px::alloc]: Foundation::allocate: 472 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\src\PsFoundation.cpp:141
+[0m[1m[38;2;255;255;255m[info][px::alloc]: ::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 1216 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: ::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: ::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: ::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::NpPhysics::allocate: 224 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physx\src\NpPhysics.cpp:221
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NpMaterialManager::initialise::allocate: 1024 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physx\src\NpMaterialManager.h:46
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 1216 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::NpFactory::allocate: 7464 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physx\src\NpFactory.cpp:101
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 832 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 832 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 832 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 832 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::NpPtrTableStorageManager::allocate: 1720 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physx\src\NpFactory.cpp:51
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 832 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 832 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 832 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 832 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 832 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsHashInternals.h:372
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::MutexImpl::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsMutex.h:113
+[0m[1m[38;2;255;255;255m[info][px::alloc]: FactoryListeners::allocate: 8 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsArray.h:566
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::Ext::DefaultCpuDispatcher::allocate: 64 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physxextensions\src\ExtDefaultCpuDispatcher.cpp:39
+[0m[1m[38;2;255;255;255m[info][px::alloc]: struct physx::shdfnd::SListImpl::allocate: 16 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsSList.h:103
+[0m[1m[38;2;255;255;255m[info][px::alloc]: SharedQueueEntryPool::allocate: 4119 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physxextensions\src\ExtSharedQueueEntryPool.h:87
+[0m[1m[38;2;255;255;255m[info][px::alloc]: struct physx::shdfnd::SListImpl::allocate: 16 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsSList.h:103
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::SyncImpl::allocate: 8 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsSync.h:95
+[0m[1m[38;2;255;255;255m[info][px::alloc]: ThreadAffinityMasks::allocate: 8 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physxextensions\src\ExtDefaultCpuDispatcher.cpp:64
+[0m[1m[38;2;255;255;255m[info][px::alloc]: CpuWorkerThread::allocate: 128 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physxextensions\src\ExtDefaultCpuDispatcher.cpp:71
+[0m[1m[38;2;255;255;255m[info][px::alloc]: CpuWorkerThreadName::allocate: 64 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physxextensions\src\ExtDefaultCpuDispatcher.cpp:73
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::ThreadImpl::allocate: 56 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsThread.h:229
+[0m[1m[38;2;255;255;255m[info][px::alloc]: struct physx::shdfnd::SListImpl::allocate: 16 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsSList.h:103
+[0m[1m[38;2;255;255;255m[info][px::alloc]: SharedQueueEntryPool::allocate: 4119 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physxextensions\src\ExtSharedQueueEntryPool.h:87
+[0m[1m[38;2;255;255;255m[info][px::alloc]: struct physx::shdfnd::SListImpl::allocate: 16 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsSList.h:103
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::shdfnd::ThreadImpl::allocate: 56 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsThread.h:229
+[0m[1m[38;2;255;255;255m[info][px::alloc]: struct physx::shdfnd::SListImpl::allocate: 16 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsSList.h:103
+[0m[1m[38;2;255;255;255m[info][px::alloc]: SharedQueueEntryPool::allocate: 4119 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physxextensions\src\ExtSharedQueueEntryPool.h:87
+[0m[1m[38;2;255;255;255m[info][px::alloc]: struct physx::shdfnd::SListImpl::allocate: 16 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsSList.h:103
+[0m[1m[38;2;255;255;255m[info][px::free]: deallocate: 8 bytes
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::Cooking::allocate: 56 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\physxcooking\src\Cooking.cpp:543
 [0m[1m[38;2;255;255;255m[info][res]: Loaded Resource File: ./assets/res.pack
-[0m[1m[38;2;255;255;255m[info][res]: Asset File contains: 9 files
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\data\config.txt - 49
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\fonts\go\GO.txt - 1920
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\evergreen_01.obj - 1133952
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\katana.obj - 13483
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\lucy.obj - 1243052
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\ring_ruin.obj - 133349
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\ship_001.obj - 101927
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\spaceship_02.obj - 62232
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets\models\utah-teapot.obj - 149129
-[0m[1m[38;2;255;255;255m[info][app]: Pack file test: 8
-[0m[1m[38;2;255;255;255m[info][app]: Pack file test: 4
+[0m[1m[38;2;255;255;255m[info][res]: Asset File contains: 15 files
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/data/config.txt - 49
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/fonts/go/GO.txt - 1920
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/capsule.obj - 41306
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/evergreen_01.obj - 1133952
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/katana.obj - 13483
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/lucy.obj - 1243052
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/ring_ruin.obj - 133349
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/room_0.obj - 4156
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/room_0.obj.trimesh.physx - 1296
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/ship_001.obj - 101927
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/spaceship_02.obj - 62232
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/sphere.obj - 36178
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/utah-teapot.obj - 149129
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/utah-teapot.obj.convex.physx - 12768
+[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/physx_defs.json - 138
 [0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 13
 [0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_optimus
@@ -50,22 +98,19 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_win32_surface
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_EXT_debug_utils
 [0m[1m[38;2;255;255;255m[info][vulkan]: 3 extensions loaded
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][vulkan]: instance created
+[0mUNASSIGNED-khronos-validation-createinstance-status-message(INFO / SPEC): msgNum: -671457468 - Validation Information: [ UNASSIGNED-khronos-validation-createinstance-status-message ] Object 0: handle = 0x252460beaf0, type = VK_OBJECT_TYPE_INSTANCE; | MessageID = 0xd7fa5f44 | Khronos Validation Layer Active:
+    Settings File: Found at C:\Users\crazy\AppData\Local\LunarG\vkconfig\override\vk_layer_settings.txt specified by VkConfig application override.
+    Current Enables: None.
+    Current Disables: VK_VALIDATION_FEATURE_DISABLE_THREAD_SAFETY_EXT.
+
+    Objects: 1
+        [0] 0x252460beaf0, type: 1, name: NULL
+[1m[38;2;255;255;255m[info][vulkan]: instance created
 [0m[1m[38;2;255;255;255m[info][vulkan]: created surface.
 [0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 112
 [0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 154
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
 [0m[1m[38;2;255;255;255m[info][vulkan]: created logical device
 [0m[1m[38;2;255;255;255m[info][vulkan]: created device.
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
 [0m[1m[38;2;255;255;255m[info][vulkan]: created swap chain.
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (160): i = 7 *****
@@ -104,9 +149,14 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (130): i = 7 *****
 
-[0m[1m[38;2;255;255;255m[info][dll_main]: DLL Load Threaded Process
 [0m[1m[38;2;255;255;255m[info][vk]: vkCreateDescriptorPool
 [0m[1m[38;2;255;255;255m[info][vulkan]: init finished
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
@@ -139,4 +189,66 @@ Found 2 GLFW Required Instance Extensions:
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 120000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.al
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 2400000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 960000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 240000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Sphere.001
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube.001
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube_Cube.004_Cube_Cube.004_Handle
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube_Cube.004_Cube_Cube.004_Blade
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: lucy
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cylinder.001_Cylinder.002
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: colmftr2co_2_001
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: _Gray6_
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube.001
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Sphere
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Utah_Teapot_Quads
+[0m[1m[38;2;255;255;255m[info][px::alloc]: typeless::allocate: 4096 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsPool.h:180
+[0m[1m[38;2;255;255;255m[info][px::alloc]: MaterialPool::allocate: 4096 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsPool.h:180
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::Gu::ConvexMesh::allocate: 168 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\GuMeshFactory.cpp:524
+[0m[1m[38;2;255;255;255m[info][px::alloc]: ConvexHullData data::allocate: 8596 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\convex\GuConvexMesh.cpp:199
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::BigConvexData::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\convex\GuConvexMesh.cpp:351
+[0m[1m[38;2;255;255;255m[info][px::alloc]: BigConvex Samples Data::allocate: 3072 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\convex\GuBigConvexData.cpp:161
+[0m[1m[38;2;255;255;255m[info][px::alloc]: BigConvexData data::allocate: 1296 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\convex\GuBigConvexData.cpp:99
+[0m[1m[38;2;255;255;255m[info][px::alloc]: typeless::allocate: 4096 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\foundation\include\PsPool.h:180
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::Gu::RTreeTriangleData::allocate: 240 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\GuMeshFactory.cpp:170
+[0m[1m[38;2;255;255;255m[info][px::alloc]: PxVec3::allocate: 348 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\mesh\GuMeshData.h:148
+[0m[1m[38;2;255;255;255m[info][px::alloc]: mTriangles::allocate: 288 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\mesh\GuMeshData.h:228
+[0m[1m[38;2;255;255;255m[info][px::alloc]: unsigned int::allocate: 192 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\mesh\GuMeshData.h:215
+[0m[1m[38;2;255;255;255m[info][px::alloc]: NonTrackedAlloc::allocate: 695 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\mesh\GuRTree.cpp:87
+[0m[1m[38;2;255;255;255m[info][px::alloc]: unsigned char::allocate: 48 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\mesh\GuMeshData.h:247
+[0m[1m[38;2;255;255;255m[info][px::alloc]: class physx::Gu::RTreeTriangleMesh::allocate: 256 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\GuMeshFactory.cpp:115
+[0m[1m[38;2;255;255;255m[info][px::free]: deallocate: 240 bytes
+[0m[1m[38;2;255;255;255m[info][px::alloc]: MaterialIndicesStruct::allocate::allocate: 2 bytes from C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx\source\geomutils\src\GuGeometryUnion.h:109
+[0m[1m[38;2;255;255;255m[info][app::on_update]: frame: 1
+[0m[1m[38;2;255;255;255m[info][app::on_update]: frame: 2
+[0m[1m[38;2;255;255;255m[info][app::on_update]: frame: 3
+[0m[1m[38;2;255;255;255m[info][app::on_update]: frame: 1
+[0m[1m[38;2;255;255;255m[info][app::on_update]: frame: 2
+[0m[1m[38;2;255;255;255m[info][app::on_update]: frame: 3
+[0mVUID-vkDestroySemaphore-semaphore-01137(ERROR / SPEC): msgNum: -1588160456 - Validation Error: [ VUID-vkDestroySemaphore-semaphore-01137 ] Object 0: handle = 0x252468bffe0, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0xa1569838 | Cannot call vkDestroySemaphore on VkSemaphore 0x2e2cd000000002b[] that is currently in use by a command buffer. The Vulkan spec states: All submitted batches that refer to semaphore must have completed execution (https://vulkan.lunarg.com/doc/view/1.3.236.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroySemaphore-semaphore-01137)
+    Objects: 1
+        [0] 0x252468bffe0, type: 3, name: NULL

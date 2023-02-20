@@ -5,6 +5,11 @@
             "label": "debug",
             "type": "shell",
             "command": "build.bat win32 game"
+        },
+        {
+            "label": "debugs",
+            "type": "shell",
+            "command": "build.bat tests"
         }
     ]
 }

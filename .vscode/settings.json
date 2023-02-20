@@ -103,7 +103,8 @@
       "source_location": "cpp",
       "ranges": "cpp",
       "span": "cpp",
-      "semaphore": "cpp"
+      "semaphore": "cpp",
+      "cinttypes": "cpp"
     },
     "cmake.configureOnOpen": false
 }

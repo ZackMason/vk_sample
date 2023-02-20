@@ -57,10 +57,9 @@ struct texture_2d_t {
 };
 
 struct object_buffer_t {
-    m44     model;
-    v4f     color;
-    float   shininess;
+    v4f color;
 };
+
 
 struct object_push_constants_t {
     m44         model;
@@ -82,6 +81,11 @@ struct sporadic_buffer_t {
     int use_lighting;
     int num_instances;
     int padd;
+};
+
+struct debug_line_vertex_t {
+    v3f pos{};
+    v3f col{};
 };
 
 struct pipeline_state_t {
@@ -488,80 +492,6 @@ std::string error_string(VkResult errorCode);
 
 }; // namespace utl
 
-pipeline_state_t*
-create_gui_pipeline(arena_t* arena, state_t* state) {
-    pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
-
-    pipeline->framebuffer_count = safe_truncate_u64(state->world_framebuffers.size());
-    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->world_framebuffers.size());
-
-    const auto stack_mark = arena_get_mark(arena); 
-    pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
-
-    create_info->vertex_shader = "./assets/shaders/bin/gui.vert.spv";
-    create_info->fragment_shader = "./assets/shaders/bin/gui.frag.spv";
-
-    create_info->attachment_count = 2;
-    create_info->attachment_descriptions[0] = utl::attachment_description(
-        state->swap_chain_image_format,
-        VK_ATTACHMENT_LOAD_OP_LOAD,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    );
-    
-    create_info->attachment_descriptions[1] = utl::attachment_description(
-        VK_FORMAT_D32_SFLOAT_S8_UINT,
-        VK_ATTACHMENT_LOAD_OP_CLEAR,
-        VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-    );
-
-    create_info->vertex_input_binding_count = 1;
-    create_info->vertex_input_binding_descriptions[0] = utl::vertex_input_binding_description(
-        0, sizeof(gui::vertex_t), VK_VERTEX_INPUT_RATE_VERTEX
-    );
-    create_info->vertex_input_attribute_count = 4;
-    create_info->vertex_input_attribute_description[0] = utl::vertex_input_attribute_description(
-        0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(gui::vertex_t, pos)
-    );
-    create_info->vertex_input_attribute_description[1] = utl::vertex_input_attribute_description(
-        0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(gui::vertex_t, tex)
-    );
-    create_info->vertex_input_attribute_description[2] = utl::vertex_input_attribute_description(
-        0, 2, VK_FORMAT_R32_UINT, offsetof(gui::vertex_t, img)
-    );
-    create_info->vertex_input_attribute_description[3] = utl::vertex_input_attribute_description(
-        0, 3, VK_FORMAT_R32_UINT, offsetof(gui::vertex_t, col)
-    );
-
-    VkDescriptorImageInfo vdii[64];
-
-    create_info->descriptor_count = 1;
-    create_info->descriptor_flags[0] = pipeline_state_t::create_info_t::DescriptorFlag_Sampler;
-    create_info->descriptor_set_layout_bindings[0] = utl::descriptor_set_layout_binding(
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, array_count(vdii)
-    );
-
-    state->create_pipeline_state_descriptors(pipeline, create_info);
-
-    for (size_t i = 0; i < array_count(vdii); i++) {
-        vdii[i].sampler = state->null_texture.sampler;
-        vdii[i].imageView = state->null_texture.image_view;
-        vdii[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    }
-
-    create_info->write_descriptor_sets[0] = utl::write_descriptor_set(
-        pipeline->descriptor_sets[0], 
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, vdii, array_count(vdii)
-    );
-    
-    state->create_pipeline_state(pipeline, create_info);
-    arena_set_mark(arena, stack_mark); 
-
-    return pipeline;
-}
 
 
 };
