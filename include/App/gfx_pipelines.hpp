@@ -16,8 +16,8 @@ pipeline_state_t*
 create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t& buffers) {
     pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
 
-    pipeline->framebuffer_count = safe_truncate_u64(state->world_framebuffers.size());
-    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->world_framebuffers.size());
+    pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
+    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
 
     const auto stack_mark = arena_get_mark(arena); 
     pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
@@ -141,8 +141,8 @@ pipeline_state_t*
 create_gui_pipeline(arena_t* arena, state_t* state) {
     pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
 
-    pipeline->framebuffer_count = safe_truncate_u64(state->world_framebuffers.size());
-    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->world_framebuffers.size());
+    pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
+    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
 
     const auto stack_mark = arena_get_mark(arena); 
     pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
@@ -216,8 +216,8 @@ pipeline_state_t*
 create_debug_pipeline(arena_t* arena, state_t* state, VkBuffer scene_buffer, size_t scene_buffer_size) {
     pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
 
-    pipeline->framebuffer_count = safe_truncate_u64(state->world_framebuffers.size());
-    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->world_framebuffers.size());
+    pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
+    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
 
     const auto stack_mark = arena_get_mark(arena); 
     pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);

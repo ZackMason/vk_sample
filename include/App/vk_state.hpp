@@ -155,15 +155,7 @@ struct state_t {
     VkFormat swap_chain_image_format;
     VkExtent2D swap_chain_extent;
 
-    VkRenderPass render_pass;
-    VkPipelineLayout pipeline_layout;
-    VkPipeline graphics_pipeline;
-
     VkDescriptorPool descriptor_pool;
-    VkDescriptorSetLayout descriptor_set_layouts[4];
-    VkDescriptorSet descriptor_sets[4];
-
-    std::vector<VkFramebuffer> world_framebuffers;
 
     VkCommandPool command_pool;
     VkCommandBuffer command_buffer;
@@ -197,17 +189,12 @@ struct state_t {
     void create_swap_chain(int width, int height);
     void create_image_views();
     void create_depth_stencil_image(texture_2d_t* texture, int width, int height);
-    void create_graphics_pipeline();
-    void create_render_pass();
-    void create_framebuffers();
+    
     void create_command_pool();
     void create_command_buffer();
     void create_sync_objects();
     
-    void create_gui_descriptor_sets();
     void create_descriptor_set_pool();
-    void create_descriptor_set_layouts();
-    void create_descriptor_sets();
 
     void transistion_image_layout(texture_2d_t* texture, VkImageLayout new_layout);
 
