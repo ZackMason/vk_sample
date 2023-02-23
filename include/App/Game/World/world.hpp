@@ -54,12 +54,14 @@ namespace game {
 
     inline game::entity::entity_t*
     world_create_entity(world_t* world, u64 pool = 0) {
-        return get_pool(world, pool)->alloc(world->arena);
+        auto* e = get_pool(world, pool)->alloc(world->arena);
+        e->pool_id = pool;
+        return e;
     }
 
     inline void
     world_destroy_entity(world_t* world, game::entity::entity_t*& e) {
-        world->entity_pools.entities.free(e);
+        get_pool(world, e->pool_id)->free(e);
     }
 
     

@@ -99,11 +99,11 @@ struct pipeline_state_t {
         std::string_view vertex_shader{};
         std::string_view fragment_shader{};
 
-        VkPrimitiveTopology topology{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-        VkPolygonMode       fill_mode{VK_POLYGON_MODE_FILL};
-        VkCullModeFlagBits  cull_mode{VK_CULL_MODE_NONE};
+        VkPrimitiveTopology     topology{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+        VkPolygonMode           fill_mode{VK_POLYGON_MODE_FILL};
+        VkCullModeFlagBits      cull_mode{VK_CULL_MODE_NONE};
         VkAttachmentDescription attachment_descriptions[6];
-        u32                  attachment_count{2};
+        u32                     attachment_count{2};
 
         VkVertexInputBindingDescription     vertex_input_binding_descriptions[8];
         u32                                 vertex_input_binding_count{0};
@@ -128,10 +128,10 @@ struct pipeline_state_t {
     VkRenderPass        render_passes[8];
     u32                 render_pass_count{1};
     VkFramebuffer*      framebuffers{0};
-    u32              framebuffer_count{0};
+    u32                 framebuffer_count{0};
 
     // descriptors
-    u32                  descriptor_count{};
+    u32                     descriptor_count{0};
     VkDescriptorSetLayout   descriptor_set_layouts[5];
     VkDescriptorSet         descriptor_sets[5];
 };
@@ -144,6 +144,7 @@ struct state_t {
     VkPhysicalDeviceFeatures device_features{};
 
     VkQueue gfx_queue;
+    VkQueue compute_queue;
     VkQueue present_queue;
 
     VkSurfaceKHR surface;

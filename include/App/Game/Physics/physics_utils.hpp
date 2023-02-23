@@ -18,12 +18,13 @@ class arena_heap_t : public physx::PxAllocatorCallback {
     };
 
     std::mutex mut{};
-    arena_t arena{};
     arena_t heap_arena{};
     mem_block_t* heap{nullptr};
     mem_block_t* empty_block{nullptr};
 
 public:
+    arena_t arena{};
+    
     arena_heap_t(arena_t& parent_arena, size_t size) {
         arena = arena_sub_arena(&parent_arena, size);
         arena.start = (std::byte*)align16((std::uintptr_t)arena.start);

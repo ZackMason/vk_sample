@@ -42,6 +42,27 @@ void __cdecl load_sound(const char* path) {
 
 }
 
+void 
+create_meta_data_dir() {
+    char* app_data_path;
+    size_t path_size;
+    const errno_t err = _dupenv_s(&app_data_path, &path_size, "APPDATA");
+    if (err) {
+        gen_error("save", "Get Env Error: {}, cant save", err);
+        std::terminate(); // need to be warned of this
+    }
+
+    const std::string meta_path = fmt_str("{}/estella", std::string_view{app_data_path, path_size-1});
+    
+    gen_info("save", "Save File Path: {}", meta_path);
+    if (!std::filesystem::exists(meta_path)) {
+        gen_info("save", "Creating save directory");
+        std::filesystem::create_directory(meta_path);
+    }
+
+    free(app_data_path);
+}
+
 GLFWwindow* 
 init_glfw(app_memory_t* app_mem) {
     glfwInit();
@@ -88,78 +109,76 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
 
     app_mem->input.mouse.delta[0] = mouse[0] - last_input.mouse.pos[0];
     app_mem->input.mouse.delta[1] = mouse[1] - last_input.mouse.pos[1];
-
-    for (int i = 0; i < array_count(app_mem->input.keys); i++) {
+    
+    loop_stoa(i, array_count(app_mem->input.keys)) {
         if (i < array_count(app_mem->input.mouse.buttons)) {
             app_mem->input.mouse.buttons[i] = glfwGetMouseButton(window, i) == GLFW_PRESS;
         }
-
-        if (i <= GLFW_JOYSTICK_LAST && i < array_count(app_mem->input.gamepads)) {
-            const int present = glfwJoystickPresent(i);
-            auto& gamepad = app_mem->input.gamepads[i];
-            if (present) {
-                GLFWgamepadstate state;
-                if (glfwJoystickIsGamepad(i) && glfwGetGamepadState(i, &state)) {
-                    loop_itoa(a, GLFW_GAMEPAD_AXIS_LAST + 1) {
-                        if (std::fabs(state.axes[a]) < 0.1f) { // deadzone
-                            state.axes[a] = 0.0f;
-                        }
-                        // gen_info("input", "axis[{}]:{}", a, axes_[a]);
-                    }
-                                    
-                    gamepad.left_stick.x    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
-                    gamepad.left_stick.y    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
-                    gamepad.right_stick.x   = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
-                    gamepad.right_stick.y   = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y];
-                    gamepad.left_trigger    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER] > 0.5f ? 1.0f : 0.0f;
-                    gamepad.right_trigger   = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER] > 0.5f ? 1.0f : 0.0f;
-
-                    gamepad.action_down.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_CROSS];
-                    gamepad.action_right.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_CIRCLE];
-                    gamepad.action_up.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_TRIANGLE];
-                    gamepad.action_left.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_SQUARE];
-                    
-                    gamepad.dpad_down.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN];
-                    gamepad.dpad_right.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_RIGHT];
-                    gamepad.dpad_up.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP];
-                    gamepad.dpad_left.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_LEFT];
-
-                    gamepad.options.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_BACK];
-                    gamepad.start.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_START];
-
-                    gamepad.shoulder_left.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_BUMPER];
-                    gamepad.shoulder_right.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER];
-
-                    gamepad.guide.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_GUIDE];
-
-                    gamepad.left_thumb.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_THUMB];
-                    gamepad.right_thumb.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_THUMB];
-
-                    gamepad.guide.is_held = state.buttons[GLFW_GAMEPAD_BUTTON_GUIDE];
-
-                } else {
-                    gen_warn("input", "Joystick is not gamepad");
-                }
-            } else {
-                gamepad = {};
-            }
-            gamepad.is_connected = present;
-        }
-
         app_mem->input.keys[i] = glfwGetKey(window, i) == GLFW_PRESS;
         app_mem->input.pressed.keys[i] = app_mem->input.keys[i] && !last_input.keys[i];
         app_mem->input.released.keys[i] = !app_mem->input.keys[i] && last_input.keys[i];
-
-        loop_itoa(g, array_count(app_mem->input.gamepads)) {
-            loop_itoa(b, array_count(app_mem->input.gamepads[g].buttons)) {
-                auto& button = app_mem->input.gamepads[g].buttons[b];
-                button.is_pressed = !last_input.gamepads[g].buttons[b].is_held && button.is_held;
-                button.is_released = last_input.gamepads[g].buttons[b].is_held && !button.is_held;
-            }
-        }
     }
 
+    loop_stoa(i, array_count(app_mem->input.gamepads)) {
+        auto& gamepad = app_mem->input.gamepads[i];
 
+        GLFWgamepadstate state;
+        if (glfwJoystickIsGamepad(i) && glfwGetGamepadState(i, &state)) {
+            gamepad.is_connected = true;
+            loop_iota(a, GLFW_GAMEPAD_AXIS_LAST + 1) {
+                if (std::fabs(state.axes[a]) < 0.35f) { // deadzone
+                    state.axes[a] = 0.0f;
+                }
+                // gen_info("input", "axis[{}]:{}", a, axes_[a]);
+            }
+                            
+            gamepad.left_stick.x    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
+            gamepad.left_stick.y    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
+            gamepad.right_stick.x   = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
+            gamepad.right_stick.y   = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y];
+            gamepad.left_trigger    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER] > 0.5f ? 1.0f : 0.0f;
+            gamepad.right_trigger   = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER] > 0.5f ? 1.0f : 0.0f;
+            
+            gamepad.buttons[button_id::action_down].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_CROSS];
+            gamepad.buttons[button_id::action_right].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_CIRCLE];
+            gamepad.buttons[button_id::action_up].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_TRIANGLE];
+            gamepad.buttons[button_id::action_left].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_SQUARE];
+
+            gamepad.buttons[button_id::dpad_down].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN];
+            gamepad.buttons[button_id::dpad_right].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_RIGHT];
+            gamepad.buttons[button_id::dpad_up].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP];
+            gamepad.buttons[button_id::dpad_left].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_LEFT];
+
+            gamepad.buttons[button_id::options].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_BACK];
+            gamepad.buttons[button_id::start].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_START];
+            gamepad.buttons[button_id::guide].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_GUIDE];
+
+            gamepad.buttons[button_id::shoulder_left].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_BUMPER];
+            gamepad.buttons[button_id::shoulder_right].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER];
+
+            gamepad.buttons[button_id::left_thumb].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_THUMB];
+            gamepad.buttons[button_id::right_thumb].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_THUMB];
+        } else {
+            // gen_warn("input", "Joystick is not gamepad");
+            gamepad = {};
+        }
+
+    }
+
+    loop_iota(mb, array_count(app_mem->input.mouse.buttons)) {
+        const u8 mouse_btn = app_mem->input.mouse.buttons[mb];
+        const u8 last_mouse_btn = last_input.mouse.buttons[mb];
+        app_mem->input.pressed.mouse_btns[mb] = !last_mouse_btn && mouse_btn;
+        app_mem->input.released.mouse_btns[mb] = last_mouse_btn && !mouse_btn;
+    }
+
+    loop_iota(g, array_count(app_mem->input.gamepads)) {
+        loop_iota(b, button_id::SIZE) {
+            auto& button = app_mem->input.gamepads[g].buttons[b];
+            button.is_pressed = !last_input.gamepads[g].buttons[b].is_held && button.is_held;
+            button.is_released = last_input.gamepads[g].buttons[b].is_held && !button.is_held;
+        }
+    }
 }
 
 void 
@@ -224,6 +243,8 @@ update_dlls(app_dll_t* app_dlls) {
 
 int 
 main(int argc, char* argv[]) {
+    create_meta_data_dir();
+
     gen_info("win32", "Loading Platform Layer");
     app_memory_t app_mem{};
     app_mem.malloc = malloc;
@@ -237,14 +258,11 @@ main(int argc, char* argv[]) {
 #else 
         
 #endif
-
-
-
     assert(app_mem.perm_memory);
 
     auto& config = app_mem.config;
-    config.window_size[0] = 800;
-    config.window_size[1] = 600;
+    config.window_size[0] = 880;
+    config.window_size[1] = 660;
 
     app_mem.config.create_vk_surface = [](void* instance, void* surface, void* window_handle) {
         VkWin32SurfaceCreateInfoKHR createInfo{};
@@ -327,7 +345,8 @@ main(int argc, char* argv[]) {
         glfwPollEvents();
         update_input(&app_mem, window);
 
-        if (app_mem.input.keys[256] || app_mem.input.gamepads[0].options.is_held) { // esc
+        if (app_mem.input.keys[256] || 
+            app_mem.input.gamepads[0].buttons[button_id::options].is_held) { // esc
             app_mem.running = false;
         }
     };

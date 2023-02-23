@@ -90,10 +90,11 @@ find_memory_that_is_device_local(VkPhysicalDevice gpu_device, uint32_t memoryTyp
 
 struct queue_family_indices_t {
     std::optional<uint32_t> graphics_family;
+    std::optional<uint32_t> compute_family;
     std::optional<uint32_t> present_family;
 
     [[nodiscard]] bool is_complete() const {
-        return graphics_family.has_value() && present_family.has_value();
+        return graphics_family.has_value() && present_family.has_value() && compute_family.has_value();
     }
 };
 
@@ -110,6 +111,9 @@ queue_family_indices_t find_queue_families(VkPhysicalDevice device, VkSurfaceKHR
     for (const auto& queueFamily : queueFamilies) {
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             indices.graphics_family = i;
+        }
+        if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            indices.compute_family = i;
         }
 
         VkBool32 presentSupport = false;
@@ -141,12 +145,12 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(std::span<VkSurfaceFormatKHR> availab
 }
 
 VkPresentModeKHR chooseSwapPresentMode(std::span<VkPresentModeKHR> availablePresentModes) {
+    return VK_PRESENT_MODE_FIFO_KHR;
     for (const auto& availablePresentMode : availablePresentModes) {
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
             return availablePresentMode;
         }
     }
-    return VK_PRESENT_MODE_FIFO_KHR;
 }
 
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, int width, int height) {
@@ -762,6 +766,7 @@ void state_t::create_logical_device() {
     }
 
     vkGetDeviceQueue(device, indices.graphics_family.value(), 0, &gfx_queue);
+    vkGetDeviceQueue(device, indices.compute_family.value(), 0, &compute_queue);
     vkGetDeviceQueue(device, indices.present_family.value(), 0, &present_queue);
 }
 
