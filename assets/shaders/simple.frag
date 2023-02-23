@@ -63,6 +63,7 @@ void
 main( )
 {
 	vec3 rgb;
+	bool toon = false;
 	switch( Sporadic.uMode )
 	{
 		case 0:
@@ -71,11 +72,16 @@ main( )
 
 		case 1:
 			rgb = texture( uSampler, vTexCoord ).rgb;
+			toon = true;
 			break;
 
 		case 2:
 			rgb = vColor;
 			rgb = ObjectConstants.albedo.rgb;
+			break;
+		case 3:
+			rgb = ObjectConstants.albedo.rgb;
+			toon = true;
 			break;
 
 		default:
@@ -96,6 +102,9 @@ main( )
     	F0 = mix(F0, albedo, metallic);
 
 		vec3 L = normalize(Scene.uLightPos.xyz - vWorldPos);
+		if (toon) {
+			L = -L;
+		}
 	
 		vec3 normal = normalize(vN);
 		vec3 light  = L;
@@ -106,6 +115,11 @@ main( )
 		float LoH = saturate(dot(light, H));
 		float NoL = saturate(dot(normal,light));
 		float NoV = saturate(dot(normal, eye));
+
+		if (toon) {
+			NoL = step(NoL, 0.0);
+			LoH = step(LoH, 0.0);
+		}
 
 
 		float NDF = filament_DGGX(NoH, roughness);

@@ -22,6 +22,7 @@ struct entity_t : node_t<entity_t> {
     entity_id   id{0};
     u64         flags{};
     u64         tag{0};
+    u64         pool_id{0};
     string_t    name;
     entity_t*   parent{nullptr};
 
@@ -156,7 +157,7 @@ player_init(player_t* player, cam::camera_t* camera, u64 mesh_id) {
 
 namespace db {
 
-    
+
 
 struct entity_def_t {
     string_t type_name{};

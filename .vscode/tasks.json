@@ -4,7 +4,7 @@
         {
             "label": "debug",
             "type": "shell",
-            "command": "build.bat win32 game"
+            "command": "build.bat no game"
         },
         {
             "label": "debugs",

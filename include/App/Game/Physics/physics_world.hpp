@@ -21,6 +21,11 @@ namespace game::phys {
     };
 
     struct physx_state_t {
+        physx_state_t(arena_t& arena, size_t size) 
+            : default_allocator{arena, size}
+        {
+        }
+        
         arena_heap_t    default_allocator;
         error_callback_t error_callback;
         physx::PxFoundation* foundation{nullptr};

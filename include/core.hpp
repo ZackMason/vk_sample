@@ -63,6 +63,7 @@ using f64 = double;
 // #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/color_space.hpp>
 
 using v2f = glm::vec2;
 using v3f = glm::vec3;
@@ -81,6 +82,7 @@ using m44 = glm::mat4x4;
 ///////////////////////////////////////////////////////////////////////////////
 
 #define fmt_str(...) (fmt::format(__VA_ARGS__))
+#define fmt_sv(...) (std::string_view{fmt::format(__VA_ARGS__)})
 #define println(...) do { fmt::print(__VA_ARGS__); } while(0)
 #define gen_info(cat, str, ...) do { fmt::print(fg(fmt::color::white) | fmt::emphasis::bold, fmt_str("[info][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
 #define gen_warn(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::yellow) | fmt::emphasis::bold, fmt_str("[warn][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
@@ -103,8 +105,8 @@ using m44 = glm::mat4x4;
 #define align4(val) ((val + 3) & ~3)
 
 
-#define loop_itoa(itr, stop) for (size_t itr = 0; itr < stop; itr++)
-
+#define loop_iota(itr, stop) for (size_t itr = 0; itr < stop; itr++)
+#define loop_sota(itr, stop) for (int itr = 0; itr < stop; itr++)
 
 inline u32
 safe_truncate_u64(u64 value) {
@@ -118,6 +120,162 @@ BIT(int x) {
 	return 1 << x;
 }
 
+namespace mouse_button_id {
+    enum {
+        left,
+        right,
+        middle,
+        extra_0,
+        extra_1,
+        extra_2,
+        extra_3,
+        extra_4,
+        SIZE,
+    };
+};
+namespace key_id { enum {
+    SPACE =32,
+    APOSTROPHE =39, /* ' */
+    COMMA =44, /* , */
+    MINUS =45, /* - */
+    PERIOD =46, /* . */
+    SLASH =47, /* / */
+    NUM_0 =48,
+    NUM_1 =49,
+    NUM_2 =50,
+    NUM_3 =51,
+    NUM_4 =52,
+    NUM_5 =53,
+    NUM_6 =54,
+    NUM_7 =55,
+    NUM_8 =56,
+    NUM_9 =57,
+    SEMICOLON =59, /* ; */
+    EQUAL =61, /* = */
+    A =65,
+    B =66,
+    C =67,
+    D =68,
+    E =69,
+    F =70,
+    G =71,
+    H =72,
+    I =73,
+    J =74,
+    K =75,
+    L =76,
+    M =77,
+    N =78,
+    O =79,
+    P =80,
+    Q =81,
+    R =82,
+    S =83,
+    T =84,
+    U =85,
+    V =86,
+    W =87,
+    X =88,
+    Y =89,
+    Z =90,
+    LEFT_BRACKET =91, /* [ */
+    BACKSLASH =92, /* \ */
+    RIGHT_BRACKET =93, /* ] */
+    GRAVE_ACCENT =96, /* ` */
+    WORLD_1 =161, /* non-US #1 */
+    WORLD_2 =162, /* non-US #2 */
+    ESCAPE =256,
+    ENTER =257,
+    TAB =258,
+    BACKSPACE =259,
+    INSERT =260,
+    DELETE =261,
+    RIGHT =262,
+    LEFT =263,
+    DOWN =264,
+    UP =265,
+    PAGE_UP =266,
+    PAGE_DOWN =267,
+    HOME =268,
+    END =269,
+    CAPS_LOCK =280,
+    SCROLL_LOCK =281,
+    NUM_LOCK =282,
+    PRINT_SCREEN =283,
+    PAUSE =284,
+    F1 =290,
+    F2 =291,
+    F3 =292,
+    F4 =293,
+    F5 =294,
+    F6 =295,
+    F7 =296,
+    F8 =297,
+    F9 =298,
+    F10 =299,
+    F11 =300,
+    F12 =301,
+    F13 =302,
+    F14 =303,
+    F15 =304,
+    F16 =305,
+    F17 =306,
+    F18 =307,
+    F19 =308,
+    F20 =309,
+    F21 =310,
+    F22 =311,
+    F23 =312,
+    F24 =313,
+    F25 =314,
+    KP_0 =320,
+    KP_1 =321,
+    KP_2 =322,
+    KP_3 =323,
+    KP_4 =324,
+    KP_5 =325,
+    KP_6 =326,
+    KP_8 =328,
+    KP_9 =329,
+    KP_DECIMAL =330,
+    KP_DIVIDE =331,
+    KP_MULTIPLY =332,
+    KP_SUBTRACT =333,
+    KP_ADD =334,
+    KP_ENTER =335,
+    KP_EQUAL =336,
+    LEFT_SHIFT =340,
+    LEFT_CONTROL =341,
+    LEFT_ALT =342,
+    LEFT_SUPER =343,
+    RIGHT_SHIFT =344,
+    RIGHT_CONTROL =345,
+    RIGHT_ALT =346,
+    RIGHT_SUPER =347,
+    MENU = 348,
+    SIZE
+};};
+
+namespace button_id {
+    enum {
+        action_left,
+        action_down,
+        action_right,
+        action_up,
+        shoulder_left,
+        shoulder_right,
+        options,
+        start,
+        left_thumb,
+        right_thumb,
+        guide,
+        dpad_left,
+        dpad_down,
+        dpad_right,
+        dpad_up,
+        SIZE
+    };
+};
 
 struct gamepad_button_state_t {
 	i8 is_held;
@@ -135,31 +293,8 @@ struct gamepad_t {
     f32 left_trigger{0.0f};
     f32 right_trigger{0.0f};
 
-	union {
-		gamepad_button_state_t buttons[18];
-		struct {
-			gamepad_button_state_t action_left;
-			gamepad_button_state_t action_down;
-			gamepad_button_state_t action_right;
-			gamepad_button_state_t action_up;
-			
-			gamepad_button_state_t shoulder_left;
-			gamepad_button_state_t shoulder_right;
-
-			gamepad_button_state_t options;
-			gamepad_button_state_t start;
-
-			gamepad_button_state_t left_thumb;
-			gamepad_button_state_t right_thumb;
-
-			gamepad_button_state_t guide;
-			
-			gamepad_button_state_t dpad_left;
-			gamepad_button_state_t dpad_down;
-			gamepad_button_state_t dpad_right;
-			gamepad_button_state_t dpad_up;
-		};
-	};
+    gamepad_button_state_t buttons[button_id::SIZE];
+	
 };
 
 struct app_input_t {
@@ -172,10 +307,12 @@ struct app_input_t {
 
     struct pressed_t {
         u8 keys[512];
+        u8 mouse_btns[12];
     } pressed;
     
     struct released_t {
         u8 keys[512];
+        u8 mouse_btns[12];
     } released;
 
     // gamepad
@@ -320,7 +457,7 @@ arena_get_top(arena_t* arena) {
 }
 
 #define arena_display_info(arena, name) \
-    (fmt_str("{}: {} {} / {} {} - {:.2f}%", \
+    (fmt_sv("{}: {} {} / {} {} - {:.2f}%", \
     (name), \
     (arena)->top > gigabytes(1) ? (arena)->top/gigabytes(1) : (arena)->top > megabytes(1) ? (arena)->top/megabytes(1) : (arena)->top > kilobytes(1) ? (arena)->top / kilobytes(1) : (arena)->top,\
     (arena)->top > gigabytes(1) ? "Gb" : (arena)->top > megabytes(1) ? "Mb" : (arena)->top > kilobytes(1) ? "Kb" : "B",\
@@ -494,13 +631,15 @@ struct string_t {
     {
     }
 
-   
     constexpr string_t()
         : c_data{nullptr}, size{0}
     {
     }
 
-    operator std::string_view() {
+    operator std::string_view() const noexcept {
+        return std::string_view{c_data, size};
+    }
+    std::string_view sv() const noexcept {
         return std::string_view{c_data, size};
     }
 
@@ -569,6 +708,18 @@ namespace math {
         };
     }
 
+    v3f world_to_screen(const m44& vp, const v4f& p) noexcept {
+        v4f sp = vp * p;
+        sp /= sp.w;
+        sp.x = sp.x * 0.5f + 0.5f;
+        sp.y = sp.y * 0.5f + 0.5f;
+        return sp;
+    }
+
+    v3f world_to_screen(const m44& vp, const v3f& p) noexcept {
+        return world_to_screen(vp, v4f{p, 1.0f});
+    }
+
 
     // template <typename T>
     struct hit_result_t {
@@ -592,6 +743,11 @@ struct aabb_t {
     aabb_t() = default;
     aabb_t(const T& o) {
         expand(o);
+    }
+
+    aabb_t(const T& min_, const T& max_) noexcept
+        : min{min_}, max{max_}
+    {
     }
 
     T min{std::numeric_limits<float>::max()};
@@ -770,9 +926,11 @@ struct transform_t {
         return glm::eulerAngles(get_orientation());
     }
 
-	void affine_invert() {
-		basis = glm::inverse(basis);
-		origin = basis * -origin;
+	transform_t affine_invert() const {
+        auto t = *this;
+		t.basis = glm::inverse(t.basis);
+		t.origin = t.basis * -t.origin;
+        return t;
 	}
 
 	v3f inv_xform(const v3f& vector) const
@@ -865,12 +1023,17 @@ namespace gui {
     struct vertex_t;
 };
 
+inline v2f 
+font_get_size(
+    font_t* font,
+    std::string_view text);
+
 inline void
 font_render(
     arena_t* arena,
     font_t* font,
     std::string_view text,
-    v2f position,
+    v2f& position,
     v2f screen_size,
     utl::pool_t<gui::vertex_t>* vertices,
     utl::pool_t<u32>* indices,
@@ -897,6 +1060,9 @@ namespace color {
             ((c&0xff0000)   >> 16),
             ((c&0xff000000) >> 24)            
         } / 255.0f;
+    }
+    constexpr color3 to_color3(const color32 c) {
+        return color3{to_color4(c)};
     }
 
     constexpr bool is_hex_digit(char c) {
@@ -967,17 +1133,22 @@ namespace color {
     }
 
     namespace rgba {
-        static auto clear = "#00000000"_rgba;
-        static auto black = "#000000ff"_rgba;
-        static auto dark_gray = "#111111ff"_rgba;
-        static auto white = "#ffffffff"_rgba;
-        static auto cream = "#fafafaff"_rgba;
-        static auto red   = "#ff0000ff"_rgba;
-        static auto green = "#00ff00ff"_rgba;
-        static auto blue  = "#0000ffff"_rgba;
-        static auto yellow= "#ffff00ff"_rgba;
-        static auto purple= "#fa11faff"_rgba;
-        static auto sand  = "#C2B280ff"_rgba;
+        static constexpr auto clear = "#00000000"_rgba;
+        static constexpr auto black = "#000000ff"_rgba;
+        static constexpr auto dark_gray = "#111111ff"_rgba;
+        static constexpr auto gray = "#808080ff"_rgba;
+        static constexpr auto light_gray  = "#d3d3d3ff"_rgba;
+        static constexpr auto white = "#ffffffff"_rgba;
+        static constexpr auto cream = "#fafafaff"_rgba;
+        static constexpr auto red   = "#ff0000ff"_rgba;
+        static constexpr auto green = "#00ff00ff"_rgba;
+        static constexpr auto blue  = "#0000ffff"_rgba;
+        static constexpr auto light_blue  = "#2222f2ff"_rgba;
+        static constexpr auto yellow= "#ffff00ff"_rgba;
+        static constexpr auto purple= "#fa11faff"_rgba;
+        static constexpr auto sand  = "#C2B280ff"_rgba;
+        static constexpr auto material_fg = "#03dac6ff"_rgba;
+        static constexpr auto material_bg = "#6200eeff"_rgba;
     };
 
     namespace abgr {
@@ -1054,9 +1225,14 @@ namespace gui {
         color32 fg_color{};
         color32 bg_color{};
         color32 text_color{color::rgba::cream};
+        color32 active_color{color::rgba::yellow};
+        color32 disabled_color{};
         color32 border_color{};
-        u32     shadow_distance{};
+        u32     shadow_distance{1};
         color32 shadow_color{};
+
+        f32 padding{1.0f};
+        f32 margin{1.0f};
     };
 
     struct text_t;
@@ -1110,6 +1286,23 @@ namespace gui {
         const v2f& position,
         const color32& text_color = color::rgba::white
     ) {
+        v2f cursor = position;
+        font_render(0, ctx->font, 
+            text.c_str(), 
+            cursor,
+            ctx->screen_size,
+            ctx->vertices,
+            ctx->indices,
+            text_color
+        );
+    }
+    inline void
+    string_render(
+        ctx_t* ctx,
+        string_t text,
+        v2f& position,
+        const color32& text_color = color::rgba::white
+    ) {
         font_render(0, ctx->font, 
             text.c_str(), 
             position,
@@ -1126,9 +1319,10 @@ namespace gui {
         panel_t* parent,
         text_t* text
     ) {
+        v2f c = parent->min + text->offset;
         font_render(0, ctx->font, 
             text->text.c_str(), 
-            parent->min + text->offset,
+            c,
             ctx->screen_size,
             ctx->vertices,
             ctx->indices,
@@ -1136,9 +1330,10 @@ namespace gui {
         );
 
         if (text->theme.shadow_distance) {
+            c = parent->min + text->offset + v2f{(f32)text->theme.shadow_distance},
             font_render(0, ctx->font, 
                 text->text.c_str(), 
-                parent->min + text->offset + v2f{(f32)text->theme.shadow_distance},
+                c,
                 ctx->screen_size,
                 ctx->vertices,
                 ctx->indices,
@@ -1152,6 +1347,143 @@ namespace gui {
     }
 
     inline void
+    draw_round_rect(
+        ctx_t* ctx,
+        math::aabb_t<v2f> box,
+        f32 radius,
+        u32 color,
+        u64 num_segments = 8
+    ) {
+        const auto hw = box.size().x * 0.5f;
+        const auto hh = box.size().y * 0.5f;
+        const auto half_extents = box.size().y * 0.5f;
+        // Calculate the corner positions of the rounded rectangle
+        
+        glm::vec2 p1(-hw + radius, hh - radius);
+        glm::vec2 p2(hw - radius, hh - radius);
+        glm::vec2 p3(hw - radius, -hh + radius);
+        glm::vec2 p4(-hw + radius, -hh + radius);
+        const f32 pi_32 = (glm::pi<f32>());
+        float theta = pi_32 * 0.5f;
+        float delta_theta = pi_32 * 2.0f / num_segments;
+
+        // Calculate the number of vertices and indices
+        const size_t num_vertices = (num_segments) * 6;
+        const size_t num_indices = num_segments * 12;
+        const u32 start_index = safe_truncate_u64(ctx->vertices->count);
+
+        // Resize the vertex and index vectors to hold the generated data
+        vertex_t* vertices = ctx->vertices->allocate(num_vertices);
+        u32* indices = ctx->indices->allocate(num_indices);
+
+        // Generate the vertex data for the rounded rectangle
+        for (int i = 0; i < num_segments; i++) {
+            const glm::vec2 v1(glm::cos(theta), glm::sin(theta));
+            const glm::vec2 v2(glm::cos(theta + delta_theta * 0.5f), glm::sin(theta + delta_theta * 0.5f));
+            const glm::vec2 v3(glm::cos(theta + delta_theta), glm::sin(theta + delta_theta));
+            const glm::vec2 t1 = box.center() + p1 + v1 * radius;
+            const glm::vec2 t2 = box.center() + p2 + v2 * radius;
+            const glm::vec2 t3 = box.center() + p2 + v3 * radius;
+            const glm::vec2 t4 = box.center() + p3 + v3 * radius;
+            const glm::vec2 t5 = box.center() + p4 + v3 * radius;
+            const glm::vec2 t6 = box.center() + p4 + v1 * radius;
+            
+            const size_t index = i * 6;
+            vertices[index + 0].pos = t1 / ctx->screen_size;
+            vertices[index + 1].pos = t2 / ctx->screen_size;
+            vertices[index + 2].pos = t3 / ctx->screen_size;
+            vertices[index + 3].pos = t4 / ctx->screen_size;
+            vertices[index + 4].pos = t5 / ctx->screen_size;
+            vertices[index + 5].pos = t6 / ctx->screen_size;
+            theta += delta_theta;
+
+            loop_iota(j, 6) {
+                vertices[index + j].tex = v2f{0.0f};
+                vertices[index + j].img = ~0ui32;
+                vertices[index + j].col = color;
+            }
+
+            const size_t tri_index = i * 12;
+            
+            indices[tri_index + 0] = (start_index + 6 * i);
+            indices[tri_index + 1] = (start_index + 6 * i + 1);
+            indices[tri_index + 2] = (start_index + 6 * i + 2);
+            indices[tri_index + 3] = (start_index + 6 * i);
+            indices[tri_index + 4] = (start_index + 6 * i + 2);
+            indices[tri_index + 5] = (start_index + 6 * i + 3);
+            indices[tri_index + 6] = (start_index + 6 * i);
+            indices[tri_index + 7] = (start_index + 6 * i + 3);
+            indices[tri_index + 8] = (start_index + 6 * i + 4);
+            indices[tri_index + 9] = (start_index + 6 * i);
+            indices[tri_index + 10] = (start_index + 6 * i + 4);
+            indices[tri_index + 11] = (start_index + 6 * i + 5);
+        }
+
+
+ 
+    }   
+    
+    inline void
+    draw_rect(
+        ctx_t* ctx,
+        math::aabb_t<v2f> box,
+        std::span<u32, 4> colors
+    ) {
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
+        const u32 i_start = safe_truncate_u64(ctx->indices->count);
+
+        const v2f p0 = box.min;
+        const v2f p1 = v2f{box.min.x, box.max.y};
+        const v2f p2 = v2f{box.max.x, box.min.y};
+        const v2f p3 = box.max;
+
+        vertex_t* v = ctx->vertices->allocate(4);
+        u32* i = ctx->indices->allocate(6);
+        v[0] = vertex_t { .pos = p0 / ctx->screen_size, .tex = v2f{0.0f, 1.0f}, .img = ~(0ui32), .col = colors[0]};
+        v[1] = vertex_t { .pos = p1 / ctx->screen_size, .tex = v2f{0.0f, 0.0f}, .img = ~(0ui32), .col = colors[1]};
+        v[2] = vertex_t { .pos = p2 / ctx->screen_size, .tex = v2f{1.0f, 0.0f}, .img = ~(0ui32), .col = colors[2]};
+        v[3] = vertex_t { .pos = p3 / ctx->screen_size, .tex = v2f{1.0f, 1.0f}, .img = ~(0ui32), .col = colors[3]};
+
+        i[0] = v_start + 0;
+        i[1] = v_start + 1;
+        i[2] = v_start + 2;
+
+        i[3] = v_start + 2;
+        i[4] = v_start + 1;
+        i[5] = v_start + 3;
+    }
+
+    inline void
+    draw_rect(
+        ctx_t* ctx,
+        math::aabb_t<v2f> box,
+        u32 color
+    ) {
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
+        const u32 i_start = safe_truncate_u64(ctx->indices->count);
+
+        const v2f p0 = box.min;
+        const v2f p1 = v2f{box.min.x, box.max.y};
+        const v2f p2 = v2f{box.max.x, box.min.y};
+        const v2f p3 = box.max;
+
+        vertex_t* v = ctx->vertices->allocate(4);
+        u32* i = ctx->indices->allocate(6);
+        v[0] = vertex_t { .pos = p0 / ctx->screen_size, .tex = v2f{0.0f, 1.0f}, .img = ~(0ui32), .col = color};
+        v[1] = vertex_t { .pos = p1 / ctx->screen_size, .tex = v2f{0.0f, 0.0f}, .img = ~(0ui32), .col = color};
+        v[2] = vertex_t { .pos = p2 / ctx->screen_size, .tex = v2f{1.0f, 0.0f}, .img = ~(0ui32), .col = color};
+        v[3] = vertex_t { .pos = p3 / ctx->screen_size, .tex = v2f{1.0f, 1.0f}, .img = ~(0ui32), .col = color};
+
+        i[0] = v_start + 0;
+        i[1] = v_start + 1;
+        i[2] = v_start + 2;
+
+        i[3] = v_start + 2;
+        i[4] = v_start + 1;
+        i[5] = v_start + 3;
+    }
+
+    inline void
     panel_render(
         ctx_t* ctx,
         panel_t* panel
@@ -1161,32 +1493,380 @@ namespace gui {
         if (panel->text_widgets) {
             text_render(ctx, panel, panel->text_widgets);
         }
-
-        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
-        const u32 i_start = safe_truncate_u64(ctx->indices->count);
-
-        const v2f p0 = panel->min;
-        const v2f p1 = v2f{panel->min.x, panel->max.y};
-        const v2f p2 = v2f{panel->max.x, panel->min.y};
-        const v2f p3 = panel->max;
-
-        vertex_t* v = ctx->vertices->allocate(4);
-        u32* i = ctx->indices->allocate(6);
-        v[0] = vertex_t { .pos = p0 / ctx->screen_size, .tex = v2f{0.0f, 1.0f}, .img = ~(0ui32), .col = panel->theme.bg_color};
-        v[1] = vertex_t { .pos = p1 / ctx->screen_size, .tex = v2f{0.0f, 0.0f}, .img = ~(0ui32), .col = panel->theme.bg_color};
-        v[2] = vertex_t { .pos = p2 / ctx->screen_size, .tex = v2f{1.0f, 0.0f}, .img = ~(0ui32), .col = panel->theme.bg_color};
-        v[3] = vertex_t { .pos = p3 / ctx->screen_size, .tex = v2f{1.0f, 1.0f}, .img = ~(0ui32), .col = panel->theme.bg_color};
-
-        i[0] = v_start + 0;
-        i[1] = v_start + 1;
-        i[2] = v_start + 2;
-
-        i[3] = v_start + 2;
-        i[4] = v_start + 1;
-        i[5] = v_start + 3;
-
+        draw_rect(ctx, *panel, panel->theme.bg_color);
     }
 
+    namespace im {
+        struct ui_id_t {
+            u64 owner;
+            u64 id;
+            u64 index;
+
+            ui_id_t& operator=(u64 id_) {
+                id = id_;
+                owner = 0;
+                index = 0;
+                return *this;
+            }
+        };
+
+        struct state_t {
+            ctx_t& ctx;
+
+            v2f draw_cursor{0.0f}; 
+
+            theme_t theme;
+
+            ui_id_t hot;
+            ui_id_t active;
+
+
+            panel_t panel;
+        };
+
+        inline void
+        clear(state_t& imgui) {
+            imgui.draw_cursor = v2f{0.0f};
+            // imgui.active = 0;
+        }
+
+        inline bool
+        begin_panel(
+            state_t& imgui, 
+            string_t name,
+            v2f pos = v2f{0.0f},
+            v2f size = v2f{-1.0f}
+        ) {
+            const sid_t pnl_id = sid(name.sv());
+
+            if (pos.x >= 0.0f && pos.y >= 0.0f) { 
+                imgui.draw_cursor = pos+1.0f;
+            }
+
+            imgui.panel.min = imgui.draw_cursor;
+            if (size.x > 0.0f && size.y > 0.0f) {
+                imgui.panel.expand(imgui.draw_cursor + size);
+            }
+
+            imgui.panel.name = pnl_id;
+            
+            return true;
+        }
+
+        inline bool
+        begin_panel_3d(
+            state_t& imgui, 
+            string_t name,
+            m44 vp,
+            v3f pos
+        ) {
+            const v3f ndc = math::world_to_screen(vp, pos);
+            math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
+
+            if (viewable.contains(ndc)) {
+                const v2f screen = v2f{ndc} * imgui.ctx.screen_size;
+                return begin_panel(imgui, name, screen);
+            }
+            return false;
+        }
+
+        inline void
+        end_panel(
+            state_t& imgui
+        ) {
+            imgui.panel.expand(imgui.draw_cursor);
+
+            constexpr f32 border_size = 1.0f;
+            constexpr f32 corner_radius = 16.0f;
+
+            draw_rect(&imgui.ctx, imgui.panel, imgui.theme.bg_color);
+            imgui.panel.min -= v2f{border_size};
+            imgui.panel.max += v2f{border_size};
+            draw_rect(&imgui.ctx, imgui.panel, imgui.theme.fg_color);
+
+            imgui.panel = {};
+        }
+
+        inline void
+        color_edit(
+            state_t& imgui,
+            color32* color,
+            v2f size = v2f{64.0f}
+        ) {
+            const u64 clr_id = (u64)color;
+            v3f color_hsv = glm::hsvColor(color::to_color3(*color));
+            
+            v2f tmp_cursor = imgui.draw_cursor;
+            tmp_cursor.x += imgui.theme.padding;
+
+            math::aabb_t<v2f> box;
+            box.expand(tmp_cursor);
+            box.expand(tmp_cursor + size);
+
+            math::aabb_t<v2f> hue_box;
+
+            color32 rect_colors[4]= {
+                color::rgba::white,
+                color::rgba::black,
+                color::to_color32(glm::rgbColor(v3f{color_hsv.x, 1.0f, 1.0f})),
+                color::rgba::black,
+            };
+
+            draw_rect(&imgui.ctx, box, std::span{rect_colors});
+
+            const size_t res = 14;
+            loop_iota(i, res) {
+                math::aabb_t<v2f> hue_seg;
+                hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i)/f32(res+1)} + v2f{imgui.theme.padding, 0.0f});
+                hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i+1)/f32(res+1)} + v2f{8.0f, 0.0f} + v2f{imgui.theme.padding,0.0f});
+
+                hue_box.expand(hue_seg);
+
+                const f32 start_angle = f32(i) * (360.0f / f32(res));
+                const f32 next_angle = f32(i+1) * (360.0f / f32(res));
+                const v3f start_color = glm::rgbColor(v3f{start_angle, 1.0f, 1.0f});
+                const v3f next_color = glm::rgbColor(v3f{next_angle, 1.0f, 1.0f});
+
+                color32 hue_colors[4]= {
+                    color::to_color32(start_color),
+                    color::to_color32(next_color),
+                    color::to_color32(start_color),
+                    color::to_color32(next_color),
+                };
+                
+                draw_rect(&imgui.ctx, hue_seg, std::span{hue_colors});
+            }
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            const f32 col_s = glm::max(x - box.min.x, 0.0f) / box.size().x;
+            const f32 col_v = glm::max(y - box.min.y, 0.0f) / box.size().y;
+            const f32 hue_prc = glm::max(y - hue_box.min.y, 0.0f) / hue_box.size().y;
+
+            if (imgui.active.id == clr_id) {
+                if (imgui.hot.id == clr_id) {
+                    if (box.contains(v2f{x,y})) {
+                        *color = color::to_color32(glm::rgbColor(v3f{color_hsv.x, col_s, 1.0f-col_v}));
+                    } else if (hue_box.contains(v2f{x,y})) {
+                        *color = color::to_color32(glm::rgbColor(v3f{hue_prc*360.0f, color_hsv.y, color_hsv.z}));
+                    }
+                }
+                if (!imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = 0;
+                }
+            } else if (imgui.hot.id == clr_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = clr_id;
+                }
+            }
+
+            if (box.contains(v2f{x,y}) || hue_box.contains(v2f{x,y})) {
+                imgui.hot = clr_id;
+            } else if (imgui.hot.id == clr_id) {
+                imgui.hot.id = 0;
+            }
+
+            imgui.draw_cursor.y += box.size().y + imgui.theme.padding * 2.0f;
+        }
+
+        inline void
+        float_slider(
+            state_t& imgui,
+            f32* val,
+            f32 min = 0.0f,
+            f32 max = 1.0f,
+            v2f size = v2f{64.0f, 16.0f}
+        ) {
+            const u64 sld_id = (u64)val;
+
+            v2f tmp_cursor = imgui.draw_cursor;
+            tmp_cursor.x += 8.0f;
+            math::aabb_t<v2f> box;
+            math::aabb_t<v2f> prc_box;
+            const f32 prc = glm::clamp((*val - min) / (max - min), 0.0f, 1.0f);
+            box.expand(tmp_cursor);
+            box.expand(tmp_cursor + size);
+
+            prc_box.expand(tmp_cursor + 2.0f);
+            prc_box.expand(prc_box.min + (size - 4.0f) * v2f{prc, 1.0f});
+            imgui.panel.expand(box.max + imgui.theme.padding);
+
+            tmp_cursor = box.center() - font_get_size(imgui.ctx.font, fmt_sv("{:.2f}", *val)) * 0.5f;
+            string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), tmp_cursor, imgui.theme.text_color);
+            draw_rect(&imgui.ctx, prc_box, imgui.active.id == sld_id ? imgui.theme.active_color : imgui.theme.fg_color);
+            draw_rect(&imgui.ctx, box, imgui.theme.bg_color);
+            box.max += v2f{1.0f};
+            box.min -= v2f{1.0f};
+            draw_rect(&imgui.ctx, box, imgui.theme.fg_color);
+
+            imgui.draw_cursor.y += box.size().y + imgui.theme.padding;
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+
+            // expand all the way to get prc box size
+            prc_box.expand(prc_box.min + (size - 4.0f) * v2f{1.0f});
+            const f32 m_prc = glm::max(x - prc_box.min.x, 0.0f) / prc_box.size().x;
+
+            if (imgui.active.id == sld_id) {
+                if (imgui.hot.id == sld_id) {
+                    *val = m_prc * (max - min) + min;
+                    *val = glm::clamp(*val, min, max);
+                }
+                if (!imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = 0;
+                }
+            } else if (imgui.hot.id == sld_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = sld_id;
+                }
+            }
+
+            if (box.contains(v2f{x,y})) {
+                imgui.hot = sld_id;
+            } else if (imgui.hot.id == sld_id) {
+                imgui.hot.id = 0;
+            }
+        }
+
+        inline bool
+        text(
+            state_t& imgui, 
+            string_t text,
+            bool* toggle_state = 0         
+        ) {
+            const sid_t txt_id = sid(text.sv());
+            bool result = toggle_state ? *toggle_state : false;
+
+            constexpr f32 text_pad = 4.0f;
+            const auto font_size = font_get_size(imgui.ctx.font, text);
+            imgui.panel.expand(imgui.draw_cursor + font_size + text_pad * 2.0f);
+            v2f temp_cursor = imgui.draw_cursor;
+            temp_cursor.x += text_pad;
+
+            math::aabb_t<v2f> text_box;
+            text_box.expand(temp_cursor);
+            text_box.expand(temp_cursor + font_size);
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            if (text_box.contains(v2f{x,y})) {
+                imgui.hot = txt_id;
+            } else if (imgui.hot.id == txt_id) {
+                imgui.hot.id = 0;
+            }
+
+            if (imgui.active.id == txt_id) {
+                if (!imgui.ctx.input->mouse.buttons[0]) {
+                    if (imgui.hot.id == txt_id) {
+                        result = !result;
+                        if (toggle_state) {
+                            *toggle_state = result;
+                        }
+                    }
+                    imgui.active = 0;
+                }
+            }
+            if (imgui.hot.id == txt_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = txt_id;
+                }
+            }
+
+
+            string_render(&imgui.ctx, text, temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            imgui.draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
+            return result;
+        }
+
+        inline void
+        checkbox(
+            state_t& imgui, 
+            string_t name,
+            bool* var,
+            v2f size = v2f{16.0f}
+        ) {
+            const sid_t btn_id = sid(name.sv());
+            math::aabb_t<v2f> box;
+            box.min = imgui.draw_cursor;
+            box.max = imgui.draw_cursor + v2f{size};
+
+            if (imgui.active.id == btn_id) {
+                if (!imgui.ctx.input->mouse.buttons[0]) {
+                    if (imgui.hot.id == btn_id) {
+                        *var = !*var;
+                    }
+                    imgui.active = 0;
+                }
+            } else if (imgui.hot.id == btn_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = btn_id;
+                }
+            }
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            if (box.contains( v2f{x,y} )) {
+                // todo check  not active?
+                imgui.hot = btn_id;
+            } else {
+                imgui.hot = 0;
+            }
+            
+            draw_rect(&imgui.ctx, box, imgui.theme.border_color);
+            box.min += v2f{1.0f};
+            box.max -= v2f{1.0f};
+            draw_rect(&imgui.ctx, box, *var ? imgui.theme.bg_color : imgui.theme.disabled_color);
+            
+            imgui.draw_cursor.y += size.y + imgui.theme.padding;
+
+        }
+
+        inline bool
+        button(
+            state_t& imgui, 
+            string_t name, 
+            v2f size = v2f{16.0f}
+        ) {
+            const sid_t btn_id = sid(name.sv());
+            math::aabb_t<v2f> box;
+            box.min = imgui.draw_cursor + v2f{4.0f, 0.0f};
+            box.max = imgui.draw_cursor + v2f{size};
+
+            bool result = false;
+
+            if (imgui.active.id == btn_id) {
+                if (!imgui.ctx.input->mouse.buttons[0]) {
+                    if (imgui.hot.id == btn_id) {
+                        result = true;
+                    }
+                    imgui.hot = imgui.active = 0;
+                }
+            } else if (imgui.hot.id == btn_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = btn_id;
+                }
+            }
+
+            const v2f text_size = font_get_size(imgui.ctx.font, name);
+            box.expand(box.min + text_size + imgui.theme.margin * 2.0f);
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            if (box.contains( v2f{x,y} )) {
+                if (imgui.active.id == 0) {
+                    imgui.hot = btn_id;
+                }
+            } else if (imgui.hot.id == btn_id) {
+                imgui.hot = 0;
+            }
+
+            imgui.panel.expand(box.max + imgui.theme.padding);
+            v2f same_line = box.min + imgui.theme.margin;
+            string_render(&imgui.ctx, name, same_line, imgui.theme.text_color);
+            draw_rect(&imgui.ctx, box, imgui.hot.id == btn_id ? imgui.theme.active_color : imgui.theme.fg_color);
+            
+            imgui.draw_cursor.y += size.y + imgui.theme.padding;
+
+            return result;
+        }
+
+    };
 }; // namespace gui
 
 #include "stb/stb_truetype.h"
@@ -1254,19 +1934,51 @@ font_get_glyph(font_t* font, f32 x, f32 y, char c) {
 
 struct vertex_t;
 
+inline v2f 
+font_get_size(
+    font_t* font,
+    std::string_view text
+) {
+    f32 start_x = 0;
+    v2f size{0.0f};
+    v2f cursor{0.0f};
+
+    cursor.y += font_get_glyph(font, cursor.x, cursor.y, ';').screen.size().y + 1;
+
+    for (const char c : text) {
+        if (c > 32 && c < 128) {
+            const auto glyph = font_get_glyph(font, cursor.x, cursor.y, c);
+
+            cursor.x += glyph.screen.size().x + 1;
+
+            size = glm::max(size, cursor);
+        } else if (c == '\n') {
+            cursor.y += font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().y + 1;
+            cursor.x = start_x;
+        } else if (c == ' ') {
+            cursor.x += font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1;
+        } else if (c == '\t') {
+            cursor.x += (font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1) * 5;
+        }
+    }
+    return size;
+}
+
 inline void
 font_render(
     arena_t* arena,
     font_t* font,
     std::string_view text,
-    v2f position,
+    v2f& cursor,
     v2f screen_size,
     utl::pool_t<gui::vertex_t>* vertices,
     utl::pool_t<u32>* indices,
     color32 text_color = color::rgba::cream
 ) {
     assert(screen_size.x && screen_size.y);
-    v2f cursor = position;
+    f32 start_x = cursor.x;
+    cursor.y += font_get_glyph(font, cursor.x, cursor.y, ';').screen.size().y + 1;
+
     for (const char c : text) {
         if (c > 32 && c < 128) {
             const auto glyph = font_get_glyph(font, cursor.x, cursor.y, c);
@@ -1299,12 +2011,17 @@ font_render(
             i[5] = v_start + 3;
 
             cursor.x += glyph.screen.size().x + 1;
+        } else if (c == '\n') {
+            cursor.y += font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().y + 1;
+            cursor.x = start_x;
         } else if (c == ' ') {
             cursor.x += font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1;
         } else if (c == '\t') {
             cursor.x += (font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1) * 5;
         }
     }
+    cursor.y += font_get_glyph(font, cursor.x, cursor.y, ';').screen.size().y + 1;
+    cursor.x = start_x; 
 }
 
 struct vertex_t {
