@@ -1,4 +1,4 @@
-#version 400
+#version 460
 #extension GL_ARB_separate_shader_objects  : enable
 #extension GL_ARB_shading_language_420pack : enable
 
@@ -23,10 +23,13 @@ layout( std140, set = 1, binding = 0 ) uniform sceneBuf
 	float	    uTime;
 } Scene;
 
-layout( std140, set = 2, binding = 0 ) uniform objectBuf
-{
-	vec4		uColor;
-} Object; 
+struct ObjectData {
+	mat4 model;
+};
+
+layout(std140, set = 2, binding = 0) readonly buffer ObjectBuffer {
+	ObjectData objects[];
+} objectBuffer;
 
 layout ( push_constant ) uniform object_constants
 {
@@ -59,7 +62,7 @@ main() {
 	mat4  P = Scene.uProjection;
 	mat4  V = Scene.uView;
 	mat4  SO = Scene.uSceneOrient;
-	mat4  M  = ObjectConstants.uM;
+	mat4  M  = objectBuffer.objects[gl_BaseInstance].model;
 	mat4 VM = V * SO * M;
 	mat4 PVM = P * VM;
 

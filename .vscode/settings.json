@@ -104,7 +104,8 @@
       "ranges": "cpp",
       "span": "cpp",
       "semaphore": "cpp",
-      "cinttypes": "cpp"
+      "cinttypes": "cpp",
+      "*.rh": "cpp"
     },
     "cmake.configureOnOpen": false
 }

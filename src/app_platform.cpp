@@ -110,7 +110,7 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
     app_mem->input.mouse.delta[0] = mouse[0] - last_input.mouse.pos[0];
     app_mem->input.mouse.delta[1] = mouse[1] - last_input.mouse.pos[1];
     
-    loop_stoa(i, array_count(app_mem->input.keys)) {
+    loop_iota_i32(i, array_count(app_mem->input.keys)) {
         if (i < array_count(app_mem->input.mouse.buttons)) {
             app_mem->input.mouse.buttons[i] = glfwGetMouseButton(window, i) == GLFW_PRESS;
         }
@@ -119,13 +119,13 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
         app_mem->input.released.keys[i] = !app_mem->input.keys[i] && last_input.keys[i];
     }
 
-    loop_stoa(i, array_count(app_mem->input.gamepads)) {
+    loop_iota_i32(i, array_count(app_mem->input.gamepads)) {
         auto& gamepad = app_mem->input.gamepads[i];
 
         GLFWgamepadstate state;
         if (glfwJoystickIsGamepad(i) && glfwGetGamepadState(i, &state)) {
             gamepad.is_connected = true;
-            loop_iota(a, GLFW_GAMEPAD_AXIS_LAST + 1) {
+            loop_iota_u64(a, GLFW_GAMEPAD_AXIS_LAST + 1) {
                 if (std::fabs(state.axes[a]) < 0.35f) { // deadzone
                     state.axes[a] = 0.0f;
                 }
@@ -165,15 +165,15 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
 
     }
 
-    loop_iota(mb, array_count(app_mem->input.mouse.buttons)) {
+    loop_iota_u64(mb, array_count(app_mem->input.mouse.buttons)) {
         const u8 mouse_btn = app_mem->input.mouse.buttons[mb];
         const u8 last_mouse_btn = last_input.mouse.buttons[mb];
         app_mem->input.pressed.mouse_btns[mb] = !last_mouse_btn && mouse_btn;
         app_mem->input.released.mouse_btns[mb] = last_mouse_btn && !mouse_btn;
     }
 
-    loop_iota(g, array_count(app_mem->input.gamepads)) {
-        loop_iota(b, button_id::SIZE) {
+    loop_iota_u64(g, array_count(app_mem->input.gamepads)) {
+        loop_iota_u64(b, button_id::SIZE) {
             auto& button = app_mem->input.gamepads[g].buttons[b];
             button.is_pressed = !last_input.gamepads[g].buttons[b].is_held && button.is_held;
             button.is_released = last_input.gamepads[g].buttons[b].is_held && !button.is_held;

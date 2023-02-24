@@ -13,29 +13,8 @@
 
 #include "App/Game/Physics/physics_world.hpp"
 
+#include "App/Game/Rendering/render_system.hpp"
 
-struct mesh_cache_t {
-    struct link_t : node_t<link_t> {
-        gfx::mesh_list_t mesh;
-    };
-
-    utl::deque<link_t> meshes;
-
-    u64 add(arena_t* arena, const gfx::mesh_list_t& r) {
-        link_t* link = arena_alloc_ctor<link_t>(arena, 1);
-        link->mesh = r;
-        meshes.push_back(link);
-        return meshes.size() - 1;
-    }
-
-    const gfx::mesh_list_t& get(u64 id) const {
-        return meshes[id]->mesh;
-    }
-};
-
-
-static constexpr size_t max_scene_vertex_count{10'000'000};
-static constexpr size_t max_scene_index_count{30'000'000};
 struct app_t {
     app_memory_t*       app_mem{nullptr};
 
@@ -48,12 +27,8 @@ struct app_t {
 
     utl::res::pack_file_t *     resource_file{0};
 
-    mesh_cache_t                mesh_cache;
-    utl::str_hash_t                 mesh_hash;
-    utl::str_hash_t                 mesh_hash_meta;
-
-    
     gfx::vul::state_t   gfx;
+    game::rendering::system_t* render_system{0};
 
     // todo(zack) clean this up
     gfx::font_t default_font;
@@ -62,9 +37,6 @@ struct app_t {
 
     gfx::vul::texture_2d_t* brick_texture{nullptr};
     VkDescriptorSet brick_descriptor;
-
-    gfx::vul::vertex_buffer_t<gfx::vertex_t, max_scene_vertex_count> vertices;
-    gfx::vul::index_buffer_t<max_scene_index_count> indices;
 
     struct scene_t {
         gfx::vul::scene_buffer_t scene_buffer;
@@ -178,7 +150,7 @@ load_bin_mesh_data(
         std::memcpy(v, blob.read_data(), vertex_bytes);
         blob.advance(vertex_bytes);
 
-        loop_iota(j, results.meshes[i].vertex_count) {
+        loop_iota_u64(j, results.meshes[i].vertex_count) {
             results.meshes[i].aabb.expand(v[j].pos);
         }
 
@@ -223,47 +195,22 @@ get_app(app_memory_t* mem) {
     return (app_t*)mem->perm_memory;
 }
 
-export_fn(void) 
-app_on_init(app_memory_t* app_mem) {
-    utl::profile_t p{"app init"};
+void
+app_init_graphics(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
-    new (app) app_t;
-
-    app->app_mem = app_mem;
-    app->main_arena.start = (std::byte*)app_mem->perm_memory + sizeof(app_t);
-    app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
-
-    arena_t* main_arena = &app->main_arena;
-
-    app->temp_arena = arena_sub_arena(&app->main_arena, megabytes(4));
-    app->string_arena = arena_sub_arena(&app->main_arena, megabytes(16));
-    app->mesh_arena = arena_sub_arena(&app->main_arena, megabytes(512));
-    app->texture_arena = arena_sub_arena(&app->main_arena, megabytes(512));
-    app->gui.arena = arena_sub_arena(main_arena, megabytes(8));
-
-    gen_info("init", "init physx");
-    app->physics = arena_alloc_ctor<game::phys::physx_state_t>(
-        main_arena, 1,
-        *main_arena, megabytes(256)
-    );
-    
-    game::phys::init_physx_state(*app->physics);
-
-    app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./assets/res.pack");
-    
-    app->game_world = game::world_init(main_arena);
-    
-    // setup graphics
 
     gfx::vul::state_t& vk_gfx = app->gfx;
     app->gfx.init(&app_mem->config);
+    app->render_system = game::rendering::init<megabytes(256)>(vk_gfx, &app->main_arena);
+
     app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx);
     app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx);
     app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx,
         gfx::vul::mesh_pipeline_info_t{
             vk_gfx.scene_uniform_buffer.buffer,
             vk_gfx.sporadic_uniform_buffer.buffer,
-            vk_gfx.object_uniform_buffer.buffer,
+            // vk_gfx.object_uniform_buffer.buffer,
+            app->render_system->job_storage_buffer.buffer,
             // "./assets/shaders/bin/error_mesh.frag.spv"
         }
     );
@@ -301,10 +248,10 @@ app_on_init(app_memory_t* app_mem) {
         &app->brick_texture, 1);
 
     vk_gfx.create_vertex_buffer(
-        &app->vertices
+        &app->render_system->vertices
     );
     vk_gfx.create_index_buffer(
-        &app->indices
+        &app->render_system->indices
     );
 
     vk_gfx.create_vertex_buffer(
@@ -326,54 +273,101 @@ app_on_init(app_memory_t* app_mem) {
         (f32)app_mem->config.window_size[0], 
         (f32)app_mem->config.window_size[1]
     };
+}
 
+export_fn(void) 
+app_on_init(app_memory_t* app_mem) {
+    utl::profile_t p{"app init"};
+    app_t* app = get_app(app_mem);
+    new (app) app_t;
+
+    app->app_mem = app_mem;
+    app->main_arena.start = (std::byte*)app_mem->perm_memory + sizeof(app_t);
+    app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
+
+    arena_t* main_arena = &app->main_arena;
+
+    app->temp_arena = arena_sub_arena(&app->main_arena, megabytes(4));
+    app->string_arena = arena_sub_arena(&app->main_arena, megabytes(16));
+    app->mesh_arena = arena_sub_arena(&app->main_arena, megabytes(512));
+    app->texture_arena = arena_sub_arena(&app->main_arena, megabytes(512));
+    app->gui.arena = arena_sub_arena(main_arena, megabytes(8));
+
+    gen_info("init", "init physx");
+    app->physics = arena_alloc_ctor<game::phys::physx_state_t>(
+        main_arena, 1,
+        *main_arena, megabytes(256)
+    );
+    
+    game::phys::init_physx_state(*app->physics);
+
+    app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./assets/res.pack");
+    
+    app->game_world = game::world_init(main_arena);
+    
+    // setup graphics
+
+    app_init_graphics(app_mem);
+
+    const auto make_material = [&](std::string_view n, auto&& mat) {
+        return game::rendering::create_material(
+            app->render_system, n, std::move(mat), app->mesh_pipeline->pipeline, app->mesh_pipeline->pipeline_layout
+        );
+    };
+
+    auto* red_plastic_mat = make_material("red-plastic", gfx::material_t::plastic(gfx::color::v4::red));
+    auto* blue_plastic_mat = make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
+    auto* gold_mat = make_material("gold-metal", gfx::material_t::metal(gfx::color::v4::yellow));
+    
     using namespace gfx::color;
 
     app->scene.sporadic_buffer.mode = 2;
     app->scene.sporadic_buffer.use_lighting = 1;
 
-    gfx::mesh_builder_t mesh_builder{
-        app->vertices.pool,
-        app->indices.pool
-    };
+    #if 0
+    // gfx::mesh_builder_t mesh_builder{
+    //     app->vertices.pool,
+    //     app->indices.pool
+    // };
     
-    static constexpr f32 terrain_dim = 100.0f;
-    static constexpr f32 terrain_grid_size = 1.0f;
+    // static constexpr f32 terrain_dim = 100.0f;
+    // static constexpr f32 terrain_grid_size = 1.0f;
 
-    for (f32 x = -terrain_dim; x < terrain_dim; x += terrain_grid_size) {
-        for (f32 y = -terrain_dim; y < terrain_dim; y += terrain_grid_size) {
-            gfx::vertex_t v[4];
-            v[0].pos = v3f{x                    , 0.0f, y};
-            v[1].pos = v3f{x                    , 0.0f, y + terrain_grid_size};
-            v[2].pos = v3f{x + terrain_grid_size, 0.0f, y};
-            v[3].pos = v3f{x + terrain_grid_size, 0.0f, y + terrain_grid_size};
+    // for (f32 x = -terrain_dim; x < terrain_dim; x += terrain_grid_size) {
+    //     for (f32 y = -terrain_dim; y < terrain_dim; y += terrain_grid_size) {
+    //         gfx::vertex_t v[4];
+    //         v[0].pos = v3f{x                    , 0.0f, y};
+    //         v[1].pos = v3f{x                    , 0.0f, y + terrain_grid_size};
+    //         v[2].pos = v3f{x + terrain_grid_size, 0.0f, y};
+    //         v[3].pos = v3f{x + terrain_grid_size, 0.0f, y + terrain_grid_size};
 
-            constexpr f32 noise_scale = 0.2f;
-            for (size_t i = 0; i < 4; i++) {
-                v[i].pos.y -= utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) * 4.0f;
-                v[i].col = gfx::color::v3::dirt * 
-                    (utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) 
-                    * 0.5f + 0.5f);
-            }
+    //         constexpr f32 noise_scale = 0.2f;
+    //         for (size_t i = 0; i < 4; i++) {
+    //             v[i].pos.y -= utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) * 4.0f;
+    //             v[i].col = gfx::color::v3::dirt * 
+    //                 (utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) 
+    //                 * 0.5f + 0.5f);
+    //         }
 
-            const v3f n = glm::normalize(glm::cross(v[1].pos - v[0].pos, v[2].pos - v[0].pos));
-            for (size_t i = 0; i < 4; i++) {
-                v[i].nrm = n;
-            }
+    //         const v3f n = glm::normalize(glm::cross(v[1].pos - v[0].pos, v[2].pos - v[0].pos));
+    //         for (size_t i = 0; i < 4; i++) {
+    //             v[i].nrm = n;
+    //         }
             
-            mesh_builder.add_quad(v);
-        }
-    }
+    //         mesh_builder.add_quad(v);
+    //     }
+    // }
 
-    app->mesh_cache.add(
-        &app->mesh_arena,
-        mesh_builder.build(&app->mesh_arena)
-    );
-    utl::str_hash_create(app->mesh_hash);
-    utl::str_hash_create(app->mesh_hash_meta);
+    // app->mesh_cache.add(
+    //     &app->mesh_arena,
+    //     mesh_builder.build(&app->mesh_arena)
+    // );
+    // utl::str_hash_create(app->mesh_hash);
+    // utl::str_hash_create(app->mesh_hash_meta);
 
-    utl::str_hash_add(app->mesh_hash, "ground", 0);    
-
+    // utl::str_hash_add(app->mesh_hash, "ground", 0);    
+    // game::rendering::add_mesh(app->render_system, "ground", app->mesh_cache.get(0));
+    #endif
 
     // load all meshes from the resource file
     for (size_t i = 0; i < app->resource_file->file_count; i++) {
@@ -386,27 +380,17 @@ app_on_init(app_memory_t* app_mem) {
         auto loaded_mesh = load_bin_mesh_data(
             &app->mesh_arena,
             file_data, 
-            &app->vertices.pool,
-            &app->indices.pool
-        );
-        const auto mesh_id = app->mesh_cache.add(
-            &app->mesh_arena,
-            loaded_mesh
+            &app->render_system->vertices.pool,
+            &app->render_system->indices.pool
         );
         const char* file_name = app->resource_file->table[i].name.c_data;
-        utl::str_hash_add(app->mesh_hash, file_name, mesh_id);
 
-        assert(utl::str_hash_find(app->mesh_hash, file_name) != utl::invalid_hash);
+        game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
     }
 
-    game::entity::entity_t* e0 = game::world_create_entity(app->game_world);
-    game::entity::entity_init(e0, 0);
-    e0->transform.origin = v3f{0.0f, -10.0f, 0.0f};
-    e0->name.view("ground");
+    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::characters::soldier);
+    auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
 
-    game::spawn(app->game_world, app->mesh_hash, game::entity::db::characters::soldier);
-    
-    const auto teapot_mesh = utl::str_hash_find(app->mesh_hash,"assets/models/utah-teapot.obj");
 
     game::entity::physics_entity_t* e1 =
         (game::entity::physics_entity_t*)
@@ -418,24 +402,27 @@ app_on_init(app_memory_t* app_mem) {
 
     game::entity::physics_entity_init_convex(
         e1, 
-        teapot_mesh,
+        game::rendering::get_mesh_id(app->render_system, "assets/models/utah-teapot.obj"),
         utl::res::pack_file_get_file_by_name(app->resource_file, "assets/models/utah-teapot.obj.convex.physx"),
         safe_truncate_u64(utl::res::pack_file_get_file_size(app->resource_file, "assets/models/utah-teapot.obj.convex.physx")),
         app->physics
     );
 
-    game::entity::physics_entity_t* e2 =
-        (game::entity::physics_entity_t*)
-        game::world_create_entity(app->game_world, 1);
+    // game::entity::physics_entity_t* e2 =
+    //     (game::entity::physics_entity_t*)
+    //     game::world_create_entity(app->game_world, 1);
 
-    game::entity::physics_entity_init_trimesh(
-        e2, 
-        utl::str_hash_find(app->mesh_hash, "assets/models/rooms/room_0.obj"),
-        utl::res::pack_file_get_file_by_name(app->resource_file, "assets/models/rooms/room_0.obj.trimesh.physx"),
-        safe_truncate_u64(utl::res::pack_file_get_file_size(app->resource_file, "assets/models/rooms/room_0.obj.trimesh.physx")),
-        app->physics
-    );
-    e2->name.view("room");
+    // game::entity::physics_entity_init_trimesh(
+    //     e2, 
+    //     game::rendering::get_mesh_id(app->render_system, "assets/models/rooms/room_0.obj"),
+    //     utl::res::pack_file_get_file_by_name(app->resource_file, "assets/models/rooms/room_0.obj.trimesh.physx"),
+    //     safe_truncate_u64(utl::res::pack_file_get_file_size(app->resource_file, "assets/models/rooms/room_0.obj.trimesh.physx")),
+    //     app->physics
+    // );
+    // e2->name.view("room");
+
+    e1->gfx.material_id = (u64)red_plastic_mat;
+    e2->gfx.material_id = (u64)blue_plastic_mat;
     
     arena_clear(&app->temp_arena);
     app->game_world->player.transform.origin.y = 5.0f;
@@ -550,14 +537,42 @@ app_on_input(app_t* app, app_input_t* input) {
     }
 }
 
+void game_on_gameplay(app_t* app, app_input_t* input) {
+    input->dt *= app->time_scale;
+    app_on_input(app, input);
+
+    // TODO(ZACK): GAME CODE HERE
+
+    // Submit renderables
+    
+    // loop through type erased pools
+    for (size_t pool = 0; pool < game::pool_count(); pool++)  {
+        for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
+            if ((e->flags & game::entity::EntityFlags_Renderable) == 0) { 
+                gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
+                return;
+            }
+            game::rendering::submit_job(
+                app->render_system, 
+                e->gfx.mesh_id, 
+                (game::rendering::material_node_t*)e->gfx.material_id, 
+                e->global_transform().to_matrix()
+            );
+        }
+    }
+}
+
+void game_on_render(app_t* app) {
+
+}
+
 void
 game_on_update(app_memory_t* app_mem) {
     // utl::profile_t p{"on_update"};
     app_t* app = get_app(app_mem);
 
-    app_mem->input.dt *= app->time_scale;
+    game_on_gameplay(app, &app_mem->input);
 
-    app_on_input(app, &app_mem->input);
 
     gfx::vul::state_t& vk_gfx = app->gfx;
 
@@ -608,8 +623,8 @@ game_on_update(app_memory_t* app_mem) {
         &app->texture_arena,
         app->game_world->arena,
         &app->physics->default_allocator.arena,
-        &app->vertices.pool,
-        &app->indices.pool,
+        &app->render_system->vertices.pool,
+        &app->render_system->indices.pool,
         &app->gui.vertices.pool,
         &app->gui.indices.pool,
     };
@@ -674,12 +689,12 @@ game_on_update(app_memory_t* app_mem) {
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
 
-            local_persist bool show_stats = false;
+            local_persist bool show_stats = !false;
             local_persist bool show_resources = false;
             local_persist bool show_window = false;
-            local_persist bool show_gui = false;
-            local_persist bool show_theme = false;
-            local_persist bool show_colors= false;
+            local_persist bool show_gui = !false;
+            local_persist bool show_theme = !false;
+            local_persist bool show_colors= !false;
             local_persist bool show_files[0xff];
 
             if (im::text(state, "Stats"sv, &show_stats)) {
@@ -734,11 +749,11 @@ game_on_update(app_memory_t* app_mem) {
                     app->scene.sporadic_buffer.mode = ++app->scene.sporadic_buffer.mode % 4;
                 }
                 if (im::text(state, fmt_sv("- Resource File Count: {}", app->resource_file->file_count), &show_resources)) {
-                    loop_iota(rf, app->resource_file->file_count) {
+                    loop_iota_u64(rf, app->resource_file->file_count) {
                         assert(rf < array_count(show_files));
                         if (im::text(state, fmt_sv("--- File Name: {}", app->resource_file->table[rf].name.c_data), show_files + rf)) {
                             im::text(state, fmt_sv("----- Size: {} bytes", app->resource_file->table[rf].size));
-                            im::text(state, fmt_sv("----- Type: {}", app->resource_file->table[rf].file_type));
+                            im::text(state, fmt_sv("----- Type: {:X}", app->resource_file->table[rf].file_type));
                         }
                     }
                 }
@@ -751,12 +766,12 @@ game_on_update(app_memory_t* app_mem) {
                 }
             }
 
-            local_persist bool show_gfx = !false;
+            local_persist bool show_gfx = false;
             if (im::text(state, "Graphics"sv, &show_gfx)) { 
-                local_persist bool show_sky = !false;
+                local_persist bool show_sky = false;
                 if (im::text(state, "- SkyBox"sv, &show_sky)) { 
                     local_persist bool show_dir = false;
-                    local_persist bool show_color = !false;
+                    local_persist bool show_color = false;
                     if (im::text(state, "--- Sun Color"sv, &show_color)) {
                         local_persist gfx::color32 sun_color = gfx::color::rgba::light_blue;
                         im::color_edit(state, &sun_color);
@@ -779,12 +794,18 @@ game_on_update(app_memory_t* app_mem) {
             if (im::text(state, "Entities"sv, &show_entities)) {
                 u64 entity_count = 1; // always has player
                 for (size_t pool = 0; pool < game::pool_count(); pool++)  {
-                    for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
-                        entity_count += 1;
-                    }
+                    entity_count += game::get_pool(app->game_world, pool)->count;
                 }
 
                 im::text(state, fmt_sv("- Count: {}", entity_count));
+
+                if (im::text(state, "- Kill All"sv)) {
+                    for (size_t pool = 0; pool < game::pool_count(); pool++)  {
+                        node_for(game::entity::entity_t, game::pool_start(app->game_world, pool), e) {
+                            game::get_pool(app->game_world, pool)->clear();
+                        }
+                    }
+                }
             }
 
             im::end_panel(state);
@@ -823,7 +844,7 @@ game_on_update(app_memory_t* app_mem) {
                     );
 
                     im::text(state, 
-                        fmt_sv("Screen Pos: {:.2f} {:.2f} {:.2f}", ndc.x, ndc.y, ndc.z)
+                        fmt_sv("Screen Pos: {:.2f} {:.2f}", ndc.x, ndc.y)
                     );
 
                     im::text(state,
@@ -834,7 +855,6 @@ game_on_update(app_memory_t* app_mem) {
                         )
                     );
 
-
                     if (im::text(state, fmt_sv("kill\0: {}"sv, (void*)e))) {
                         auto* te = e->next;
                         gen_info("gui", "Killing entity: {}", (void*)e);
@@ -843,7 +863,6 @@ game_on_update(app_memory_t* app_mem) {
                             break;
                         }
                         e = te;
-
                     }
 
                     im::end_panel(state);
@@ -901,14 +920,14 @@ game_on_update(app_memory_t* app_mem) {
         app->sky_pipeline->framebuffers[imageIndex],
         vk_gfx.command_buffer, imageIndex, [&]{
 
-        VkBuffer buffers[1] = { app->vertices.buffer };
+        VkBuffer buffers[1] = { app->render_system->vertices.buffer };
         VkDeviceSize offsets[1] = { 0 };
 
         vkCmdBindVertexBuffers(vk_gfx.command_buffer,
             0, 1, buffers, offsets);
 
         vkCmdBindIndexBuffer(vk_gfx.command_buffer,
-            app->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+            app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
         );
 
         struct sky_push_constant_t {
@@ -930,8 +949,8 @@ game_on_update(app_memory_t* app_mem) {
             0, sizeof(sky_push_constant_t), &sky_constants
         );
 
-        const auto& meshes = app->mesh_cache.get(
-            utl::str_hash_find(app->mesh_hash, "assets/models/sphere.obj")
+        const auto& meshes = app->render_system->mesh_cache.get(
+            utl::str_hash_find(app->render_system->mesh_hash, "assets/models/sphere.obj")
         );
     
         for (size_t j = 0; j < meshes.count; j++) {
@@ -945,88 +964,38 @@ game_on_update(app_memory_t* app_mem) {
         }
     });
 
-    vk_gfx.record_pipeline_commands(
-        app->mesh_pipeline->pipeline, 
+    gfx::vul::begin_render_pass(vk_gfx,
         app->mesh_pipeline->render_passes[0],
         app->mesh_pipeline->framebuffers[imageIndex],
-        vk_gfx.command_buffer, imageIndex, [&]{
+        vk_gfx.command_buffer, imageIndex
+    );
 
-        vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-            VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
-            0, 3, app->mesh_pipeline->descriptor_sets, 0, nullptr);
+    vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+        VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
+        0, 3, app->mesh_pipeline->descriptor_sets, 0, nullptr);
 
-        vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-            VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
-            3, 1, &app->brick_descriptor, 0, nullptr);
+    vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+        VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
+        3, 1, &app->brick_descriptor, 0, nullptr);
 
-        VkBuffer buffers[1] = { app->vertices.buffer };
-        VkDeviceSize offsets[1] = { 0 };
+    VkBuffer buffers[1] = { app->render_system->vertices.buffer };
+    VkDeviceSize offsets[1] = { 0 };
 
-        vkCmdBindVertexBuffers(vk_gfx.command_buffer,
-            0, 1, buffers, offsets);
+    vkCmdBindVertexBuffers(vk_gfx.command_buffer,
+        0, 1, buffers, offsets);
 
-        vkCmdBindIndexBuffer(vk_gfx.command_buffer,
-            app->indices.buffer, 0, VK_INDEX_TYPE_UINT32
-        );
+    vkCmdBindIndexBuffer(vk_gfx.command_buffer,
+        app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+    );
 
-        const u32 instance_count = 1;
-        const u32 first_instance = 0;
+    game::rendering::build_commands(app->render_system, vk_gfx.command_buffer);
 
-        const auto draw = [&](game::entity::entity_t* e) {
-            const auto& meshes = app->mesh_cache.get(e->gfx.mesh_id%app->mesh_cache.meshes.size());
-            gfx::vul::object_push_constants_t push_constants;
-
-            if ((e->flags & game::entity::EntityFlags_Renderable) == 0) { 
-                gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
-                return;
-            }
-
-            push_constants.model = e->global_transform().to_matrix();
-            push_constants.material.albedo = gfx::color::v4::green;
-
-            // push constants cannot be bigger
-            static_assert(sizeof(push_constants) <= 256);
-            vkCmdPushConstants(vk_gfx.command_buffer, app->mesh_pipeline->pipeline_layout,
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
-                0, sizeof(gfx::vul::object_push_constants_t), &push_constants
-            );
-        
-            for (size_t j = 0; j < meshes.count; j++) {
-                app->debug.draw_aabb(
-                    e->global_transform().xform_aabb(meshes.meshes[j].aabb),
-                    gfx::color::v3::red
-                );
-                if (meshes.meshes[j].index_count) {
-                    vkCmdDrawIndexed(vk_gfx.command_buffer,
-                        meshes.meshes[j].index_count,
-                        instance_count, 
-                        meshes.meshes[j].index_start,
-                        meshes.meshes[j].vertex_start,
-                        first_instance           
-                    );
-                } else {
-                    vkCmdDraw(vk_gfx.command_buffer,
-                        meshes.meshes[j].vertex_count,
-                        meshes.meshes[j].instance_count,
-                        meshes.meshes[j].vertex_start,
-                        meshes.meshes[j].instance_start
-                    );
-                }
-            }
-        };
-
-        // loop through type erased pools
-        draw(&app->game_world->player);                
-        for (size_t pool = 0; pool < game::pool_count(); pool++)  {
-            for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
-                draw(e);                
-            }
-        }
-    });
+    gfx::vul::end_render_pass(vk_gfx.command_buffer);
 
     if (app->debug.show) {
         vk_gfx.record_pipeline_commands(
-            app->debug_pipeline->pipeline, app->debug_pipeline->render_passes[0],
+            app->debug_pipeline->pipeline, 
+            app->debug_pipeline->render_passes[0],
             app->debug_pipeline->framebuffers[imageIndex],
             vk_gfx.command_buffer, imageIndex, 
             [&]{

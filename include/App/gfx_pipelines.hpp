@@ -76,7 +76,7 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
 
     create_info->descriptor_flags[0] = pipeline_state_t::create_info_t::DescriptorFlag_Uniform;
     create_info->descriptor_flags[1] = pipeline_state_t::create_info_t::DescriptorFlag_Uniform;
-    create_info->descriptor_flags[2] = pipeline_state_t::create_info_t::DescriptorFlag_Uniform;
+    create_info->descriptor_flags[2] = pipeline_state_t::create_info_t::DescriptorFlag_Storage;
 
     create_info->descriptor_set_layout_bindings[0] = utl::descriptor_set_layout_binding(
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0
@@ -85,7 +85,7 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0
     );
     create_info->descriptor_set_layout_bindings[2] = utl::descriptor_set_layout_binding(
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0
     );
 
     create_info->descriptor_flags[3] = pipeline_state_t::create_info_t::DescriptorFlag_Sampler;
@@ -107,7 +107,7 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
 
     buffer_info[2].buffer = pipeline_desc.object_buffer;
     buffer_info[2].offset = 0; 
-    buffer_info[2].range = sizeof(object_buffer_t);
+    buffer_info[2].range = sizeof(m44) * 10'000; // hardcoded
 
     create_info->write_descriptor_sets[0] = utl::write_descriptor_set(
         pipeline->descriptor_sets[0], 
@@ -120,7 +120,7 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
     );
     create_info->write_descriptor_sets[2] = utl::write_descriptor_set(
         pipeline->descriptor_sets[2], 
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, buffer_info + 2
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, buffer_info + 2
     );
 
     for (size_t i = 0; i < array_count(vdii); i++) {

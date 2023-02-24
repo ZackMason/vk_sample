@@ -284,10 +284,26 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     std::vector<const char*> get_required_extensions(bool enableValidationLayers, app_config_t* info) {
         std::vector<const char*> extensions(info->vk_exts, info->vk_exts + info->vk_ext_count);
         
+        u32 numExtensionsAvailable;
+		vkEnumerateInstanceExtensionProperties(nullptr, &numExtensionsAvailable, nullptr);
+		auto* instance_extensions = new VkExtensionProperties[ numExtensionsAvailable ];
+		vkEnumerateInstanceExtensionProperties(nullptr, &numExtensionsAvailable, instance_extensions);
+		
+		
+		gen_info("vk::ext", "{} Instance Extensions actually available:", numExtensionsAvailable);
+		for (u32 i = 0; i < numExtensionsAvailable; i++) {
+			gen_info("vk::ext", "{:X}  '{}'", 
+                instance_extensions[i].specVersion,
+				instance_extensions[i].extensionName);
+		}
+        delete [] instance_extensions;
 
         if (enableValidationLayers) {
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
+
+        // extensions.push_back(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
+        // extensions.push_back(VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME);
 
         for (const auto& e : extensions) {
             gen_info("vulkan", "loading extension: {}", e);
@@ -402,6 +418,56 @@ struct quick_cmd_raii_t {
 };
 
 
+void 
+begin_render_pass(
+    state_t& state,
+    VkRenderPass p_render_pass,
+    VkFramebuffer framebuffer,
+    VkCommandBuffer command_buffer, u32 index
+) {
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = p_render_pass;
+    renderPassInfo.framebuffer = framebuffer;
+
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = state.swap_chain_extent;
+
+    VkClearColorValue			vccv;
+		vccv.float32[0] = 0.0f;
+		vccv.float32[1] = 0.0f;
+		vccv.float32[2] = 0.0f;
+		vccv.float32[3] = 1.0f;
+
+	VkClearDepthStencilValue		vcdsv;
+		vcdsv.depth = 1.f;
+		vcdsv.stencil = 0;
+
+    VkClearValue clearColor[2];
+    clearColor[0].color = vccv;
+    clearColor[1].depthStencil = vcdsv;
+
+    renderPassInfo.clearValueCount = 2;
+    renderPassInfo.pClearValues = clearColor;
+    
+    vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // set viewport and scissor because of dynamic pipeline state
+    VkViewport viewport{vul::utl::viewport(
+        static_cast<float>(state.swap_chain_extent.width),
+        static_cast<float>(state.swap_chain_extent.height),
+        0.0f,
+        1.0f
+    )};
+
+    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = state.swap_chain_extent;
+    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+}    
+
 void state_t::record_pipeline_commands(
     VkPipeline p_pipeline, 
     VkRenderPass p_render_pass,
@@ -430,7 +496,7 @@ void state_t::record_pipeline_commands(
     clearColor[0].color = vccv;
     clearColor[1].depthStencil = vcdsv;
 
-    renderPassInfo.clearValueCount =2 ;
+    renderPassInfo.clearValueCount = 2;
     renderPassInfo.pClearValues = clearColor;
     
     vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -438,13 +504,13 @@ void state_t::record_pipeline_commands(
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_pipeline);
 
     // set viewport and scissor because of dynamic pipeline state
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swap_chain_extent.width);
-    viewport.height = static_cast<float>(swap_chain_extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    VkViewport viewport{vul::utl::viewport(
+        static_cast<float>(swap_chain_extent.width),
+        static_cast<float>(swap_chain_extent.height),
+        0.0f,
+        1.0f
+    )};
+
     vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
     VkRect2D scissor{};
@@ -458,6 +524,7 @@ void state_t::record_pipeline_commands(
 }
 
 void state_t::create_command_buffer() {
+
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = command_pool;
@@ -650,9 +717,9 @@ void state_t::create_instance(app_config_t* info) {
         create_info.enabledLayerCount = 0;
     }
 
-    gen_info("vulkan", "{} extensions loaded", extensions.size());
-
     VK_OK(vkCreateInstance(&create_info, nullptr, &instance));
+
+    gen_info("vulkan", "{} extensions loaded", extensions.size());
 
     gen_info("vulkan", "instance created");
 }
@@ -727,7 +794,7 @@ void state_t::create_logical_device() {
     auto indices = find_queue_families(gpu_device, surface);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = {indices.graphics_family.value(), indices.present_family.value()};
+    std::set<uint32_t> uniqueQueueFamilies = {indices.graphics_family.value(), indices.compute_family.value(), indices.present_family.value()};
 
     float queuePriority = 1.0f;
     for (uint32_t queueFamily : uniqueQueueFamilies) {
@@ -764,6 +831,8 @@ void state_t::create_logical_device() {
     } else {
         gen_info("vulkan", "created logical device");
     }
+
+    graphics_index = indices.graphics_family.value();
 
     vkGetDeviceQueue(device, indices.graphics_family.value(), 0, &gfx_queue);
     vkGetDeviceQueue(device, indices.compute_family.value(), 0, &compute_queue);
@@ -960,11 +1029,9 @@ state_t::create_pipeline_state_descriptors(
 ) {
     VkDescriptorPoolSize				vdps[8];
 		for (u32 i = 0; i < create_info->descriptor_count; i++) {
-            vdps[i].type = create_info->descriptor_flags[i] == pipeline_state_t::create_info_t::DescriptorFlag_Sampler ?
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            vdps[i].type = (VkDescriptorType)create_info->descriptor_flags[i];            
             vdps[i].descriptorCount = 1; // note(zack): not sure what this is for tbh
         }
-
 
     VkDescriptorSetLayoutCreateInfo			vdslc[8];
 		for (u32 i = 0; i < create_info->descriptor_count; i++) {
