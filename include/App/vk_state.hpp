@@ -10,7 +10,7 @@
 #include <vector>
 #include <functional>
 
-#define VK_OK(res) do { const auto r = (res); if ((r) != VK_SUCCESS) { gen_error("vk", utl::error_string(r)); std::terminate(); } } while(0)
+#define VK_OK(res) do { const auto r = (res); if ((r) != VK_SUCCESS) { gen_error("vk", gfx::vul::utl::error_string(r)); std::terminate(); } } while(0)
 
 using VkDataBuffer = VkBuffer;
 
@@ -45,6 +45,11 @@ struct index_buffer_t : public gpu_buffer_t {
     utl::pool_t<u32> pool{};
 };
 
+template <typename T, size_t N>
+struct storage_buffer_t : public gpu_buffer_t {
+    using gpu_buffer_t::gpu_buffer_t;
+    utl::pool_t<T> pool{};
+};
 
 struct texture_2d_t {
     i32 size[2];
@@ -91,8 +96,9 @@ struct debug_line_vertex_t {
 struct pipeline_state_t {
     struct create_info_t {
         enum DescriptorFlag {
-            DescriptorFlag_Uniform,
-            DescriptorFlag_Sampler,
+            DescriptorFlag_Uniform = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            DescriptorFlag_Storage = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            DescriptorFlag_Sampler = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             DescriptorFlag_Invalid,
         };
 
@@ -136,12 +142,21 @@ struct pipeline_state_t {
     VkDescriptorSet         descriptor_sets[5];
 };
 
+inline void
+end_render_pass(
+    VkCommandBuffer cmd
+) {
+    vkCmdEndRenderPass(cmd);
+}
+
 struct state_t {
     VkInstance instance;
     VkPhysicalDevice gpu_device;
     VkDevice device; // logical device in mb sample
 
     VkPhysicalDeviceFeatures device_features{};
+
+    u32 graphics_index;
 
     VkQueue gfx_queue;
     VkQueue compute_queue;
@@ -224,6 +239,16 @@ struct state_t {
         return r;
     }
 
+    // todo(zack): need to select proper memory type
+    template <typename T, size_t N>
+    VkResult create_storage_buffer(storage_buffer_t<T, N>* buffer) {
+        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer);
+        void* gpu_ptr{0};
+        vkMapMemory(device, buffer->vdm, 0, sizeof(T) * N, 0, &gpu_ptr);
+        buffer->pool = utl::pool_t<T>{(T*)gpu_ptr, N};
+        return r;
+    }
+
     template <typename T, size_t N>
     VkResult create_vertex_buffer(vertex_buffer_t<T, N>* buffer) {
         const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, buffer);
@@ -256,8 +281,34 @@ struct state_t {
     void destroy_instance();
 };
 
+void 
+begin_render_pass(
+    state_t& state,
+    VkRenderPass p_render_pass,
+    VkFramebuffer framebuffer,
+    VkCommandBuffer command_buffer, u32 index
+);
+
 namespace utl {
 
+inline VkCommandPoolCreateInfo 
+command_pool_create_info() {
+    VkCommandPoolCreateInfo cmdPoolCreateInfo {};
+    cmdPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    return cmdPoolCreateInfo;
+}
+
+inline VkCommandBufferAllocateInfo command_buffer_allocate_info(
+    VkCommandPool commandPool, 
+    uint32_t bufferCount)
+{
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo {};
+    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferAllocateInfo.commandPool = commandPool;
+    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferAllocateInfo.commandBufferCount = bufferCount;
+    return commandBufferAllocateInfo;
+}
 
 inline VkPipelineLayoutCreateInfo pipeline_layout_create_info(
     const VkDescriptorSetLayout* pSetLayouts,

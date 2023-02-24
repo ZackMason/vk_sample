@@ -157,8 +157,6 @@ player_init(player_t* player, cam::camera_t* camera, u64 mesh_id) {
 
 namespace db {
 
-
-
 struct entity_def_t {
     string_t type_name{};
 
@@ -212,6 +210,15 @@ struct entity_def_t {
 namespace misc {
 
 DB_ENTRY
+teapot {
+    .type_name = "Teapot",
+    .gfx = {
+        .mesh_name = "assets/models/utah-teapot.obj",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+};
+
+DB_ENTRY
 door {
     .type_name = "door",
     .gfx = {
@@ -230,6 +237,23 @@ door {
 };
 
 }; //namespace misc
+
+namespace rooms {
+
+DB_ENTRY
+room_0 {
+    .type_name = "room_0",
+    .gfx = {
+        .mesh_name = "assets/models/rooms/room_0.obj",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    // .physics = entity_def_t::physics_t {
+    //     .flags = PhysicsEntityFlags_Static,
+    //     .shape = phys::physics_shape_type::TRIMESH,
+    // },
+};
+
+}; //namespace rooms
 
 namespace items {
 

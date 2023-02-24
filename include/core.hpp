@@ -105,8 +105,8 @@ using m44 = glm::mat4x4;
 #define align4(val) ((val + 3) & ~3)
 
 
-#define loop_iota(itr, stop) for (size_t itr = 0; itr < stop; itr++)
-#define loop_sota(itr, stop) for (int itr = 0; itr < stop; itr++)
+#define loop_iota_u64(itr, stop) for (size_t itr = 0; itr < stop; itr++)
+#define loop_iota_i32(itr, stop) for (int itr = 0; itr < stop; itr++)
 
 inline u32
 safe_truncate_u64(u64 value) {
@@ -1397,7 +1397,7 @@ namespace gui {
             vertices[index + 5].pos = t6 / ctx->screen_size;
             theta += delta_theta;
 
-            loop_iota(j, 6) {
+            loop_iota_u64(j, 6) {
                 vertices[index + j].tex = v2f{0.0f};
                 vertices[index + j].img = ~0ui32;
                 vertices[index + j].col = color;
@@ -1614,11 +1614,11 @@ namespace gui {
 
             draw_rect(&imgui.ctx, box, std::span{rect_colors});
 
-            const size_t res = 14;
-            loop_iota(i, res) {
+            const size_t res = 4;
+            loop_iota_u64(i, res) {
                 math::aabb_t<v2f> hue_seg;
-                hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i)/f32(res+1)} + v2f{imgui.theme.padding, 0.0f});
-                hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i+1)/f32(res+1)} + v2f{8.0f, 0.0f} + v2f{imgui.theme.padding,0.0f});
+                hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i)/f32(res)} + v2f{imgui.theme.padding, 0.0f});
+                hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i+1)/f32(res)} + v2f{8.0f, 0.0f} + v2f{imgui.theme.padding,0.0f});
 
                 hue_box.expand(hue_seg);
 
@@ -2474,6 +2474,12 @@ private:
     size_t size_{0};
 public:
 
+    // only call if you know what you are doing
+    void clear() noexcept {
+        head_ = tail_ = nullptr;
+        size_ = 0;
+    }
+
     [[nodiscard]] size_t size() const noexcept {
         return size_;
     }
@@ -2484,6 +2490,14 @@ public:
 
     T* front() noexcept {
         return head_;
+    }
+
+    const T* front() const noexcept {
+        return head_;
+    }
+
+    T* back() noexcept {
+        return tail_;
     }
 
     const T* back() const noexcept {
@@ -2593,6 +2607,17 @@ struct free_list_t {
     size_t min_stack_pos{~static_cast<size_t>(0)};
     size_t count{0};
     size_t free_count{0};
+
+    void clear() noexcept {
+        free_count += count;
+        count = 0;
+        T* last = deque.back();
+        if (last) {
+            last->next = first_free;
+            first_free = deque.front();
+            deque.clear();
+        }
+    }
 
     T* alloc(arena_t* arena) {
         count += 1;

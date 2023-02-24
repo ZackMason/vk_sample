@@ -16,6 +16,7 @@ namespace game {
         arena_t frame_arena[2];
         u64     frame_count{0};
 
+        // note(zack): this is UB
         struct entity_pools_t {
             utl::free_list_t<game::entity::entity_t> entities;
             utl::free_list_t<game::entity::physics_entity_t> physics_entities;
@@ -63,24 +64,35 @@ namespace game {
     world_destroy_entity(world_t* world, game::entity::entity_t*& e) {
         get_pool(world, e->pool_id)->free(e);
     }
-
     
-inline void
+inline entity::entity_t*
 spawn(
     world_t* world,
     utl::str_hash_t& mesh_hash,
-    const entity::db::entity_def_t& e,
+    const entity::db::entity_def_t& def,
     const v3f& pos = {}
 ) {
-    if (e.physics) {
-        if (e.physics->flags & entity::PhysicsEntityFlags_Character) {
+    if (def.physics) {
+        if (def.physics->flags & entity::PhysicsEntityFlags_Character) {
             entity::player_init(
                 &world->player, 
                 &world->camera, 
-                utl::str_hash_find(mesh_hash, e.gfx.mesh_name.c_data)
+                utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data)
             );
-        }
+            return &world->player;
+        } else if (def.physics->flags & entity::PhysicsEntityFlags_Static) {
+
+        } else if (def.physics->flags & entity::PhysicsEntityFlags_Dynamic) {
+
+        } 
+        return world->entity_pools.physics_entities.deque.back();
+    } else {
+        auto* e = game::world_create_entity(world, 0);
+        entity::entity_init(e, utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data));
+        e->name.view(def.type_name);
+        return e;
     }
+    return nullptr;
 }
 
 };
