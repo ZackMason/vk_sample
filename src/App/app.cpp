@@ -201,9 +201,11 @@ app_init_graphics(app_memory_t* app_mem) {
     app->gfx.init(&app_mem->config);
     app->render_system = game::rendering::init<megabytes(256)>(vk_gfx, &app->main_arena);
 
-    app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx);
-    app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx);
-    app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx,
+    auto* rs = app->render_system;
+
+    app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
+    app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
+    app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0],
         gfx::vul::mesh_pipeline_info_t{
             vk_gfx.sporadic_uniform_buffer.buffer,
             app->render_system->job_storage_buffer.buffer,
@@ -218,6 +220,7 @@ app_init_graphics(app_memory_t* app_mem) {
     app->debug_pipeline = gfx::vul::create_debug_pipeline(
         &app->mesh_arena, 
         &vk_gfx, 
+        rs->render_passes[0],
         app->scene.debug_scene_uniform_buffer.buffer, 
         sizeof(gfx::vul::scene_buffer_t)
     );
@@ -604,14 +607,16 @@ game_on_update(app_memory_t* app_mem) {
     const f32 h = (f32)app_mem->config.window_size[1];
     const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
 
+    {
+
+        app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
+        m44 proj = (app_mem->input.keys['U'] ?
+            glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f,  -1000.0f, 1000.f) :
+            glm::perspective(45.0f, aspect, 0.3f, 1000.0f));
+        proj[1][1] *= -1.0f;
+        app->render_system->vp = proj * app->game_world->camera.to_matrix();
     
-    app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
-    m44 proj = (app_mem->input.keys['U'] ?
-        glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f,  -1000.0f, 1000.f) :
-        glm::perspective(45.0f, aspect, 0.3f, 1000.0f));
-    proj[1][1] *= -1.0f;
-    app->render_system->vp = proj * app->game_world->camera.to_matrix();
-    
+    }
     // draw gui 
 
     auto string_mark = arena_get_mark(&app->string_arena);
@@ -921,13 +926,22 @@ game_on_update(app_memory_t* app_mem) {
         gen_error("vulkan:record_command", "failed to begin recording command buffer!");
         std::terminate();
     }
-    
-    vk_gfx.record_pipeline_commands(
-        app->sky_pipeline->pipeline, 
-        app->sky_pipeline->render_passes[0],
-        app->sky_pipeline->framebuffers[imageIndex],
-        vk_gfx.command_buffer, imageIndex, [&]{
 
+    gfx::vul::begin_render_pass(vk_gfx,
+        app->render_system->render_passes[0],
+        app->render_system->framebuffers[imageIndex],
+        vk_gfx.command_buffer, imageIndex
+    );
+    
+    
+    vkCmdBindPipeline(vk_gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->sky_pipeline->pipeline);
+
+    // vk_gfx.record_pipeline_commands(
+    //     app->sky_pipeline->pipeline, 
+    //     app->sky_pipeline->render_passes[0],
+    //     app->sky_pipeline->framebuffers[imageIndex],
+    //     vk_gfx.command_buffer, imageIndex, [&]{
+    {
         VkBuffer buffers[1] = { app->render_system->vertices.buffer };
         VkDeviceSize offsets[1] = { 0 };
 
@@ -943,7 +957,7 @@ game_on_update(app_memory_t* app_mem) {
             v4f directional_light;
         } sky_constants;
 
-        const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
+        // const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
         
         m44 proj = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
         proj[1][1] *= -1.0f;
@@ -975,75 +989,91 @@ game_on_update(app_memory_t* app_mem) {
                 0           
             );
         }
-    });
 
-    gfx::vul::begin_render_pass(vk_gfx,
-        app->mesh_pipeline->render_passes[0],
-        app->mesh_pipeline->framebuffers[imageIndex],
-        vk_gfx.command_buffer, imageIndex
-    );
+        VkClearDepthStencilValue clearValue = {};
+        clearValue.depth = 1.0f;
+        clearValue.stencil = 0;
+
+        // Specify the range of the image to be cleared
+        VkImageSubresourceRange subresourceRange = {};
+        subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        subresourceRange.baseMipLevel = 0;
+        subresourceRange.levelCount = 1;
+        subresourceRange.baseArrayLayer = 0;
+        subresourceRange.layerCount = 1;
+
+        // Clear the depth buffer
+        // vkCmdClearDepthStencilImage(vk_gfx.command_buffer, vk_gfx.depth_stencil_texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &subresourceRange);
+        
+    // });
+    }
+
 
     // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->render_system->job_storage_buffer.buffer);
     // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->gui.vertices.buffer);
     // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->gui.indices.buffer);
+    {
+        vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+            VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
+            0, 4, app->mesh_pipeline->descriptor_sets, 0, nullptr);
 
-    vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-        VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
-        0, 4, app->mesh_pipeline->descriptor_sets, 0, nullptr);
+        vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+            VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
+            4, 1, &app->brick_descriptor, 0, nullptr);
 
-    vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-        VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
-        4, 1, &app->brick_descriptor, 0, nullptr);
+        VkBuffer buffers[1] = { app->render_system->vertices.buffer };
+        VkDeviceSize offsets[1] = { 0 };
 
-    VkBuffer buffers[1] = { app->render_system->vertices.buffer };
-    VkDeviceSize offsets[1] = { 0 };
+        vkCmdBindVertexBuffers(vk_gfx.command_buffer,
+            0, 1, buffers, offsets);
 
-    vkCmdBindVertexBuffers(vk_gfx.command_buffer,
-        0, 1, buffers, offsets);
-
-    vkCmdBindIndexBuffer(vk_gfx.command_buffer,
-        app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
-    );
+        vkCmdBindIndexBuffer(vk_gfx.command_buffer,
+            app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+        );
+    }
 
     game::rendering::build_commands(app->render_system, vk_gfx.command_buffer);
 
-    gfx::vul::end_render_pass(vk_gfx.command_buffer);
+    
 
     if (app->debug.show) {
-        vk_gfx.record_pipeline_commands(
-            app->debug_pipeline->pipeline, 
-            app->debug_pipeline->render_passes[0],
-            app->debug_pipeline->framebuffers[imageIndex],
-            vk_gfx.command_buffer, imageIndex, 
-            [&]{
+    //     vk_gfx.record_pipeline_commands(
+    //         app->debug_pipeline->pipeline, 
+    //         app->debug_pipeline->render_passes[0],
+    //         app->debug_pipeline->framebuffers[imageIndex],
+    //         vk_gfx.command_buffer, imageIndex, 
+    //         [&]{
+    // {
+        vkCmdBindPipeline(vk_gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline);
+        vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+            VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline_layout,
+            0, 1, app->debug_pipeline->descriptor_sets, 0, nullptr);
 
-            vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-                VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline_layout,
-                0, 1, app->debug_pipeline->descriptor_sets, 0, nullptr);
+        VkBuffer buffers[1] = { app->debug.debug_vertices.buffer };
+        VkDeviceSize offsets[1] = { 0 };
 
-            VkBuffer buffers[1] = { app->debug.debug_vertices.buffer };
-            VkDeviceSize offsets[1] = { 0 };
+        vkCmdBindVertexBuffers(vk_gfx.command_buffer,
+            0, 1, buffers, offsets);
 
-            vkCmdBindVertexBuffers(vk_gfx.command_buffer,
-                0, 1, buffers, offsets);
+        const u32 instance_count = 1;
+        const u32 first_instance = 0;
 
-            const u32 instance_count = 1;
-            const u32 first_instance = 0;
-
-            vkCmdDraw(vk_gfx.command_buffer,
-                (u32)app->debug.debug_vertices.pool.count,
-                1, // instance count
-                0, // vertex start
-                0 // instance start
-            );
-        });
+        vkCmdDraw(vk_gfx.command_buffer,
+            (u32)app->debug.debug_vertices.pool.count,
+            1, // instance count
+            0, // vertex start
+            0 // instance start
+        );
     }
 
-    vk_gfx.record_pipeline_commands(
-        app->gui_pipeline->pipeline, app->gui_pipeline->render_passes[0],
-        app->gui_pipeline->framebuffers[imageIndex],
-        vk_gfx.command_buffer, imageIndex, 
-        [&]{
+    vkCmdBindPipeline(vk_gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline);
+    {
+
+    // vk_gfx.record_pipeline_commands(
+    //     app->gui_pipeline->pipeline, app->gui_pipeline->render_passes[0],
+    //     app->gui_pipeline->framebuffers[imageIndex],
+    //     vk_gfx.command_buffer, imageIndex, 
+    //     [&]{
             vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
                 VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
                 0, 1, &app->default_font_descriptor, 0, nullptr);
@@ -1062,8 +1092,10 @@ game_on_update(app_memory_t* app_mem) {
                 0,
                 0
             );
-    });
-    
+    }
+
+    gfx::vul::end_render_pass(vk_gfx.command_buffer);
+
     if (vkEndCommandBuffer(vk_gfx.command_buffer) != VK_SUCCESS) {
         gen_error("vulkan:record_command:end", "failed to record command buffer!");
         std::terminate();
@@ -1108,192 +1140,6 @@ game_on_update(app_memory_t* app_mem) {
 
 void
 main_menu_on_update(app_memory_t* app_mem) {
-    // utl::profile_t p{"on_update"};
-    app_t* app = get_app(app_mem);
-
-    app_mem->input.dt *= app->time_scale;
-
-    gfx::vul::state_t& vk_gfx = app->gfx;
-
-    // note(zack): print the first 3 frames, if 
-    // a bug shows up its helpful to know if 
-    // maybe it only happens on the second frame
-    local_persist u32 frame_count = 0;
-    if (frame_count++ < 3) {
-        gen_info("app::on_update", "frame: {}", frame_count);
-    }
-
-    app->scene.sporadic_buffer.num_instances = 1;
-
-    const f32 w = (f32)app_mem->config.window_size[0];
-    const f32 h = (f32)app_mem->config.window_size[1];
-    const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
-
-
-    // draw gui 
-
-    auto string_mark = arena_get_mark(&app->string_arena);
-
-    gfx::gui::ctx_clear(
-        &app->gui.ctx
-    );
-
-    gfx::gui::string_render(
-        &app->gui.ctx, 
-        string_t{}.view("Play"),
-        app->gui.ctx.screen_size/2.0f
-    );
-
-    local_persist gfx::gui::im::state_t state{
-        .ctx = app->gui.ctx,
-        .theme = gfx::gui::theme_t {
-            .fg_color = gfx::color::rgba::cream,
-            .bg_color = gfx::color::rgba::light_gray,
-            .text_color = gfx::color::rgba::black,
-            .disabled_color = gfx::color::rgba::dark_gray,
-            .border_color = gfx::color::rgba::white,
-        },
-    };
-
-    {
-        using namespace std::string_view_literals;
-        using namespace gfx::gui;
-
-        im::clear(state);
-
-        if (im::begin_panel(state, "test panel"sv, v2f{100.0f})) {
-
-            im::text(state, "text test"sv);
-            im::text(state, "text test"sv);
-            im::text(state, "text test"sv);
-
-            local_persist f32 x = 0.50f;
-            im::float_slider(state, &x);
-
-            if (im::button(state, "button test"sv)) {
-                gen_info("main menu", "btn pressed");
-            }
-            if (im::button(state, "button test1"sv)) {
-                gen_info("main menu", "btn pressed");
-            }
-                
-            im::text(state, "text test"sv);
-            if (im::button(state, "button test2"sv)) {
-                gen_info("main menu", "btn pressed");
-            }
-
-            im::end_panel(state);
-        }
-    }
-
-    arena_set_mark(&app->string_arena, string_mark);
-
-    *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
-
-    // render
-
-    app->debug.debug_vertices.pool.clear();
-        
-    vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0], VK_TRUE, UINT64_MAX);
-    vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0]);
-
-    u32 imageIndex;
-    vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
-        vk_gfx.image_available_semaphore, VK_NULL_HANDLE, &imageIndex);
-
-    vkResetCommandBuffer(vk_gfx.command_buffer, 0);
-
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0; // Optional
-    beginInfo.pInheritanceInfo = nullptr; // Optional
-
-    if (vkBeginCommandBuffer(vk_gfx.command_buffer, &beginInfo) != VK_SUCCESS) {
-        gen_error("vulkan:record_command", "failed to begin recording command buffer!");
-        std::terminate();
-    }
-
-    vk_gfx.record_pipeline_commands(
-        app->sky_pipeline->pipeline, 
-        app->sky_pipeline->render_passes[0],
-        app->sky_pipeline->framebuffers[imageIndex],
-        vk_gfx.command_buffer, imageIndex, [&]{
-    
-    });
-
-    vk_gfx.record_pipeline_commands(
-        app->mesh_pipeline->pipeline, 
-        app->mesh_pipeline->render_passes[0],
-        app->mesh_pipeline->framebuffers[imageIndex],
-        vk_gfx.command_buffer, imageIndex, [&]{
-
-    });
-    
-    vk_gfx.record_pipeline_commands(
-        app->gui_pipeline->pipeline, app->gui_pipeline->render_passes[0],
-        app->gui_pipeline->framebuffers[imageIndex],
-        vk_gfx.command_buffer, imageIndex, 
-        [&]{
-            vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-                VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
-                0, 1, &app->default_font_descriptor, 0, nullptr);
-
-            VkDeviceSize offsets[1] = { 0 };
-            vkCmdBindVertexBuffers(vk_gfx.command_buffer,
-                0, 1, &app->gui.vertices.buffer, offsets);
-
-            vkCmdBindIndexBuffer(vk_gfx.command_buffer,
-                app->gui.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-            vkCmdDrawIndexed(vk_gfx.command_buffer,
-                (u32)app->gui.ctx.indices->count,
-                1,
-                0,
-                0,
-                0
-            );
-    });
-    
-    if (vkEndCommandBuffer(vk_gfx.command_buffer) != VK_SUCCESS) {
-        gen_error("vulkan:record_command:end", "failed to record command buffer!");
-        std::terminate();
-    }
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore waitSemaphores[] = {vk_gfx.image_available_semaphore};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
-
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &vk_gfx.command_buffer;
-
-    VkSemaphore signalSemaphores[] = {vk_gfx.render_finished_semaphore};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
-
-    if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[0]) != VK_SUCCESS) {
-        gen_error("vk:submit", "failed to submit draw command buffer!");
-        std::terminate();
-    }
-
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-
-    VkSwapchainKHR swapChains[] = {vk_gfx.swap_chain};
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
-
-    presentInfo.pResults = nullptr; // Optional
-
-    vkQueuePresentKHR(vk_gfx.present_queue, &presentInfo);
 }
 
 export_fn(void) 
@@ -1304,13 +1150,14 @@ app_on_update(app_memory_t* app_mem) {
         scene_state = 1;
     }
     switch (scene_state) {
-        case 0: // Main Menu
-            main_menu_on_update(app_mem);
-            break;
+        // case 0: // Main Menu
+        //     main_menu_on_update(app_mem);
+        //     break;
         case 1: // Game
             game_on_update(app_mem);
             break;
         default:
             gen_warn("scene", "Unknown scene: {}", scene_state);
+            scene_state = 1;
     }
 }

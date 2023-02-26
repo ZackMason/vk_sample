@@ -108,8 +108,10 @@ struct pipeline_state_t {
         VkPrimitiveTopology     topology{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
         VkPolygonMode           fill_mode{VK_POLYGON_MODE_FILL};
         VkCullModeFlagBits      cull_mode{VK_CULL_MODE_NONE};
-        VkAttachmentDescription attachment_descriptions[6];
-        u32                     attachment_count{2};
+        // VkAttachmentDescription attachment_descriptions[6];
+        // u32                     attachment_count{2};
+        bool                        write_depth{true};
+        bool                        test_depth{true};
 
         VkVertexInputBindingDescription     vertex_input_binding_descriptions[8];
         u32                                 vertex_input_binding_count{0};
@@ -132,10 +134,10 @@ struct pipeline_state_t {
 
     VkPipeline          pipeline;
     VkPipelineLayout    pipeline_layout;
-    VkRenderPass        render_passes[8];
-    u32                 render_pass_count{1};
-    VkFramebuffer*      framebuffers{0};
-    u32                 framebuffer_count{0};
+    // VkRenderPass        render_passes[8];
+    // u32                 render_pass_count{1};
+    // VkFramebuffer*      framebuffers{0};
+    // u32                 framebuffer_count{0};
 
     // descriptors
     u32                     descriptor_count{0};
@@ -276,7 +278,7 @@ struct state_t {
     VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data);
     VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data, size_t size);
 
-    void create_pipeline_state(pipeline_state_t* pipeline, pipeline_state_t::create_info_t* create_info);
+    void create_pipeline_state(pipeline_state_t* pipeline, pipeline_state_t::create_info_t* create_info, VkRenderPass render_pass);
     void create_pipeline_state_descriptors(pipeline_state_t* pipeline, pipeline_state_t::create_info_t* create_info);
 
     void destroy_instance();

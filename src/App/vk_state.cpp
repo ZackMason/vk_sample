@@ -1121,74 +1121,75 @@ state_t::create_pipeline_state_descriptors(
 void 
 state_t::create_pipeline_state(
     pipeline_state_t* pipeline, 
-    pipeline_state_t::create_info_t* create_info
+    pipeline_state_t::create_info_t* create_info,
+    VkRenderPass render_pass
 ) {
     u32 copy_count = 0;
     for (size_t i = 0; i < create_info->descriptor_count; i++) {
         vkUpdateDescriptorSets(device, 1, create_info->write_descriptor_sets + i, copy_count, nullptr);
     }
 
-    VkAttachmentReference color_attachment_refs[6];
-    VkAttachmentReference depth_attachment_refs[6];
-    u32 color_count = 0;
-    u32 depth_count = 0;
-    for (u32 i = 0; i < create_info->attachment_count; i++) {
-        if (create_info->attachment_descriptions[i].finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-            depth_attachment_refs[depth_count].attachment = i;
-            depth_attachment_refs[depth_count].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            depth_count++;
-        } else {
-            color_attachment_refs[color_count].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            color_attachment_refs[color_count].attachment = i;
-            color_count++;
-        }
-    }
+    // VkAttachmentReference color_attachment_refs[6];
+    // VkAttachmentReference depth_attachment_refs[6];
+    // u32 color_count = 0;
+    // u32 depth_count = 0;
+    // for (u32 i = 0; i < create_info->attachment_count; i++) {
+    //     if (create_info->attachment_descriptions[i].finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+    //         depth_attachment_refs[depth_count].attachment = i;
+    //         depth_attachment_refs[depth_count].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    //         depth_count++;
+    //     } else {
+    //         color_attachment_refs[color_count].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    //         color_attachment_refs[color_count].attachment = i;
+    //         color_count++;
+    //     }
+    // }
     
-    VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    // VkSubpassDescription subpass{};
+    // subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-    subpass.colorAttachmentCount = color_count;
-    subpass.pColorAttachments = color_attachment_refs;
+    // subpass.colorAttachmentCount = color_count;
+    // subpass.pColorAttachments = color_attachment_refs;
 
-    assert(depth_count <= 1);
-    subpass.pDepthStencilAttachment = depth_count == 1 ? depth_attachment_refs : 0;
+    // assert(depth_count <= 1);
+    // subpass.pDepthStencilAttachment = depth_count == 1 ? depth_attachment_refs : 0;
 
-    VkRenderPassCreateInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = create_info->attachment_count;
-    renderPassInfo.pAttachments = create_info->attachment_descriptions;
-    renderPassInfo.subpassCount = 1;
-    renderPassInfo.pSubpasses = &subpass;
+    // VkRenderPassCreateInfo renderPassInfo{};
+    // renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    // renderPassInfo.attachmentCount = create_info->attachment_count;
+    // renderPassInfo.pAttachments = create_info->attachment_descriptions;
+    // renderPassInfo.subpassCount = 1;
+    // renderPassInfo.pSubpasses = &subpass;
     
-    VkSubpassDependency dependency{};
-    VkSubpassDependency depth_dependency{};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
+    // VkSubpassDependency dependency{};
+    // VkSubpassDependency depth_dependency{};
+    // dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    // dependency.dstSubpass = 0;
 
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = 0;
+    // dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    // dependency.srcAccessMask = 0;
 
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+    // dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    // dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 
-    depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    depth_dependency.dstSubpass = 0;
-    depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depth_dependency.srcAccessMask = 0;
-    depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    // depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    // depth_dependency.dstSubpass = 0;
+    // depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    // depth_dependency.srcAccessMask = 0;
+    // depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    // depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-    VkSubpassDependency deps[] = {dependency, depth_dependency};
+    // VkSubpassDependency deps[] = {dependency, depth_dependency};
 
-    renderPassInfo.dependencyCount = 2;
-    renderPassInfo.pDependencies = deps;
+    // renderPassInfo.dependencyCount = 2;
+    // renderPassInfo.pDependencies = deps;
 
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &pipeline->render_passes[0]) != VK_SUCCESS) {
-        gen_error("vulkan", "failed to create render pass!");
-        std::terminate();
-    }
+    // if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &pipeline->render_passes[0]) != VK_SUCCESS) {
+    //     gen_error("vulkan", "failed to create render pass!");
+    //     std::terminate();
+    // }
 
-    pipeline->render_pass_count++;
+    // pipeline->render_pass_count++;
 
     // create pipeline
     auto vertShaderCode = read_bin_file(create_info->vertex_shader);
@@ -1318,8 +1319,8 @@ state_t::create_pipeline_state(
 		vpdssci.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 		vpdssci.pNext = nullptr;
 		vpdssci.flags = 0;
-		vpdssci.depthTestEnable = VK_TRUE;
-		vpdssci.depthWriteEnable = VK_TRUE;
+		vpdssci.depthTestEnable = create_info->test_depth ? VK_TRUE : VK_FALSE;
+		vpdssci.depthWriteEnable = create_info->write_depth ? VK_TRUE : VK_FALSE;
 		vpdssci.depthCompareOp = VK_COMPARE_OP_LESS; 
 
         vpdssci.depthBoundsTestEnable = VK_FALSE;
@@ -1373,7 +1374,7 @@ state_t::create_pipeline_state(
 
     pipelineInfo.layout = pipeline->pipeline_layout;
 
-    pipelineInfo.renderPass = pipeline->render_passes[0];
+    pipelineInfo.renderPass = render_pass;
     pipelineInfo.subpass = 0;
 
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
@@ -1387,26 +1388,26 @@ state_t::create_pipeline_state(
     vkDestroyShaderModule(device, fragShaderModule, nullptr);
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
 
-    for (size_t i = 0; i < swap_chain_image_views.size(); i++) {
-        VkImageView attachments[] = {
-            swap_chain_image_views[i],
-            depth_stencil_texture.image_view
-        };
+    // for (size_t i = 0; i < swap_chain_image_views.size(); i++) {
+    //     VkImageView attachments[] = {
+    //         swap_chain_image_views[i],
+    //         depth_stencil_texture.image_view
+    //     };
 
-        VkFramebufferCreateInfo vfci{};
-        vfci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        vfci.renderPass = pipeline->render_passes[0];
-        vfci.attachmentCount = array_count(attachments);
-        vfci.pAttachments = attachments;
-        vfci.width = swap_chain_extent.width;
-        vfci.height = swap_chain_extent.height;
-        vfci.layers = 1;
+    //     VkFramebufferCreateInfo vfci{};
+    //     vfci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    //     vfci.renderPass = pipeline->render_passes[0];
+    //     vfci.attachmentCount = array_count(attachments);
+    //     vfci.pAttachments = attachments;
+    //     vfci.width = swap_chain_extent.width;
+    //     vfci.height = swap_chain_extent.height;
+    //     vfci.layers = 1;
 
-        if (vkCreateFramebuffer(device, &vfci, nullptr, &pipeline->framebuffers[i]) != VK_SUCCESS) {
-            gen_error("vulkan", "failed to create framebuffer!");
-            std::terminate();
-        }
-    }
+    //     if (vkCreateFramebuffer(device, &vfci, nullptr, &pipeline->framebuffers[i]) != VK_SUCCESS) {
+    //         gen_error("vulkan", "failed to create framebuffer!");
+    //         std::terminate();
+    //     }
+    // }
 }
 
 void 

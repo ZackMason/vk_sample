@@ -20,5 +20,5 @@ void
 main() {
 	vN = normalize(aVertex);
 
-	gl_Position = PushConstants.uVP * vec4(aVertex, 1. );
+	gl_Position = PushConstants.uVP * vec4(aVertex, 1.);
 }
