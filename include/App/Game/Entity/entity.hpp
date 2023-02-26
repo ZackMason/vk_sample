@@ -37,7 +37,7 @@ struct entity_t : node_t<entity_t> {
     }
 
     struct renderable_t {
-        u64 material_id{0};
+        u32 material_id{0};
         u64 mesh_id{0};
         u64 albedo_id{0};
     } gfx;

@@ -996,7 +996,7 @@ struct material_t {
 
     u32 flags{};     // for material effects
     u32 opt_flags{}; // for performance
-    u32 padding[2];
+    u32 padding[2+4];
 
     static constexpr material_t plastic(const v4f& color) {
         return material_t {
@@ -2318,6 +2318,24 @@ struct random_t {
 
     float randn() {
         return randf() * 2.0f - 1.0f;
+    }
+
+    template <typename T>
+    T randv() {
+        auto v = T{1.0f};
+        for (decltype(T::length()) i = 0; i < T::length(); i++) {
+            v[i] = randf();
+        }
+        return v;
+    }
+
+    template <typename T>
+    T randnv() {
+        auto v = T{1.0f};
+        for (decltype(T::length()) i = 0; i < T::length(); i++) {
+            v[i] = randn();
+        }
+        return v;
     }
 
     template <typename T>

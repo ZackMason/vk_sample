@@ -4,12 +4,15 @@
 #include "core.hpp"
 #include "vk_state.hpp"
 
+#include "App/Game/Rendering/render_system.hpp"
+
 namespace gfx::vul {
 
 struct mesh_pipeline_info_t {
-    VkBuffer scene_buffer;
     VkBuffer sporadic_buffer;
     VkBuffer object_buffer;
+    VkBuffer material_buffer;
+    VkBuffer env_buffer;
 
     std::string_view fragment_shader = "./assets/shaders/bin/simple.frag.spv";
     std::string_view vertex_shader = "./assets/shaders/bin/simple.vert.spv";
@@ -30,7 +33,7 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
     create_info->vertex_shader = pipeline_desc.vertex_shader;
     create_info->fragment_shader = pipeline_desc.fragment_shader;
 
-    create_info->push_constant_size = sizeof(gfx::vul::object_push_constants_t);
+    create_info->push_constant_size = sizeof(m44) + sizeof(v4f);
 
     create_info->attachment_count = 2;
     create_info->attachment_descriptions[0] = utl::attachment_description(
@@ -72,42 +75,50 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
 
     VkDescriptorImageInfo vdii[1];
 
-    create_info->descriptor_count = 4;
+    create_info->descriptor_count = 5;
 
     create_info->descriptor_flags[0] = pipeline_state_t::create_info_t::DescriptorFlag_Uniform;
-    create_info->descriptor_flags[1] = pipeline_state_t::create_info_t::DescriptorFlag_Uniform;
+    create_info->descriptor_flags[1] = pipeline_state_t::create_info_t::DescriptorFlag_Storage;
     create_info->descriptor_flags[2] = pipeline_state_t::create_info_t::DescriptorFlag_Storage;
+    create_info->descriptor_flags[3] = pipeline_state_t::create_info_t::DescriptorFlag_Storage;
+    create_info->descriptor_flags[4] = pipeline_state_t::create_info_t::DescriptorFlag_Sampler;
 
     create_info->descriptor_set_layout_bindings[0] = utl::descriptor_set_layout_binding(
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0
     );
     create_info->descriptor_set_layout_bindings[1] = utl::descriptor_set_layout_binding(
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0
-    );
-    create_info->descriptor_set_layout_bindings[2] = utl::descriptor_set_layout_binding(
         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0
     );
-
-    create_info->descriptor_flags[3] = pipeline_state_t::create_info_t::DescriptorFlag_Sampler;
+    create_info->descriptor_set_layout_bindings[2] = utl::descriptor_set_layout_binding(
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 0
+    );
     create_info->descriptor_set_layout_bindings[3] = utl::descriptor_set_layout_binding(
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 0
+    );
+
+    create_info->descriptor_set_layout_bindings[4] = utl::descriptor_set_layout_binding(
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, array_count(vdii)
     );
 
     state->create_pipeline_state_descriptors(pipeline, create_info);
 
     //todo(zack): fill out uniform pipeline_desc
-    VkDescriptorBufferInfo buffer_info[3];
+    VkDescriptorBufferInfo buffer_info[4];
     buffer_info[0].buffer = pipeline_desc.sporadic_buffer;
     buffer_info[0].offset = 0; 
     buffer_info[0].range = sizeof(sporadic_buffer_t);
 
-    buffer_info[1].buffer = pipeline_desc.scene_buffer;
+    buffer_info[1].buffer = pipeline_desc.object_buffer;
     buffer_info[1].offset = 0; 
-    buffer_info[1].range = sizeof(scene_buffer_t);
-
-    buffer_info[2].buffer = pipeline_desc.object_buffer;
+    buffer_info[1].range = (sizeof(m44) + sizeof(u32) * 4*4) * 10'000; // hardcoded
+    
+    buffer_info[2].buffer = pipeline_desc.material_buffer;
     buffer_info[2].offset = 0; 
-    buffer_info[2].range = sizeof(m44) * 10'000; // hardcoded
+    buffer_info[2].range = sizeof(gfx::material_t) * 100; // hardcoded
+
+    buffer_info[3].buffer = pipeline_desc.env_buffer;
+    buffer_info[3].offset = 0; 
+    buffer_info[3].range = sizeof(game::rendering::environment_t);
 
     create_info->write_descriptor_sets[0] = utl::write_descriptor_set(
         pipeline->descriptor_sets[0], 
@@ -116,11 +127,15 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
     );
     create_info->write_descriptor_sets[1] = utl::write_descriptor_set(
         pipeline->descriptor_sets[1], 
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, buffer_info + 1
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, buffer_info + 1
     );
     create_info->write_descriptor_sets[2] = utl::write_descriptor_set(
         pipeline->descriptor_sets[2], 
         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, buffer_info + 2
+    );
+    create_info->write_descriptor_sets[3] = utl::write_descriptor_set(
+        pipeline->descriptor_sets[3], 
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, buffer_info + 3
     );
 
     for (size_t i = 0; i < array_count(vdii); i++) {
@@ -129,8 +144,8 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
         vdii[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
-    create_info->write_descriptor_sets[3] = utl::write_descriptor_set(
-        pipeline->descriptor_sets[3], 
+    create_info->write_descriptor_sets[4] = utl::write_descriptor_set(
+        pipeline->descriptor_sets[4],
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, vdii, array_count(vdii)
     );
     
