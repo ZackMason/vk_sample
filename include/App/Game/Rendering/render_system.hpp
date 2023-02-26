@@ -105,6 +105,11 @@ namespace game::rendering {
         u64             frame_count{0};
         frame_data_t    frames[frame_overlap];
 
+        VkRenderPass        render_passes[8];
+        u32                 render_pass_count{1};
+        VkFramebuffer*      framebuffers{0};
+        u32                 framebuffer_count{0};
+
         gfx::vul::vertex_buffer_t<gfx::vertex_t, max_scene_vertex_count> vertices;
         gfx::vul::index_buffer_t<max_scene_index_count> indices;
 
@@ -120,6 +125,23 @@ namespace game::rendering {
             return frames[frame_count%frame_overlap];
         }
     };
+    
+    inline void 
+    create_render_pass(
+        system_t* rs,
+        VkDevice device, 
+        VkFormat format
+    );
+    inline void 
+    create_framebuffers(
+        system_t* rs,
+        arena_t* arena,
+        VkDevice device, 
+        VkImageView* swap_chain_image_views,
+        size_t swap_chain_count,
+        VkImageView depth_image_view,
+        u32 w, u32 h
+    );
 
     template <size_t Size = gigabytes(1)>
     inline system_t*
@@ -135,6 +157,13 @@ namespace game::rendering {
         );
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
+
+        create_render_pass(rs, state.device, state.swap_chain_image_format);
+        create_framebuffers(
+            rs, &rs->arena, state.device, 
+            state.swap_chain_image_views.data(), state.swap_chain_image_views.size(),
+            state.depth_stencil_texture.image_view, state.swap_chain_extent.width, state.swap_chain_extent.height
+        );
 
         state.create_storage_buffer(&rs->job_storage_buffer);
         state.create_storage_buffer(&rs->point_light_storage_buffer);
@@ -305,6 +334,118 @@ namespace game::rendering {
     }
 
     
+
+    inline void 
+    create_render_pass(
+        system_t* rs,
+        VkDevice device, 
+        VkFormat format
+    ) {
+        VkAttachmentDescription vad[2];
+        vad[0] = gfx::vul::utl::attachment_description(
+            format,
+            VK_ATTACHMENT_LOAD_OP_CLEAR,
+            VK_ATTACHMENT_STORE_OP_STORE,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+        );
+
+        vad[1] = gfx::vul::utl::attachment_description(
+            VK_FORMAT_D32_SFLOAT_S8_UINT,
+            VK_ATTACHMENT_LOAD_OP_CLEAR,
+            VK_ATTACHMENT_STORE_OP_STORE,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+        );
+
+        VkAttachmentReference color_attachment_refs[1];
+        VkAttachmentReference depth_attachment_refs[1];
+
+        color_attachment_refs[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachment_refs[0].attachment = 0;
+
+        depth_attachment_refs[0].attachment = 1;
+        depth_attachment_refs[0].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        
+        VkSubpassDescription subpass{};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = color_attachment_refs;
+
+        subpass.pDepthStencilAttachment = depth_attachment_refs;
+
+        VkRenderPassCreateInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        renderPassInfo.attachmentCount = 2;
+        renderPassInfo.pAttachments = vad;
+        renderPassInfo.subpassCount = 1;
+        renderPassInfo.pSubpasses = &subpass;
+        
+        VkSubpassDependency dependency{};
+        VkSubpassDependency depth_dependency{};
+        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependency.dstSubpass = 0;
+
+        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.srcAccessMask = 0;
+
+        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+
+        depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        depth_dependency.dstSubpass = 0;
+        depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        depth_dependency.srcAccessMask = 0;
+        depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        VkSubpassDependency deps[] = {dependency, depth_dependency};
+
+        renderPassInfo.dependencyCount = 2;
+        renderPassInfo.pDependencies = deps;
+
+        if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &rs->render_passes[0]) != VK_SUCCESS) {
+            gen_error("vulkan", "failed to create render pass!");
+            std::terminate();
+        }
+    }
+
+    inline void 
+    create_framebuffers(
+        system_t* rs,
+        arena_t* arena,
+        VkDevice device, 
+        VkImageView* swap_chain_image_views,
+        size_t swap_chain_count,
+        VkImageView depth_image_view,
+        u32 w, u32 h
+    ) {
+        rs->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, swap_chain_count);
+        rs->framebuffer_count = safe_truncate_u64(swap_chain_count);
+        for (size_t i = 0; i < swap_chain_count; i++) {
+            VkImageView attachments[] = {
+                swap_chain_image_views[i],
+                depth_image_view
+            };
+
+            VkFramebufferCreateInfo vfci{};
+            vfci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            vfci.renderPass = rs->render_passes[0];
+            vfci.attachmentCount = array_count(attachments);
+            vfci.pAttachments = attachments;
+            vfci.width = w;
+            vfci.height = h;
+            vfci.layers = 1;
+
+            if (vkCreateFramebuffer(device, &vfci, nullptr, &rs->framebuffers[i]) != VK_SUCCESS) {
+                gen_error("vulkan", "failed to create framebuffer!");
+                std::terminate();
+            }
+        }
+    }
 };
 
 

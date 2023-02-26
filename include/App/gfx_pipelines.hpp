@@ -19,11 +19,16 @@ struct mesh_pipeline_info_t {
 };
 
 pipeline_state_t*
-create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t& pipeline_desc) {
+create_mesh_pipeline(
+    arena_t* arena, 
+    state_t* state, 
+    VkRenderPass render_pass, 
+    const mesh_pipeline_info_t& pipeline_desc
+) {
     pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
 
-    pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
-    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
+    // pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
+    // pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
 
     const auto stack_mark = arena_get_mark(arena); 
     pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
@@ -35,24 +40,24 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
 
     create_info->push_constant_size = sizeof(m44) + sizeof(v4f);
 
-    create_info->attachment_count = 2;
-    create_info->attachment_descriptions[0] = utl::attachment_description(
-        state->swap_chain_image_format,
-        VK_ATTACHMENT_LOAD_OP_LOAD,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        // VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-        // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    );
+    // create_info->attachment_count = 2;
+    // create_info->attachment_descriptions[0] = utl::attachment_description(
+    //     state->swap_chain_image_format,
+    //     VK_ATTACHMENT_LOAD_OP_LOAD,
+    //     VK_ATTACHMENT_STORE_OP_STORE,
+    //     // VK_IMAGE_LAYOUT_UNDEFINED,
+    //     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    //     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    //     // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    // );
     
-    create_info->attachment_descriptions[1] = utl::attachment_description(
-        VK_FORMAT_D32_SFLOAT_S8_UINT,
-        VK_ATTACHMENT_LOAD_OP_CLEAR,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-    );
+    // create_info->attachment_descriptions[1] = utl::attachment_description(
+    //     VK_FORMAT_D32_SFLOAT_S8_UINT,
+    //     VK_ATTACHMENT_LOAD_OP_CLEAR,
+    //     VK_ATTACHMENT_STORE_OP_STORE,
+    //     VK_IMAGE_LAYOUT_UNDEFINED,
+    //     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    // );
 
     create_info->vertex_input_binding_count = 1;
     create_info->vertex_input_binding_descriptions[0] = utl::vertex_input_binding_description(
@@ -149,47 +154,48 @@ create_mesh_pipeline(arena_t* arena, state_t* state, const mesh_pipeline_info_t&
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, vdii, array_count(vdii)
     );
     
-    state->create_pipeline_state(pipeline, create_info);
+    state->create_pipeline_state(pipeline, create_info, render_pass);
     arena_set_mark(arena, stack_mark); 
 
     return pipeline;
 }
 
 pipeline_state_t*
-create_skybox_pipeline(arena_t* arena, state_t* state) {
+create_skybox_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
     pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
 
-    pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
-    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
+    // pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
+    // pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
 
     const auto stack_mark = arena_get_mark(arena); 
     pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
 
     create_info->cull_mode = VK_CULL_MODE_FRONT_BIT;
+    create_info->write_depth = false;
 
     create_info->vertex_shader = "./assets/shaders/bin/skybox.vert.spv";
     create_info->fragment_shader = "./assets/shaders/bin/skybox.frag.spv";
 
     create_info->push_constant_size = sizeof(m44) + sizeof(v4f);
 
-    create_info->attachment_count = 2;
-    create_info->attachment_descriptions[0] = utl::attachment_description(
-        state->swap_chain_image_format,
-        VK_ATTACHMENT_LOAD_OP_CLEAR,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-        // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    );
+    // create_info->attachment_count = 2;
+    // create_info->attachment_descriptions[0] = utl::attachment_description(
+    //     state->swap_chain_image_format,
+    //     VK_ATTACHMENT_LOAD_OP_CLEAR,
+    //     VK_ATTACHMENT_STORE_OP_STORE,
+    //     VK_IMAGE_LAYOUT_UNDEFINED,
+    //     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    //     // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    //     // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    // );
     
-    create_info->attachment_descriptions[1] = utl::attachment_description(
-        VK_FORMAT_D32_SFLOAT_S8_UINT,
-        VK_ATTACHMENT_LOAD_OP_CLEAR,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-    );
+    // create_info->attachment_descriptions[1] = utl::attachment_description(
+    //     VK_FORMAT_D32_SFLOAT_S8_UINT,
+    //     VK_ATTACHMENT_LOAD_OP_CLEAR,
+    //     VK_ATTACHMENT_STORE_OP_STORE,
+    //     VK_IMAGE_LAYOUT_UNDEFINED,
+    //     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    // );
 
     create_info->vertex_input_binding_count = 1;
     create_info->vertex_input_binding_descriptions[0] = utl::vertex_input_binding_description(
@@ -212,18 +218,18 @@ create_skybox_pipeline(arena_t* arena, state_t* state) {
 
     // state->create_pipeline_state_descriptors(pipeline, create_info);
     
-    state->create_pipeline_state(pipeline, create_info);
+    state->create_pipeline_state(pipeline, create_info, render_pass);
     arena_set_mark(arena, stack_mark); 
 
     return pipeline;
 }
 
 pipeline_state_t*
-create_gui_pipeline(arena_t* arena, state_t* state) {
+create_gui_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
     pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
 
-    pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
-    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
+    // pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
+    // pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
 
     const auto stack_mark = arena_get_mark(arena); 
     pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
@@ -231,22 +237,22 @@ create_gui_pipeline(arena_t* arena, state_t* state) {
     create_info->vertex_shader = "./assets/shaders/bin/gui.vert.spv";
     create_info->fragment_shader = "./assets/shaders/bin/gui.frag.spv";
 
-    create_info->attachment_count = 2;
-    create_info->attachment_descriptions[0] = utl::attachment_description(
-        state->swap_chain_image_format,
-        VK_ATTACHMENT_LOAD_OP_LOAD,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    );
+    // create_info->attachment_count = 2;
+    // create_info->attachment_descriptions[0] = utl::attachment_description(
+    //     state->swap_chain_image_format,
+    //     VK_ATTACHMENT_LOAD_OP_LOAD,
+    //     VK_ATTACHMENT_STORE_OP_STORE,
+    //     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    //     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    // );
     
-    create_info->attachment_descriptions[1] = utl::attachment_description(
-        VK_FORMAT_D32_SFLOAT_S8_UINT,
-        VK_ATTACHMENT_LOAD_OP_CLEAR,
-        VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-    );
+    // create_info->attachment_descriptions[1] = utl::attachment_description(
+    //     VK_FORMAT_D32_SFLOAT_S8_UINT,
+    //     VK_ATTACHMENT_LOAD_OP_CLEAR,
+    //     VK_ATTACHMENT_STORE_OP_DONT_CARE,
+    //     VK_IMAGE_LAYOUT_UNDEFINED,
+    //     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    // );
 
     create_info->vertex_input_binding_count = 1;
     create_info->vertex_input_binding_descriptions[0] = utl::vertex_input_binding_description(
@@ -287,18 +293,18 @@ create_gui_pipeline(arena_t* arena, state_t* state) {
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, vdii, array_count(vdii)
     );
     
-    state->create_pipeline_state(pipeline, create_info);
+    state->create_pipeline_state(pipeline, create_info, render_pass);
     arena_set_mark(arena, stack_mark); 
 
     return pipeline;
 }
 
 pipeline_state_t*
-create_debug_pipeline(arena_t* arena, state_t* state, VkBuffer scene_buffer, size_t scene_buffer_size) {
+create_debug_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass, VkBuffer scene_buffer, size_t scene_buffer_size) {
     pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
 
-    pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
-    pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
+    // pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
+    // pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
 
     const auto stack_mark = arena_get_mark(arena); 
     pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
@@ -309,23 +315,23 @@ create_debug_pipeline(arena_t* arena, state_t* state, VkBuffer scene_buffer, siz
     create_info->vertex_shader = "./assets/shaders/bin/debug_line.vert.spv";
     create_info->fragment_shader = "./assets/shaders/bin/debug_line.frag.spv";
 
-    create_info->attachment_count = 2;
-    create_info->attachment_descriptions[0] = utl::attachment_description(
-        state->swap_chain_image_format,
-        VK_ATTACHMENT_LOAD_OP_LOAD,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-    );
+    // create_info->attachment_count = 2;
+    // create_info->attachment_descriptions[0] = utl::attachment_description(
+    //     state->swap_chain_image_format,
+    //     VK_ATTACHMENT_LOAD_OP_LOAD,
+    //     VK_ATTACHMENT_STORE_OP_STORE,
+    //     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    //     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    // );
     
-    create_info->attachment_descriptions[1] = utl::attachment_description(
-        VK_FORMAT_D32_SFLOAT_S8_UINT,
-        VK_ATTACHMENT_LOAD_OP_LOAD,
-        VK_ATTACHMENT_STORE_OP_STORE,
-        // VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-    );
+    // create_info->attachment_descriptions[1] = utl::attachment_description(
+    //     VK_FORMAT_D32_SFLOAT_S8_UINT,
+    //     VK_ATTACHMENT_LOAD_OP_LOAD,
+    //     VK_ATTACHMENT_STORE_OP_STORE,
+    //     // VK_IMAGE_LAYOUT_UNDEFINED,
+    //     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    //     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    // );
 
     create_info->vertex_input_binding_count = 1;
     create_info->vertex_input_binding_descriptions[0] = utl::vertex_input_binding_description(
@@ -357,7 +363,7 @@ create_debug_pipeline(arena_t* arena, state_t* state, VkBuffer scene_buffer, siz
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, buffer_info, array_count(buffer_info) // todo(zack): replace with 1
     );
     
-    state->create_pipeline_state(pipeline, create_info);
+    state->create_pipeline_state(pipeline, create_info, render_pass);
     arena_set_mark(arena, stack_mark); 
 
     return pipeline;
