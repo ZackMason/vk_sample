@@ -35,11 +35,41 @@ namespace game::rendering {
     };
 
     struct render_job_t : public node_t<render_job_t> {
-        const material_node_t*      material{0};
+        u32                         material{0};
         const gfx::mesh_list_t*     meshes{0};
 
         m44                         transform{1.0f};
     };
+
+    struct directional_light_t {
+        v4f direction{};
+        v4f color{};
+    };
+
+    struct point_light_t {
+        v4f pos; // position, w unused
+        v4f col; // color
+        v4f rad; // radiance, w unused
+        v4f pad;
+    };
+
+    struct environment_t {
+        directional_light_t sun{};
+
+        v4f ambient_color{};
+
+        v4f fog_color{};
+        f32 fog_density{};
+
+        // color correction
+        f32 saturation{};
+        f32 contrast{};
+        u32 light_count{};
+        v4f more_padding{};
+        
+        point_light_t point_lights[512];
+    };
+
 
     // for double buffering
     struct frame_data_t {
@@ -48,6 +78,12 @@ namespace game::rendering {
 
         VkCommandPool command_pool;
         VkCommandBuffer main_command_buffer;
+    };
+
+    struct render_data_t {
+        m44 model;
+        u32 mat_id;
+        u32 padding[3+4*3];
     };
 
     struct system_t {
@@ -69,13 +105,16 @@ namespace game::rendering {
         u64             frame_count{0};
         frame_data_t    frames[frame_overlap];
 
-        m44 projection{1.0f};
-
         gfx::vul::vertex_buffer_t<gfx::vertex_t, max_scene_vertex_count> vertices;
         gfx::vul::index_buffer_t<max_scene_index_count> indices;
 
-        gfx::vul::storage_buffer_t<m44, 10'000>    job_storage_buffer;
+        gfx::vul::storage_buffer_t<render_data_t, 10'000>   job_storage_buffer;
+        gfx::vul::storage_buffer_t<point_light_t, 1000>   point_light_storage_buffer;
+        gfx::vul::storage_buffer_t<gfx::material_t, 100>    material_storage_buffer;
+        gfx::vul::storage_buffer_t<environment_t, 1>    environment_storage_buffer;
 
+        m44 vp{1.0f};
+        v3f camera_pos{0.0f};
 
         frame_data_t& get_frame_data() {
             return frames[frame_count%frame_overlap];
@@ -98,6 +137,11 @@ namespace game::rendering {
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
 
         state.create_storage_buffer(&rs->job_storage_buffer);
+        state.create_storage_buffer(&rs->point_light_storage_buffer);
+        state.create_storage_buffer(&rs->material_storage_buffer);
+        state.create_storage_buffer(&rs->environment_storage_buffer);
+
+        rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
 
         VkCommandPoolCreateInfo command_pool_info = gfx::vul::utl::command_pool_create_info();
         command_pool_info.queueFamilyIndex = state.graphics_index;
@@ -135,15 +179,17 @@ namespace game::rendering {
     submit_job(
         system_t* rs,
         u64 mesh_id,
-        material_node_t* material, // todo(zack): remove this
+        u32 mat_id, // todo(zack): remove this
         m44 transform
     ) {
         auto* job = arena_alloc_ctor<render_job_t>(&rs->frame_arena);
         job->meshes = &rs->mesh_cache.get(mesh_id);
-        job->material = material;
+        job->material = mat_id;
         job->transform = transform;
 
-        *rs->job_storage_buffer.pool.allocate(1) = transform;
+        auto* gpu_job = rs->job_storage_buffer.pool.allocate(1);
+        gpu_job->model = transform;
+        gpu_job->mat_id = mat_id;
 
         rs->render_jobs.push_back(job);
     }
@@ -157,17 +203,33 @@ namespace game::rendering {
 
         for (size_t i = 0; i < rs->render_jobs.size(); i++) {
             render_job_t* job = rs->render_jobs[i];
+            
+            const material_node_t* mat = rs->materials[job->material];
 
-            if (job->material != last_material) {
-                vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, job->material->pipeline);
-                last_material = job->material;
+            if (mat != last_material) {
+                vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat->pipeline);
+
+                assert(mat->pipeline_layout != VK_NULL_HANDLE);
+
+                struct pc_t {
+                    m44 vp;
+                    v4f cp;
+                } constants;
+                constants.vp = rs->vp;
+                constants.cp = v4f{rs->camera_pos, 0.0f};
+                                
+                vkCmdPushConstants(command_buffer, mat->pipeline_layout,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+                    0, sizeof(constants), &constants
+                );
+                last_material = mat;
             }
 
-            gfx::vul::object_push_constants_t push_constants;
-            push_constants.material = *job->material;
-            push_constants.model    = job->transform;
+            // gfx::vul::object_push_constants_t push_constants;
+            // push_constants.material = *job->material;
+            // push_constants.model    = job->transform;
 
-            vkCmdPushConstants(command_buffer, job->material->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push_constants), &push_constants);
+            // vkCmdPushConstants(command_buffer, job->material->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push_constants), &push_constants);
 
             loop_iota_u64(j, job->meshes->count) {
                 if (job->meshes->meshes[j].index_count) {
@@ -213,7 +275,7 @@ namespace game::rendering {
         return utl::str_hash_find(rs->mesh_hash, name);
     }
 
-    inline material_node_t* 
+    inline u32
     create_material(
         system_t* rs,
         std::string_view name, 
@@ -222,9 +284,10 @@ namespace game::rendering {
         VkPipelineLayout pipeline_layout
     ) {
         material_node_t* material{0};
-        for (size_t i = 0; i < rs->materials.size(); i++) {
+        for (u32 i = 0; i < rs->materials.size(); i++) {
             if (rs->materials[i]->name == name) {
                 material = rs->materials[i];
+                return i;
             }
         }
         if (!material) {
@@ -234,8 +297,11 @@ namespace game::rendering {
             material->pipeline = pipeline;
             material->pipeline_layout = pipeline_layout;
             rs->materials.push_back(material);
+
+            *rs->material_storage_buffer.pool.allocate(1) = *material;
         }
-        return material;
+        return safe_truncate_u64(rs->materials.size() - 1);
+        // return material;
     }
 
     

@@ -39,8 +39,6 @@ struct app_t {
     VkDescriptorSet brick_descriptor;
 
     struct scene_t {
-        gfx::vul::scene_buffer_t scene_buffer;
-        gfx::vul::object_buffer_t object_buffer;
         gfx::vul::sporadic_buffer_t sporadic_buffer;
 
         gfx::vul::uniform_buffer_t<gfx::vul::scene_buffer_t>    debug_scene_uniform_buffer;
@@ -57,8 +55,8 @@ struct app_t {
 
     struct gui_state_t {
         gfx::gui::ctx_t ctx;
-        gfx::vul::vertex_buffer_t<gfx::gui::vertex_t, 40'000> vertices;
-        gfx::vul::index_buffer_t<60'000> indices;
+        gfx::vul::vertex_buffer_t<gfx::gui::vertex_t, 4'000'000> vertices;
+        gfx::vul::index_buffer_t<6'000'000> indices;
 
         arena_t  arena;
     } gui;
@@ -207,11 +205,10 @@ app_init_graphics(app_memory_t* app_mem) {
     app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx);
     app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx,
         gfx::vul::mesh_pipeline_info_t{
-            vk_gfx.scene_uniform_buffer.buffer,
             vk_gfx.sporadic_uniform_buffer.buffer,
-            // vk_gfx.object_uniform_buffer.buffer,
             app->render_system->job_storage_buffer.buffer,
-            // "./assets/shaders/bin/error_mesh.frag.spv"
+            app->render_system->material_storage_buffer.buffer,
+            app->render_system->environment_storage_buffer.buffer
         }
     );
     assert(app->mesh_pipeline);
@@ -244,7 +241,7 @@ app_init_graphics(app_memory_t* app_mem) {
     vk_gfx.load_texture_sampler(app->brick_texture, "./assets/textures/brick_01.png", &app->texture_arena);
     app->brick_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
-        app->mesh_pipeline->descriptor_set_layouts[3],
+        app->mesh_pipeline->descriptor_set_layouts[4],
         &app->brick_texture, 1);
 
     vk_gfx.create_vertex_buffer(
@@ -315,9 +312,13 @@ app_on_init(app_memory_t* app_mem) {
         );
     };
 
-    auto* red_plastic_mat = make_material("red-plastic", gfx::material_t::plastic(gfx::color::v4::red));
-    auto* blue_plastic_mat = make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
-    auto* gold_mat = make_material("gold-metal", gfx::material_t::metal(gfx::color::v4::yellow));
+    u32 red_plastic_mat = make_material("red-plastic", gfx::material_t::plastic(gfx::color::v4::red));
+    u32 blue_plastic_mat = make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
+    u32 gold_mat = make_material("gold-metal", gfx::material_t::metal(gfx::color::v4::yellow));
+
+    make_material("silver-metal", gfx::material_t::metal(gfx::color::v4::white));
+    make_material("sand", gfx::material_t::plastic(gfx::color::v4::sand));
+    make_material("dirt", gfx::material_t::plastic(gfx::color::v4::dirt));
     
     using namespace gfx::color;
 
@@ -392,21 +393,28 @@ app_on_init(app_memory_t* app_mem) {
     auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
 
 
-    game::entity::physics_entity_t* e1 =
-        (game::entity::physics_entity_t*)
-        game::world_create_entity(app->game_world, 1);
-    
-    e1->transform.scale(v3f{0.2f});
-    e1->transform.origin = v3f{0,10,0};
-    e1->name.view("Teapot");
+    utl::rng::random_t<utl::rng::xor64_random_t> rng;
+    loop_iota_u64(i, 100) {
+        game::entity::physics_entity_t* e1 =
+            (game::entity::physics_entity_t*)
+            game::world_create_entity(app->game_world, 1);
+        
+        e1->transform.origin = rng.randnv<v3f>() * 100.0f;
+        e1->transform.set_scale(v3f{0.2f});
+        // e1->transform.set_scale(v3f{rng.randf()*10.0f});
+        e1->transform.set_rotation(rng.randnv<v3f>());
+        e1->name.view("Teapot");
 
-    game::entity::physics_entity_init_convex(
-        e1, 
-        game::rendering::get_mesh_id(app->render_system, "assets/models/utah-teapot.obj"),
-        utl::res::pack_file_get_file_by_name(app->resource_file, "assets/models/utah-teapot.obj.convex.physx"),
-        safe_truncate_u64(utl::res::pack_file_get_file_size(app->resource_file, "assets/models/utah-teapot.obj.convex.physx")),
-        app->physics
-    );
+        game::entity::physics_entity_init_convex(
+            e1, 
+            game::rendering::get_mesh_id(app->render_system, "assets/models/utah-teapot.obj"),
+            utl::res::pack_file_get_file_by_name(app->resource_file, "assets/models/utah-teapot.obj.convex.physx"),
+            safe_truncate_u64(utl::res::pack_file_get_file_size(app->resource_file, "assets/models/utah-teapot.obj.convex.physx")),
+            app->physics
+        );
+        // e1->gfx.material_id = rng.rand() & BIT(23) ? gold_mat : red_plastic_mat;
+        e1->gfx.material_id = rng.rand() % 6;
+    }
 
     // game::entity::physics_entity_t* e2 =
     //     (game::entity::physics_entity_t*)
@@ -421,8 +429,7 @@ app_on_init(app_memory_t* app_mem) {
     // );
     // e2->name.view("room");
 
-    e1->gfx.material_id = (u64)red_plastic_mat;
-    e2->gfx.material_id = (u64)blue_plastic_mat;
+    e2->gfx.material_id = blue_plastic_mat;
     
     arena_clear(&app->temp_arena);
     app->game_world->player.transform.origin.y = 5.0f;
@@ -461,29 +468,17 @@ void
 camera_input(app_t* app, app_input_t* input) {
     app->game_world->player.camera_controller.transform.origin = 
         app->game_world->player.transform.origin;
-
-    v3f move = v3f{
-        f32(input->keys['D']) - f32(input->keys['A']),
-        f32(input->keys['Q']) - f32(input->keys['E']),
-        f32(input->keys['W']) - f32(input->keys['S'])
+    
+    const v3f move = v3f{
+        input->gamepads[0].left_stick.x,
+        f32(input->gamepads[0].buttons[button_id::shoulder_left].is_held) - 
+        f32(input->gamepads[0].buttons[button_id::shoulder_right].is_held),
+        -input->gamepads[0].left_stick.y,
     };
-
-    v2f head_move = 200.0f * v2f{
-        input->mouse.delta[0],
-        input->mouse.delta[1]
-    } / app->gui.ctx.screen_size;
-
-    if (input->gamepads[0].is_connected) {
-        move = v3f{
-            input->gamepads[0].left_stick.x,
-            f32(input->gamepads[0].buttons[button_id::shoulder_left].is_held) - f32(input->gamepads[0].buttons[button_id::shoulder_right].is_held),
-            -input->gamepads[0].left_stick.y,
-        };
-        head_move = v2f{
-            input->gamepads[0].right_stick.x,
-            input->gamepads[0].right_stick.y,
-        } * 2.0f;
-    }
+    const v2f head_move = v2f{
+        input->gamepads[0].right_stick.x,
+        input->gamepads[0].right_stick.y,
+    } * 2.0f;
 
     auto& yaw = app->game_world->player.camera_controller.yaw;
     auto& pitch = app->game_world->player.camera_controller.pitch;
@@ -492,18 +487,48 @@ camera_input(app_t* app, app_input_t* input) {
     const v3f up        = v3f{0.0f, 1.0f, 0.0f};
     const v3f right     = glm::cross(forward, up);
 
-    if (input->mouse.buttons[1] || input->gamepads[0].is_connected) {
-        yaw += head_move.x * input->dt;
-        pitch -= head_move.y * input->dt;
-    }
+    // if (input->mouse.buttons[1] || input->gamepads[0].is_connected) {
+    yaw += head_move.x * input->dt;
+    pitch -= head_move.y * input->dt;
+    // }
 
     app->game_world->player.camera_controller.translate((forward * move.z + right * move.x + up * move.y) * 10.0f * input->dt);
     app->game_world->player.transform.origin = 
         app->game_world->player.camera_controller.transform.origin;
 }
 
+void fake_controller_input(app_input_t* input, v2f screen_size) {
+    // if (input->gamepads[0].is_connected == false || 1) {
+        const v3f move = v3f{
+            f32(input->keys['D']) - f32(input->keys['A']),
+            f32(input->keys['Q']) - f32(input->keys['E']),
+            f32(input->keys['S']) - f32(input->keys['W'])
+        };
+
+        // todo clamp
+        const v2f head_move = (f32(input->mouse.buttons[0]) * 100.0f * v2f{
+            input->mouse.delta[0], 
+            input->mouse.delta[1] 
+        } / screen_size) + 
+        v2f {
+            f32(input->keys['L']) - f32(input->keys['J']),
+            f32(input->keys['I']) - f32(input->keys['K'])
+        };
+
+        input->gamepads->left_stick.x += move.x;
+        input->gamepads->left_stick.y += move.z;
+
+        input->gamepads->right_stick.x += head_move.x;
+        input->gamepads->right_stick.y += head_move.y;
+
+        input->gamepads->buttons[button_id::shoulder_left].is_held |= input->keys['Q'];
+        input->gamepads->buttons[button_id::shoulder_right].is_held |= input->keys['E'];
+    // }
+}
+
 void 
 app_on_input(app_t* app, app_input_t* input) {
+    fake_controller_input(input, app->gui.ctx.screen_size);
     camera_input(app, input);
 
     if (input->gamepads[0].buttons[button_id::dpad_left].is_released) {
@@ -513,27 +538,6 @@ app_on_input(app_t* app, app_input_t* input) {
     if (input->gamepads[0].buttons[button_id::dpad_right].is_released) {
         app->time_scale *= 2.0f;
         app->time_text_anim = 1.0f;
-    }
-
-    if (input->pressed.keys['P']) {
-        app->debug.mesh_sub_index++;
-    }
-
-    if (input->pressed.keys['O']) {
-        app->debug.mesh_index++;
-    }
-
-    if (input->keys['M']) {
-        app->scene.sporadic_buffer.mode = 1;
-    } else if (input->keys['N']) {
-        app->scene.sporadic_buffer.mode = 0;
-    } else if (input->keys['B']) {
-        app->scene.sporadic_buffer.mode = 2;
-    }
-    if (input->keys['L']) {
-        app->scene.sporadic_buffer.use_lighting = 1;
-    } else if (input->keys['K']) {
-        app->scene.sporadic_buffer.use_lighting = 0;
     }
 }
 
@@ -545,8 +549,12 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
     // Submit renderables
     
+
+    // local_persist bool do_once = true;
     // loop through type erased pools
+    // if (do_once)
     for (size_t pool = 0; pool < game::pool_count(); pool++)  {
+        // do_once = false;
         for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
             if ((e->flags & game::entity::EntityFlags_Renderable) == 0) { 
                 gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
@@ -555,7 +563,7 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
             game::rendering::submit_job(
                 app->render_system, 
                 e->gfx.mesh_id, 
-                (game::rendering::material_node_t*)e->gfx.material_id, 
+                e->gfx.material_id, 
                 e->global_transform().to_matrix()
             );
         }
@@ -596,21 +604,14 @@ game_on_update(app_memory_t* app_mem) {
     const f32 h = (f32)app_mem->config.window_size[1];
     const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
 
-    app->scene.scene_buffer.time = app_mem->input.time;
-    app->scene.scene_buffer.view = app->game_world->camera.to_matrix();
-    app->scene.scene_buffer.proj =
-        app_mem->input.keys['U'] ?
+    
+    app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
+    m44 proj = (app_mem->input.keys['U'] ?
         glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f,  -1000.0f, 1000.f) :
-        glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
-    app->scene.scene_buffer.proj[1][1] *= -1.0f;
-
-    app->scene.scene_buffer.scene = glm::mat4{0.5f};
-    app->scene.scene_buffer.light_pos = v4f{3,13,3,0};
-    app->scene.scene_buffer.light_col = v4f{0.2f, 0.1f, 0.8f, 1.0f};
-    app->scene.scene_buffer.light_KaKdKs = v4f{0.5f};
-
-    app->scene.object_buffer.color = v4f{1.0f};
-
+        glm::perspective(45.0f, aspect, 0.3f, 1000.0f));
+    proj[1][1] *= -1.0f;
+    app->render_system->vp = proj * app->game_world->camera.to_matrix();
+    
     // draw gui 
 
     auto string_mark = arena_get_mark(&app->string_arena);
@@ -623,6 +624,8 @@ game_on_update(app_memory_t* app_mem) {
         &app->texture_arena,
         app->game_world->arena,
         &app->physics->default_allocator.arena,
+        &app->render_system->arena,
+        &app->render_system->frame_arena,
         &app->render_system->vertices.pool,
         &app->render_system->indices.pool,
         &app->gui.vertices.pool,
@@ -637,27 +640,15 @@ game_on_update(app_memory_t* app_mem) {
         "- Texture Arena",
         "- Entity Arena",
         "- Physics Arena",
+        "- Rendering Arena",
+        "- Rendering Frame Arena",
         "- 3D Vertex",
         "- 3D Index",
         "- 2D Vertex",
         "- 2D Index",
     };
 
-
-    // const u64 mesh_index = app->debug.mesh_index%app->mesh_cache.meshes.size();
-    // const u64 sub_index = app->debug.mesh_sub_index%app->mesh_cache.get(mesh_index).count;
-
-    // std::string display_mesh_info[] = {
-    //     fmt_str("Mesh Info: {} - {}", mesh_index, sub_index),
-    //     fmt_str("Vertex Start: {}", app->mesh_cache.get(mesh_index).meshes[sub_index].vertex_start),
-    //     fmt_str("Vertex Count: {}", app->mesh_cache.get(mesh_index).meshes[sub_index].vertex_count),
-    //     fmt_str("Index Start: {}", app->mesh_cache.get(mesh_index).meshes[sub_index].index_start),
-    //     fmt_str("Index Count: {}", app->mesh_cache.get(mesh_index).meshes[sub_index].index_count),
-    // };
-    
-
     gfx::gui::ctx_clear(&app->gui.ctx);
-
     
     app->time_text_anim -= app_mem->input.dt;
     if (app->time_text_anim > 0.0f) {
@@ -689,7 +680,7 @@ game_on_update(app_memory_t* app_mem) {
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
 
-            local_persist bool show_stats = !false;
+            local_persist bool show_stats = false;
             local_persist bool show_resources = false;
             local_persist bool show_window = false;
             local_persist bool show_gui = !false;
@@ -766,9 +757,40 @@ game_on_update(app_memory_t* app_mem) {
                 }
             }
 
-            local_persist bool show_gfx = false;
+            local_persist bool show_gfx = !false;
+            local_persist bool show_mats = false;
+            local_persist bool show_env = !false;
+            local_persist bool show_mat_id[8] = {};
             if (im::text(state, "Graphics"sv, &show_gfx)) { 
                 local_persist bool show_sky = false;
+                if (im::text(state, "- Environment"sv, &show_env)) { 
+                    auto& env = app->render_system->environment_storage_buffer.pool[0];
+                    local_persist bool show_amb = false;
+                    if (im::text(state, "--- Ambient"sv, &show_amb)) { 
+                        gfx::color32 tc = gfx::color::to_color32(env.ambient_color);
+                        im::color_edit(state, &tc);
+                        env.ambient_color = gfx::color::to_color4(tc);
+                    }
+                    local_persist bool show_fog = !false;
+                    if (im::text(state, "--- Fog"sv, &show_fog)) { 
+                        gfx::color32 tc = gfx::color::to_color32(env.fog_color);
+                        im::color_edit(state, &tc);
+                        env.fog_color = gfx::color::to_color4(tc);
+                        im::float_slider(state, &env.fog_density);
+                    }
+                }
+                if (im::text(state, "- Materials"sv, &show_mats)) { 
+                    loop_iota_u64(i, app->render_system->materials.size()) {
+                        auto* mat = app->render_system->materials[i];
+                        if (im::text(state, fmt_sv("--- Name: {}", std::string_view{mat->name}), show_mat_id + i)) {
+                            gfx::color32 color = gfx::color::to_color32(mat->albedo);
+                            im::color_edit(state, &color);
+                            mat->albedo = gfx::color::to_color4(color);
+
+                            app->render_system->material_storage_buffer.pool[i] = *mat;
+                        }
+                    }
+                }
                 if (im::text(state, "- SkyBox"sv, &show_sky)) { 
                     local_persist bool show_dir = false;
                     local_persist bool show_color = false;
@@ -812,20 +834,7 @@ game_on_update(app_memory_t* app_mem) {
         }
 
         const m44 vp = 
-            app->scene.scene_buffer.proj *
-            app->scene.scene_buffer.view;
-
-        {
-            app->scene.scene_buffer.light_pos.w = 1.0f;
-            v2f sp = math::world_to_screen(vp, app->scene.scene_buffer.light_pos);
-
-            gfx::gui::string_render(
-                &app->gui.ctx, 
-                string_t{}.view("Light"),
-                sp * app->gui.ctx.screen_size, 
-                gfx::color::to_color32(v4f{0.90f, .9f, 0.60f, 1.0f})
-            );
-        }
+            app->render_system->vp;
 
         for (size_t pool = 0; show_entities && pool < game::pool_count(); pool++)  {
             for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
@@ -875,10 +884,9 @@ game_on_update(app_memory_t* app_mem) {
     arena_set_mark(&app->string_arena, string_mark);
 
 
-    *vk_gfx.scene_uniform_buffer.data = app->scene.scene_buffer;
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
-    *vk_gfx.object_uniform_buffer.data = app->scene.object_buffer;
-    *app->scene.debug_scene_uniform_buffer.data = app->scene.scene_buffer;
+    
+
     // render
 
     app->debug.debug_vertices.pool.clear();
@@ -935,7 +943,12 @@ game_on_update(app_memory_t* app_mem) {
             v4f directional_light;
         } sky_constants;
 
-        sky_constants.vp = app->scene.scene_buffer.proj * glm::lookAt(v3f{0.0f}, 
+        const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
+        
+        m44 proj = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
+        proj[1][1] *= -1.0f;
+
+        sky_constants.vp = proj * glm::lookAt(v3f{0.0f}, 
             game::cam::get_direction(
                 app->game_world->player.camera_controller.yaw,
                 app->game_world->player.camera_controller.pitch
@@ -944,7 +957,7 @@ game_on_update(app_memory_t* app_mem) {
         );
         sky_constants.directional_light = app->scene.lighting.directional_light;
 
-        vkCmdPushConstants(vk_gfx.command_buffer, app->mesh_pipeline->pipeline_layout,
+        vkCmdPushConstants(vk_gfx.command_buffer, app->sky_pipeline->pipeline_layout,
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
             0, sizeof(sky_push_constant_t), &sky_constants
         );
@@ -970,13 +983,17 @@ game_on_update(app_memory_t* app_mem) {
         vk_gfx.command_buffer, imageIndex
     );
 
-    vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-        VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
-        0, 3, app->mesh_pipeline->descriptor_sets, 0, nullptr);
+    // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->render_system->job_storage_buffer.buffer);
+    // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->gui.vertices.buffer);
+    // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->gui.indices.buffer);
 
     vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
         VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
-        3, 1, &app->brick_descriptor, 0, nullptr);
+        0, 4, app->mesh_pipeline->descriptor_sets, 0, nullptr);
+
+    vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+        VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
+        4, 1, &app->brick_descriptor, 0, nullptr);
 
     VkBuffer buffers[1] = { app->render_system->vertices.buffer };
     VkDeviceSize offsets[1] = { 0 };
@@ -1112,20 +1129,6 @@ main_menu_on_update(app_memory_t* app_mem) {
     const f32 h = (f32)app_mem->config.window_size[1];
     const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
 
-    app->scene.scene_buffer.time = app_mem->input.time;
-    app->scene.scene_buffer.view = app->game_world->camera.to_matrix();
-    app->scene.scene_buffer.proj =
-        app_mem->input.keys['U'] ?
-        glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f,  -1000.0f, 1000.f) :
-        glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
-    app->scene.scene_buffer.proj[1][1] *= -1.0f;
-
-    app->scene.scene_buffer.scene = glm::mat4{0.5f};
-    app->scene.scene_buffer.light_pos = v4f{3,13,3,0};
-    app->scene.scene_buffer.light_col = v4f{0.2f, 0.1f, 0.8f, 1.0f};
-    app->scene.scene_buffer.light_KaKdKs = v4f{0.5f};
-
-    app->scene.object_buffer.color = v4f{1.0f};
 
     // draw gui 
 
@@ -1185,10 +1188,8 @@ main_menu_on_update(app_memory_t* app_mem) {
 
     arena_set_mark(&app->string_arena, string_mark);
 
-    *vk_gfx.scene_uniform_buffer.data = app->scene.scene_buffer;
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
-    *vk_gfx.object_uniform_buffer.data = app->scene.object_buffer;
-    *app->scene.debug_scene_uniform_buffer.data = app->scene.scene_buffer;
+
     // render
 
     app->debug.debug_vertices.pool.clear();

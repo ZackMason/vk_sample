@@ -2,82 +2,54 @@
 #extension GL_ARB_separate_shader_objects  : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-// Vulkan Sample Program Vertex Shader:
+#include "material.glsl"
 
-layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
+layout( std140, set = 0, binding = 0 ) uniform SporadicBuffer
 {
 	int		uMode;
 	int		uUseLighting;
 	int		uNumInstances;
 	int 	pad;
-} Sporadic;
-        
-layout( std140, set = 1, binding = 0 ) uniform sceneBuf
-{
-	mat4		uProjection;
-	mat4		uView;
-	mat4		uSceneOrient;
-	vec4		uLightPos;			// x, y, z
-	vec4		uLightColor;		// r, g, b
-	vec4		uLightKaKdKs;		// ka, kd, ks
-	float	    uTime;
-} Scene;
+} uSporadic;
 
 struct ObjectData {
 	mat4 model;
+
+	uint material_id;
+	uint padding[3 + 4*3];
 };
 
-layout(std140, set = 2, binding = 0) readonly buffer ObjectBuffer {
+layout(std430, set = 1, binding = 0) readonly buffer ObjectBuffer {
 	ObjectData objects[];
-} objectBuffer;
+} uObjectBuffer;
 
-layout ( push_constant ) uniform object_constants
+layout( push_constant ) uniform constants
 {
-	mat4 uM;
-	vec4 albedo;
-
-    float ao;
-    float emission;
-    float metallic;
-    float roughness;
-
-    uint flags;     // for material effects
-    uint opt_flags; // for performance
-    uint padding[2];
-} ObjectConstants;
+	mat4		uVP;
+	vec4		uCamPos;
+} PushConstants;
 
 layout( location = 0 ) in vec3 aVertex;
 layout( location = 1 ) in vec3 aNormal;
 layout( location = 2 ) in vec3 aColor;
 layout( location = 3 ) in vec2 aTexCoord;
 
-layout ( location = 0 ) out vec3 vColor;
+layout ( location = 0 ) out flat uint vMatId;
 layout ( location = 1 ) out vec2 vTexCoord;
 layout ( location = 2 ) out vec3 vN;
-layout ( location = 3 ) out vec3 vE;
-layout ( location = 4 ) out vec3 vWorldPos;
+layout ( location = 3 ) out vec3 vWorldPos;
 
 void
 main() {
-	mat4  P = Scene.uProjection;
-	mat4  V = Scene.uView;
-	mat4  SO = Scene.uSceneOrient;
-	mat4  M  = objectBuffer.objects[gl_BaseInstance].model;
-	mat4 VM = V * SO * M;
-	mat4 PVM = P * VM;
+	mat4   M = uObjectBuffer.objects[gl_BaseInstance].model;
+	mat4 PVM = PushConstants.uVP * M;
 
-	vColor = aColor;
+	vMatId = uObjectBuffer.objects[gl_BaseInstance].material_id;
 	vTexCoord = aTexCoord;
-
-	vE = vec3(
-		V[3][0],
-		V[3][1],
-		V[3][2]
-	);
+	
 	vWorldPos = (M * vec4(aVertex, 1.0)).xyz;
-	vE = normalize(vWorldPos - vE);
 
-	vN = normalize(mat3(M) * aNormal);
+	vN = normalize(transpose(inverse(M)) * vec4(aNormal, 0.0)).xyz;
 
 	gl_Position = PVM * vec4(aVertex, 1. );
 }

@@ -47,6 +47,34 @@ std::string error_string(VkResult errorCode) {
 }
 };
 
+VkSampleCountFlagBits get_max_usable_sample_count(VkPhysicalDevice gpu_device) {
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    vkGetPhysicalDeviceProperties(gpu_device, &physicalDeviceProperties);
+
+    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+    if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
+uint32_t find_memory_type(VkPhysicalDevice device, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(device, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!");
+}
+
 // note(zack): these params are switched compared to vk tut
 u32
 find_memory_by_flag_and_type(VkPhysicalDevice gpu_device, u32 memoryFlagBits, u32 memoryTypeBits)
@@ -225,6 +253,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+        // VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME,
+        VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
         //"VK_NV_shader_module_validation_cache"
     };
 
@@ -313,6 +343,25 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     }
 };
 
+VkImageView create_image_view(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) {
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = aspectFlags;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = mipLevels;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    VkImageView imageView;
+    if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create texture image view!");
+    }
+
+    return imageView;
+}
 
 void state_t::init(app_config_t* info) {
     create_instance(info);
@@ -332,8 +381,7 @@ void state_t::init(app_config_t* info) {
     create_command_pool();
 
     create_uniform_buffer(&sporadic_uniform_buffer);
-    create_uniform_buffer(&scene_uniform_buffer);
-    create_uniform_buffer(&object_uniform_buffer);
+
     
     arena_t t;
     t.start = new std::byte[2048*2048*4];
@@ -341,6 +389,13 @@ void state_t::init(app_config_t* info) {
     load_texture_sampler(&null_texture, "./assets/textures/null.png", &t);
     // load_texture_sampler(&null_texture, "./assets/textures/checker.png", &t);
     delete [] t.start;
+
+    create_image(info->window_size[0], info->window_size[1], 1, 
+        msaa_samples, swap_chain_image_format, VK_IMAGE_TILING_OPTIMAL, 
+        VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &color_buffer_texture);
+
+    color_buffer_texture.image_view = create_image_view(device, color_buffer_texture.image, swap_chain_image_format, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
     create_descriptor_set_pool();
 
@@ -754,7 +809,6 @@ bool is_device_poggers(VkPhysicalDevice device, VkSurfaceKHR surface) {
 
     auto indices = find_queue_families(device, surface);
 
-
     bool extensionsSupported = check_device_extension_support(device);
     bool swapChainAdequate = false;
     if (extensionsSupported) {
@@ -762,9 +816,11 @@ bool is_device_poggers(VkPhysicalDevice device, VkSurfaceKHR surface) {
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.present_modes.empty();
     }
 
+    
+
     return  swapChainAdequate && extensionsSupported && indices.is_complete() &&
-            deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-            deviceFeatures.geometryShader;
+        deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+        deviceFeatures.geometryShader;
 }
 
 void state_t::find_device() {
@@ -780,9 +836,15 @@ void state_t::find_device() {
     for(const auto& phys_device: devices) {
         if (is_device_poggers(phys_device, surface)) {
             gpu_device = phys_device;
+            msaa_samples = get_max_usable_sample_count(gpu_device);
             break;
         }
     }
+
+    VkPhysicalDeviceProperties vpdp{};
+    vkGetPhysicalDeviceProperties(gpu_device, &vpdp);
+
+    gen_info("vk::device", "Selecting device: {}", vpdp.deviceName);
 
     if (gpu_device == VK_NULL_HANDLE) {
         gen_error("vulkan", "Failed to find a poggers gpu, oh no");
@@ -1099,6 +1161,7 @@ state_t::create_pipeline_state(
     renderPassInfo.pSubpasses = &subpass;
     
     VkSubpassDependency dependency{};
+    VkSubpassDependency depth_dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
 
@@ -1108,8 +1171,17 @@ state_t::create_pipeline_state(
     dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 
-    renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies = &dependency;
+    depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    depth_dependency.dstSubpass = 0;
+    depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depth_dependency.srcAccessMask = 0;
+    depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    VkSubpassDependency deps[] = {dependency, depth_dependency};
+
+    renderPassInfo.dependencyCount = 2;
+    renderPassInfo.pDependencies = deps;
 
     if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &pipeline->render_passes[0]) != VK_SUCCESS) {
         gen_error("vulkan", "failed to create render pass!");
@@ -1198,7 +1270,7 @@ state_t::create_pipeline_state(
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.rasterizationSamples = create_info->msaa_samples;
     multisampling.minSampleShading = 1.0f; // Optional
     multisampling.pSampleMask = nullptr; // Optional
     multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
@@ -1538,6 +1610,52 @@ state_t::load_font_sampler(
     VK_OK(vkCreateImageView(device, &viewInfo, nullptr, &texture->image_view));
 }
 
+
+
+
+void 
+state_t::create_image(
+    u32 w, u32 h, u32 mip_levels, 
+    VkSampleCountFlagBits num_samples, VkFormat format,
+    VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags props,
+    texture_2d_t* texture
+) {
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = w;
+    imageInfo.extent.height = h;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = mip_levels;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = num_samples;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(device, &imageInfo, nullptr, &texture->image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(device, texture->image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = find_memory_type(gpu_device, memRequirements.memoryTypeBits, props);
+
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &texture->vdm) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate image memory!");
+    }
+
+    vkBindImageMemory(device, texture->image, texture->vdm, 0);
+
+    
+}
+
 void 
 state_t::load_texture_sampler(
     texture_2d_t* texture, 
@@ -1649,18 +1767,21 @@ state_t::load_texture_sampler(
 
 void state_t::create_descriptor_set_pool() {
 
-    VkDescriptorPoolSize				vdps[4];
+    VkDescriptorPoolSize				vdps[5];
 		vdps[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		vdps[0].descriptorCount = 1;
 
-		vdps[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		vdps[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		vdps[1].descriptorCount = 1;
         
-		vdps[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		vdps[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		vdps[2].descriptorCount = 1;
 
-		vdps[3].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		vdps[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		vdps[3].descriptorCount = 1;
+
+		vdps[4].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		vdps[4].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo			vdpci;
 		vdpci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1668,7 +1789,7 @@ void state_t::create_descriptor_set_pool() {
 		vdpci.flags = 0;
 
         vdpci.maxSets = 400;
-		vdpci.poolSizeCount = 4;
+		vdpci.poolSizeCount = array_count(vdps);
 		vdpci.pPoolSizes = &vdps[0];
 
 	VK_OK(vkCreateDescriptorPool(device, &vdpci, 0, &descriptor_pool));

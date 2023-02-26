@@ -126,7 +126,8 @@ struct pipeline_state_t {
         VkViewport          viewport{};
         VkRect2D            scissor{};
 
-        f32                 line_width{1.0f};
+        f32                     line_width{1.0f};
+        VkSampleCountFlagBits   msaa_samples = VK_SAMPLE_COUNT_1_BIT;
     };
 
     VkPipeline          pipeline;
@@ -155,6 +156,7 @@ struct state_t {
     VkDevice device; // logical device in mb sample
 
     VkPhysicalDeviceFeatures device_features{};
+    VkSampleCountFlagBits msaa_samples = VK_SAMPLE_COUNT_1_BIT;
 
     u32 graphics_index;
 
@@ -180,12 +182,11 @@ struct state_t {
     VkSemaphore render_finished_semaphore;
     VkFence in_flight_fence[2];
 
-    uniform_buffer_t<scene_buffer_t>    scene_uniform_buffer;
-    uniform_buffer_t<object_buffer_t>   object_uniform_buffer;
     uniform_buffer_t<sporadic_buffer_t> sporadic_uniform_buffer;
 
     texture_2d_t null_texture;
     texture_2d_t depth_stencil_texture;
+    texture_2d_t color_buffer_texture;
 
     VkDebugUtilsMessengerEXT debug_messenger;
 
@@ -279,6 +280,13 @@ struct state_t {
     void create_pipeline_state_descriptors(pipeline_state_t* pipeline, pipeline_state_t::create_info_t* create_info);
 
     void destroy_instance();
+
+    void create_image(
+        u32 w, u32 h, u32 mip_levels, 
+        VkSampleCountFlagBits num_samples, VkFormat format,
+        VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags props,
+        texture_2d_t* texture
+    );
 };
 
 void 
@@ -492,6 +500,30 @@ inline VkAttachmentDescription attachment_description(
     vad.flags = 0;
     return vad;
 }
+
+inline void
+buffer_host_memory_barrier(
+    VkCommandBuffer command_buffer,
+    VkBuffer buffer
+) {
+    VkBufferMemoryBarrier barrier = {};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.buffer = buffer;
+    barrier.offset = 0;
+    barrier.size = VK_WHOLE_SIZE;
+    barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    
+    vkCmdPipelineBarrier(
+        command_buffer,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+        0, 0, nullptr, 1, &barrier, 0, nullptr
+    );
+}
+
 inline VkSubmitInfo submit_info()
 {
     VkSubmitInfo submitInfo {};

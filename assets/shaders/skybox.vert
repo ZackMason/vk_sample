@@ -2,11 +2,11 @@
 #extension GL_ARB_separate_shader_objects  : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-layout ( push_constant ) uniform object_constants
+layout ( push_constant ) uniform constants
 {
 	mat4 uVP;
 	vec4 uDirectionLight;
-} ObjectConstants;
+} PushConstants;
 
 
 layout( location = 0 ) in vec3 aVertex;
@@ -20,5 +20,5 @@ void
 main() {
 	vN = normalize(aVertex);
 
-	gl_Position = ObjectConstants.uVP * vec4(aVertex * 100.0, 1. );
+	gl_Position = PushConstants.uVP * vec4(aVertex, 1. );
 }

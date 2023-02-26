@@ -64,7 +64,7 @@ namespace game::phys {
         physx::PxController*    controller{nullptr};
         physx::PxShape*         shape{nullptr};
         physx::PxMaterial*      material{nullptr};
-        physics_shape_type      type{};
+    physics_shape_type      type{};
 
         void load_trimesh(std::byte* data, size_t size, const math::transform_t& transform) {
             assert(state);
