@@ -15,6 +15,26 @@
 
 #include "App/Game/Rendering/render_system.hpp"
 
+#include "App/Game/Entity/script.hpp"
+
+#include "ProcGen/map_gen.hpp"
+#include "ProcGen/mesh_builder.hpp"
+
+#define PROFILE_GAMEPLAY_FUNCTION(name) utl::profile_t _res_profile_gameplay_function_profile_t_profile_variable{name};
+
+
+global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
+global_variable gfx::mesh_list_t gs_mesh;
+global_variable game::entity::entity_t* gs_arms[3];
+global_variable f32 gs_theta[3];
+global_variable f32 gs_phi;
+global_variable f32 gs_scale[3];
+global_variable gfx::color32 gs_color[3] = {
+    gfx::color::rgba::red,
+    gfx::color::rgba::blue,
+    gfx::color::rgba::green,
+};
+
 struct app_t {
     app_memory_t*       app_mem{nullptr};
 
@@ -52,6 +72,7 @@ struct app_t {
     gfx::vul::pipeline_state_t* debug_pipeline{0};
     gfx::vul::pipeline_state_t* mesh_pipeline{0};
     gfx::vul::pipeline_state_t* sky_pipeline{0};
+    gfx::vul::pipeline_state_t* arm_pipeline{0};
 
     struct gui_state_t {
         gfx::gui::ctx_t ctx;
@@ -98,6 +119,8 @@ struct app_t {
             points[1].col = color;
         }
     } debug;
+
+    game::entity::ecs_world_t* ecs{0};
         
     game::world_t* game_world{0};
     game::phys::physx_state_t* physics{0};
@@ -198,13 +221,15 @@ app_init_graphics(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
 
     gfx::vul::state_t& vk_gfx = app->gfx;
-    app->gfx.init(&app_mem->config);
+    temp_arena_t t = app->main_arena;
+    app->gfx.init(&app_mem->config, &t);
     app->render_system = game::rendering::init<megabytes(256)>(vk_gfx, &app->main_arena);
 
     auto* rs = app->render_system;
 
     app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
     app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
+    app->arm_pipeline = gfx::vul::create_arm_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
     app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0],
         gfx::vul::mesh_pipeline_info_t{
             vk_gfx.sporadic_uniform_buffer.buffer,
@@ -304,6 +329,7 @@ app_on_init(app_memory_t* app_mem) {
     app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./assets/res.pack");
     
     app->game_world = game::world_init(main_arena);
+    app->ecs = game::entity::world_init(main_arena, 1024);
     
     // setup graphics
 
@@ -328,11 +354,51 @@ app_on_init(app_memory_t* app_mem) {
     app->scene.sporadic_buffer.mode = 2;
     app->scene.sporadic_buffer.use_lighting = 1;
 
+    if (0)
+    {
+        prcgen::mesh_builder_t mesh_builder{
+            app->render_system->vertices.pool,
+            app->render_system->indices.pool
+        };
+
+        prcgen::map::room_volume_t vol;
+        prcgen::map::room_volume_init(&vol);
+
+        range_u64(x, 0, 63) {
+            range_u64(y, 0, 63) {
+                range_u64(z, 0, 63) {
+                    prcgen::marching_cubes::grid_cell_t g;
+                    prcgen::marching_cubes::make_unit_cell(&g, (v3f{x,y,z}-v3f{32.0f})*10.0f, 10.0f);
+                    
+                    range_u64(i, 0, 8) {
+                        const auto d0 = prcgen::map::box_sdf_t{.origin = v3f{0.0}, .size = v3f{64.0f, 2.0f, 64.0f}}.distance(g.p[i]);
+                        const auto d1 = prcgen::map::box_sdf_t{.origin = v3f{0.0}, .size = v3f{8.0f, 64.0f, 8.0f}}.distance(g.p[i]);
+                        const auto d2 = prcgen::map::sphere_sdf_t{.origin = v3f{20.0f, 0.0f, 0.0f}, .radius = 14.0f}.distance(g.p[i]);
+                        const auto w0 = prcgen::map::box_sdf_t{.origin = v3f{32.0, 10.f, 0.0f}, .size = v3f{2.0f, 40.0f, 64.0f}}.distance(g.p[i]);
+                        const auto w1 = prcgen::map::box_sdf_t{.origin = v3f{-32.0, 10.f, 0.0f}, .size = v3f{2.0f, 40.0f, 64.0f}}.distance(g.p[i]);
+                        const auto w2 = prcgen::map::box_sdf_t{.origin = v3f{0.0, 10.f, -32.0f}, .size = v3f{64.0f, 40.0f, 2.0f}}.distance(g.p[i]);
+                        const auto w3 = prcgen::map::box_sdf_t{.origin = v3f{0.0, 10.f, 32.0f}, .size = v3f{64.0f, 40.0f, 2.0f}}.distance(g.p[i]);
+                        
+                        g.v[i] = std::min({d0, d1, d2, w0, w1, w2, w3});
+                        
+                    }
+
+                    math::triangle_t triangles[32];
+                    u64 triangle_count = prcgen::marching_cubes::to_polygon(g, 0.0f, triangles);
+
+                    if (triangle_count) {
+                        mesh_builder.add_triangles(triangles, triangle_count);
+                    }
+                }
+            }
+        }
+
+        auto mesh_id = game::rendering::add_mesh(app->render_system, "ground", mesh_builder.build(&app->mesh_arena));
+
+        // auto* e0 = game::world_create_entity(app->game_world, 0);
+        // game::entity::entity_init(e0, mesh_id);
+    }
     #if 0
-    // gfx::mesh_builder_t mesh_builder{
-    //     app->vertices.pool,
-    //     app->indices.pool
-    // };
     
     // static constexpr f32 terrain_dim = 100.0f;
     // static constexpr f32 terrain_grid_size = 1.0f;
@@ -393,8 +459,9 @@ app_on_init(app_memory_t* app_mem) {
     }
 
     game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::characters::soldier);
-    auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
+    // auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
 
+    
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
     loop_iota_u64(i, 100) {
@@ -403,7 +470,7 @@ app_on_init(app_memory_t* app_mem) {
             game::world_create_entity(app->game_world, 1);
         
         e1->transform.origin = rng.randnv<v3f>() * 100.0f;
-        e1->transform.set_scale(v3f{0.2f});
+        e1->transform.set_scale(v3f{2.f});
         // e1->transform.set_scale(v3f{rng.randf()*10.0f});
         e1->transform.set_rotation(rng.randnv<v3f>());
         e1->name.view("Teapot");
@@ -419,6 +486,20 @@ app_on_init(app_memory_t* app_mem) {
         e1->gfx.material_id = rng.rand() % 6;
     }
 
+    {
+        gs_mesh = 
+        app->render_system->mesh_cache.get(
+        game::rendering::get_mesh_id(app->render_system, "assets/models/cube.obj"));
+        
+        gs_theta[0] = 1.5f;
+        gs_theta[1] = 3.5f;
+        gs_theta[2] = 2.5f;
+
+        gs_scale[0] = 1.5f;
+        gs_scale[1] = 3.5f;
+        gs_scale[2] = 2.5f;
+    }
+
     // game::entity::physics_entity_t* e2 =
     //     (game::entity::physics_entity_t*)
     //     game::world_create_entity(app->game_world, 1);
@@ -432,7 +513,25 @@ app_on_init(app_memory_t* app_mem) {
     // );
     // e2->name.view("room");
 
-    e2->gfx.material_id = blue_plastic_mat;
+    // e2->gfx.material_id = blue_plastic_mat;
+
+    { // ecs
+        using namespace game;
+
+        auto* ecs = app->ecs;
+        auto e = ecs->get_entity(ecs->create_entity());
+
+        transform::init_info_t t;
+        t.origin = v3f{-20.0f, 0.0f, -20.0f};
+        t.rotation.x = 3.1415;
+
+        transform::create(ecs, t, e);
+
+        static_mesh::init_info_t m;
+        m.mesh_id = (u32)game::rendering::get_mesh_id(app->render_system, "assets/models/lucy.obj");
+        
+        static_mesh::create(ecs, m, e);
+    }
     
     arena_clear(&app->temp_arena);
     app->game_world->player.transform.origin.y = 5.0f;
@@ -531,8 +630,11 @@ void fake_controller_input(app_input_t* input, v2f screen_size) {
 
 void 
 app_on_input(app_t* app, app_input_t* input) {
+
     fake_controller_input(input, app->gui.ctx.screen_size);
-    camera_input(app, input);
+    if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
+        camera_input(app, input);
+    }
 
     if (input->gamepads[0].buttons[button_id::dpad_left].is_released) {
         app->time_scale *= 0.5f;
@@ -545,6 +647,8 @@ app_on_input(app_t* app, app_input_t* input) {
 }
 
 void game_on_gameplay(app_t* app, app_input_t* input) {
+    // PROFILE_GAMEPLAY_FUNCTION("gameplay");
+
     input->dt *= app->time_scale;
     app_on_input(app, input);
 
@@ -556,9 +660,32 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
     // local_persist bool do_once = true;
     // loop through type erased pools
     // if (do_once)
+
+    if (app->render_system == nullptr) return;
+
+    std::lock_guard lock{app->render_system->ticket};
+
+    game::rendering::begin_frame(app->render_system);
+
+    range_u32(e, 0, app->ecs->entity_count) {
+        auto entt = app->ecs->get_entity(e);
+        if (entt.transform(app->ecs).is_valid() && entt.static_mesh(app->ecs).is_valid()) {
+            game::rendering::submit_job(
+                app->render_system, 
+                entt.static_mesh(app->ecs).get_id(), 
+                1, 
+                entt.transform(app->ecs).to_matrix()
+            );
+        } else {
+            gen_warn("ecs::update", "not renderable");
+        }
+    }
+
     for (size_t pool = 0; pool < game::pool_count(); pool++)  {
         // do_once = false;
         for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
+            // e->transform.rotate(v3f{0.0f, input->dt, 0.0f});
+
             if ((e->flags & game::entity::EntityFlags_Renderable) == 0) { 
                 gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
                 return;
@@ -573,17 +700,18 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
     }
 }
 
-void game_on_render(app_t* app) {
-
-}
-
 void
 game_on_update(app_memory_t* app_mem) {
     // utl::profile_t p{"on_update"};
     app_t* app = get_app(app_mem);
 
     game_on_gameplay(app, &app_mem->input);
+}
 
+void
+game_on_render(app_memory_t* app_mem) {
+    utl::profile_t p{"on_render"};
+    app_t* app = get_app(app_mem);
 
     gfx::vul::state_t& vk_gfx = app->gfx;
 
@@ -592,7 +720,7 @@ game_on_update(app_memory_t* app_mem) {
     // maybe it only happens on the second frame
     local_persist u32 frame_count = 0;
     if (frame_count++ < 3) {
-        gen_info("app::on_update", "frame: {}", frame_count);
+        gen_info("game::on_render", "frame: {}", frame_count);
     }
 
     const f32 anim_time = glm::mod(
@@ -607,16 +735,7 @@ game_on_update(app_memory_t* app_mem) {
     const f32 h = (f32)app_mem->config.window_size[1];
     const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
 
-    {
 
-        app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
-        m44 proj = (app_mem->input.keys['U'] ?
-            glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f,  -1000.0f, 1000.f) :
-            glm::perspective(45.0f, aspect, 0.3f, 1000.0f));
-        proj[1][1] *= -1.0f;
-        app->render_system->vp = proj * app->game_world->camera.to_matrix();
-    
-    }
     // draw gui 
 
     auto string_mark = arena_get_mark(&app->string_arena);
@@ -677,6 +796,7 @@ game_on_update(app_memory_t* app_mem) {
             .padding = 4.0f,
         },
     };
+    gs_imgui_state = &state;
 
     {
         using namespace std::string_view_literals;
@@ -695,6 +815,11 @@ game_on_update(app_memory_t* app_mem) {
 
             if (im::text(state, "Stats"sv, &show_stats)) {
                 im::text(state, fmt_sv("- FPS: {:.2f} - {:.2f} ms", 1.0f / app_mem->input.dt, app_mem->input.dt * 1000.0f));
+
+                {
+                    const auto [x,y] = app_mem->input.mouse.pos;
+                    im::text(state, fmt_sv("- Mouse: [{:.2f}, {:.2f}]", x, y));
+                }
                 
                 if (im::text(state, "- Window"sv, &show_window)) {
                     im::text(state, fmt_sv("--- Width: {}", app_mem->config.window_size[0]));
@@ -762,7 +887,7 @@ game_on_update(app_memory_t* app_mem) {
                 }
             }
 
-            local_persist bool show_gfx = !false;
+            local_persist bool show_gfx = false;
             local_persist bool show_mats = false;
             local_persist bool show_env = !false;
             local_persist bool show_mat_id[8] = {};
@@ -834,17 +959,39 @@ game_on_update(app_memory_t* app_mem) {
                     }
                 }
             }
+            local_persist bool show_arm = true;
+            if (im::text(state, "Arm Thingy"sv, &show_arm)) {
+                im::text(state, "- Arm Phi"sv);
+                im::float_slider(state, &gs_phi, -math::constants::tau32, math::constants::tau32);
+
+                im::text(state, "- Arm 0 - Theta - Scale - Color"sv);
+                im::float_slider(state, gs_theta + 0, -math::constants::tau32, math::constants::tau32);
+                im::float_slider(state, gs_scale + 0, 1.0f, 6.0f);
+                im::color_edit(state, gs_color + 0);
+
+                im::text(state, "- Arm 1 - Theta - Scale - Color"sv);
+                im::float_slider(state, gs_theta + 1, -math::constants::tau32, math::constants::tau32);
+                im::float_slider(state, gs_scale + 1, 1.0f, 6.0f);
+                im::color_edit(state, gs_color + 1);
+                                
+                im::text(state, "- Arm 2 - Theta - Scale - Color"sv);
+                im::float_slider(state, gs_theta + 2, -math::constants::tau32, math::constants::tau32);
+                im::float_slider(state, gs_scale + 2, 1.0f, 6.0f);
+                im::color_edit(state, gs_color + 2);
+            }
 
             im::end_panel(state);
         }
 
+
         const m44 vp = 
             app->render_system->vp;
 
-        for (size_t pool = 0; show_entities && pool < game::pool_count(); pool++)  {
+        for (size_t pool = 0; pool < game::pool_count(); pool++)  {
             for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
+                if (!show_entities && ((e->flags & BIT(23)) == 0)) continue;
                 const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
-                
+
                 if (im::begin_panel_3d(state, 
                     e->name.c_data ? 
                     fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e) :
@@ -883,17 +1030,14 @@ game_on_update(app_memory_t* app_mem) {
                 }
             }
         }
-
     }
 
     arena_set_mark(&app->string_arena, string_mark);
 
 
-    *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
     
 
     // render
-
     app->debug.debug_vertices.pool.clear();
         
     v3f cam_dir = 
@@ -908,13 +1052,29 @@ game_on_update(app_memory_t* app_mem) {
     app->debug.draw_line(cam_pos, cam_pos + v3f{0.0f, axis_line_size, 0.0f}, v3f{0.0f, 1.0f, 0.0f});
     app->debug.draw_line(cam_pos, cam_pos + v3f{0.0f, 0.0f, axis_line_size}, v3f{0.0f, 0.0f, 1.0f});
     
-    vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0], VK_TRUE, UINT64_MAX);
-    vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0]);
+    {
+        // this isnt right
+        utl::profile_t _p_fence{"fencewait"};
+        vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0], VK_TRUE, UINT64_MAX);
+        vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0]);
+    }
 
     u32 imageIndex;
     vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
         vk_gfx.image_available_semaphore, VK_NULL_HANDLE, &imageIndex);
 
+
+    std::lock_guard lock{app->render_system->ticket};
+
+    {
+        app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
+        m44 proj = (app_mem->input.keys['U'] ?
+            glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f,  -1000.0f, 1000.f) :
+            glm::perspective(45.0f, aspect, 0.3f, 1000.0f));
+        proj[1][1] *= -1.0f;
+        app->render_system->vp = proj * app->game_world->camera.to_matrix();
+    }
+    *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
     vkResetCommandBuffer(vk_gfx.command_buffer, 0);
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -1008,6 +1168,78 @@ game_on_update(app_memory_t* app_mem) {
     // });
     }
 
+    {
+        vkCmdBindPipeline(vk_gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->arm_pipeline->pipeline);
+
+        VkBuffer buffers[1] = { app->render_system->vertices.buffer };
+        VkDeviceSize offsets[1] = { 0 };
+
+        vkCmdBindVertexBuffers(vk_gfx.command_buffer,
+            0, 1, buffers, offsets);
+
+        vkCmdBindIndexBuffer(vk_gfx.command_buffer,
+            app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+        );
+
+        struct arm_t {
+            m44 vp;
+            m44 mod;
+            v3f color;
+            f32 arm_scale;
+        };
+        arm_t* last_arm = nullptr;
+        arm_t arms[3];
+        range_u32(i, 0, 3) {
+            arm_t& arm = arms[i];
+            arm.arm_scale = gs_scale[i];
+            
+            arm.mod = m44{1.0f};
+            if (last_arm) {
+                arm.mod = glm::translate(arm.mod, v3f{last_arm->arm_scale*2.0f, 0.0f, 0.0f});
+            }
+            if (!last_arm) {
+                arm.mod = glm::rotate(arm.mod, gs_phi, v3f{0.0f, 1.0f, 0.0f});
+            }
+            arm.mod = glm::rotate(arm.mod, gs_theta[i], v3f{0.0f, 0.0f, 1.0f});
+            if (last_arm) {
+                arm.mod = last_arm->mod * arm.mod;
+            }
+
+            arm.color = gfx::color::to_color3(gs_color[i]);
+          
+            m44 proj = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
+            proj[1][1] *= -1.0f;
+
+            arm.vp = proj * app->game_world->camera.to_matrix();
+            
+
+            last_arm = &arm;
+            vkCmdPushConstants(vk_gfx.command_buffer, app->arm_pipeline->pipeline_layout,
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+                0, sizeof(arm_t), &arm
+            );
+
+            range_u64(j, 0, gs_mesh.count) {
+                if (gs_mesh.meshes[j].index_count) {
+                    vkCmdDrawIndexed(vk_gfx.command_buffer,
+                        gs_mesh.meshes[j].index_count,
+                        1, 
+                        gs_mesh.meshes[j].index_start,
+                        gs_mesh.meshes[j].vertex_start,
+                        0
+                    );
+                } else {
+                    vkCmdDraw(vk_gfx.command_buffer,
+                        gs_mesh.meshes[j].vertex_count,
+                        gs_mesh.meshes[j].instance_count,
+                        gs_mesh.meshes[j].vertex_start,
+                        0
+                        // job->meshes->meshes[j].instance_start
+                    );
+                }
+            }
+        }
+    }
 
     // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->render_system->job_storage_buffer.buffer);
     // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->gui.vertices.buffer);
@@ -1033,8 +1265,6 @@ game_on_update(app_memory_t* app_mem) {
     }
 
     game::rendering::build_commands(app->render_system, vk_gfx.command_buffer);
-
-    
 
     if (app->debug.show) {
     //     vk_gfx.record_pipeline_commands(
@@ -1142,9 +1372,22 @@ void
 main_menu_on_update(app_memory_t* app_mem) {
 }
 
+global_variable u64 scene_state = 1;
+
+export_fn(void) 
+app_on_render(app_memory_t* app_mem) {
+    switch (scene_state) {
+        case 1: // Game
+            game_on_render(app_mem);
+            break;
+        default:
+            gen_warn("scene::render", "Unknown scene: {}", scene_state);
+            scene_state = 1;
+    }
+}
+
 export_fn(void) 
 app_on_update(app_memory_t* app_mem) {
-    local_persist u64 scene_state = 1;
     if (app_mem->input.keys[257 /*enter*/] || 
         app_mem->input.gamepads->buttons[button_id::action_down].is_pressed) {
         scene_state = 1;
@@ -1157,7 +1400,7 @@ app_on_update(app_memory_t* app_mem) {
             game_on_update(app_mem);
             break;
         default:
-            gen_warn("scene", "Unknown scene: {}", scene_state);
+            gen_warn("scene::update", "Unknown scene: {}", scene_state);
             scene_state = 1;
     }
 }

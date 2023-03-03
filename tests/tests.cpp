@@ -9,8 +9,13 @@
 #include "App/Game/Items/base_item.hpp"
 #include "App/Game/Weapons/base_weapon.hpp"
 
+#include "uid.hpp"
+
+#include "App/Game/Entity/script.hpp"
+
 static size_t tests_run = 0;
 static size_t tests_passed = 0;
+static size_t asserts_passed = 0;
 
 struct test_failed : std::exception {
     std::string message;
@@ -25,6 +30,7 @@ struct test_failed : std::exception {
 
 constexpr auto throw_assert(const bool b, std::string&& text) -> auto {
     if (!b) throw test_failed(std::move(text));
+    asserts_passed++;
 }
 
 constexpr auto throw_assert(const bool b) -> auto {
@@ -100,6 +106,14 @@ entity_t utl::memory_blob_t::deserialize<entity_t>() {
     return e;
 }
 
+struct test_script_t : public game::script::entity_script_t {
+    using game::script::entity_script_t::entity_script_t;
+    void begin_play() override {
+        gen_info("test_script", "wowza");
+    }
+};
+
+
 #define RUN_TEST(x) \
     run_test(x, [] {\
         utl::profile_t p{x};
@@ -108,6 +122,51 @@ int main(int argc, char** argv) {
     utl::profile_t p{"Total Run Time"};
     RUN_TEST("control")
         
+    });
+
+    RUN_TEST("uid")
+        uid::id_type id = 0;
+        TEST_ASSERT(uid::is_valid(id));
+        TEST_ASSERT(uid::index(id) == 0);
+        TEST_ASSERT(uid::new_generation(id) != id);
+        
+        TEST_ASSERT(uid::index(1) == 1);
+        TEST_ASSERT(uid::index(uid::new_generation(1)) == 1);
+    });
+        
+
+    RUN_TEST("ecs")
+        constexpr size_t arena_size = megabytes(32);
+        arena_t arena = arena_create(new u8[arena_size], arena_size);
+        
+        using namespace game;
+
+        entity::ecs_world_t* w = entity::world_init(&arena, 24);
+        auto e = w->get_entity(w->create_entity());
+        TEST_ASSERT(e.is_valid());
+
+        TEST_ASSERT(e.transform(w).is_valid() == false);
+
+        transform::component_t* tc;
+        get_component(w, e.get_id(), &tc); // another way to get components
+        TEST_ASSERT(tc && tc->is_valid() == false);
+
+        transform::init_info_t t;
+        script::init_info_t s;
+        s.init = script::detail::create_script<test_script_t>;
+
+        transform::create(w, t, e);
+        script::create(w, s, e, &arena);
+
+        TEST_ASSERT(e.transform(w).is_valid() == true);
+        TEST_ASSERT(e.script(w).is_valid() == true);
+        
+        TEST_ASSERT(tc->is_valid() == true);
+        const auto s_id = uid::index(e.script(w).get_id());
+        auto* script = w->scripts[s_id];
+        script->begin_play();
+
+        delete [] arena.start;
     });
 
     RUN_TEST("rng")
@@ -447,7 +506,7 @@ int main(int argc, char** argv) {
     fmt::print(fmt_color | fmt::emphasis::bold,
         "===================================================\n");
     fmt::print(fmt_color | fmt::emphasis::bold,
-        "{} / {} Tests Passed\n", tests_passed, tests_run);
+        "{} / {} Tests Passed - {} Cases\n", tests_passed, tests_run, asserts_passed);
 
     return safe_truncate_u64(tests_run - tests_passed);
 }

@@ -300,6 +300,58 @@ create_gui_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
 }
 
 pipeline_state_t*
+create_arm_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
+    pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
+
+    // pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
+    // pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
+
+    const auto stack_mark = arena_get_mark(arena); 
+    pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
+
+    create_info->cull_mode = VK_CULL_MODE_BACK_BIT;
+
+    create_info->vertex_shader = "assets/shaders/bin/arm.vert.spv";
+    create_info->fragment_shader = "assets/shaders/bin/arm.frag.spv";
+
+    struct _ps_size_t {
+        m44 vp;
+        m44 basis;
+        v3f color;
+        f32 arm_scale;
+    };
+
+    create_info->push_constant_size = sizeof(_ps_size_t);
+
+    create_info->vertex_input_binding_count = 1;
+    create_info->vertex_input_binding_descriptions[0] = utl::vertex_input_binding_description(
+        0, sizeof(vertex_t), VK_VERTEX_INPUT_RATE_VERTEX
+    );
+
+    create_info->vertex_input_attribute_count = 4;
+    create_info->vertex_input_attribute_description[0] = utl::vertex_input_attribute_description(
+        0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex_t, pos)
+    );
+    create_info->vertex_input_attribute_description[1] = utl::vertex_input_attribute_description(
+        0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex_t, nrm)
+    );
+    create_info->vertex_input_attribute_description[2] = utl::vertex_input_attribute_description(
+        0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex_t, col)
+    );
+    create_info->vertex_input_attribute_description[3] = utl::vertex_input_attribute_description(
+        0, 3, VK_FORMAT_R32G32_SFLOAT, offsetof(vertex_t, tex)
+    );
+
+    create_info->descriptor_count = 0;
+
+    state->create_pipeline_state(pipeline, create_info, render_pass);
+    arena_set_mark(arena, stack_mark); 
+
+    return pipeline;
+
+}
+
+pipeline_state_t*
 create_debug_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass, VkBuffer scene_buffer, size_t scene_buffer_size) {
     pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
 

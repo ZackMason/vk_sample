@@ -67,8 +67,9 @@ GLFWwindow*
 init_glfw(app_memory_t* app_mem) {
     glfwInit();
 
-    glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
-	glfwWindowHint( GLFW_RESIZABLE, GLFW_FALSE );
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 	
     auto* window = 
         glfwCreateWindow(app_mem->config.window_size[0], app_mem->config.window_size[1], "Vk App", 0, 0);
@@ -189,6 +190,10 @@ load_dlls(app_dll_t* app_dlls) {
         reinterpret_cast<app_func_t>(
             GetProcAddress((HMODULE)app_dlls->dll, "app_on_update")
         );
+    app_dlls->on_render = 
+        reinterpret_cast<app_func_t>(
+            GetProcAddress((HMODULE)app_dlls->dll, "app_on_render")
+        );
     app_dlls->on_init = 
         reinterpret_cast<app_func_t>(
             GetProcAddress((HMODULE)app_dlls->dll, "app_on_init")
@@ -261,8 +266,12 @@ main(int argc, char* argv[]) {
     assert(app_mem.perm_memory);
 
     auto& config = app_mem.config;
-    // config.window_size[0] = 880;
-    // config.window_size[1] = 660;
+    config.window_size[0] = 880;
+    config.window_size[1] = 660;
+
+    config.window_size[0] = 1280;
+    config.window_size[1] = 840;
+
     config.window_size[0] = 1920;
     config.window_size[1] = 1080;
 
@@ -336,12 +345,25 @@ main(int argc, char* argv[]) {
     gen_info("win32", "Platform Initialization Completed");
 
     app_dlls.on_init(&app_mem);
+
+    // auto render_thread = std::thread([&]{
+    //     while(app_mem.running && !glfwWindowShouldClose(window)) {
+    //         app_dlls.on_render(&app_mem);
+    //     }
+    // });
     
     while(app_mem.running && !glfwWindowShouldClose(window)) {
+        utl::profile_t* p = 0;
+
+        if (app_mem.input.pressed.keys[key_id::P]) {
+            p = new utl::profile_t{"win32::loop"};
+        }
+
         update_dlls(&app_dlls);
         
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);
+            app_dlls.on_render(&app_mem);
         }
 
         glfwPollEvents();
@@ -351,7 +373,14 @@ main(int argc, char* argv[]) {
             app_mem.input.gamepads[0].buttons[button_id::options].is_held) { // esc
             app_mem.running = false;
         }
+
+        delete p;
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds(16));
     };
+
+    // render_thread.join();
+
     app_dlls.on_deinit(&app_mem);
 
 

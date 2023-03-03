@@ -106,6 +106,8 @@ using m44 = glm::mat4x4;
 
 
 #define loop_iota_u64(itr, stop) for (size_t itr = 0; itr < stop; itr++)
+#define range_u32(itr, start, stop) for (u32 itr = (start); itr < (stop); itr++)
+#define range_u64(itr, start, stop) for (size_t itr = (start); itr < (stop); itr++)
 #define loop_iota_i32(itr, stop) for (int itr = 0; itr < stop; itr++)
 
 inline u32
@@ -385,6 +387,7 @@ using app_func_t = void(__cdecl *)(app_memory_t*);
 struct app_dll_t {
     void* dll{nullptr};
     app_func_t on_update{nullptr};
+    app_func_t on_render{nullptr};
     app_func_t on_init{nullptr};
     app_func_t on_deinit{nullptr};
 };
@@ -699,7 +702,6 @@ constexpr string_id_t operator"" _sid(const char* str, std::size_t size) {
 }
 
 namespace math {
-
     constexpr v3f get_spherical(f32 yaw, f32 pitch) {
         return v3f{
             glm::cos((yaw)) * glm::cos((pitch)),
@@ -720,6 +722,38 @@ namespace math {
         return world_to_screen(vp, v4f{p, 1.0f});
     }
 
+    namespace constants {
+        inline static constexpr auto pi32  = glm::pi<f32>();
+        inline static constexpr auto tau32 = glm::pi<f32>()*2.0f;
+        inline static constexpr auto e32   = 2.71828182845904523536f;
+
+    }
+    using perc_tau_t = f32;
+
+    constexpr f32 to_radians(perc_tau_t p) noexcept {
+        return p*constants::tau32;
+    }
+    constexpr f32 to_degrees(perc_tau_t p) noexcept {
+        return p * 360.0f;
+    }
+
+    struct triangle_t {
+        std::array<v3f,3> p;
+    };
+
+    struct plane_t {
+        v3f n;
+        f32 d;
+    };
+
+    struct sphere_t {
+        v3f origin;
+        f32 radius;
+    };
+
+    struct frustum_t {
+        v3f points[8];
+    };
 
     // template <typename T>
     struct hit_result_t {
@@ -851,8 +885,9 @@ ray_aabb_intersect(const ray_t& ray, const aabb_t<v3f>& aabb) {
 }
 
 struct transform_t {
-	transform_t(const m44& mat = m44{1.0f}) : basis(mat), origin(mat[3]) {};
-	transform_t(const v3f& position, const v3f& scale = {1,1,1}, const v3f& rotation = {0,0,0})
+	constexpr transform_t(const m44& mat = m44{1.0f}) : basis(mat), origin(mat[3]) {};
+	constexpr transform_t(const m33& _basis, const v3f& _origin) : basis(_basis), origin(_origin) {};
+	constexpr transform_t(const v3f& position, const v3f& scale = {1,1,1}, const v3f& rotation = {0,0,0})
 	    : basis(m33(1.0f)
     ) {
 		origin = (position);
@@ -869,7 +904,10 @@ struct transform_t {
 	operator m44() const {
 		return to_matrix();
 	}
-    
+    f32 get_basis_magnitude(u32 i) {
+        assert(i < 3);
+        return glm::length(basis[i]);
+    }
 	void translate(const v3f& delta) {
         origin += delta;
     }
@@ -903,13 +941,20 @@ struct transform_t {
         basis = mat;
         origin = mat[3];
     }
-    void set_scale(const v3f& scale) {
+    constexpr void set_scale(const v3f& scale) {
         for (int i = 0; i < 3; i++) {
             basis[i] = glm::normalize(basis[i]) * scale[i];
         }
     }
-	void set_rotation(const v3f& rotation) {
+	constexpr void set_rotation(const v3f& rotation) {
+        f32 scales[3];
+        range_u32(i, 0, 3) {
+            scales[i] = glm::length(basis[i]);
+        }
         basis = glm::eulerAngleYXZ(rotation.y, rotation.x, rotation.z);
+        range_u32(i, 0, 3) {
+            basis[i] *= scales[i];
+        }
     }
 	void set_rotation(const glm::quat& quat) {
         basis = glm::toMat3(glm::normalize(quat));
@@ -939,8 +984,7 @@ struct transform_t {
 		return glm::transpose(basis) * v;
 	}
 
-	v3f xform(const v3f& vector)const
-	{
+	v3f xform(const v3f& vector) const {
 		return v3f(basis * vector) + origin;
 	}
     
@@ -1520,9 +1564,13 @@ namespace gui {
             ui_id_t hot;
             ui_id_t active;
 
-
             panel_t panel;
         };
+
+        inline bool
+        want_mouse_capture(state_t& imgui) {
+            return imgui.hot.id != 0;
+        }
 
         inline void
         clear(state_t& imgui) {
@@ -1770,8 +1818,8 @@ namespace gui {
                 }
             }
 
-
             string_render(&imgui.ctx, text, temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            // draw_rect(&imgui.ctx, text_box, gfx::color::rgba::purple);
             imgui.draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
             return result;
         }
@@ -2067,82 +2115,6 @@ struct mesh_list_t {
 };
 
 // there should only be one running at a time
-struct mesh_builder_t {
-    utl::pool_t<vertex_t>& vertices;
-    utl::pool_t<u32>& indices;
-
-    mesh_builder_t(
-        utl::pool_t<vertex_t>& vertices_,
-        utl::pool_t<u32>& indices_
-    ) : vertices{vertices_}, indices{indices_} {
-        vertex_start = safe_truncate_u64(vertices_.count);
-        index_start = safe_truncate_u64(indices_.count);
-    }
-
-    u32 vertex_start{0};
-    u32 vertex_count{0};
-    u32 index_start{0};
-    u32 index_count{0};
-
-    mesh_list_t
-    build(arena_t* arena) {
-        gfx::mesh_list_t m;
-        m.count = 1;
-        m.meshes = arena_alloc_ctor<gfx::mesh_view_t>(arena, 1);
-        m.meshes[0].vertex_start = vertex_start;
-        m.meshes[0].vertex_count = vertex_count;
-        m.meshes[0].index_start = index_start;
-        m.meshes[0].index_count = index_count;
-        return m;
-    }
-
-    mesh_builder_t& add_vertex(
-        v3f pos,
-        v2f uv = v2f{0.0f, 0.0f},
-        v3f nrm = color::v3::green,
-        v3f col = color::v3::white
-    ) {
-        *vertices.allocate(1) = vertex_t{.pos = pos, .nrm = nrm, .col = col, .tex = uv};
-        vertex_count++;
-        return *this;
-    }
-    mesh_builder_t& add_vertex(vertex_t&& vertex) {
-        *vertices.allocate(1) = std::move(vertex);
-        vertex_count++;
-        return *this;
-    }
-    mesh_builder_t& add_index(u32 index) {
-        *indices.allocate(1) = index;
-        index_count++;
-        return *this;
-    }
-
-    mesh_builder_t& add_quad(vertex_t vertex[4]) {
-        u32 v_start = safe_truncate_u64(vertices.count);
-        vertex_t* v = vertices.allocate(6);
-        v[0] = vertex[0];
-        v[1] = vertex[1];
-        v[2] = vertex[2];
-        
-        v[3] = vertex[2];
-        v[4] = vertex[1];
-        v[5] = vertex[3];
-        // u32* tris = indices.allocate(6);
-
-        // tris[0] = v_start + 0;
-        // tris[1] = v_start + 1;
-        // tris[2] = v_start + 2;
-
-        // tris[3] = v_start + 1;
-        // tris[4] = v_start + 3;
-        // tris[5] = v_start + 2;
-
-        vertex_count += 6;
-        // index_count += 6;
-        return *this;
-    }
-
-};
 
 }; // namespace gfx
 
@@ -2530,6 +2502,8 @@ public:
         }
         return n;
     }
+
+    // this has a bug/endless loop possible
 
     // returns null if failed
     T* remove(T* val) noexcept {

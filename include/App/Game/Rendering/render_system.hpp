@@ -92,8 +92,12 @@ namespace game::rendering {
         inline static constexpr size_t max_scene_vertex_count{10'000'000};
         inline static constexpr size_t max_scene_index_count{30'000'000};
 
+        system_t(arena_t _arena) : arena{_arena} {}
+
         arena_t arena;
         arena_t frame_arena;
+
+        std::mutex ticket;
 
         utl::deque<render_job_t> render_jobs{};
 
@@ -151,9 +155,7 @@ namespace game::rendering {
     ) noexcept {
         static_assert(Size > system_t::frame_arena_size);
         auto* rs = arena_alloc_ctor<system_t>(arena, 1,
-            system_t {
-                .arena = arena_sub_arena(arena, Size),
-            }
+            arena_sub_arena(arena, Size)
         );
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
@@ -211,6 +213,8 @@ namespace game::rendering {
         u32 mat_id, // todo(zack): remove this
         m44 transform
     ) {
+        // std::lock_guard lock{rs->ticket};
+
         auto* job = arena_alloc_ctor<render_job_t>(&rs->frame_arena);
         job->meshes = &rs->mesh_cache.get(mesh_id);
         job->material = mat_id;
@@ -228,6 +232,7 @@ namespace game::rendering {
         system_t* rs,
         VkCommandBuffer command_buffer
     ) {
+        // std::lock_guard lock{rs->ticket};
         const material_node_t* last_material{0};
 
         for (size_t i = 0; i < rs->render_jobs.size(); i++) {
@@ -281,7 +286,7 @@ namespace game::rendering {
             }
         }
 
-        begin_frame(rs);
+        // begin_frame(rs);
     }
 
     inline u64
@@ -332,9 +337,7 @@ namespace game::rendering {
         return safe_truncate_u64(rs->materials.size() - 1);
         // return material;
     }
-
     
-
     inline void 
     create_render_pass(
         system_t* rs,

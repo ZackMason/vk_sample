@@ -363,12 +363,12 @@ VkImageView create_image_view(VkDevice device, VkImage image, VkFormat format, V
     return imageView;
 }
 
-void state_t::init(app_config_t* info) {
+void state_t::init(app_config_t* info, arena_t* temp_arena) {
     create_instance(info);
     create_debug_messenger();
     create_surface(info);
     gen_info("vulkan", "created surface.");
-    find_device();
+    find_device(temp_arena);
     create_logical_device();
     gen_info("vulkan", "created device.");
 
@@ -382,14 +382,8 @@ void state_t::init(app_config_t* info) {
 
     create_uniform_buffer(&sporadic_uniform_buffer);
 
+    load_texture_sampler(&null_texture, "./assets/textures/null.png", temp_arena);
     
-    arena_t t;
-    t.start = new std::byte[2048*2048*4];
-    t.size = 2048*2048*4;
-    load_texture_sampler(&null_texture, "./assets/textures/null.png", &t);
-    // load_texture_sampler(&null_texture, "./assets/textures/checker.png", &t);
-    delete [] t.start;
-
     create_image(info->window_size[0], info->window_size[1], 1, 
         msaa_samples, swap_chain_image_format, VK_IMAGE_TILING_OPTIMAL, 
         VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, 
@@ -793,7 +787,7 @@ bool check_device_extension_support(VkPhysicalDevice device) {
     std::set<std::string> requiredExtensions(internal::deviceExtensions.begin(), internal::deviceExtensions.end());
 
     for (const auto& extension : availableExtensions) {
-        //fmt::print("\t{}\n", extension.extensionName);
+        fmt::print("\t{}\n", extension.extensionName);
 
         requiredExtensions.erase(extension.extensionName);
     }
@@ -823,17 +817,17 @@ bool is_device_poggers(VkPhysicalDevice device, VkSurfaceKHR surface) {
         deviceFeatures.geometryShader;
 }
 
-void state_t::find_device() {
+void state_t::find_device(arena_t* arena) {
     u32 device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
     if (device_count == 0) {
         gen_error("vulkan", "No Physical Device Found, You Must Be Poor LOL");
         std::terminate();
     }
-    std::vector<VkPhysicalDevice> devices(device_count);
-    vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
+    VkPhysicalDevice* devices = arena_alloc_ctor<VkPhysicalDevice>(arena, device_count);
+    vkEnumeratePhysicalDevices(instance, &device_count, devices);
 
-    for(const auto& phys_device: devices) {
+    for(const auto& phys_device: std::span{devices, device_count}) {
         if (is_device_poggers(phys_device, surface)) {
             gpu_device = phys_device;
             msaa_samples = get_max_usable_sample_count(gpu_device);
@@ -934,7 +928,7 @@ static std::vector<char> read_bin_file(std::string_view filename) {
     std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
 
     if (!file.is_open()) {
-        gen_error("vulkan", "failed to open file!");
+        gen_error("vulkan", "failed to open shader file - {}", filename);
         assert(0);
     }
     size_t fileSize = (size_t) file.tellg();
@@ -1129,69 +1123,6 @@ state_t::create_pipeline_state(
         vkUpdateDescriptorSets(device, 1, create_info->write_descriptor_sets + i, copy_count, nullptr);
     }
 
-    // VkAttachmentReference color_attachment_refs[6];
-    // VkAttachmentReference depth_attachment_refs[6];
-    // u32 color_count = 0;
-    // u32 depth_count = 0;
-    // for (u32 i = 0; i < create_info->attachment_count; i++) {
-    //     if (create_info->attachment_descriptions[i].finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-    //         depth_attachment_refs[depth_count].attachment = i;
-    //         depth_attachment_refs[depth_count].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    //         depth_count++;
-    //     } else {
-    //         color_attachment_refs[color_count].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    //         color_attachment_refs[color_count].attachment = i;
-    //         color_count++;
-    //     }
-    // }
-    
-    // VkSubpassDescription subpass{};
-    // subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-
-    // subpass.colorAttachmentCount = color_count;
-    // subpass.pColorAttachments = color_attachment_refs;
-
-    // assert(depth_count <= 1);
-    // subpass.pDepthStencilAttachment = depth_count == 1 ? depth_attachment_refs : 0;
-
-    // VkRenderPassCreateInfo renderPassInfo{};
-    // renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    // renderPassInfo.attachmentCount = create_info->attachment_count;
-    // renderPassInfo.pAttachments = create_info->attachment_descriptions;
-    // renderPassInfo.subpassCount = 1;
-    // renderPassInfo.pSubpasses = &subpass;
-    
-    // VkSubpassDependency dependency{};
-    // VkSubpassDependency depth_dependency{};
-    // dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    // dependency.dstSubpass = 0;
-
-    // dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    // dependency.srcAccessMask = 0;
-
-    // dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    // dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-
-    // depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    // depth_dependency.dstSubpass = 0;
-    // depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    // depth_dependency.srcAccessMask = 0;
-    // depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    // depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-    // VkSubpassDependency deps[] = {dependency, depth_dependency};
-
-    // renderPassInfo.dependencyCount = 2;
-    // renderPassInfo.pDependencies = deps;
-
-    // if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &pipeline->render_passes[0]) != VK_SUCCESS) {
-    //     gen_error("vulkan", "failed to create render pass!");
-    //     std::terminate();
-    // }
-
-    // pipeline->render_pass_count++;
-
-    // create pipeline
     auto vertShaderCode = read_bin_file(create_info->vertex_shader);
     auto fragShaderCode = read_bin_file(create_info->fragment_shader);
     
