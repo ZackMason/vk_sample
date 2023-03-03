@@ -93,12 +93,22 @@ struct debug_line_vertex_t {
     v3f col{};
 };
 
+struct compute_pipeline_state_t {
+    struct create_info_t {
+        std::string_view shader{};
+        u32 descriptor_count{0};
+    };
+    VkPipeline          pipeline;
+    VkPipelineLayout    pipeline_layout;
+};
+
 struct pipeline_state_t {
     struct create_info_t {
         enum DescriptorFlag {
-            DescriptorFlag_Uniform = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            DescriptorFlag_Storage = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            DescriptorFlag_Sampler = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            DescriptorFlag_Uniform          = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            // DescriptorFlag_DynamicUniform   = VK_DESCRIPTOR_TYPE_DYNAMIC_UNIFORM_BUFFER,
+            DescriptorFlag_Storage          = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            DescriptorFlag_Sampler          = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             DescriptorFlag_Invalid,
         };
 
@@ -192,7 +202,7 @@ struct state_t {
 
     VkDebugUtilsMessengerEXT debug_messenger;
 
-    void init(app_config_t* info);
+    void init(app_config_t* info, arena_t* temp_arena);
     void cleanup();
 
     void record_command_buffer(VkCommandBuffer buffer, u32 index, std::function<void(void)> user_fn);
@@ -203,7 +213,7 @@ struct state_t {
     void create_instance(app_config_t* info);
     void create_debug_messenger();
     void create_surface(app_config_t* info);
-    void find_device();
+    void find_device(arena_t* arena);
     void create_logical_device();
     void create_swap_chain(int width, int height);
     void create_image_views();

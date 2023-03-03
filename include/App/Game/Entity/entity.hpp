@@ -9,9 +9,9 @@
 
 namespace game::entity {
 
-using entity_id = u64;
+// using entity_id = u64;
 
-static constexpr entity_id invalid_id = ~0ui32;
+// static constexpr entity_id invalid_id = ~0ui32;
 
 enum EntityFlags {
     EntityFlags_Spatial = BIT(0),
@@ -19,7 +19,7 @@ enum EntityFlags {
 };
 
 struct entity_t : node_t<entity_t> {
-    entity_id   id{0};
+    // entity_id   id{0};
     u64         flags{};
     u64         tag{0};
     u64         pool_id{0};
@@ -31,6 +31,11 @@ struct entity_t : node_t<entity_t> {
 
     math::transform_t global_transform() const {
         if (parent) {
+            m33 new_basis = parent->global_transform().basis;
+            range_u32(i, 0, 3) {
+                new_basis[i] = glm::normalize(new_basis[i]);
+            }
+            return math::transform_t{new_basis, parent->global_transform().xform(transform.origin)};
             return math::transform_t{parent->global_transform().to_matrix() * transform.to_matrix()};
         }
         return transform;

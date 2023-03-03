@@ -98,8 +98,8 @@ main( )
 	float depth = length(PushConstants.uCamPos.xyz - vWorldPos);
 	vec3 V = normalize(PushConstants.uCamPos.xyz - vWorldPos);
 	// if( Sporadic.uUseLighting != 0 )
+	vec3 albedo = rgb;
 	{
-		vec3 albedo = rgb;
 		float metallic = material.metallic;
 		float roughness = material.roughness * material.roughness;
 		
@@ -146,7 +146,8 @@ main( )
 
 		rgb = (albedo) * (light + la + skR + rim_intensity * rim_color);
 	}
-	rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
+	// rgb = albedo;
+	// rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
 
 	fFragColor = vec4( rgb, 1. );
 }

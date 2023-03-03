@@ -49,8 +49,10 @@ stick rooms together
 
 # gun types
 
-
 - pistol
 - rifle
 - shotgun
 
+
+# Random
+- SDF Cube Marched Gun Generation
