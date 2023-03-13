@@ -15,25 +15,45 @@
 
 #include "App/Game/Rendering/render_system.hpp"
 
-#include "App/Game/Entity/script.hpp"
-
 #include "ProcGen/map_gen.hpp"
 #include "ProcGen/mesh_builder.hpp"
 
-#define PROFILE_GAMEPLAY_FUNCTION(name) utl::profile_t _res_profile_gameplay_function_profile_t_profile_variable{name};
-
 
 global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
-global_variable gfx::mesh_list_t gs_mesh;
-global_variable game::entity::entity_t* gs_arms[3];
-global_variable f32 gs_theta[3];
-global_variable f32 gs_phi;
-global_variable f32 gs_scale[3];
-global_variable gfx::color32 gs_color[3] = {
-    gfx::color::rgba::red,
-    gfx::color::rgba::blue,
-    gfx::color::rgba::green,
+
+namespace tween {
+
+template <typename T, f32 D>
+T in_expo(T b, T c, f32 t) {
+    return (t==0) ? b : c * glm::pow(2, 10 * (t/D - 1.0f)) + b;
+}
+
+template <typename T, f32 D>
+T out_expo(T b, T c, f32 t) {
+    return (t==D) ? b+c : c * (-glm::pow(2, -10 * t/D) + 1) + b;
+}
+
+template <typename T, f32 D>
+T in_out_expo(T b, T c, f32 t) {
+    if (t==0) return b;
+    if (t==D) return b+c;
+    t /= D/2;
+    if (t < 1) return c/2 * glm::pow(2, 10 * (t - 1)) + b;
+    t--;
+    return c/2 * (-glm::pow(2, -10 * t) + 2) + b;
+}
+
 };
+
+void 
+co_modulate_opacity(coroutine_t* coro) {
+    co_begin(coro);
+
+
+
+    co_reset(coro);
+}
+
 
 struct app_t {
     app_memory_t*       app_mem{nullptr};
@@ -120,13 +140,14 @@ struct app_t {
         }
     } debug;
 
-    game::entity::ecs_world_t* ecs{0};
         
     game::world_t* game_world{0};
     game::phys::physx_state_t* physics{0};
 
     f32 time_scale = 1.0f;
     f32 time_text_anim = 0.0f;
+
+    // coroutine_t* panel_coro = 0;
 };
 
 inline gfx::mesh_list_t
@@ -218,11 +239,14 @@ get_app(app_memory_t* mem) {
 
 void
 app_init_graphics(app_memory_t* app_mem) {
+    TIMED_BLOCK;
     app_t* app = get_app(app_mem);
 
     gfx::vul::state_t& vk_gfx = app->gfx;
-    temp_arena_t t = app->main_arena;
-    app->gfx.init(&app_mem->config, &t);
+    {
+        temp_arena_t t = app->main_arena;
+        app->gfx.init(&app_mem->config, &t);
+    }
     app->render_system = game::rendering::init<megabytes(256)>(vk_gfx, &app->main_arena);
 
     auto* rs = app->render_system;
@@ -302,13 +326,18 @@ app_init_graphics(app_memory_t* app_mem) {
 
 export_fn(void) 
 app_on_init(app_memory_t* app_mem) {
-    utl::profile_t p{"app init"};
+    // utl::profile_t p{"app init"};
+    TIMED_BLOCK;
     app_t* app = get_app(app_mem);
     new (app) app_t;
 
     app->app_mem = app_mem;
     app->main_arena.start = (std::byte*)app_mem->perm_memory + sizeof(app_t);
     app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
+
+#ifdef GEN_INTERNAL
+    gs_debug_memory = &app_mem->debug_memory;
+#endif
 
     arena_t* main_arena = &app->main_arena;
 
@@ -317,6 +346,9 @@ app_on_init(app_memory_t* app_mem) {
     app->mesh_arena = arena_sub_arena(&app->main_arena, megabytes(512));
     app->texture_arena = arena_sub_arena(&app->main_arena, megabytes(512));
     app->gui.arena = arena_sub_arena(main_arena, megabytes(8));
+
+
+    // app->panel_coro = arena_alloc_ctor<coroutine_t>(main_arena, 1, app_mem->input.time);
 
     gen_info("init", "init physx");
     app->physics = arena_alloc_ctor<game::phys::physx_state_t>(
@@ -328,8 +360,7 @@ app_on_init(app_memory_t* app_mem) {
 
     app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./assets/res.pack");
     
-    app->game_world = game::world_init(main_arena);
-    app->ecs = game::entity::world_init(main_arena, 1024);
+    app->game_world = game::world_init(main_arena, *app->physics);
     
     // setup graphics
 
@@ -458,16 +489,15 @@ app_on_init(app_memory_t* app_mem) {
         game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
     }
 
-    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::characters::soldier);
-    // auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
+    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::characters::soldier, app->resource_file);
 
-    
+    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::map_01, app->resource_file);
+    // auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
     loop_iota_u64(i, 100) {
-        game::entity::physics_entity_t* e1 =
-            (game::entity::physics_entity_t*)
-            game::world_create_entity(app->game_world, 1);
+        game::entity::entity_t* e1 =
+            game::world_create_entity(app->game_world);
         
         e1->transform.origin = rng.randnv<v3f>() * 100.0f;
         e1->transform.set_scale(v3f{2.f});
@@ -486,53 +516,6 @@ app_on_init(app_memory_t* app_mem) {
         e1->gfx.material_id = rng.rand() % 6;
     }
 
-    {
-        gs_mesh = 
-        app->render_system->mesh_cache.get(
-        game::rendering::get_mesh_id(app->render_system, "assets/models/cube.obj"));
-        
-        gs_theta[0] = 1.5f;
-        gs_theta[1] = 3.5f;
-        gs_theta[2] = 2.5f;
-
-        gs_scale[0] = 1.5f;
-        gs_scale[1] = 3.5f;
-        gs_scale[2] = 2.5f;
-    }
-
-    // game::entity::physics_entity_t* e2 =
-    //     (game::entity::physics_entity_t*)
-    //     game::world_create_entity(app->game_world, 1);
-
-    // game::entity::physics_entity_init_trimesh(
-    //     e2, 
-    //     game::rendering::get_mesh_id(app->render_system, "assets/models/rooms/room_0.obj"),
-    //     utl::res::pack_file_get_file_by_name(app->resource_file, "assets/models/rooms/room_0.obj.trimesh.physx"),
-    //     safe_truncate_u64(utl::res::pack_file_get_file_size(app->resource_file, "assets/models/rooms/room_0.obj.trimesh.physx")),
-    //     app->physics
-    // );
-    // e2->name.view("room");
-
-    // e2->gfx.material_id = blue_plastic_mat;
-
-    { // ecs
-        using namespace game;
-
-        auto* ecs = app->ecs;
-        auto e = ecs->get_entity(ecs->create_entity());
-
-        transform::init_info_t t;
-        t.origin = v3f{-20.0f, 0.0f, -20.0f};
-        t.rotation.x = 3.1415;
-
-        transform::create(ecs, t, e);
-
-        static_mesh::init_info_t m;
-        m.mesh_id = (u32)game::rendering::get_mesh_id(app->render_system, "assets/models/lucy.obj");
-        
-        static_mesh::create(ecs, m, e);
-    }
-    
     arena_clear(&app->temp_arena);
     app->game_world->player.transform.origin.y = 5.0f;
     app->game_world->player.transform.origin.z = -5.0f;
@@ -647,56 +630,34 @@ app_on_input(app_t* app, app_input_t* input) {
 }
 
 void game_on_gameplay(app_t* app, app_input_t* input) {
-    // PROFILE_GAMEPLAY_FUNCTION("gameplay");
+    TIMED_BLOCK;
+
+    std::lock_guard lock{app->render_system->ticket};
 
     input->dt *= app->time_scale;
     app_on_input(app, input);
 
     // TODO(ZACK): GAME CODE HERE
 
-    // Submit renderables
-    
-
-    // local_persist bool do_once = true;
-    // loop through type erased pools
-    // if (do_once)
-
     if (app->render_system == nullptr) return;
 
-    std::lock_guard lock{app->render_system->ticket};
-
     game::rendering::begin_frame(app->render_system);
+        
+    for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
+        const bool is_renderable = (e->flags & game::entity::EntityFlags_Renderable) == 0;
 
-    range_u32(e, 0, app->ecs->entity_count) {
-        auto entt = app->ecs->get_entity(e);
-        if (entt.transform(app->ecs).is_valid() && entt.static_mesh(app->ecs).is_valid()) {
-            game::rendering::submit_job(
-                app->render_system, 
-                entt.static_mesh(app->ecs).get_id(), 
-                1, 
-                entt.transform(app->ecs).to_matrix()
-            );
-        } else {
-            gen_warn("ecs::update", "not renderable");
+        e->transform.rotate(axis::up, input->dt);
+
+        if (is_renderable) {
+            gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
+            return;
         }
-    }
-
-    for (size_t pool = 0; pool < game::pool_count(); pool++)  {
-        // do_once = false;
-        for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
-            // e->transform.rotate(v3f{0.0f, input->dt, 0.0f});
-
-            if ((e->flags & game::entity::EntityFlags_Renderable) == 0) { 
-                gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
-                return;
-            }
-            game::rendering::submit_job(
-                app->render_system, 
-                e->gfx.mesh_id, 
-                e->gfx.material_id, 
-                e->global_transform().to_matrix()
-            );
-        }
+        game::rendering::submit_job(
+            app->render_system, 
+            e->gfx.mesh_id, 
+            e->gfx.material_id, 
+            e->global_transform().to_matrix()
+        );
     }
 }
 
@@ -708,35 +669,10 @@ game_on_update(app_memory_t* app_mem) {
     game_on_gameplay(app, &app_mem->input);
 }
 
-void
-game_on_render(app_memory_t* app_mem) {
-    utl::profile_t p{"on_render"};
+void 
+draw_gui(app_memory_t* app_mem) {
+    // TIMED_BLOCK;
     app_t* app = get_app(app_mem);
-
-    gfx::vul::state_t& vk_gfx = app->gfx;
-
-    // note(zack): print the first 3 frames, if 
-    // a bug shows up its helpful to know if 
-    // maybe it only happens on the second frame
-    local_persist u32 frame_count = 0;
-    if (frame_count++ < 3) {
-        gen_info("game::on_render", "frame: {}", frame_count);
-    }
-
-    const f32 anim_time = glm::mod(
-        app_mem->input.time, 10.0f
-    );
-
-    // update uniforms
-
-    app->scene.sporadic_buffer.num_instances = 1;
-
-    const f32 w = (f32)app_mem->config.window_size[0];
-    const f32 h = (f32)app_mem->config.window_size[1];
-    const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
-
-
-    // draw gui 
 
     auto string_mark = arena_get_mark(&app->string_arena);
 
@@ -746,7 +682,7 @@ game_on_render(app_memory_t* app_mem) {
         &app->string_arena,
         &app->mesh_arena,
         &app->texture_arena,
-        app->game_world->arena,
+        &app->game_world->arena,
         &app->physics->default_allocator.arena,
         &app->render_system->arena,
         &app->render_system->frame_arena,
@@ -798,21 +734,25 @@ game_on_render(app_memory_t* app_mem) {
     };
     gs_imgui_state = &state;
 
+    // state.theme.bg_color = 
+    //    gfx::color::rgba::dark_gray & ( ~(u32(f32(0xff) * gs_panel_opacity) << 24) );
+
     {
         using namespace std::string_view_literals;
         using namespace gfx::gui;
 
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
-
-            local_persist bool show_stats = false;
+            local_persist bool show_stats = !false;
             local_persist bool show_resources = false;
             local_persist bool show_window = false;
-            local_persist bool show_gui = !false;
-            local_persist bool show_theme = !false;
-            local_persist bool show_colors= !false;
+            local_persist bool show_gfx_cfg = false;
+            local_persist bool show_perf = false;
+            local_persist bool show_gui = false;
+            local_persist bool show_theme = false;
+            local_persist bool show_colors= false;
             local_persist bool show_files[0xff];
-
+            
             if (im::text(state, "Stats"sv, &show_stats)) {
                 im::text(state, fmt_sv("- FPS: {:.2f} - {:.2f} ms", 1.0f / app_mem->input.dt, app_mem->input.dt * 1000.0f));
 
@@ -820,7 +760,56 @@ game_on_render(app_memory_t* app_mem) {
                     const auto [x,y] = app_mem->input.mouse.pos;
                     im::text(state, fmt_sv("- Mouse: [{:.2f}, {:.2f}]", x, y));
                 }
+                if (im::text(state, "- Perf"sv, &show_perf)) {
+                    range_u64(i, 0, gs_main_debug_record_size) {
+                        auto* record = gs_main_debug_records + i;
+                        im::text(state,
+                            fmt_sv("--- {}: {:.2f}ms", 
+                                record->func_name ? record->func_name : "<Unknown>", 
+                                record->cycle_count/1e+6)
+                        );
+                    }
+                }
                 
+                if (im::text(state, "- GFX Config"sv, &show_gfx_cfg)) {
+                    auto& config = app_mem->config.graphics_config;
+
+                    local_persist u64 _win_size = 0;
+
+                    const v2i _sizes[] = {
+                        v2i{1920, 1080}, // 120
+                        v2i{1600, 900}, // 100
+                        v2i{1280, 720}, // 80
+                        v2i{960,  540}, // 60
+                        v2i{640,  360}, // 40
+                    };
+                    f32 closest = 1000000.0f;
+                    range_u64(i, 0, array_count(_sizes)) {
+                        const auto dist = glm::distance(v2f(_sizes[i]), v2f(config.window_size));
+                        if (dist < closest) {
+                            closest = dist;
+                            _win_size = i;
+                        }
+                    }
+
+                    if (im::text(state, "--- Next"sv)) {
+                        _win_size = (_win_size + 1) % array_count(_sizes);
+                        config.window_size = _sizes[_win_size];
+                    }
+
+                    im::text(state, fmt_sv("--- Width: {}", config.window_size.x));
+                    im::text(state, fmt_sv("--- Height: {}", config.window_size.y));
+
+
+                    if (im::text(state, fmt_sv("--- V-Sync: {}", config.vsync))) {
+                        config.vsync = !config.vsync;
+                    }
+                    
+                    if (im::text(state, fmt_sv("--- Fullscreen: {}", config.fullscreen))) {
+                        config.fullscreen = !config.fullscreen;
+                    }
+                }
+
                 if (im::text(state, "- Window"sv, &show_window)) {
                     im::text(state, fmt_sv("--- Width: {}", app_mem->config.window_size[0]));
                     im::text(state, fmt_sv("--- Height: {}", app_mem->config.window_size[1]));
@@ -944,42 +933,15 @@ game_on_render(app_memory_t* app_mem) {
             }
 
             if (im::text(state, "Entities"sv, &show_entities)) {
-                u64 entity_count = 1; // always has player
-                for (size_t pool = 0; pool < game::pool_count(); pool++)  {
-                    entity_count += game::get_pool(app->game_world, pool)->count;
-                }
+                const u64 entity_count = 1 + app->game_world->entities.count;
 
                 im::text(state, fmt_sv("- Count: {}", entity_count));
 
                 if (im::text(state, "- Kill All"sv)) {
-                    for (size_t pool = 0; pool < game::pool_count(); pool++)  {
-                        node_for(game::entity::entity_t, game::pool_start(app->game_world, pool), e) {
-                            game::get_pool(app->game_world, pool)->clear();
-                        }
-                    }
+                    app->game_world->entities.clear();
                 }
             }
-            local_persist bool show_arm = true;
-            if (im::text(state, "Arm Thingy"sv, &show_arm)) {
-                im::text(state, "- Arm Phi"sv);
-                im::float_slider(state, &gs_phi, -math::constants::tau32, math::constants::tau32);
-
-                im::text(state, "- Arm 0 - Theta - Scale - Color"sv);
-                im::float_slider(state, gs_theta + 0, -math::constants::tau32, math::constants::tau32);
-                im::float_slider(state, gs_scale + 0, 1.0f, 6.0f);
-                im::color_edit(state, gs_color + 0);
-
-                im::text(state, "- Arm 1 - Theta - Scale - Color"sv);
-                im::float_slider(state, gs_theta + 1, -math::constants::tau32, math::constants::tau32);
-                im::float_slider(state, gs_scale + 1, 1.0f, 6.0f);
-                im::color_edit(state, gs_color + 1);
-                                
-                im::text(state, "- Arm 2 - Theta - Scale - Color"sv);
-                im::float_slider(state, gs_theta + 2, -math::constants::tau32, math::constants::tau32);
-                im::float_slider(state, gs_scale + 2, 1.0f, 6.0f);
-                im::color_edit(state, gs_color + 2);
-            }
-
+            
             im::end_panel(state);
         }
 
@@ -987,56 +949,85 @@ game_on_render(app_memory_t* app_mem) {
         const m44 vp = 
             app->render_system->vp;
 
-        for (size_t pool = 0; pool < game::pool_count(); pool++)  {
-            for (game::entity::entity_t* e = game::pool_start(app->game_world, pool); e; e = e->next) {
-                if (!show_entities && ((e->flags & BIT(23)) == 0)) continue;
-                const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
+    
+        for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
+            if (!show_entities && ((e->flags & BIT(23)) == 0)) continue;
+            const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
 
-                if (im::begin_panel_3d(state, 
+            if (im::begin_panel_3d(state, 
+                e->name.c_data ? 
+                fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e) :
+                fmt_sv("Entity: {}", (void*)e),
+                vp, e->global_transform().origin
+            )) {
+                im::text(state, 
                     e->name.c_data ? 
-                    fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e) :
-                    fmt_sv("Entity: {}", (void*)e),
-                    vp, e->global_transform().origin
-                )) {
-                    im::text(state, 
-                        e->name.c_data ? 
-                        fmt_sv("Entity: {}", std::string_view{e->name}) :
-                        fmt_sv("Entity: {}", (void*)e)
-                    );
+                    fmt_sv("Entity: {}", std::string_view{e->name}) :
+                    fmt_sv("Entity: {}", (void*)e)
+                );
 
-                    im::text(state, 
-                        fmt_sv("Screen Pos: {:.2f} {:.2f}", ndc.x, ndc.y)
-                    );
+                im::text(state, 
+                    fmt_sv("Screen Pos: {:.2f} {:.2f}", ndc.x, ndc.y)
+                );
 
-                    im::text(state,
-                        fmt_sv("Origin: {:.2f} {:.2f} {:.2f}", 
-                            e->global_transform().origin.x,
-                            e->global_transform().origin.y,
-                            e->global_transform().origin.z
-                        )
-                    );
+                im::text(state,
+                    fmt_sv("Origin: {:.2f} {:.2f} {:.2f}", 
+                        e->global_transform().origin.x,
+                        e->global_transform().origin.y,
+                        e->global_transform().origin.z
+                    )
+                );
 
-                    if (im::text(state, fmt_sv("kill\0: {}"sv, (void*)e))) {
-                        auto* te = e->next;
-                        gen_info("gui", "Killing entity: {}", (void*)e);
-                        game::world_destroy_entity(app->game_world, e);
-                        if (!te) {
-                            break;
-                        }
-                        e = te;
+                if (im::text(state, fmt_sv("kill\0: {}"sv, (void*)e))) {
+                    auto* te = e->next;
+                    gen_info("gui", "Killing entity: {}", (void*)e);
+                    game::world_destroy_entity(app->game_world, e);
+                    if (!te) {
+                        break;
                     }
-
-                    im::end_panel(state);
+                    e = te;
                 }
+
+                im::end_panel(state);
             }
         }
     }
 
     arena_set_mark(&app->string_arena, string_mark);
+}
+
+void
+game_on_render(app_memory_t* app_mem) {
+    draw_gui(app_mem);
+
+    TIMED_BLOCK;
+    
+    app_t* app = get_app(app_mem);
+
+    gfx::vul::state_t& vk_gfx = app->gfx;
+
+    // note(zack): print the first 3 frames, if 
+    // a bug shows up its helpful to know if 
+    // maybe it only happens on the second frame
+    local_persist u32 frame_count = 0;
+    if (frame_count++ < 3) {
+        gen_info("game::on_render", "frame: {}", frame_count);
+    }
+
+    const f32 anim_time = glm::mod(
+        app_mem->input.time, 10.0f
+    );
+
+    // update uniforms
+
+    app->scene.sporadic_buffer.num_instances = 1;
+
+    const f32 w = (f32)app_mem->config.window_size[0];
+    const f32 h = (f32)app_mem->config.window_size[1];
+    const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
 
 
     
-
     // render
     app->debug.debug_vertices.pool.clear();
         
@@ -1054,14 +1045,14 @@ game_on_render(app_memory_t* app_mem) {
     
     {
         // this isnt right
-        utl::profile_t _p_fence{"fencewait"};
-        vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0], VK_TRUE, UINT64_MAX);
-        vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[0]);
+        // utl::profile_t _p_fence{"fencewait"};
+        vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count&1], VK_TRUE, UINT64_MAX);
+        vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count&1]);
     }
 
     u32 imageIndex;
     vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
-        vk_gfx.image_available_semaphore, VK_NULL_HANDLE, &imageIndex);
+        vk_gfx.image_available_semaphore[frame_count&1], VK_NULL_HANDLE, &imageIndex);
 
 
     std::lock_guard lock{app->render_system->ticket};
@@ -1075,14 +1066,15 @@ game_on_render(app_memory_t* app_mem) {
         app->render_system->vp = proj * app->game_world->camera.to_matrix();
     }
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
-    vkResetCommandBuffer(vk_gfx.command_buffer, 0);
+    auto& command_buffer = vk_gfx.command_buffer[frame_count&1];
+    vkResetCommandBuffer(command_buffer, 0);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0; // Optional
     beginInfo.pInheritanceInfo = nullptr; // Optional
 
-    if (vkBeginCommandBuffer(vk_gfx.command_buffer, &beginInfo) != VK_SUCCESS) {
+    if (vkBeginCommandBuffer(command_buffer, &beginInfo) != VK_SUCCESS) {
         gen_error("vulkan:record_command", "failed to begin recording command buffer!");
         std::terminate();
     }
@@ -1090,25 +1082,19 @@ game_on_render(app_memory_t* app_mem) {
     gfx::vul::begin_render_pass(vk_gfx,
         app->render_system->render_passes[0],
         app->render_system->framebuffers[imageIndex],
-        vk_gfx.command_buffer, imageIndex
+        command_buffer, imageIndex
     );
     
     
-    vkCmdBindPipeline(vk_gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->sky_pipeline->pipeline);
-
-    // vk_gfx.record_pipeline_commands(
-    //     app->sky_pipeline->pipeline, 
-    //     app->sky_pipeline->render_passes[0],
-    //     app->sky_pipeline->framebuffers[imageIndex],
-    //     vk_gfx.command_buffer, imageIndex, [&]{
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->sky_pipeline->pipeline);
     {
         VkBuffer buffers[1] = { app->render_system->vertices.buffer };
         VkDeviceSize offsets[1] = { 0 };
 
-        vkCmdBindVertexBuffers(vk_gfx.command_buffer,
+        vkCmdBindVertexBuffers(command_buffer,
             0, 1, buffers, offsets);
 
-        vkCmdBindIndexBuffer(vk_gfx.command_buffer,
+        vkCmdBindIndexBuffer(command_buffer,
             app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
         );
 
@@ -1117,7 +1103,6 @@ game_on_render(app_memory_t* app_mem) {
             v4f directional_light;
         } sky_constants;
 
-        // const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
         
         m44 proj = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
         proj[1][1] *= -1.0f;
@@ -1131,7 +1116,7 @@ game_on_render(app_memory_t* app_mem) {
         );
         sky_constants.directional_light = app->scene.lighting.directional_light;
 
-        vkCmdPushConstants(vk_gfx.command_buffer, app->sky_pipeline->pipeline_layout,
+        vkCmdPushConstants(command_buffer, app->sky_pipeline->pipeline_layout,
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
             0, sizeof(sky_push_constant_t), &sky_constants
         );
@@ -1141,7 +1126,7 @@ game_on_render(app_memory_t* app_mem) {
         );
     
         for (size_t j = 0; j < meshes.count; j++) {
-            vkCmdDrawIndexed(vk_gfx.command_buffer,
+            vkCmdDrawIndexed(command_buffer,
                 meshes.meshes[j].index_count,
                 1, 
                 meshes.meshes[j].index_start,
@@ -1149,146 +1134,46 @@ game_on_render(app_memory_t* app_mem) {
                 0           
             );
         }
-
-        VkClearDepthStencilValue clearValue = {};
-        clearValue.depth = 1.0f;
-        clearValue.stencil = 0;
-
-        // Specify the range of the image to be cleared
-        VkImageSubresourceRange subresourceRange = {};
-        subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-        subresourceRange.baseMipLevel = 0;
-        subresourceRange.levelCount = 1;
-        subresourceRange.baseArrayLayer = 0;
-        subresourceRange.layerCount = 1;
-
-        // Clear the depth buffer
-        // vkCmdClearDepthStencilImage(vk_gfx.command_buffer, vk_gfx.depth_stencil_texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &subresourceRange);
-        
-    // });
     }
 
     {
-        vkCmdBindPipeline(vk_gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->arm_pipeline->pipeline);
-
-        VkBuffer buffers[1] = { app->render_system->vertices.buffer };
-        VkDeviceSize offsets[1] = { 0 };
-
-        vkCmdBindVertexBuffers(vk_gfx.command_buffer,
-            0, 1, buffers, offsets);
-
-        vkCmdBindIndexBuffer(vk_gfx.command_buffer,
-            app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
-        );
-
-        struct arm_t {
-            m44 vp;
-            m44 mod;
-            v3f color;
-            f32 arm_scale;
-        };
-        arm_t* last_arm = nullptr;
-        arm_t arms[3];
-        range_u32(i, 0, 3) {
-            arm_t& arm = arms[i];
-            arm.arm_scale = gs_scale[i];
-            
-            arm.mod = m44{1.0f};
-            if (last_arm) {
-                arm.mod = glm::translate(arm.mod, v3f{last_arm->arm_scale*2.0f, 0.0f, 0.0f});
-            }
-            if (!last_arm) {
-                arm.mod = glm::rotate(arm.mod, gs_phi, v3f{0.0f, 1.0f, 0.0f});
-            }
-            arm.mod = glm::rotate(arm.mod, gs_theta[i], v3f{0.0f, 0.0f, 1.0f});
-            if (last_arm) {
-                arm.mod = last_arm->mod * arm.mod;
-            }
-
-            arm.color = gfx::color::to_color3(gs_color[i]);
-          
-            m44 proj = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
-            proj[1][1] *= -1.0f;
-
-            arm.vp = proj * app->game_world->camera.to_matrix();
-            
-
-            last_arm = &arm;
-            vkCmdPushConstants(vk_gfx.command_buffer, app->arm_pipeline->pipeline_layout,
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
-                0, sizeof(arm_t), &arm
-            );
-
-            range_u64(j, 0, gs_mesh.count) {
-                if (gs_mesh.meshes[j].index_count) {
-                    vkCmdDrawIndexed(vk_gfx.command_buffer,
-                        gs_mesh.meshes[j].index_count,
-                        1, 
-                        gs_mesh.meshes[j].index_start,
-                        gs_mesh.meshes[j].vertex_start,
-                        0
-                    );
-                } else {
-                    vkCmdDraw(vk_gfx.command_buffer,
-                        gs_mesh.meshes[j].vertex_count,
-                        gs_mesh.meshes[j].instance_count,
-                        gs_mesh.meshes[j].vertex_start,
-                        0
-                        // job->meshes->meshes[j].instance_start
-                    );
-                }
-            }
-        }
-    }
-
-    // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->render_system->job_storage_buffer.buffer);
-    // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->gui.vertices.buffer);
-    // gfx::vul::utl::buffer_host_memory_barrier(vk_gfx.command_buffer, app->gui.indices.buffer);
-    {
-        vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+        vkCmdBindDescriptorSets(command_buffer, 
             VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
             0, 4, app->mesh_pipeline->descriptor_sets, 0, nullptr);
 
-        vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+        vkCmdBindDescriptorSets(command_buffer, 
             VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
             4, 1, &app->brick_descriptor, 0, nullptr);
 
         VkBuffer buffers[1] = { app->render_system->vertices.buffer };
         VkDeviceSize offsets[1] = { 0 };
 
-        vkCmdBindVertexBuffers(vk_gfx.command_buffer,
+        vkCmdBindVertexBuffers(command_buffer,
             0, 1, buffers, offsets);
 
-        vkCmdBindIndexBuffer(vk_gfx.command_buffer,
+        vkCmdBindIndexBuffer(command_buffer,
             app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
         );
     }
 
-    game::rendering::build_commands(app->render_system, vk_gfx.command_buffer);
+    game::rendering::build_commands(app->render_system, command_buffer);
 
     if (app->debug.show) {
-    //     vk_gfx.record_pipeline_commands(
-    //         app->debug_pipeline->pipeline, 
-    //         app->debug_pipeline->render_passes[0],
-    //         app->debug_pipeline->framebuffers[imageIndex],
-    //         vk_gfx.command_buffer, imageIndex, 
-    //         [&]{
-    // {
-        vkCmdBindPipeline(vk_gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline);
-        vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
+        vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline);
+        vkCmdBindDescriptorSets(command_buffer, 
             VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline_layout,
             0, 1, app->debug_pipeline->descriptor_sets, 0, nullptr);
 
         VkBuffer buffers[1] = { app->debug.debug_vertices.buffer };
         VkDeviceSize offsets[1] = { 0 };
 
-        vkCmdBindVertexBuffers(vk_gfx.command_buffer,
+        vkCmdBindVertexBuffers(command_buffer,
             0, 1, buffers, offsets);
 
         const u32 instance_count = 1;
         const u32 first_instance = 0;
 
-        vkCmdDraw(vk_gfx.command_buffer,
+        vkCmdDraw(command_buffer,
             (u32)app->debug.debug_vertices.pool.count,
             1, // instance count
             0, // vertex start
@@ -1296,37 +1181,31 @@ game_on_render(app_memory_t* app_mem) {
         );
     }
 
-    vkCmdBindPipeline(vk_gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline);
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline);
     {
+        vkCmdBindDescriptorSets(command_buffer, 
+            VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
+            0, 1, &app->default_font_descriptor, 0, nullptr);
 
-    // vk_gfx.record_pipeline_commands(
-    //     app->gui_pipeline->pipeline, app->gui_pipeline->render_passes[0],
-    //     app->gui_pipeline->framebuffers[imageIndex],
-    //     vk_gfx.command_buffer, imageIndex, 
-    //     [&]{
-            vkCmdBindDescriptorSets(vk_gfx.command_buffer, 
-                VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
-                0, 1, &app->default_font_descriptor, 0, nullptr);
+        VkDeviceSize offsets[1] = { 0 };
+        vkCmdBindVertexBuffers(command_buffer,
+            0, 1, &app->gui.vertices.buffer, offsets);
 
-            VkDeviceSize offsets[1] = { 0 };
-            vkCmdBindVertexBuffers(vk_gfx.command_buffer,
-                0, 1, &app->gui.vertices.buffer, offsets);
+        vkCmdBindIndexBuffer(command_buffer,
+            app->gui.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-            vkCmdBindIndexBuffer(vk_gfx.command_buffer,
-                app->gui.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-            vkCmdDrawIndexed(vk_gfx.command_buffer,
-                (u32)app->gui.ctx.indices->count,
-                1,
-                0,
-                0,
-                0
-            );
+        vkCmdDrawIndexed(command_buffer,
+            (u32)app->gui.ctx.indices->count,
+            1,
+            0,
+            0,
+            0
+        );
     }
 
-    gfx::vul::end_render_pass(vk_gfx.command_buffer);
+    gfx::vul::end_render_pass(command_buffer);
 
-    if (vkEndCommandBuffer(vk_gfx.command_buffer) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
         gen_error("vulkan:record_command:end", "failed to record command buffer!");
         std::terminate();
     }
@@ -1334,20 +1213,20 @@ game_on_render(app_memory_t* app_mem) {
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore waitSemaphores[] = {vk_gfx.image_available_semaphore};
+    VkSemaphore waitSemaphores[] = {vk_gfx.image_available_semaphore[frame_count&1]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &vk_gfx.command_buffer;
+    submitInfo.pCommandBuffers = &command_buffer;
 
-    VkSemaphore signalSemaphores[] = {vk_gfx.render_finished_semaphore};
+    VkSemaphore signalSemaphores[] = {vk_gfx.render_finished_semaphore[frame_count&1]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[0]) != VK_SUCCESS) {
+    if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[frame_count&1]) != VK_SUCCESS) {
         gen_error("vk:submit", "failed to submit draw command buffer!");
         std::terminate();
     }

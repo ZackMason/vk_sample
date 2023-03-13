@@ -1,6 +1,7 @@
 {
     "trimesh": [
-        "assets/models/rooms/room_0.obj"
+        "assets/models/rooms/room_0.obj",
+        "assets/models/map_01.obj"
     ],
     "convex": [
         "assets/models/utah-teapot.obj"

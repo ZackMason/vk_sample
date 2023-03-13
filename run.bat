@@ -1,0 +1,1 @@
+build\game.exe > log.txt 2> errors.txt

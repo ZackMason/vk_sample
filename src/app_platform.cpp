@@ -63,6 +63,46 @@ create_meta_data_dir() {
     free(app_data_path);
 }
 
+void
+load_graphics_config(app_memory_t* app_mem) {
+    std::ifstream file{"gfx_config.bin", std::ios::binary};
+
+    if(!file.is_open()) {
+        gen_error("win32", "Failed to graphics config file");
+        return;
+    }
+
+    file.seekg(0, std::ios::end);
+    const size_t size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    std::byte* data = new std::byte[size];
+    file.read((char*)data, size);
+    utl::memory_blob_t loader{data};
+    
+    app_mem->config.graphics_config = loader.deserialize<app_config_t::graphic_config_t>();
+    
+    delete data;
+}
+void
+save_graphics_config(app_memory_t* app_mem) {
+    std::ofstream file{"./gfx_config.bin", std::ios::out | std::ios::binary};
+
+    // std::byte* data = new std::byte[sizeof(app_config_t::graphic_config_t)];
+    
+    // utl::memory_blob_t loader{data};
+    
+    // loader.serialize(0, app_mem->config.graphics_config);
+
+    file.write((const char*)&app_mem->config.graphics_config, sizeof(app_config_t::graphic_config_t));
+
+    file.close();
+
+    // delete data;
+
+    gen_info("win32", "Saved graphics config");
+}
+
 GLFWwindow* 
 init_glfw(app_memory_t* app_mem) {
     glfwInit();
@@ -252,28 +292,24 @@ main(int argc, char* argv[]) {
 
     gen_info("win32", "Loading Platform Layer");
     app_memory_t app_mem{};
-    app_mem.malloc = malloc;
-    app_mem.free = free;
-    app_mem.realloc = realloc;
-    app_mem.perm_memory_size = gigabytes(4) + megabytes(32); // megabytes(256*2);
+    // app_mem.malloc = malloc;
+    // app_mem.free = free;
+    // app_mem.realloc = realloc;
+    app_mem.perm_memory_size = gigabytes(4);// + megabytes(32); // megabytes(256*2);
     app_mem.perm_memory = 
 
 #if _WIN32
-        VirtualAlloc(0, app_mem.perm_memory_size,  MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        VirtualAlloc(0, app_mem.perm_memory_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #else 
         
 #endif
     assert(app_mem.perm_memory);
 
     auto& config = app_mem.config;
-    config.window_size[0] = 880;
-    config.window_size[1] = 660;
+    load_graphics_config(&app_mem);
 
-    config.window_size[0] = 1280;
-    config.window_size[1] = 840;
-
-    config.window_size[0] = 1920;
-    config.window_size[1] = 1080;
+    config.window_size[0] = app_mem.config.graphics_config.window_size.x;
+    config.window_size[1] = app_mem.config.graphics_config.window_size.y;
 
     app_mem.config.create_vk_surface = [](void* instance, void* surface, void* window_handle) {
         VkWin32SurfaceCreateInfoKHR createInfo{};
@@ -346,6 +382,7 @@ main(int argc, char* argv[]) {
 
     app_dlls.on_init(&app_mem);
 
+
     // auto render_thread = std::thread([&]{
     //     while(app_mem.running && !glfwWindowShouldClose(window)) {
     //         app_dlls.on_render(&app_mem);
@@ -381,8 +418,9 @@ main(int argc, char* argv[]) {
 
     // render_thread.join();
 
-    app_dlls.on_deinit(&app_mem);
+    save_graphics_config(&app_mem);
 
+    app_dlls.on_deinit(&app_mem);
 
     gen_info("win32", "Closing Application");
     return 0;

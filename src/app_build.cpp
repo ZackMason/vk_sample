@@ -1,9 +1,14 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
 
+#include "core.hpp"
+
+#ifdef GEN_INTERNAL
+debug_memory_t* gs_debug_memory;
+#endif
+
 #include "App/vk_state.cpp"
 #include "App/app.cpp"
-
 
 // note(zack):
 // this isn't really helpful but I will leave it here.
@@ -39,3 +44,6 @@
 // }
 
 // #endif
+
+debug_record_t gs_main_debug_records[__COUNTER__];
+size_t gs_main_debug_record_size = array_count(gs_main_debug_records);

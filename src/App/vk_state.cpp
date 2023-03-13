@@ -172,13 +172,17 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(std::span<VkSurfaceFormatKHR> availab
     return availableFormats[0];
 }
 
-VkPresentModeKHR chooseSwapPresentMode(std::span<VkPresentModeKHR> availablePresentModes) {
-    return VK_PRESENT_MODE_FIFO_KHR;
+VkPresentModeKHR chooseSwapPresentMode(std::span<VkPresentModeKHR> availablePresentModes, bool vsync) {
+    if (vsync) {
+        return VK_PRESENT_MODE_FIFO_KHR;
+    }
+
     for (const auto& availablePresentMode : availablePresentModes) {
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
             return availablePresentMode;
         }
     }
+    return VK_PRESENT_MODE_FIFO_KHR;
 }
 
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, int width, int height) {
@@ -233,7 +237,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
         // Message is important enough to show
         gen_error("vk::validation", "Validation Layer: {}", pCallbackData->pMessage);
-        std::terminate();
+        // std::terminate();
     }
 
     return VK_FALSE;
@@ -364,6 +368,7 @@ VkImageView create_image_view(VkDevice device, VkImage image, VkFormat format, V
 }
 
 void state_t::init(app_config_t* info, arena_t* temp_arena) {
+    TIMED_BLOCK;
     create_instance(info);
     create_debug_messenger();
     create_surface(info);
@@ -372,7 +377,7 @@ void state_t::init(app_config_t* info, arena_t* temp_arena) {
     create_logical_device();
     gen_info("vulkan", "created device.");
 
-    create_swap_chain(info->window_size[0], info->window_size[1]);
+    create_swap_chain(info->window_size[0], info->window_size[1], info->graphics_config.vsync);
     gen_info("vulkan", "created swap chain.");
 
     create_depth_stencil_image(&depth_stencil_texture, info->window_size[0], info->window_size[1]);
@@ -548,9 +553,9 @@ void state_t::record_pipeline_commands(
     renderPassInfo.clearValueCount = 2;
     renderPassInfo.pClearValues = clearColor;
     
-    vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_pipeline);
+    vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_pipeline);
 
     // set viewport and scissor because of dynamic pipeline state
     VkViewport viewport{vul::utl::viewport(
@@ -560,27 +565,26 @@ void state_t::record_pipeline_commands(
         1.0f
     )};
 
-    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+    vkCmdSetViewport(buffer, 0, 1, &viewport);
 
     VkRect2D scissor{};
     scissor.offset = {0, 0};
     scissor.extent = swap_chain_extent;
-    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+    vkCmdSetScissor(buffer, 0, 1, &scissor);
 
     user_fn();
 
-    vkCmdEndRenderPass(command_buffer);
+    vkCmdEndRenderPass(buffer);
 }
 
 void state_t::create_command_buffer() {
-
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = command_pool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.commandBufferCount = 2;
 
-    if (vkAllocateCommandBuffers(device, &allocInfo, &command_buffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(device, &allocInfo, command_buffer) != VK_SUCCESS) {
         gen_error("vulkan", "failed to allocate command buffers!");
         std::terminate();
     }
@@ -594,8 +598,10 @@ void state_t::create_sync_objects() {
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &image_available_semaphore) != VK_SUCCESS ||
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_finished_semaphore) != VK_SUCCESS ||
+    if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &image_available_semaphore[0]) != VK_SUCCESS ||
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &image_available_semaphore[1]) != VK_SUCCESS ||
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_finished_semaphore[0]) != VK_SUCCESS ||
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_finished_semaphore[1]) != VK_SUCCESS ||
         vkCreateFence(device, &fenceInfo, nullptr, &in_flight_fence[0]) != VK_SUCCESS ||
         vkCreateFence(device, &fenceInfo, nullptr, &in_flight_fence[1]) != VK_SUCCESS
     ) {
@@ -650,11 +656,11 @@ void state_t::create_image_views() {
     }
 }
 
-void state_t::create_swap_chain(int width, int height) {
+void state_t::create_swap_chain(int width, int height, bool vsync) {
     auto swapChainSupport = querySwapChainSupport(gpu_device, surface);
 
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-    VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.present_modes);
+    VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.present_modes, vsync);
     VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities, width, height);
 
     uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
@@ -903,8 +909,10 @@ void state_t::cleanup() {
     vkDestroyImage(device, null_texture.image, nullptr);
     vkFreeMemory(device, null_texture.vdm, nullptr);
 
-    vkDestroySemaphore(device, image_available_semaphore, nullptr);
-    vkDestroySemaphore(device, render_finished_semaphore, nullptr);
+    vkDestroySemaphore(device, image_available_semaphore[0], nullptr);
+    vkDestroySemaphore(device, image_available_semaphore[1], nullptr);
+    vkDestroySemaphore(device, render_finished_semaphore[0], nullptr);
+    vkDestroySemaphore(device, render_finished_semaphore[1], nullptr);
     vkDestroyFence(device, in_flight_fence[0], nullptr);
     vkDestroyFence(device, in_flight_fence[1], nullptr);
     
@@ -1201,7 +1209,7 @@ state_t::create_pipeline_state(
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
+    multisampling.sampleShadingEnable   = VK_FALSE;
     multisampling.rasterizationSamples = create_info->msaa_samples;
     multisampling.minSampleShading = 1.0f; // Optional
     multisampling.pSampleMask = nullptr; // Optional

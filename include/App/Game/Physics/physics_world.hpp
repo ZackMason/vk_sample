@@ -7,9 +7,11 @@
 #include "PxPhysics.h"
 #include "PxRigidActor.h"
 #include "PxActor.h"
+#include "PxScene.h"
+
 #include "characterkinematic/PxController.h"
 
-#include "PxScene.h"
+
 
 #include "physics_utils.hpp"
 
@@ -57,6 +59,8 @@ namespace game::phys {
         assert(state.cooking);
     }
 
+    struct physics_world_t;
+
     struct rigid_body_t {
         physx_state_t*          state;
 
@@ -64,7 +68,11 @@ namespace game::phys {
         physx::PxController*    controller{nullptr};
         physx::PxShape*         shape{nullptr};
         physx::PxMaterial*      material{nullptr};
-    physics_shape_type      type{};
+        physics_shape_type      type{};
+
+        v3f velocity{};
+
+        void create_character(physics_world_t* physx_world);
 
         void load_trimesh(std::byte* data, size_t size, const math::transform_t& transform) {
             assert(state);
@@ -113,11 +121,47 @@ namespace game::phys {
 
 
     struct physics_world_t {
-        physx_state_t& state;
+        physx_state_t* state;
         physx::PxScene* scene{nullptr};
         physx::PxControllerManager* controller_manager{nullptr};
     };
 
+    inline void
+    physics_world_init(physx_state_t& state, physics_world_t* world) {
+        assert(world);
 
+        world->state = &state;
+
+        physx::PxSceneDesc scene_desc(state.physics->getTolerancesScale());
+        scene_desc.gravity = physx::PxVec3(0.0f, -9.81f, 0.0f);
+
+        scene_desc.filterShader = physx::PxDefaultSimulationFilterShader;
+        scene_desc.cpuDispatcher = state.dispatcher;
+
+        world->scene = state.physics->createScene(scene_desc);
+
+        if (world->controller_manager) {
+            world->controller_manager->release();
+            world->controller_manager = nullptr;
+        }
+        world->controller_manager = PxCreateControllerManager(*world->scene);
+        assert(world->controller_manager);
+    }
+
+
+    void rigid_body_t::create_character(physics_world_t* physx_world) {
+        physx::PxMaterial* mat = state->physics->createMaterial(0.5f, 0.5f, 0.1f);
+
+        physx::PxCapsuleControllerDesc desc;
+        desc.height = 1.5f;
+        desc.radius = 1.0f;
+        desc.climbingMode = physx::PxCapsuleClimbingMode::eEASY;
+        desc.behaviorCallback = nullptr;
+        desc.reportCallback = nullptr;
+        desc.material = mat;
+
+        controller = physx_world->controller_manager->createController(desc);
+        assert(controller);
+    }
 
 };
