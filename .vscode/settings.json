@@ -1,7 +1,7 @@
 {
     "C_Cpp.clang_format_path": "/usr/lib/llvm-10/bin/clang-format",
     "C_Cpp.default.includePath": [
-      "~/.conan/data/**", "%VULKAN_SDK%/include/", "./include/", "C:/Users/zack/Documents/GitHub/PhysX/physx/include/"
+      "~/.conan/data/**", "%VULKAN_SDK%/include/", "./include/", "C:/Users/crazy/Documents/GitHub/PhysX/physx/include/"
     ],
     "files.associations": {
       "string": "cpp",

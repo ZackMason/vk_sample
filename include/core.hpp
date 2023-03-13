@@ -2,6 +2,17 @@
 
 // note(zack): this file is the sole interface between the app and the platform layer
 
+
+#if defined(GAME_USE_SIMD)
+
+#if defined(_WIN64) || defined(_WIN32)
+#include <immintrin.h>
+#else
+#error "No Unix SIMD yet"
+#endif
+
+#endif
+
 #define WIN32_MEAN_AND_LEAN
 #define NOMINMAX
 
@@ -9,8 +20,10 @@
 
 #elif defined(_WIN64) || defined(_WIN32)
     #include <process.h>
+    #include <Windows.h>
     #define RAND_GETPID _getpid()
-    // idk if needed
+    
+    #undef DELETE
     #undef min
     #undef max
     #undef near
@@ -79,6 +92,16 @@ using m33 = glm::mat3x3;
 using m34 = glm::mat3x4;
 using m43 = glm::mat4x3;
 using m44 = glm::mat4x4;
+
+namespace axis {
+    constexpr inline static v3f up          {0.0f, 1.0f, 0.0f};
+    constexpr inline static v3f down        {0.0f,-1.0f, 0.0f};
+    constexpr inline static v3f right       {1.0f, 0.0f, 0.0f};
+    constexpr inline static v3f left        {-1.0f,0.0f, 0.0f};
+    constexpr inline static v3f forward     {0.0f, 0.0f,-1.0f};
+    constexpr inline static v3f backward    {0.0f, 0.0f, 1.0f};
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define fmt_str(...) (fmt::format(__VA_ARGS__))
@@ -104,6 +127,35 @@ using m44 = glm::mat4x4;
 #define align16(val) ((val + 15) & ~15)
 #define align4(val) ((val + 3) & ~3)
 
+
+#define to_secs(x) (f32(x/1000))
+
+struct coroutine_t {
+	f32& now;
+	u64 line;
+	f32 start_time;
+	void* data;
+};
+
+// #define co_lerp(coro, val, start, end, duration) do { if (coro->start_time == 0) { coro->start_time = coro->now; } val = glm::mix(start, end, (coro->now - coro->start_time)/duration); co_yield_until(coro,  coro->now > (coro->start_time) + (f32)duration); coro->start_time = 0; } while(0)
+#define co_begin(coro) switch (coro->line) {case 0: coro->line = 0;
+#define co_yield(coro) do { coro->line = __LINE__; return; case __LINE__:;} while(0)
+#define co_yield_until(coro, condition) while (!(condition)) { co_yield(coro); }
+#define co_wait(coro, duration) do {if (coro->start_time == 0) { coro->start_time = coro->now; } co_yield_until(coro, coro->now > (coro->start_time) + (f32)duration); coro->start_time = 0; } while (0)
+#define co_end(coro) do { coro->line = __LINE__; } while (0); }
+#define co_reset(coro) do { coro->line = 0; } while (0); }
+#define co_set_label(coro, label) case label:
+#define co_goto_label(coro, label) do { coro->line = (label); return; } while(0)
+// #define co_is_finished(coro) (coro->line == -1)
+#define co_lerp(coro, value, start, end, duration, func) \
+do { \
+    coro->start_time = coro->now;\
+    while (coro->now < coro->start_time + (duration)) { \
+        (value) = (func)((start), (end), ((coro->now - coro->start_time)/(duration))); \
+        co_yield(coro); \
+    } \
+    (value) = (end); \
+} while (0)
 
 #define loop_iota_u64(itr, stop) for (size_t itr = 0; itr < stop; itr++)
 #define range_u32(itr, start, stop) for (u32 itr = (start); itr < (stop); itr++)
@@ -336,6 +388,13 @@ app_input_reset(app_input_t* input) {
 }
 
 struct app_config_t {
+    struct graphic_config_t {
+        v2i     window_size{640, 480};
+        bool    vsync{false};
+        bool    fullscreen{false};
+        u8      msaa{0};
+    } graphics_config;
+
     i32 window_size[2];
     
     // vk info
@@ -362,6 +421,88 @@ namespace utl {
     struct closure_t;
 };
 
+
+#ifdef GEN_INTERNAL
+struct debug_cycle_counter_t {
+  const char *name;
+  u64 cycle_count;
+  u32 call_count;
+};
+
+struct debug_memory_t {
+    debug_cycle_counter_t counters[32];
+};
+
+extern debug_memory_t* gs_debug_memory;
+
+struct debug_record_t {
+    const char* file_name;
+    const char* func_name;
+    int         line_num;
+    u64         cycle_count{0};
+    u64         hit_count{0};
+};
+
+inline u64
+get_perf_counter() {
+#if _WIN32
+    LARGE_INTEGER result;
+    QueryPerformanceCounter(&result);
+    return result.QuadPart;
+#endif
+}
+inline u64
+get_perf_freq() {
+#if _WIN32
+    LARGE_INTEGER result;
+    QueryPerformanceFrequency(&result);
+    return result.QuadPart;
+#endif
+}
+
+inline u64
+get_nano_time() {
+    std::chrono::time_point<std::chrono::high_resolution_clock> time_stamp = std::chrono::high_resolution_clock::now();
+
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(time_stamp.time_since_epoch()).count();
+}
+
+debug_record_t gs_main_debug_records[];
+extern size_t gs_main_debug_record_size;
+
+    #if _WIN32
+        #define TIMED_BLOCK timed_block_t _TimedBlock_##__LINE__(__COUNTER__, __FILE__, __LINE__, __FUNCTION__)
+
+        struct timed_block_t {
+            debug_record_t* record;
+            
+            timed_block_t(i32 _counter, const char* _file_name, i32 _line_number, const char* _function_name) {
+                record = gs_main_debug_records + _counter;
+                record->file_name = _file_name;
+                record->line_num = _line_number;
+                record->func_name = _function_name;
+
+                record->cycle_count = get_nano_time();
+                record->hit_count++;
+            }
+
+            ~timed_block_t() {
+                record->cycle_count = get_nano_time() - record->cycle_count;
+                // record->cycle_count += __rdtsc();
+                // record->cycle_count = __rdtsc() - record->cycle_count;
+            }
+        };
+    #else
+        #error "No Linux Imp"
+    #endif
+
+#else 
+
+#define BEGIN_TIMED_BLOCK(id)
+#define END_TIMED_BLOCK(id)
+
+#endif
+
 struct app_memory_t {
     void* perm_memory{nullptr};
     size_t perm_memory_size{};
@@ -371,15 +512,19 @@ struct app_memory_t {
 
     bool running{true};
 
-    void* (__cdecl* malloc)(size_t);
-    void* (__cdecl* realloc)(void*, size_t);
-    void (__cdecl* free)(void*);
+    // void* (__cdecl* malloc)(size_t);
+    // void* (__cdecl* realloc)(void*, size_t);
+    // void (__cdecl* free)(void*);
 
     struct audio_closures_t {
         utl::closure_t* load_sound_closure;
         utl::closure_t* play_sound_closure;
         utl::closure_t* stop_sound_closure;
     } audio;
+
+#ifdef GEN_INTERNAL
+    debug_memory_t debug_memory;
+#endif
 };
 
 using app_func_t = void(__cdecl *)(app_memory_t*);
@@ -468,6 +613,16 @@ arena_get_top(arena_t* arena) {
     (arena)->size > gigabytes(1) ? "Gb" : (arena)->size > megabytes(1) ? "Mb" : (arena)->size > kilobytes(1) ? "Kb" : "B",\
     (f32((arena)->top) / f32((arena)->size) * 100.0f)))
     
+template <typename T>
+inline T*
+arena_alloc(arena_t* arena) {
+    std::byte* p_start = arena->start + arena->top;
+    arena->top += sizeof(T);
+
+    assert(arena->top <= arena->size && "Arena overflow");
+
+    return (T*)p_start;
+}
 
 inline std::byte*
 arena_alloc(arena_t* arena, size_t bytes) {
@@ -631,6 +786,12 @@ struct string_t {
 
     constexpr string_t(std::string_view sv)
         : c_data{sv.data()}, size{sv.size()}
+    {
+    }
+
+    template <size_t N>
+    constexpr string_t(char const (&text)[N])
+        : string_t{std::string_view{text}}
     {
     }
 
@@ -914,12 +1075,14 @@ struct transform_t {
 	void scale(const v3f& delta) {
         basis = glm::scale(m44{basis}, delta);
     }
-	void rotate(const v3f& delta) {
-        m44 rot = m44(1.0f);
-        rot = glm::rotate(rot, delta.z, { 0,0,1 });
-        rot = glm::rotate(rot, delta.y, { 0,1,0 });
-        rot = glm::rotate(rot, delta.x, { 1,0,0 });
-        basis = (basis) * m33(rot);
+	void rotate(const v3f& axis, f32 rads) {
+        set_rotation((get_orientation() * glm::angleAxis(rads, axis)));
+
+        // m44 rot = m44(1.0f);
+        // rot = glm::rotate(rot, delta.z, { 0,0,1 });
+        // rot = glm::rotate(rot, delta.y, { 0,1,0 });
+        // rot = glm::rotate(rot, delta.x, { 1,0,0 });
+        // basis = (basis) * m33(rot);
     }
 	void rotate_quat(const glm::quat& delta) {
         set_rotation(get_orientation() * delta);
@@ -2154,13 +2317,63 @@ struct profile_t {
 
 namespace rng {
 
-constexpr inline uint64_t fnv_hash_u64(uint64_t val) {
-    uint64_t hash = 14695981039346656037ull;
-    for (uint64_t i = 0; i < 8; i++) {
-        hash = hash ^ ((val >> (8 * i)) & 0xff);
+//constexpr 
+inline uint64_t fnv_hash_u64(uint64_t val) {
+#if defined(GAME_USE_SIMD) && 0
+    const u64 start = 14695981039346656037ull;
+    __m256i hash = _mm256_set1_epi64x(start);
+    const __m256i zero = _mm256_set1_epi64x(0);
+    const __m256i val256 = _mm256_set1_epi64x(val);
+    const __m256i prime = _mm256_set1_epi64x(1099511628211ull);
+    const __m128i prime128 = _mm_set1_epi64x(1099511628211ull);
+    __m256i v0 = _mm256_set_epi64x(0*8,1*8,2*8,3*8);
+    __m256i v1 = _mm256_set_epi64x(4*8,5*8,6*8,7*8);
+
+    v0 = _mm256_srlv_epi64(v0, val256);
+    v1 = _mm256_srlv_epi64(v1, val256);
+
+    v0 = _mm256_unpacklo_epi8(v0, zero);
+    v1 = _mm256_unpacklo_epi8(v1, zero);
+
+    hash = _mm256_xor_si256(hash, v0);
+    hash = _mm256_mul_epu32(hash, prime);
+
+    hash = _mm256_xor_si256(hash, v1);
+    hash = _mm256_mul_epu32(hash, prime);
+
+    __m128i lo = _mm256_extracti128_si256(hash, 0);
+    __m128i hi = _mm256_extracti128_si256(hash, 1);
+
+    lo = _mm_xor_si128(lo, hi);
+    lo = _mm_mul_epu32(lo, prime128);
+    lo = _mm_xor_si128(lo, _mm_srli_si128(lo, 8));
+    lo = _mm_mul_epu32(lo, prime128);
+    lo = _mm_xor_si128(lo, _mm_srli_si128(lo, 4));
+    lo = _mm_mul_epu32(lo, prime128);
+    lo = _mm_xor_si128(lo, _mm_srli_si128(lo, 2));
+    lo = _mm_mul_epu32(lo, prime128);
+    lo = _mm_xor_si128(lo, _mm_srli_si128(lo, 1));
+
+    return _mm_cvtsi128_si64(lo);
+    return start;
+#else 
+    u64 hash = 14695981039346656037ull;
+    for (u64 i = 0; i < 8; i+=4) {
+        const u64 v0 = ((val >> (8 * (i+0))) & 0xff);
+        const u64 v1 = ((val >> (8 * (i+1))) & 0xff);
+        const u64 v2 = ((val >> (8 * (i+2))) & 0xff);
+        const u64 v3 = ((val >> (8 * (i+3))) & 0xff);
+        hash = hash ^ v0;
+        hash = hash * 1099511628211ull;
+        hash = hash ^ v1;
+        hash = hash * 1099511628211ull;
+        hash = hash ^ v2;
+        hash = hash * 1099511628211ull;
+        hash = hash ^ v3;
         hash = hash * 1099511628211ull;
     }
     return hash;
+#endif
 }
 
 struct xoshiro256_random_t {
@@ -3000,7 +3213,7 @@ struct memory_blob_t {
         advance(sizeof(T));
 
         return *(T*)(data + t_offset);
-    }
+    }   
     
     template<>
     std::string deserialize() {

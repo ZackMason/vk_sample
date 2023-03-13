@@ -188,10 +188,10 @@ struct state_t {
     VkDescriptorPool descriptor_pool;
 
     VkCommandPool command_pool;
-    VkCommandBuffer command_buffer;
+    VkCommandBuffer command_buffer[2];
  
-    VkSemaphore image_available_semaphore;
-    VkSemaphore render_finished_semaphore;
+    VkSemaphore image_available_semaphore[2];
+    VkSemaphore render_finished_semaphore[2];
     VkFence in_flight_fence[2];
 
     uniform_buffer_t<sporadic_buffer_t> sporadic_uniform_buffer;
@@ -215,7 +215,7 @@ struct state_t {
     void create_surface(app_config_t* info);
     void find_device(arena_t* arena);
     void create_logical_device();
-    void create_swap_chain(int width, int height);
+    void create_swap_chain(int width, int height, bool vsync);
     void create_image_views();
     void create_depth_stencil_image(texture_2d_t* texture, int width, int height);
     
