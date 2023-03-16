@@ -64,7 +64,10 @@ namespace game::phys {
     struct rigid_body_t {
         physx_state_t*          state;
 
-        physx::PxRigidActor*    actor{nullptr};
+        union {
+            physx::PxRigidActor*    rigid{nullptr};
+            physx::PxRigidDynamic*  dynamic;
+        };
         physx::PxController*    controller{nullptr};
         physx::PxShape*         shape{nullptr};
         physx::PxMaterial*      material{nullptr};
@@ -73,6 +76,18 @@ namespace game::phys {
         v3f velocity{};
 
         void create_character(physics_world_t* physx_world);
+
+        void apply_impulse_to_center(v3f i) {
+            dynamic->addForce({i.x, i.y, i.z}, physx::PxForceMode::eIMPULSE);
+        }
+
+        void set_angular_velocity(v3f v) {
+            dynamic->setAngularVelocity({v.x,v.y,v.z}, true);
+        }
+
+        void set_velocity(v3f v) {
+            dynamic->setLinearVelocity({v.x,v.y,v.z}, true);
+        }
 
         void load_trimesh(std::byte* data, size_t size, const math::transform_t& transform) {
             assert(state);
@@ -86,14 +101,15 @@ namespace game::phys {
 
             physx::PxTransform t(p, q);
             
-            actor = state->physics->createRigidStatic(t);
-            assert(actor);
+            rigid = state->physics->createRigidStatic(t);
+            assert(rigid);
 
             material = state->physics->createMaterial(0.5f, 0.5f, 0.1f);
             physx::PxDefaultMemoryInputData input((u8*)data, safe_truncate_u64(size));
             auto tri_mesh = state->physics->createTriangleMesh(input);
         
-            shape = physx::PxRigidActorExt::createExclusiveShape(*actor, physx::PxTriangleMeshGeometry(tri_mesh), *material);
+            shape = physx::PxRigidActorExt::createExclusiveShape(*rigid, physx::PxTriangleMeshGeometry(tri_mesh), *material);
+            type = physics_shape_type::TRIMESH;
         }
 
         void load_convex(std::byte* data, size_t size, const math::transform_t& transform) {
@@ -108,14 +124,15 @@ namespace game::phys {
 
             physx::PxTransform t(p, q);
             
-            actor = state->physics->createRigidStatic(t);
-            assert(actor);
+            dynamic = state->physics->createRigidDynamic(t);
+            assert(dynamic);
 
             material = state->physics->createMaterial(0.5f, 0.5f, 0.1f);
             physx::PxDefaultMemoryInputData input((u8*)data, safe_truncate_u64(size));
             auto convex_mesh = state->physics->createConvexMesh(input);
         
-            shape = physx::PxRigidActorExt::createExclusiveShape(*actor, physx::PxConvexMeshGeometry(convex_mesh), *material);
+            shape = physx::PxRigidActorExt::createExclusiveShape(*dynamic, physx::PxConvexMeshGeometry(convex_mesh), *material);
+            type = physics_shape_type::CONVEX;
         }
     };
 

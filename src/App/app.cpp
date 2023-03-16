@@ -1,25 +1,18 @@
 #include <core.hpp>
 
-#include "App/vk_state.hpp"
-#include "App/gfx_pipelines.hpp"
+#include "App/app.hpp"
 
-#include "App/Game/Util/camera.hpp"
-
+#include "ProcGen/map_gen.hpp"
+#include "ProcGen/mesh_builder.hpp"
 #include "App/Game/World/world.hpp"
+
 #include "App/Game/World/Level/level.hpp"
 #include "App/Game/World/Level/Room/room.hpp"
 #include "App/Game/Items/base_item.hpp"
 #include "App/Game/Weapons/base_weapon.hpp"
 
-#include "App/Game/Physics/physics_world.hpp"
-
-#include "App/Game/Rendering/render_system.hpp"
-
-#include "ProcGen/map_gen.hpp"
-#include "ProcGen/mesh_builder.hpp"
-
-
 global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
+global_variable game::world_t gs_saved_world;
 
 namespace tween {
 
@@ -54,101 +47,6 @@ co_modulate_opacity(coroutine_t* coro) {
     co_reset(coro);
 }
 
-
-struct app_t {
-    app_memory_t*       app_mem{nullptr};
-
-    // arenas
-    arena_t             main_arena;
-    arena_t             temp_arena;
-    arena_t             string_arena;
-    arena_t             mesh_arena;
-    arena_t             texture_arena;
-
-    utl::res::pack_file_t *     resource_file{0};
-
-    gfx::vul::state_t   gfx;
-    game::rendering::system_t* render_system{0};
-
-    // todo(zack) clean this up
-    gfx::font_t default_font;
-    gfx::vul::texture_2d_t* default_font_texture{nullptr};
-    VkDescriptorSet default_font_descriptor;
-
-    gfx::vul::texture_2d_t* brick_texture{nullptr};
-    VkDescriptorSet brick_descriptor;
-
-    struct scene_t {
-        gfx::vul::sporadic_buffer_t sporadic_buffer;
-
-        gfx::vul::uniform_buffer_t<gfx::vul::scene_buffer_t>    debug_scene_uniform_buffer;
-
-        struct lighting_t {
-            v4f directional_light{1.0f, 2.0f, 3.0f, 1.0f};
-        } lighting;
-    } scene;
-    
-    gfx::vul::pipeline_state_t* gui_pipeline{0};
-    gfx::vul::pipeline_state_t* debug_pipeline{0};
-    gfx::vul::pipeline_state_t* mesh_pipeline{0};
-    gfx::vul::pipeline_state_t* sky_pipeline{0};
-    gfx::vul::pipeline_state_t* arm_pipeline{0};
-
-    struct gui_state_t {
-        gfx::gui::ctx_t ctx;
-        gfx::vul::vertex_buffer_t<gfx::gui::vertex_t, 4'000'000> vertices;
-        gfx::vul::index_buffer_t<6'000'000> indices;
-
-        arena_t  arena;
-    } gui;
-
-    struct debugging_t {
-        bool show = false;
-        u64 mesh_sub_index{0};
-        u64 mesh_index{0};
-        gfx::vul::vertex_buffer_t<gfx::vul::debug_line_vertex_t, 100'000> debug_vertices;
-
-        void draw_aabb(const math::aabb_t<v3f>& aabb, gfx::color3 color) {
-            const v3f size = aabb.size();
-            const v3f sxxx = v3f{size.x,0,0};
-            const v3f syyy = v3f{0,size.y,0};
-            const v3f szzz = v3f{0,0,size.z};
-            
-            draw_line(aabb.min, aabb.min + sxxx, color);
-            draw_line(aabb.min, aabb.min + syyy, color);
-            draw_line(aabb.min, aabb.min + szzz, color);
-
-            draw_line(aabb.min + sxxx + syyy, aabb.min + sxxx, color);
-            draw_line(aabb.min + sxxx + syyy, aabb.min + syyy, color);
-            draw_line(aabb.max - sxxx - syyy, aabb.max - sxxx, color);
-            draw_line(aabb.max - sxxx - syyy, aabb.max - syyy, color);
-            
-            draw_line(aabb.min + sxxx, aabb.min + szzz + sxxx, color);
-            draw_line(aabb.min + syyy, aabb.min + szzz + syyy, color);
-            
-            draw_line(aabb.max, aabb.max - sxxx, color);
-            draw_line(aabb.max, aabb.max - syyy, color);
-            draw_line(aabb.max, aabb.max - szzz, color);
-        }
-
-        void draw_line(v3f a, v3f b, gfx::color3 color) {
-            auto* points = debug_vertices.pool.allocate(2);
-            points[0].pos = a;
-            points[1].pos = b;
-            points[0].col = color;
-            points[1].col = color;
-        }
-    } debug;
-
-        
-    game::world_t* game_world{0};
-    game::phys::physx_state_t* physics{0};
-
-    f32 time_scale = 1.0f;
-    f32 time_text_anim = 0.0f;
-
-    // coroutine_t* panel_coro = 0;
-};
 
 inline gfx::mesh_list_t
 load_bin_mesh_data(
@@ -239,7 +137,7 @@ get_app(app_memory_t* mem) {
 
 void
 app_init_graphics(app_memory_t* app_mem) {
-    TIMED_BLOCK;
+    TIMED_FUNCTION;
     app_t* app = get_app(app_mem);
 
     gfx::vul::state_t& vk_gfx = app->gfx;
@@ -253,7 +151,6 @@ app_init_graphics(app_memory_t* app_mem) {
 
     app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
     app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
-    app->arm_pipeline = gfx::vul::create_arm_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
     app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0],
         gfx::vul::mesh_pipeline_info_t{
             vk_gfx.sporadic_uniform_buffer.buffer,
@@ -276,10 +173,13 @@ app_init_graphics(app_memory_t* app_mem) {
 
     gfx::font_load(&app->texture_arena, &app->default_font, "./assets/fonts/Go-Mono-Bold.ttf", 18.0f);
     app->default_font_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
-    vk_gfx.load_font_sampler(
-        &app->texture_arena,
-        app->default_font_texture,
-        &app->default_font);
+    {
+        temp_arena_t ta = app->texture_arena;
+        vk_gfx.load_font_sampler(
+            &ta,
+            app->default_font_texture,
+            &app->default_font);
+    }
 
     gfx::vul::texture_2d_t* ui_textures[64];
     for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = app->default_font_texture; }
@@ -290,7 +190,10 @@ app_init_graphics(app_memory_t* app_mem) {
         ui_textures, 64);
 
     app->brick_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
-    vk_gfx.load_texture_sampler(app->brick_texture, "./assets/textures/brick_01.png", &app->texture_arena);
+    {
+        temp_arena_t ta = app->texture_arena;
+        vk_gfx.load_texture_sampler(app->brick_texture, "./assets/textures/brick_01.png", &ta);
+    }
     app->brick_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
         app->mesh_pipeline->descriptor_set_layouts[4],
@@ -327,7 +230,6 @@ app_init_graphics(app_memory_t* app_mem) {
 export_fn(void) 
 app_on_init(app_memory_t* app_mem) {
     // utl::profile_t p{"app init"};
-    TIMED_BLOCK;
     app_t* app = get_app(app_mem);
     new (app) app_t;
 
@@ -335,17 +237,34 @@ app_on_init(app_memory_t* app_mem) {
     app->main_arena.start = (std::byte*)app_mem->perm_memory + sizeof(app_t);
     app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
 
-#ifdef GEN_INTERNAL
-    gs_debug_memory = &app_mem->debug_memory;
-#endif
 
     arena_t* main_arena = &app->main_arena;
+    arena_t* string_arena = &app->string_arena;
 
     app->temp_arena = arena_sub_arena(&app->main_arena, megabytes(4));
     app->string_arena = arena_sub_arena(&app->main_arena, megabytes(16));
-    app->mesh_arena = arena_sub_arena(&app->main_arena, megabytes(512));
-    app->texture_arena = arena_sub_arena(&app->main_arena, megabytes(512));
+    app->mesh_arena = arena_sub_arena(&app->main_arena, megabytes(32));
+    app->texture_arena = arena_sub_arena(&app->main_arena, megabytes(32));
+    app->game_arena = arena_sub_arena(&app->main_arena, megabytes(512));
     app->gui.arena = arena_sub_arena(main_arena, megabytes(8));
+
+    using namespace std::string_view_literals;
+#ifdef GEN_INTERNAL
+    app->debug.console = arena_alloc<debug_console_t>(main_arena);
+
+    console_log(app->debug.console, "Hello world", string_arena);
+    console_log(app->debug.console, "Hello world", string_arena);
+    console_log(app->debug.console, "Hello world", string_arena);
+    console_log(app->debug.console, "Hello world", string_arena);
+    console_log_ex(app->debug.console, "does this work?", string_arena, [](void* app_){
+        static int i;
+        app_t* app = (app_t*)app_;
+        console_log(app->debug.console, string_t{}.own(&app->string_arena, fmt_sv("You tell me {}", i++)), &app->string_arena);
+    }, app);
+
+    // gs_debug_table = arena_alloc<debug_table_t>(main_arena);
+#endif
+    TIMED_FUNCTION;
 
 
     // app->panel_coro = arena_alloc_ctor<coroutine_t>(main_arena, 1, app_mem->input.time);
@@ -353,16 +272,21 @@ app_on_init(app_memory_t* app_mem) {
     gen_info("init", "init physx");
     app->physics = arena_alloc_ctor<game::phys::physx_state_t>(
         main_arena, 1,
-        *main_arena, megabytes(256)
+        *main_arena, megabytes(512)
     );
     
     game::phys::init_physx_state(*app->physics);
 
     app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./assets/res.pack");
     
-    app->game_world = game::world_init(main_arena, *app->physics);
+    app->game_world = game::world_init(&app->game_arena, app, *app->physics);
     
     // setup graphics
+
+    {
+        auto entity_info = GEN_TYPE_INFO(game::entity::entity_t);
+        gen_info("app", "{}: {} - {} bytes", entity_info.name, entity_info.type_id, entity_info.size);
+    }
 
     app_init_graphics(app_mem);
 
@@ -489,36 +413,38 @@ app_on_init(app_memory_t* app_mem) {
         game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
     }
 
-    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::characters::soldier, app->resource_file);
+    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::characters::soldier);
 
-    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::map_01, app->resource_file);
+    game::spawn(app->game_world, app->render_system->mesh_hash, 
+
+        *game::entity::db::query("shotgun", game::entity::db::gs_database)
+    // game::entity::db::weapons::shotgun,
+    , v3f{10,3,10});
+
+
+    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::map_01);
     // auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
     loop_iota_u64(i, 100) {
-        game::entity::entity_t* e1 =
-            game::world_create_entity(app->game_world);
-        
-        e1->transform.origin = rng.randnv<v3f>() * 100.0f;
-        e1->transform.set_scale(v3f{2.f});
-        // e1->transform.set_scale(v3f{rng.randf()*10.0f});
-        e1->transform.set_rotation(rng.randnv<v3f>());
-        e1->name.view("Teapot");
-
-        game::entity::physics_entity_init_convex(
-            e1, 
-            game::rendering::get_mesh_id(app->render_system, "assets/models/utah-teapot.obj"),
-            utl::res::pack_file_get_file_by_name(app->resource_file, "assets/models/utah-teapot.obj.convex.physx"),
-            safe_truncate_u64(utl::res::pack_file_get_file_size(app->resource_file, "assets/models/utah-teapot.obj.convex.physx")),
-            app->physics
+        auto* e = game::spawn(
+            app->game_world, 
+            app->render_system->mesh_hash, 
+            game::entity::db::misc::teapot,
+            rng.randnv<v3f>() * 100.0f
         );
-        // e1->gfx.material_id = rng.rand() & BIT(23) ? gold_mat : red_plastic_mat;
-        e1->gfx.material_id = rng.rand() % 6;
+        e->transform.set_scale(v3f{2.f});
+        e->transform.set_rotation(rng.randnv<v3f>());
+        e->gfx.material_id = rng.rand() % 6;
     }
 
     arena_clear(&app->temp_arena);
-    app->game_world->player.transform.origin.y = 5.0f;
-    app->game_world->player.transform.origin.z = -5.0f;
+    app->game_world->player->transform.origin.y = 5.0f;
+    app->game_world->player->transform.origin.z = -5.0f;
+
+
+    std::memcpy(&gs_saved_world, app->game_world, sizeof(game::world_t));
+    gen_info("app", "world size: {}kb", GEN_TYPE_INFO(game::world_t).size/kilobytes(1));
 }
 
 export_fn(void) 
@@ -551,8 +477,8 @@ app_on_reload(app_memory_t* app_mem) {
 
 void 
 camera_input(app_t* app, app_input_t* input) {
-    app->game_world->player.camera_controller.transform.origin = 
-        app->game_world->player.transform.origin;
+    app->game_world->player->camera_controller.transform = 
+        app->game_world->player->transform;
     
     const v3f move = v3f{
         input->gamepads[0].left_stick.x,
@@ -565,8 +491,8 @@ camera_input(app_t* app, app_input_t* input) {
         input->gamepads[0].right_stick.y,
     } * 2.0f;
 
-    auto& yaw = app->game_world->player.camera_controller.yaw;
-    auto& pitch = app->game_world->player.camera_controller.pitch;
+    auto& yaw = app->game_world->player->camera_controller.yaw;
+    auto& pitch = app->game_world->player->camera_controller.pitch;
 
     const v3f forward   = game::cam::get_direction(yaw, pitch);
     const v3f up        = v3f{0.0f, 1.0f, 0.0f};
@@ -577,9 +503,9 @@ camera_input(app_t* app, app_input_t* input) {
     pitch -= head_move.y * input->dt;
     // }
 
-    app->game_world->player.camera_controller.translate((forward * move.z + right * move.x + up * move.y) * 10.0f * input->dt);
-    app->game_world->player.transform.origin = 
-        app->game_world->player.camera_controller.transform.origin;
+    app->game_world->player->camera_controller.translate((forward * move.z + right * move.x + up * move.y) * 10.0f * input->dt);
+    app->game_world->player->transform = 
+        app->game_world->player->camera_controller.camera->affine_invert();
 }
 
 void fake_controller_input(app_input_t* input, v2f screen_size) {
@@ -619,6 +545,17 @@ app_on_input(app_t* app, app_input_t* input) {
         camera_input(app, input);
     }
 
+    if (input->pressed.keys['P']) {
+        std::memcpy(app->game_world, &gs_saved_world, sizeof(game::world_t));
+        range_u64(i, 0, app->game_world->entity_count) {
+            auto* e = app->game_world->entities + i;
+            if (e->physics.flags == game::entity::PhysicsEntityFlags_Dynamic) {
+                e->physics.rigid_body.set_velocity(v3f{0.0f});
+                e->physics.rigid_body.set_angular_velocity(v3f{0.0f});
+            }
+        }
+    }
+
     if (input->gamepads[0].buttons[button_id::dpad_left].is_released) {
         app->time_scale *= 0.5f;
         app->time_text_anim = 1.0f;
@@ -630,7 +567,7 @@ app_on_input(app_t* app, app_input_t* input) {
 }
 
 void game_on_gameplay(app_t* app, app_input_t* input) {
-    TIMED_BLOCK;
+    TIMED_FUNCTION;
 
     std::lock_guard lock{app->render_system->ticket};
 
@@ -641,14 +578,50 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
     if (app->render_system == nullptr) return;
 
+    auto* world = app->game_world;
+
+    local_persist f32 accum = 0.0f;
+    const u32 sub_steps = 1;
+    const f32 step = 1.0f/(30.0f*sub_steps);
+
+    accum += f32(input->dt > 0.0f) * input->dt;
+
+        
+    for (size_t i{0}; i < app->game_world->entity_count; i++) {
+        auto* e = app->game_world->entities + i;
+        game::entity::entity_set_physics_transform(e);
+    }
+
+    while (accum >= step) {
+        // range_u32(_i, 0, sub_steps) {
+            TIMED_BLOCK(PhysicsStep);
+            accum -= step;
+            world->physics_world->scene->simulate(step);
+            world->physics_world->scene->fetchResults(true);
+        // }
+    }
+
     game::rendering::begin_frame(app->render_system);
         
-    for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
-        const bool is_renderable = (e->flags & game::entity::EntityFlags_Renderable) == 0;
+    for (size_t i{0}; i < app->game_world->entity_count; i++) {
+        auto* e = app->game_world->entities + i;
+    // for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
+        const bool is_not_renderable = (e->flags & game::entity::EntityFlags_Renderable) == 0;
+        const bool is_pickupable = (e->flags & game::entity::EntityFlags_Pickupable);
 
-        e->transform.rotate(axis::up, input->dt);
+        game::entity::entity_update_physics(e);
+        
+        if (is_pickupable) {
+            e->transform.rotate(axis::up, input->dt);
+            if (math::intersect(math::sphere_t{e->global_transform().origin, 2.0f}, app->game_world->player->global_transform().origin)) {
+                // app->game_world->player->primary_weapon = {e};
+                e->parent = app->game_world->player;
+                e->transform.origin = v3f{0.5, 0.0f, -0.5f};
+                e->flags &= ~game::entity::EntityFlags_Pickupable;
+            }
+        }
 
-        if (is_renderable) {
+        if (is_not_renderable) {
             gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
             return;
         }
@@ -671,7 +644,7 @@ game_on_update(app_memory_t* app_mem) {
 
 void 
 draw_gui(app_memory_t* app_mem) {
-    // TIMED_BLOCK;
+    TIMED_FUNCTION;
     app_t* app = get_app(app_mem);
 
     auto string_mark = arena_get_mark(&app->string_arena);
@@ -682,8 +655,10 @@ draw_gui(app_memory_t* app_mem) {
         &app->string_arena,
         &app->mesh_arena,
         &app->texture_arena,
+        &app->game_arena,
         &app->game_world->arena,
         &app->physics->default_allocator.arena,
+        &app->physics->default_allocator.heap_arena,
         &app->render_system->arena,
         &app->render_system->frame_arena,
         &app->render_system->vertices.pool,
@@ -698,8 +673,10 @@ draw_gui(app_memory_t* app_mem) {
         "- String Arena",
         "- Mesh Arena",
         "- Texture Arena",
-        "- Entity Arena",
+        "- Game Arena",
+        "- World Arena",
         "- Physics Arena",
+        "- Physics Heap",
         "- Rendering Arena",
         "- Rendering Frame Arena",
         "- 3D Vertex",
@@ -741,6 +718,8 @@ draw_gui(app_memory_t* app_mem) {
         using namespace std::string_view_literals;
         using namespace gfx::gui;
 
+        draw_console(state, app->debug.console, v2f{0.0, 800.0f});
+
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
             local_persist bool show_stats = !false;
@@ -760,14 +739,42 @@ draw_gui(app_memory_t* app_mem) {
                     const auto [x,y] = app_mem->input.mouse.pos;
                     im::text(state, fmt_sv("- Mouse: [{:.2f}, {:.2f}]", x, y));
                 }
+
+                local_persist bool show_record[128];
                 if (im::text(state, "- Perf"sv, &show_perf)) {
                     range_u64(i, 0, gs_main_debug_record_size) {
-                        auto* record = gs_main_debug_records + i;
-                        im::text(state,
-                            fmt_sv("--- {}: {:.2f}ms", 
-                                record->func_name ? record->func_name : "<Unknown>", 
-                                record->cycle_count/1e+6)
-                        );
+                        auto* record = gs_debug_table.records + i;
+                        const auto cycle = record->history[record->hist_id?record->hist_id-1:array_count(record->history)-1];
+
+                        im::same_line(state);
+                        if (im::text(state,
+                            fmt_sv("--- {}:", 
+                                record->func_name ? record->func_name : "<Unknown>"), 
+                            show_record + i
+                        )) {
+                            im::text(state,
+                                fmt_sv(" {:.2f}ms", cycle/1e+6)
+                            );
+
+                            f32 hist[4096/32];
+                            math::statistic_t debug_stat;
+                            math::begin_statistic(debug_stat);
+                            range_u64(j, 0, array_count(hist)) {
+                                const auto ms = f64(record->history[j*32])/f64(1e+6);
+                                math::update_statistic(debug_stat, ms);
+                                hist[j] = (f32)ms;
+                            }
+                            math::end_statistic(debug_stat);
+
+                            im::same_line(state);
+                            im::text(state, "--- "sv);
+
+                            im::histogram(state, hist, array_count(hist), (f32)debug_stat.range.max, v2f{4.0f*128.0f, 32.0f});
+                        } else {
+                            im::text(state,
+                                fmt_sv(" {:.2f}ms", cycle/1e+6)
+                            );
+                        }
                     }
                 }
                 
@@ -870,6 +877,9 @@ draw_gui(app_memory_t* app_mem) {
             }
 
             if (im::text(state, "Debug"sv, &app->debug.show)) {
+                if(im::text(state, "- Assert"sv)) {
+                    assert(0);
+                }
                 if(im::text(state, "- Breakpoint"sv)) {
                     volatile u32 _tx=0;
                     _tx += 1;
@@ -925,7 +935,7 @@ draw_gui(app_memory_t* app_mem) {
                 }
             }
 
-            local_persist bool show_arenas = false;
+            local_persist bool show_arenas = !false;
             if (im::text(state, "Memory"sv, &show_arenas)) {
                 for (size_t i = 0; i < array_count(display_arenas); i++) {
                     im::text(state, arena_display_info(display_arenas[i], display_arena_names[i]));
@@ -933,12 +943,13 @@ draw_gui(app_memory_t* app_mem) {
             }
 
             if (im::text(state, "Entities"sv, &show_entities)) {
-                const u64 entity_count = 1 + app->game_world->entities.count;
+                const u64 entity_count = app->game_world->entity_count;
 
                 im::text(state, fmt_sv("- Count: {}", entity_count));
 
                 if (im::text(state, "- Kill All"sv)) {
-                    app->game_world->entities.clear();
+                    // app->game_world->entities.clear();
+                    app->game_world->entity_count = 1;
                 }
             }
             
@@ -950,7 +961,9 @@ draw_gui(app_memory_t* app_mem) {
             app->render_system->vp;
 
     
-        for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
+        // for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
+        for (size_t i = 0; i < app->game_world->entity_count; i++) {
+            auto* e = app->game_world->entities + i;
             if (!show_entities && ((e->flags & BIT(23)) == 0)) continue;
             const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
 
@@ -978,6 +991,41 @@ draw_gui(app_memory_t* app_mem) {
                     )
                 );
 
+                switch(e->physics.flags) {
+                    case game::entity::PhysicsEntityFlags_None:
+                        im::text(state, "Physics Type: None");
+                        break;
+                    case game::entity::PhysicsEntityFlags_Static:
+                        im::text(state, "Physics Type: Static");
+                        break;
+                    case game::entity::PhysicsEntityFlags_Dynamic:
+                        im::text(state, "Physics Type: Dynamic");
+                        break;
+                }
+                switch(e->physics.rigid_body.type) {
+                    case game::phys::physics_shape_type::TRIMESH:
+                        im::text(state, "Physics Shape: Trimesh");
+                        break;
+                    case game::phys::physics_shape_type::CONVEX:
+                        im::text(state, "Physics Shape: Convex");
+                        break;
+                }
+
+                switch(e->type) {
+                    case game::entity::entity_type::weapon: {
+                        auto stats = e->stats.weapon();
+                        im::text(state, "Type: Weapon");
+                        im::text(state, "- Stats");
+                        im::text(state, fmt_sv("--- Damage: {}", stats.stats.damage));
+                        im::text(state, fmt_sv("--- Pen: {}", stats.stats.pen));
+                        im::text(state, fmt_sv("- Fire Rate: {}", stats.fire_rate));
+                        im::text(state, fmt_sv("- Load Speed: {}", stats.load_speed));
+                        im::text(state, "- Clip");
+                        im::text(state, fmt_sv("--- {}/{}", stats.clip.current, stats.clip.max));
+                    }   break;
+                }
+
+                // @Bug
                 if (im::text(state, fmt_sv("kill\0: {}"sv, (void*)e))) {
                     auto* te = e->next;
                     gen_info("gui", "Killing entity: {}", (void*)e);
@@ -1000,7 +1048,7 @@ void
 game_on_render(app_memory_t* app_mem) {
     draw_gui(app_mem);
 
-    TIMED_BLOCK;
+    TIMED_FUNCTION;
     
     app_t* app = get_app(app_mem);
 
@@ -1033,10 +1081,10 @@ game_on_render(app_memory_t* app_mem) {
         
     v3f cam_dir = 
         game::cam::get_direction(
-            app->game_world->player.camera_controller.yaw, 
-            app->game_world->player.camera_controller.pitch
+            app->game_world->player->camera_controller.yaw, 
+            app->game_world->player->camera_controller.pitch
         );
-    v3f cam_pos = app->game_world->player.camera_controller.transform.origin + cam_dir * 3.0f;
+    v3f cam_pos = app->game_world->player->camera_controller.transform.origin + cam_dir * 3.0f;
     
     constexpr f32 axis_line_size = 0.1f;
     app->debug.draw_line(cam_pos, cam_pos + v3f{axis_line_size, 0.0f, 0.0f}, v3f{1.0f, 0.0f, 0.0f});
@@ -1109,8 +1157,8 @@ game_on_render(app_memory_t* app_mem) {
 
         sky_constants.vp = proj * glm::lookAt(v3f{0.0f}, 
             game::cam::get_direction(
-                app->game_world->player.camera_controller.yaw,
-                app->game_world->player.camera_controller.pitch
+                app->game_world->player->camera_controller.yaw,
+                app->game_world->player->camera_controller.pitch
             ), 
             v3f{0.0f, 1.0f, 0.0f}
         );

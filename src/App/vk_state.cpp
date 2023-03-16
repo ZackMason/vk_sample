@@ -368,7 +368,7 @@ VkImageView create_image_view(VkDevice device, VkImage image, VkFormat format, V
 }
 
 void state_t::init(app_config_t* info, arena_t* temp_arena) {
-    TIMED_BLOCK;
+    TIMED_FUNCTION;
     create_instance(info);
     create_debug_messenger();
     create_surface(info);

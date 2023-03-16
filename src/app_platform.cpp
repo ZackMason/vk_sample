@@ -288,6 +288,7 @@ update_dlls(app_dll_t* app_dlls) {
 
 int 
 main(int argc, char* argv[]) {
+    _set_error_mode(_OUT_TO_MSGBOX);
     create_meta_data_dir();
 
     gen_info("win32", "Loading Platform Layer");
@@ -406,8 +407,8 @@ main(int argc, char* argv[]) {
         glfwPollEvents();
         update_input(&app_mem, window);
 
-        if (app_mem.input.keys[256] || 
-            app_mem.input.gamepads[0].buttons[button_id::options].is_held) { // esc
+        if (app_mem.input.keys[key_id::ESCAPE] || 
+            app_mem.input.gamepads[0].buttons[button_id::options].is_held) {
             app_mem.running = false;
         }
 

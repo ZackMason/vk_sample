@@ -88,6 +88,28 @@ struct sporadic_buffer_t {
     int padd;
 };
 
+struct framebuffer_attachment_t {
+    VkImage image;
+    VkDeviceMemory mem;
+    VkImageView view;
+    VkFormat format;
+
+    void destroy(VkDevice device) {
+        vkDestroyImageView(device, view, nullptr);
+        vkDestroyImage(device, image, nullptr);
+        vkFreeMemory(device, mem, nullptr);
+    }
+};
+
+struct framebuffer_t {
+    int32_t width, height;
+    VkFramebuffer framebuffer;
+    framebuffer_attachment_t color;
+    framebuffer_attachment_t depth;
+    VkRenderPass render_pass;
+    VkSampler sampler;
+};
+
 struct debug_line_vertex_t {
     v3f pos{};
     v3f col{};

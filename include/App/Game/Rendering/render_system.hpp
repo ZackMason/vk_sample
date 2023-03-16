@@ -118,7 +118,6 @@ namespace game::rendering {
         gfx::vul::index_buffer_t<max_scene_index_count> indices;
 
         gfx::vul::storage_buffer_t<render_data_t, 10'000>   job_storage_buffer;
-        gfx::vul::storage_buffer_t<point_light_t, 1000>   point_light_storage_buffer;
         gfx::vul::storage_buffer_t<gfx::material_t, 100>    material_storage_buffer;
         gfx::vul::storage_buffer_t<environment_t, 1>    environment_storage_buffer;
 
@@ -168,7 +167,6 @@ namespace game::rendering {
         );
 
         state.create_storage_buffer(&rs->job_storage_buffer);
-        state.create_storage_buffer(&rs->point_light_storage_buffer);
         state.create_storage_buffer(&rs->material_storage_buffer);
         state.create_storage_buffer(&rs->environment_storage_buffer);
 
@@ -213,8 +211,7 @@ namespace game::rendering {
         u32 mat_id, // todo(zack): remove this
         m44 transform
     ) {
-        // std::lock_guard lock{rs->ticket};
-
+        TIMED_FUNCTION;
         auto* job = arena_alloc_ctor<render_job_t>(&rs->frame_arena);
         job->meshes = &rs->mesh_cache.get(mesh_id);
         job->material = mat_id;

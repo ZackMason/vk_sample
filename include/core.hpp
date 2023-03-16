@@ -2,6 +2,17 @@
 
 // note(zack): this file is the sole interface between the app and the platform layer
 
+#define FMT_HEADER_ONLY
+#include <fmt/core.h>
+#include <fmt/color.h>
+
+#define fmt_str(...) (fmt::format(__VA_ARGS__))
+#define fmt_sv(...) (std::string_view{fmt::format(__VA_ARGS__)})
+#define println(...) do { fmt::print(__VA_ARGS__); } while(0)
+#define gen_info(cat, str, ...) do { fmt::print(fg(fmt::color::white) | fmt::emphasis::bold, fmt_str("[info][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
+#define gen_warn(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::yellow) | fmt::emphasis::bold, fmt_str("[warn][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
+#define gen_error(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::red) | fmt::emphasis::bold, fmt_str("[error][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
+#define gen_profile(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::blue) | fmt::emphasis::bold, fmt_str("[profile][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
 
 #if defined(GAME_USE_SIMD)
 
@@ -28,6 +39,9 @@
     #undef max
     #undef near
     #undef far
+    
+
+
 #elif defined(__unix__) || defined(__unix) \
       || (defined(__APPLE__) && defined(__MACH__))
     #include <unistd.h>
@@ -35,7 +49,6 @@
 #else
     #define RAND_GETPID 0
 #endif
-
 
 #include <cstdint>
 #include <cassert>
@@ -47,11 +60,6 @@
 
 #include <string>
 #include <string_view>
-
-
-#define FMT_HEADER_ONLY
-#include <fmt/core.h>
-#include <fmt/color.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 // Type Defs
@@ -103,14 +111,6 @@ namespace axis {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-
-#define fmt_str(...) (fmt::format(__VA_ARGS__))
-#define fmt_sv(...) (std::string_view{fmt::format(__VA_ARGS__)})
-#define println(...) do { fmt::print(__VA_ARGS__); } while(0)
-#define gen_info(cat, str, ...) do { fmt::print(fg(fmt::color::white) | fmt::emphasis::bold, fmt_str("[info][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
-#define gen_warn(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::yellow) | fmt::emphasis::bold, fmt_str("[warn][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
-#define gen_error(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::red) | fmt::emphasis::bold, fmt_str("[error][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
-#define gen_profile(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::blue) | fmt::emphasis::bold, fmt_str("[profile][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
 
 #define global_variable static
 #define local_persist static
@@ -423,25 +423,6 @@ namespace utl {
 
 
 #ifdef GEN_INTERNAL
-struct debug_cycle_counter_t {
-  const char *name;
-  u64 cycle_count;
-  u32 call_count;
-};
-
-struct debug_memory_t {
-    debug_cycle_counter_t counters[32];
-};
-
-extern debug_memory_t* gs_debug_memory;
-
-struct debug_record_t {
-    const char* file_name;
-    const char* func_name;
-    int         line_num;
-    u64         cycle_count{0};
-    u64         hit_count{0};
-};
 
 inline u64
 get_perf_counter() {
@@ -467,39 +448,92 @@ get_nano_time() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(time_stamp.time_since_epoch()).count();
 }
 
-debug_record_t gs_main_debug_records[];
+struct debug_record_t {
+    const char* file_name;
+    const char* func_name;
+    int         line_num;
+    u64         cycle_count{0};
+    u64         hit_count{0};
+
+    u16         hist_id{0};
+    u64         history[4096];
+};
+
+enum debug_event_type {
+    DebugEventType_BeginBlock,
+    DebugEventType_EndBlock,
+    DebugEventType_BeginFrame,
+};
+
+struct debug_event_t {
+    u64         clock_count{0};
+    u64         thread_id{0};
+    u16         core_index{0};
+    u16         record_index{0};
+    u32         type{0};
+};
+
+#define MAX_DEBUG_EVENT_COUNT (16*65536)
+#define MAX_DEBUG_RECORD_COUNT (256)
+
+#include <atomic>
+struct debug_table_t {
+    std::atomic<u64> event_index{0};
+    debug_event_t   events[MAX_DEBUG_EVENT_COUNT];
+
+    u64             record_count{0};
+    debug_record_t  records[MAX_DEBUG_RECORD_COUNT];
+};
+
+extern debug_table_t gs_debug_table;
+
+inline void
+record_debug_event(int record_index, debug_event_type event_type) {
+    u64 index = gs_debug_table.event_index;
+    assert(index < MAX_DEBUG_EVENT_COUNT);
+    debug_event_t* event = gs_debug_table.events + index;
+    event->clock_count = get_nano_time();
+    event->core_index = 0;
+    event->thread_id = 0;
+    // event->thread_id = std::hash<std::thread::id>()(std::this_thread::get_id());
+    event->type = event_type;
+    event->record_index = (u16)record_index;
+}
+
 extern size_t gs_main_debug_record_size;
 
-    #if _WIN32
-        #define TIMED_BLOCK timed_block_t _TimedBlock_##__LINE__(__COUNTER__, __FILE__, __LINE__, __FUNCTION__)
+#define TIMED_FUNCTION timed_block_t _TimedBlock_##__LINE__(__COUNTER__, __FILE__, __LINE__, __FUNCTION__)
+#define TIMED_BLOCK(Name) timed_block_t _TimedBlock_##__LINE__(__COUNTER__, __FILE__, __LINE__, #Name)
 
-        struct timed_block_t {
-            debug_record_t* record;
-            
-            timed_block_t(i32 _counter, const char* _file_name, i32 _line_number, const char* _function_name) {
-                record = gs_main_debug_records + _counter;
-                record->file_name = _file_name;
-                record->line_num = _line_number;
-                record->func_name = _function_name;
+struct timed_block_t {
+    debug_record_t* record;
+    i32 counter;
+    timed_block_t(i32 _counter, const char* _file_name, i32 _line_number, const char* _function_name) {
+        counter = _counter;
+        record = gs_debug_table.records + _counter;
+        record->file_name = _file_name;
+        record->line_num = _line_number;
+        record->func_name = _function_name;
 
-                record->cycle_count = get_nano_time();
-                record->hit_count++;
-            }
+        record_debug_event(_counter, DebugEventType_BeginBlock);
 
-            ~timed_block_t() {
-                record->cycle_count = get_nano_time() - record->cycle_count;
-                // record->cycle_count += __rdtsc();
-                // record->cycle_count = __rdtsc() - record->cycle_count;
-            }
-        };
-    #else
-        #error "No Linux Imp"
-    #endif
+        record->cycle_count = get_nano_time();
+        record->hit_count++;
+    }
+
+    ~timed_block_t() {
+        record->history[record->hist_id] = record->cycle_count = get_nano_time() - record->cycle_count;
+        record->hist_id = (record->hist_id + 1) % array_count(record->history);
+
+        record_debug_event(counter, DebugEventType_BeginBlock);
+    }
+};
+
 
 #else 
 
-#define BEGIN_TIMED_BLOCK(id)
-#define END_TIMED_BLOCK(id)
+#define TIMED_BLOCK
+
 
 #endif
 
@@ -521,10 +555,6 @@ struct app_memory_t {
         utl::closure_t* play_sound_closure;
         utl::closure_t* stop_sound_closure;
     } audio;
-
-#ifdef GEN_INTERNAL
-    debug_memory_t debug_memory;
-#endif
 };
 
 using app_func_t = void(__cdecl *)(app_memory_t*);
@@ -818,12 +848,13 @@ struct string_t {
         return *this;
     }
     
-    void own(arena_t* arena, std::string_view str) {
+    string_t& own(arena_t* arena, std::string_view str) {
         size = str.size();
         data = (char*)arena_alloc(arena, size+1);
         std::memcpy(data, str.data(), size);
         data[size] = 0;
         owns = true;
+        return *this;
     }
 
     [[nodiscard]] bool operator==(std::string_view str) {
@@ -861,6 +892,70 @@ static constexpr string_id_t sid(char const (&toHash)[N]) {
 constexpr string_id_t operator"" _sid(const char* str, std::size_t size) {
     return sid(std::string_view(str));
 }
+
+struct type_info_t {
+    sid_t       type_id{};
+    size_t      size{};
+    const char* name{};
+};
+
+#define GEN_TYPE_ID(type) (sid(#type))
+#define GEN_TYPE_INFO(type) (type_info_t{sid(#type), sizeof(type), #type})
+
+struct any_t {
+    enum struct type_tag {
+        UINT8,
+        UINT16,
+        UINT32,
+        UINT64,
+        INT8,
+        INT16,
+        INT32,
+        INT64,
+        FLOAT32,
+        FLOAT64,
+        STRING,
+        VOID_STAR,
+        TYPED_PTR,
+        UNKNOWN,
+    };
+
+    type_tag tag{type_tag::UNKNOWN};
+
+    #define ANY_T_RETURN_TYPE(type) if constexpr (std::is_same_v<T, type>) {return data.type; }
+
+    template <typename T>
+    const T& get() const noexcept {
+        ANY_T_RETURN_TYPE(u8 );
+        ANY_T_RETURN_TYPE(u16);
+        ANY_T_RETURN_TYPE(u32);
+        ANY_T_RETURN_TYPE(u64);
+        ANY_T_RETURN_TYPE(i8 );
+        ANY_T_RETURN_TYPE(i16);
+        ANY_T_RETURN_TYPE(i32);
+        ANY_T_RETURN_TYPE(i64);
+        ANY_T_RETURN_TYPE(f32);
+        ANY_T_RETURN_TYPE(f64);
+        assert(0 && "any_t :: Unknown type");
+    }
+
+    union {
+        u8 u8;
+        u16 u16;
+        u32 u32;
+        u64 u64;
+        i8 i8;
+        i16 i16;
+        i32 i32;
+        i64 i64;
+        f32 f32;
+        f64 f64;
+    } data;
+
+
+};
+
+
 
 namespace math {
     constexpr v3f get_spherical(f32 yaw, f32 pitch) {
@@ -911,6 +1006,14 @@ namespace math {
         v3f origin;
         f32 radius;
     };
+
+    bool intersect(sphere_t a, sphere_t b) {
+        return glm::distance2(a.origin, b.origin) < (a.radius + b.radius) * (a.radius + b.radius);
+    }
+
+    bool intersect(sphere_t a, v3f b) {
+        return glm::distance2(a.origin, b) < a.radius * a.radius;
+    }
 
     struct frustum_t {
         v3f points[8];
@@ -1176,6 +1279,37 @@ struct transform_t {
 	m33 basis = m33(1.0f);
 	v3f origin = v3f(0, 0, 0);
 };
+
+struct statistic_t {
+    f64         average{};
+    aabb_t<f64> range{};
+    u32         count{};
+};
+
+inline void
+begin_statistic(statistic_t& stat) {
+    stat.average = 0.0;
+    stat.count = 0;
+    stat.range.max = std::numeric_limits<f64>::min();
+    stat.range.min = std::numeric_limits<f64>::max();
+}
+
+inline void
+update_statistic(statistic_t& stat, f64 value) {
+    stat.range.expand(value);
+    stat.average += value;
+    stat.count += 1;
+}
+
+inline void
+end_statistic(statistic_t& stat) {
+    if (stat.count) {
+        stat.average /= (f64)stat.count;
+    } else {
+        stat.average = stat.range.min = 0.0;
+        stat.range.max = 1.0; // to avoid div by 0
+    }
+}
 
 
 }; // namespace math
@@ -1728,6 +1862,9 @@ namespace gui {
             ui_id_t active;
 
             panel_t panel;
+
+            bool next_same_line{false};
+            v2f saved_cursor;
         };
 
         inline bool
@@ -1739,6 +1876,12 @@ namespace gui {
         clear(state_t& imgui) {
             imgui.draw_cursor = v2f{0.0f};
             // imgui.active = 0;
+        }
+
+        inline void
+        same_line(state_t& imgui) {
+            imgui.next_same_line = true;
+            imgui.saved_cursor = imgui.draw_cursor;
         }
 
         inline bool
@@ -1753,6 +1896,7 @@ namespace gui {
             if (pos.x >= 0.0f && pos.y >= 0.0f) { 
                 imgui.draw_cursor = pos+1.0f;
             }
+            imgui.saved_cursor = imgui.draw_cursor;
 
             imgui.panel.min = imgui.draw_cursor;
             if (size.x > 0.0f && size.y > 0.0f) {
@@ -1951,6 +2095,7 @@ namespace gui {
             const auto font_size = font_get_size(imgui.ctx.font, text);
             imgui.panel.expand(imgui.draw_cursor + font_size + text_pad * 2.0f);
             v2f temp_cursor = imgui.draw_cursor;
+            const f32 start_x = imgui.draw_cursor.x;
             temp_cursor.x += text_pad;
 
             math::aabb_t<v2f> text_box;
@@ -1983,8 +2128,54 @@ namespace gui {
 
             string_render(&imgui.ctx, text, temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             // draw_rect(&imgui.ctx, text_box, gfx::color::rgba::purple);
-            imgui.draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
+            if (imgui.next_same_line) {
+                imgui.next_same_line = false;
+                imgui.draw_cursor.x += font_size.x;
+            } else {
+                imgui.draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
+                imgui.draw_cursor.x = imgui.saved_cursor.x;
+            }
             return result;
+        }
+
+        inline void
+        histogram(
+            state_t& imgui, 
+            f32* values,
+            size_t value_count,
+            f32 max, 
+            v2f size = v2f{64.0f, 16.0f},
+            gfx::color32 color = gfx::color::rgba::yellow
+        ) {
+            if (!value_count) {
+                return;
+            }
+            const u64 hst_id = (uintptr_t)values;
+
+            const f32 start_x = imgui.draw_cursor.x;
+            math::aabb_t<v2f> bg_box;
+            bg_box.min = imgui.draw_cursor;
+            bg_box.max = imgui.draw_cursor + size;
+
+            const v2f box_size{size.x / (f32)value_count, size.y};
+
+            range_u64(i, 0, value_count) {
+                f32 perc = f32(i)/f32(value_count);
+                math::aabb_t<v2f> box;
+                box.min = imgui.draw_cursor + v2f{box_size.x*i, 0.0f};
+                box.max = imgui.draw_cursor + v2f{box_size.x*(i+1), size.y*(1.0f-(values[i]/max))};
+                draw_rect(&imgui.ctx, box, imgui.theme.fg_color);
+            }
+            draw_rect(&imgui.ctx, bg_box, color);
+            
+            if (imgui.next_same_line) {
+                imgui.draw_cursor.x += size.x + imgui.theme.padding;
+                imgui.next_same_line = false;
+            } else {
+                imgui.draw_cursor.y += size.y + imgui.theme.padding;
+                imgui.draw_cursor.x = imgui.saved_cursor.x;
+            }
+            imgui.panel.expand(bg_box.max + v2f{imgui.theme.padding});
         }
 
         inline void
@@ -2729,7 +2920,7 @@ public:
             return pop_back();
         }
 
-        for (T* n{head_->next}; n; n->next) {
+        for (T* n{head_->next}; n; n = n->next) {
             if (n == val) {
                 if (val->next) {
                     val->next->prev = val->prev;
@@ -2762,6 +2953,7 @@ public:
             head_->prev = nullptr;
         }
         size_--;
+        old->next = old->prev = nullptr;
         return old;
     }
 
@@ -2777,6 +2969,7 @@ public:
             tail_->next = nullptr;
         }
         size_--;
+        old->next = old->prev = nullptr;
         return old;
     }
 

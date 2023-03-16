@@ -18,17 +18,17 @@ class arena_heap_t : public physx::PxAllocatorCallback {
     };
 
     std::mutex mut{};
-    arena_t heap_arena{};
     mem_block_t* heap{nullptr};
     mem_block_t* empty_block{nullptr};
 
 public:
+    arena_t heap_arena{};
     arena_t arena{};
     
     arena_heap_t(arena_t& parent_arena, size_t size) {
         arena = arena_sub_arena(&parent_arena, size);
         arena.start = (std::byte*)align16((std::uintptr_t)arena.start);
-        heap_arena = arena_sub_arena(&arena, kilobytes(32));
+        heap_arena = arena_sub_arena(&arena, kilobytes(512));
     }
 
 private:
@@ -37,18 +37,19 @@ private:
     }
 
     void* allocate(size_t size, const char* type_name, const char* file_name, int line) override final {
+        TIMED_FUNCTION;
         std::lock_guard lock{mut};
 
-        if (type_name) {
-            gen_info("px::alloc", "{}::allocate: {} bytes from {}:{}", type_name, size, file_name, line);
-        } else {
-            gen_info("px::alloc", "typeless::allocate: {} bytes from {}:{}", size, file_name, line);
-        }
+        // if (type_name) {
+        //     gen_info("px::alloc", "{}::allocate: {} bytes from {}:{}", type_name, size, file_name, line);
+        // } else {
+        //     gen_info("px::alloc", "typeless::allocate: {} bytes from {}:{}", size, file_name, line);
+        // }
 
         // todo(zack): search for freed blocks
         mem_block_t* prev{0};
         node_for(mem_block_t, heap, n) {
-            if (n->size >= size && size >= (n->size << 1)) {
+            if (n->size >= size) {
                 if (prev) {
                     prev->next = n->next;
                 } else { 
@@ -70,6 +71,7 @@ private:
     }
 
     void deallocate(void* ptr) override final {
+        TIMED_FUNCTION;
         std::lock_guard lock{mut};
         
         mem_block_t* block{};
@@ -83,7 +85,7 @@ private:
         block->next = heap;
         heap = block;
 
-        gen_info("px::free", "deallocate: {} bytes", block->size);
+        // gen_info("px::free", "deallocate: {} bytes", block->size);
     }
 };
 
