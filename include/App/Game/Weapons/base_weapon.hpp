@@ -8,6 +8,42 @@ namespace game::item {
 
 namespace game::wep {
 
+    enum struct weapon_part_type {
+        HANDLE, BODY, SIGHT,
+        TRIGGER, CHAMBER, MAGAZINE,
+        SIZE
+    };
+
+    constexpr const char* to_string(weapon_part_type type) noexcept {
+        switch(type){ 
+            case weapon_part_type::BODY: return "weapon_part_type::BODY";
+            case weapon_part_type::HANDLE: return "weapon_part_type::HANDLE";
+            case weapon_part_type::SIGHT: return "weapon_part_type::SIGHT";
+            case weapon_part_type::TRIGGER: return "weapon_part_type::TRIGGER";
+            case weapon_part_type::CHAMBER: return "weapon_part_type::CHAMBER";
+            case weapon_part_type::MAGAZINE: return "weapon_part_type::MAGAZINE";
+        }
+        return "<Unknown>";
+    }
+
+    struct weapon_part_t;
+
+    #define MAX_WEAPON_SLOTS 5
+    struct weapon_slot_t {
+        weapon_part_t*      part;
+        weapon_part_type    type;
+    };
+
+    struct weapon_part_t {
+        string_t            name;
+        string_t            desc;
+        weapon_part_type    type;
+        item::effect_t*     effects{};
+
+        weapon_slot_t   slots[MAX_WEAPON_SLOTS];
+        size_t          num_slots;
+    };
+
     enum struct weapon_type {
         PISTOL, RIFLE,
         SHOTGUN, ROCKET,

@@ -7,6 +7,8 @@ Roguelike FPS
 
 Travel to 4 worlds, defeat generals, fight leader in the center
 
+Tarkov style loot and weapon customization but with interesting rpg elements
+
 # enemy types
 robots
 

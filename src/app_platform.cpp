@@ -242,6 +242,14 @@ load_dlls(app_dll_t* app_dlls) {
         reinterpret_cast<app_func_t>(
             GetProcAddress((HMODULE)app_dlls->dll, "app_on_deinit")
         );
+    app_dlls->on_unload = 
+        reinterpret_cast<app_func_t>(
+            GetProcAddress((HMODULE)app_dlls->dll, "app_on_unload")
+        );
+    app_dlls->on_reload = 
+        reinterpret_cast<app_func_t>(
+            GetProcAddress((HMODULE)app_dlls->dll, "app_on_reload")
+        );
 
     assert(app_dlls->dll);
 }
@@ -251,11 +259,11 @@ reload_dlls(app_dll_t* app_dlls) {
 
     // std::filesystem::copy(".\\build\\app_build.dll", ".\\build\\app_build_temp.dll");
 
-    app_dlls->dll = 
-
 #if _WIN32
-        LoadLibraryA(".\\build\\app_build.dll");
+    app_dlls->dll = LoadLibraryA(".\\build\\app_build.dll");
 #else
+
+#error "platform not imlemented"
 
 #endif
     
@@ -265,10 +273,12 @@ reload_dlls(app_dll_t* app_dlls) {
 }
 
 void
-update_dlls(app_dll_t* app_dlls) {
+update_dlls(app_dll_t* app_dlls, app_memory_t* app_mem) {
     bool need_reload = std::filesystem::exists("./build/lock.tmp");
     if (need_reload) {
         utl::profile_t p{"dll reload time"};
+
+        app_dlls->on_unload(app_mem);
 
         while (std::filesystem::exists("./build/lock.tmp")) {
             gen_warn("win32", "Game DLL Reload Detected");
@@ -283,6 +293,7 @@ update_dlls(app_dll_t* app_dlls) {
         }
         reload_dlls(app_dlls);
         gen_warn("win32", "Game DLL has reloaded");
+        app_dlls->on_reload(app_mem);
     }
 }
 
@@ -293,10 +304,7 @@ main(int argc, char* argv[]) {
 
     gen_info("win32", "Loading Platform Layer");
     app_memory_t app_mem{};
-    // app_mem.malloc = malloc;
-    // app_mem.free = free;
-    // app_mem.realloc = realloc;
-    app_mem.perm_memory_size = gigabytes(4);// + megabytes(32); // megabytes(256*2);
+    app_mem.perm_memory_size = gigabytes(4);
     app_mem.perm_memory = 
 
 #if _WIN32
@@ -397,7 +405,7 @@ main(int argc, char* argv[]) {
             p = new utl::profile_t{"win32::loop"};
         }
 
-        update_dlls(&app_dlls);
+        update_dlls(&app_dlls, &app_mem);
         
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);

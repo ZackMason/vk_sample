@@ -6,8 +6,6 @@
 
 #include "App/Game/Util/camera.hpp"
 
-
-
 #include "App/Game/Physics/physics_world.hpp"
 
 #include "App/Game/Rendering/render_system.hpp"

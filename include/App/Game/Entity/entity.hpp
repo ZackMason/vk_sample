@@ -38,6 +38,7 @@ enum struct entity_type {
     enemy,
 
     weapon,
+    weapon_part,
     item,
 
     trigger,
@@ -173,32 +174,17 @@ physics_entity_init_character(
     entity->physics.rigid_body.create_character(physx_world);
 }
 
+
 inline void
-physics_entity_init_convex(
+physics_entity_init(
     entity_t* entity, 
     u64 mesh_id = 0, 
     std::byte* physx_data = 0, 
     u32 physx_size = 0,
     phys::physx_state_t* physx_world = 0
 ) {
-    entity_init(entity, mesh_id);
-
     entity->physics.rigid_body.state = physx_world;
-    entity->physics.rigid_body.load_convex(physx_data, physx_size, entity->global_transform());
-}
-
-inline void
-physics_entity_init_trimesh(
-    entity_t* entity, 
-    u64 mesh_id = 0, 
-    std::byte* physx_data = 0, 
-    u32 physx_size = 0,
-    phys::physx_state_t* physx_world = 0
-) {
-    entity_init(entity, mesh_id);
-
-    entity->physics.rigid_body.state = physx_world;
-    entity->physics.rigid_body.load_trimesh(physx_data, physx_size, entity->global_transform());
+    entity->physics.rigid_body.load(physx_data, physx_size, entity->global_transform());
 }
 
 inline void 
@@ -213,6 +199,7 @@ player_init(entity_t* player, cam::camera_t* camera, u64 mesh_id, phys::physics_
 
 inline void
 entity_set_physics_transform(entity_t* entity) {
+    TIMED_FUNCTION;
     physx::PxTransform t;
     const auto& v = entity->global_transform().origin;
     const auto& q = entity->global_transform().get_orientation();
@@ -282,7 +269,7 @@ struct entity_def_t {
     std::optional<particle_emitter_t> emitter{};
 
     struct child_t {
-        const entity_def_t* entity{0};
+        const entity_def_t& entity{0};
         v3f                 offset{0.0f};
     };
     child_t children[10]{};
@@ -370,7 +357,7 @@ shotgun {
     .type = entity_type::weapon,
     .type_name = "shotgun",
     .gfx = {
-        .mesh_name = "assets/models/shotgun.fbx",
+        .mesh_name = "assets/models/rifle.obj",
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_shotgun(),
@@ -429,13 +416,13 @@ soldier {
             },
         },
     },
-    .children = {
+    .    = {
         {
-            .entity = &weapons::rifle,
+            .entity = weapons::rifle,
             .offset = v3f{0.0f},
         },
         {
-            .entity = &weapons::shotgun,
+            .entity = weapons::shotgun,
             .offset = v3f{0.0f},
         },
     },
@@ -468,11 +455,11 @@ assassin {
     },
     .children = {
         {
-            .entity = &weapons::rifle,
+            .entity = weapons::rifle,
             .offset = v3f{0.0f},
         },
         {
-            .entity = &weapons::pistol,
+            .entity = weapons::pistol,
             .offset = v3f{0.0f},
         },
     },

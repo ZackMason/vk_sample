@@ -192,7 +192,7 @@ app_init_graphics(app_memory_t* app_mem) {
     app->brick_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
     {
         temp_arena_t ta = app->texture_arena;
-        vk_gfx.load_texture_sampler(app->brick_texture, "./assets/textures/brick_01.png", &ta);
+        vk_gfx.load_texture_sampler(app->brick_texture, "./assets/textures/rock_01_a.png", &ta);
     }
     app->brick_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
@@ -459,16 +459,18 @@ app_on_deinit(app_memory_t* app_mem) {
 
 export_fn(void) 
 app_on_unload(app_memory_t* app_mem) {
-    // app_t* app = get_app(app_mem);
+    app_t* app = get_app(app_mem);
+
+    // app->physics->physics->getTaskManager()->suspendProcessing();
 
     // app->gfx.cleanup();
 }
 
 export_fn(void)
 app_on_reload(app_memory_t* app_mem) {
-    // s_app_mem = app_mem;
-    // app_t* app = get_app(app_mem);
+    app_t* app = get_app(app_mem);
 
+    // app->physics->physics->getTaskManager()->resumeProcessing();
     
 
     // app->gfx.init(&app_mem->config);
@@ -582,23 +584,22 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
     local_persist f32 accum = 0.0f;
     const u32 sub_steps = 1;
-    const f32 step = 1.0f/(30.0f*sub_steps);
+    const f32 step = 1.0f/(2.0f*sub_steps);
 
     accum += f32(input->dt > 0.0f) * input->dt;
 
-        
-    for (size_t i{0}; i < app->game_world->entity_count; i++) {
-        auto* e = app->game_world->entities + i;
-        game::entity::entity_set_physics_transform(e);
-    }
+    // for (size_t i{0}; i < app->game_world->entity_count; i++) {
+    //     auto* e = app->game_world->entities + i;
+    //     game::entity::entity_set_physics_transform(e);
+    // }
 
-    while (accum >= step) {
-        // range_u32(_i, 0, sub_steps) {
+    while (accum >= step*sub_steps) {
+        range_u32(_i, 0, sub_steps) {
             TIMED_BLOCK(PhysicsStep);
             accum -= step;
             world->physics_world->scene->simulate(step);
             world->physics_world->scene->fetchResults(true);
-        // }
+        }
     }
 
     game::rendering::begin_frame(app->render_system);
@@ -606,10 +607,13 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
     for (size_t i{0}; i < app->game_world->entity_count; i++) {
         auto* e = app->game_world->entities + i;
     // for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
-        const bool is_not_renderable = (e->flags & game::entity::EntityFlags_Renderable) == 0;
+        const bool is_physics_object = e->physics.flags != game::entity::PhysicsEntityFlags_None;
         const bool is_pickupable = (e->flags & game::entity::EntityFlags_Pickupable);
+        const bool is_not_renderable = (e->flags & game::entity::EntityFlags_Renderable) == 0;
 
-        game::entity::entity_update_physics(e);
+        if (is_physics_object) {
+            game::entity::entity_update_physics(e);
+        }
         
         if (is_pickupable) {
             e->transform.rotate(axis::up, input->dt);
@@ -644,7 +648,8 @@ game_on_update(app_memory_t* app_mem) {
 
 void 
 draw_gui(app_memory_t* app_mem) {
-    TIMED_FUNCTION;
+
+    // TIMED_FUNCTION;
     app_t* app = get_app(app_mem);
 
     auto string_mark = arena_get_mark(&app->string_arena);
@@ -718,15 +723,15 @@ draw_gui(app_memory_t* app_mem) {
         using namespace std::string_view_literals;
         using namespace gfx::gui;
 
-        draw_console(state, app->debug.console, v2f{0.0, 800.0f});
-
+        // draw_console(state, app->debug.console, v2f{0.0, 800.0f});
+        
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
             local_persist bool show_stats = !false;
             local_persist bool show_resources = false;
             local_persist bool show_window = false;
             local_persist bool show_gfx_cfg = false;
-            local_persist bool show_perf = false;
+            local_persist bool show_perf = true;
             local_persist bool show_gui = false;
             local_persist bool show_theme = false;
             local_persist bool show_colors= false;
@@ -739,9 +744,9 @@ draw_gui(app_memory_t* app_mem) {
                     const auto [x,y] = app_mem->input.mouse.pos;
                     im::text(state, fmt_sv("- Mouse: [{:.2f}, {:.2f}]", x, y));
                 }
-
+        
                 local_persist bool show_record[128];
-                if (im::text(state, "- Perf"sv, &show_perf)) {
+                if (im::text(state, "- Perf"sv, &show_stats)) {
                     range_u64(i, 0, gs_main_debug_record_size) {
                         auto* record = gs_debug_table.records + i;
                         const auto cycle = record->history[record->hist_id?record->hist_id-1:array_count(record->history)-1];
@@ -1025,7 +1030,6 @@ draw_gui(app_memory_t* app_mem) {
                     }   break;
                 }
 
-                // @Bug
                 if (im::text(state, fmt_sv("kill\0: {}"sv, (void*)e))) {
                     auto* te = e->next;
                     gen_info("gui", "Killing entity: {}", (void*)e);
@@ -1315,7 +1319,7 @@ app_on_render(app_memory_t* app_mem) {
 
 export_fn(void) 
 app_on_update(app_memory_t* app_mem) {
-    if (app_mem->input.keys[257 /*enter*/] || 
+    if (app_mem->input.keys[key_id::ENTER] || 
         app_mem->input.gamepads->buttons[button_id::action_down].is_pressed) {
         scene_state = 1;
     }

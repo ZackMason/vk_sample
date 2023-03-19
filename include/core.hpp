@@ -533,6 +533,7 @@ struct timed_block_t {
 #else 
 
 #define TIMED_BLOCK
+#define TIMED_FUNCTION
 
 
 #endif
@@ -565,6 +566,8 @@ struct app_dll_t {
     app_func_t on_render{nullptr};
     app_func_t on_init{nullptr};
     app_func_t on_deinit{nullptr};
+    app_func_t on_unload{nullptr};
+    app_func_t on_reload{nullptr};
 };
 
 // nodes
@@ -3109,16 +3112,27 @@ struct keyframe {
 template <typename T>
 using anim_pool_t = pool_t<keyframe<T>>;
 
+struct xform_t {
+    v3f         position;
+    glm::quat   orientation;
+    v3f         scale;
+};
+
+struct bone_t {
+    const char* name;
+    u64 parent_index;
+    xform_t*    xforms;
+    u64     xform_count;
+};
+
+#define MAX_ANIMATION_BONES 128
+
 struct animation_t {
-    f32 total_time{0.0f};
+    f32 duration{0.0f};
     i32 ticks_per_second{24};
 
-    arena_t* arena;
-
-    anim_pool_t<v3f> positions;
-    anim_pool_t<glm::quat> rotations;
-    anim_pool_t<v3f> scales;
-    pool_t<m44> matrices;
+    bone_t bones[MAX_ANIMATION_BONES];
+    m44     matrices[MAX_ANIMATION_BONES];
 };
 
 

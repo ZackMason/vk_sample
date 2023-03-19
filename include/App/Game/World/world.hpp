@@ -92,9 +92,13 @@ spawn(
     utl::res::pack_file_t* resource_file = world->app->resource_file;
 
     entity::entity_t* entity = world_create_entity(world);
+    entity::entity_init(entity, utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data));
+    entity->name.view(def.type_name);
+    entity->transform.origin = pos;
 
     entity->type = def.type;
     entity->physics.flags = def.physics ? def.physics->flags : 0;
+    entity->physics.rigid_body.type = def.physics ? def.physics->shape : phys::physics_shape_type::NONE;
 
     switch(entity->type) {
         case entity::entity_type::weapon:
@@ -118,28 +122,29 @@ spawn(
             );
             world->player = entity;
         } else if (def.physics->flags & entity::PhysicsEntityFlags_Static) {
+            std::string collider_name;
             switch(def.physics->shape) {
-                case phys::physics_shape_type::TRIMESH:{
-                    const auto collider_name = fmt_str("{}.trimesh.physx", def.gfx.mesh_name.c_data);
-                    entity->transform.origin = pos;
-                    entity::physics_entity_init_trimesh(
-                        entity,
-                        utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data),
-                        utl::res::pack_file_get_file_by_name(resource_file, collider_name),
-                        safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name)),
-                        world->physics_world->state
-                    );
-                    world->physics_world->scene->addActor(*entity->physics.rigid_body.rigid);
-                    return entity;
+                case phys::physics_shape_type::TRIMESH:
+                    collider_name = fmt_str("{}.trimesh.physx", def.gfx.mesh_name.c_data);
                     break;
-                }
+                case phys::physics_shape_type::CONVEX:
+                    collider_name = fmt_str("{}.convex.physx", def.gfx.mesh_name.c_data);
+                    break;
             }
+            entity::physics_entity_init(
+                entity,
+                utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data),
+                utl::res::pack_file_get_file_by_name(resource_file, collider_name),
+                safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name)),
+                world->physics_world->state
+            );
+            world->physics_world->scene->addActor(*entity->physics.rigid_body.rigid);
+            return entity;
         } else if (def.physics->flags & entity::PhysicsEntityFlags_Dynamic) {
             switch(def.physics->shape) {
                 case phys::physics_shape_type::CONVEX:{
                     const auto collider_name = fmt_str("{}.convex.physx", def.gfx.mesh_name.c_data);
-                    entity->transform.origin = pos;
-                    entity::physics_entity_init_convex(
+                    entity::physics_entity_init(
                         entity,
                         utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data),
                         utl::res::pack_file_get_file_by_name(resource_file, collider_name),
@@ -152,14 +157,8 @@ spawn(
                 }
             }
         } 
-        return entity;
-    } else {
-        entity::entity_init(entity, utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data));
-        entity->name.view(def.type_name);
-        entity->transform.origin = pos;
-        return entity;
     }
-    return nullptr;
+    return entity;
 }
 
 };

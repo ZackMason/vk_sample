@@ -53,7 +53,7 @@ namespace game::phys {
         state.physics = PxCreatePhysics(PX_PHYSICS_VERSION, *state.foundation, PxTolerancesScale(), true, state.pvd);
 
         assert(state.physics);
-        state.dispatcher = PxDefaultCpuDispatcherCreate(2);
+        state.dispatcher = PxDefaultCpuDispatcherCreate(0);
 
         state.cooking = PxCreateCooking(PX_PHYSICS_VERSION, *state.foundation, PxCookingParams(state.physics->getTolerancesScale()));
         assert(state.cooking);
@@ -74,6 +74,7 @@ namespace game::phys {
         physics_shape_type      type{};
 
         v3f velocity{};
+        v3f angular_velocity{};
 
         void create_character(physics_world_t* physx_world);
 
@@ -82,13 +83,31 @@ namespace game::phys {
         }
 
         void set_angular_velocity(v3f v) {
+            angular_velocity = v;            
             dynamic->setAngularVelocity({v.x,v.y,v.z}, true);
         }
 
         void set_velocity(v3f v) {
+            velocity = v;
             dynamic->setLinearVelocity({v.x,v.y,v.z}, true);
         }
 
+        void load_capsule(float radius, float height) {
+            type = physics_shape_type::CAPSULE;
+        }
+
+        void load(std::byte* data, size_t size, const math::transform_t& transform) {
+            switch(type) {
+                case physics_shape_type::TRIMESH:
+                    load_trimesh(data, size, transform);
+                    break;
+                case physics_shape_type::CONVEX:
+                    load_convex(data, size, transform);
+                    break;
+                default:
+                    gen_warn("rigidbody", "Failed to load shape");
+            }
+        }
         void load_trimesh(std::byte* data, size_t size, const math::transform_t& transform) {
             assert(state);
             physx::PxVec3 p;
