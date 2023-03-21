@@ -99,7 +99,9 @@ namespace game::rendering {
 
         std::mutex ticket;
 
-        utl::deque<render_job_t> render_jobs{};
+        // utl::deque<render_job_t> render_jobs{};
+        render_job_t* render_jobs{};
+        size_t render_job_count{};
 
         mesh_cache_t    mesh_cache{};
         utl::str_hash_t mesh_hash{};
@@ -158,6 +160,7 @@ namespace game::rendering {
         );
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
+        rs->render_jobs = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
 
         create_render_pass(rs, state.device, state.swap_chain_image_format);
         create_framebuffers(
@@ -188,7 +191,8 @@ namespace game::rendering {
 
     inline void
     clear(system_t* rs) {
-        rs->render_jobs.clear();
+        // rs->render_jobs.clear();
+        rs->render_job_count = 0;
         rs->materials.clear();
         rs->mesh_cache.meshes.clear();
         utl::str_hash_create(rs->mesh_hash);
@@ -198,7 +202,8 @@ namespace game::rendering {
 
     inline void
     begin_frame(system_t* rs) {
-        rs->render_jobs.clear();
+        rs->render_job_count = 0;
+        // rs->render_jobs.clear();
         rs->job_storage_buffer.pool.clear();
 
         arena_clear(&rs->frame_arena);
@@ -212,7 +217,8 @@ namespace game::rendering {
         m44 transform
     ) {
         TIMED_FUNCTION;
-        auto* job = arena_alloc_ctor<render_job_t>(&rs->frame_arena);
+        // auto* job = arena_alloc_ctor<render_job_t>(&rs->frame_arena);
+        auto* job = rs->render_jobs + rs->render_job_count++;
         job->meshes = &rs->mesh_cache.get(mesh_id);
         job->material = mat_id;
         job->transform = transform;
@@ -221,7 +227,7 @@ namespace game::rendering {
         gpu_job->model = transform;
         gpu_job->mat_id = mat_id;
 
-        rs->render_jobs.push_back(job);
+        // rs->render_jobs.push_back(job);
     }
 
     inline void
@@ -229,15 +235,17 @@ namespace game::rendering {
         system_t* rs,
         VkCommandBuffer command_buffer
     ) {
+        TIMED_FUNCTION;
+
         // std::lock_guard lock{rs->ticket};
         const material_node_t* last_material{0};
 
-        for (size_t i = 0; i < rs->render_jobs.size(); i++) {
-            render_job_t* job = rs->render_jobs[i];
+        for (size_t i = 0; i < rs->render_job_count; i++) {
+            render_job_t* job = rs->render_jobs + i;
             
             const material_node_t* mat = rs->materials[job->material];
 
-            if (mat != last_material) {
+            if (!last_material || (mat->pipeline != last_material->pipeline)) {
                 vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat->pipeline);
 
                 assert(mat->pipeline_layout != VK_NULL_HANDLE);

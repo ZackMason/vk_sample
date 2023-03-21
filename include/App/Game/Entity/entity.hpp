@@ -7,15 +7,9 @@
 #include "App/Game/Util/camera.hpp"
 #include "App/Game/Weapons/base_weapon.hpp"
 
-#include "App/Game/Physics/physics_world.hpp"
-
 #include <variant>
 
 namespace game::entity {
-
-// using entity_id = u64;
-
-// static constexpr entity_id invalid_id = ~0ui32;
 
 enum EntityFlags {
     EntityFlags_Spatial = BIT(0),
@@ -90,12 +84,14 @@ struct entity_ref_t {
 };
 
 struct entity_t : node_t<entity_t> {
-    entity_id   id{0};
-    entity_type type{};
-    u64         flags{};
+    entity_id   id{uid::invalid_id};
+    entity_type type{entity_type::SIZE};
+    u64         flags{0};
     u64         tag{0};
     string_t    name;
+
     entity_t*   parent{nullptr};
+    entity_t*   next_id_hash{nullptr};
 
     math::transform_t   transform;
     math::aabb_t<v3f>        aabb;
@@ -120,7 +116,7 @@ struct entity_t : node_t<entity_t> {
 
     struct physics_t {
         u32 flags{0};
-        phys::rigid_body_t rigid_body;
+        // phys::rigid_body_t rigid_body;
     } physics;
 
 
@@ -144,10 +140,6 @@ struct entity_t : node_t<entity_t> {
 
     virtual ~entity_t() = default;
     entity_t() noexcept = default;
-    // entity_t(const entity_t& o) noexcept = delete;
-    // entity_t(entity_t&& o) noexcept = delete;
-    // entity_t& operator=(entity_t&& o) noexcept = delete;
-    // entity_t& operator=(const entity_t& o) noexcept = delete;
 };
 
 inline void 
@@ -162,34 +154,37 @@ entity_init(entity_t* entity, u64 mesh_id = -1) {
     entity->gfx.mesh_id = mesh_id;
 }
 
-inline void
-physics_entity_init_character(
-    entity_t* entity,
-    u64 mesh_id = 0,
-    phys::physics_world_t* physx_world = 0
-) {
-    entity_init(entity, mesh_id);
+// inline void
+// physics_entity_init_character(
+//     entity_t* entity,
+//     u64 mesh_id = 0
+//     // phys::physics_world_t* physx_world = 0
+// ) {
+//     entity_init(entity, mesh_id);
 
-    entity->physics.rigid_body.state = physx_world->state;
-    entity->physics.rigid_body.create_character(physx_world);
-}
+//     // entity->physics.rigid_body.state = physx_world->state;
+//     // entity->physics.rigid_body.create_character(physx_world);
+// }
 
 
-inline void
-physics_entity_init(
-    entity_t* entity, 
-    u64 mesh_id = 0, 
-    std::byte* physx_data = 0, 
-    u32 physx_size = 0,
-    phys::physx_state_t* physx_world = 0
-) {
-    entity->physics.rigid_body.state = physx_world;
-    entity->physics.rigid_body.load(physx_data, physx_size, entity->global_transform());
-}
+// inline void
+// physics_entity_init(
+//     entity_t* entity, 
+//     u64 mesh_id = 0, 
+//     std::byte* physx_data = 0, 
+//     u32 physx_size = 0,
+//     phys::physx_state_t* physx_world = 0
+// ) {
+//     entity->physics.rigid_body.state = physx_world;
+//     entity->physics.rigid_body.load(physx_data, physx_size, entity->global_transform());
+// }
 
 inline void 
-player_init(entity_t* player, cam::camera_t* camera, u64 mesh_id, phys::physics_world_t* phys) {
-    physics_entity_init_character(player, mesh_id, phys);
+player_init(
+    entity_t* player, 
+    cam::camera_t* camera, 
+    u64 mesh_id) {
+    // physics_entity_init_character(player, mesh_id, phys);
 
     player->type = entity_type::player;
 
@@ -197,300 +192,39 @@ player_init(entity_t* player, cam::camera_t* camera, u64 mesh_id, phys::physics_
     player->camera_controller.camera = camera;
 }
 
-inline void
-entity_set_physics_transform(entity_t* entity) {
-    TIMED_FUNCTION;
-    physx::PxTransform t;
-    const auto& v = entity->global_transform().origin;
-    const auto& q = entity->global_transform().get_orientation();
-    t.p = {v.x, v.y, v.z};
-    t.q = {q.x, q.y, q.z, q.w};
-    if (entity->physics.rigid_body.dynamic) {
-        entity->physics.rigid_body.dynamic->setGlobalPose(t);
-    }
-}
+// inline void
+// entity_set_physics_transform(entity_t* entity) {
+//     TIMED_FUNCTION;
+//     physx::PxTransform t;
+//     const auto& v = entity->global_transform().origin;
+//     const auto& q = entity->global_transform().get_orientation();
+//     t.p = {v.x, v.y, v.z};
+//     t.q = {q.x, q.y, q.z, q.w};
 
-inline void
-entity_update_physics(entity_t* entity) {
-    if (entity->physics.flags & PhysicsEntityFlags_Dynamic) {
-        if (entity->physics.rigid_body.dynamic) {
-            TIMED_FUNCTION;
-            const auto physx_transform = entity->physics.rigid_body.dynamic->getGlobalPose();
-            const auto& [x, y, z] = physx_transform.p;
-            const auto& q = physx_transform.q;
-            entity->transform.origin = { x, y, z }; // Need to set to global position
-            entity->transform.basis = glm::toMat4(glm::quat{ q.w, q.x, q.y, q.z });
-        }
-    }
-}
+//     bool is_dynamic = entity->physics.flags == PhysicsEntityFlags_Dynamic && entity->physics.rigid_body.dynamic;
+//     bool is_static = entity->physics.flags == PhysicsEntityFlags_Static && entity->physics.rigid_body.rigid;
 
-namespace db {
+//     if (is_dynamic) {
+//         entity->physics.rigid_body.dynamic->setGlobalPose(t, false);
+//     } else if (is_static) {
+//         entity->physics.rigid_body.rigid->setGlobalPose(t);
+//     }
+// }
 
-struct entity_def_t {
-    entity::entity_type type{entity::entity_type::environment};
-    string_t type_name{};
-
-    struct gfx_t {
-        string_t mesh_name{};
-        gfx::material_t material{};
-        string_t albedo_tex{};
-        string_t normal_tex{};
-
-        string_t animations{};
-    } gfx;
-
-    std::optional<character_stats_t> stats{};
-    std::optional<wep::base_weapon_t> weapon{};
-
-    struct physics_t {
-        u32 flags{PhysicsEntityFlags_None};
-        phys::physics_shape_type shape{phys::physics_shape_type::NONE};
-        union {
-            struct box_t {
-                v3f size{};
-            } box;
-            struct sphere_t {
-                f32 radius;
-            } sphere;
-            struct capsule_t {
-                f32 radius;
-                f32 height;
-            } capsule;
-        } shape_def;
-    };
-    std::optional<physics_t> physics{};
-
-    struct particle_emitter_t {
-        u32 count{};
-        f32 rate{};
-        v3f vel{};
-        v3f acl{};
-    };
-    std::optional<particle_emitter_t> emitter{};
-
-    struct child_t {
-        const entity_def_t& entity{0};
-        v3f                 offset{0.0f};
-    };
-    child_t children[10]{};
-};
-
-#define DB_ENTRY static constexpr entity_def_t
-
-namespace misc {
-
-DB_ENTRY
-teapot {
-    .type = entity_type::environment,
-    .type_name = "Teapot",
-    .gfx = {
-        .mesh_name = "assets/models/utah-teapot.obj",
-        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
-    },
-    .physics = entity_def_t::physics_t {
-        .flags = PhysicsEntityFlags_Dynamic,
-        .shape = phys::physics_shape_type::CONVEX,
-    }
-};
-
-DB_ENTRY
-door {
-    .type = entity_type::environment,
-    .type_name = "door",
-    .gfx = {
-        .mesh_name = "door",
-        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
-    },
-    .physics = entity_def_t::physics_t {
-        .flags = PhysicsEntityFlags_Trigger,
-        .shape = phys::physics_shape_type::BOX,
-        .shape_def = {
-            .box = {
-                .size = v3f{1.0f},
-            },
-        },
-    },
-};
-
-}; //namespace misc
-
-namespace rooms {
-
-DB_ENTRY
-room_0 {
-    .type = entity_type::environment,
-    .type_name = "room_0",
-    .gfx = {
-        .mesh_name = "assets/models/rooms/room_0.obj",
-        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
-    },
-    // .physics = entity_def_t::physics_t {
-    //     .flags = PhysicsEntityFlags_Static,
-    //     .shape = phys::physics_shape_type::TRIMESH,
-    // },
-};
-
-DB_ENTRY
-map_01 {
-    .type = entity_type::environment,
-    .type_name = "map_01",
-    .gfx = {
-        .mesh_name = "assets/models/map_01.obj",
-        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
-    },
-    .physics = entity_def_t::physics_t {
-        .flags = PhysicsEntityFlags_Static,
-        .shape = phys::physics_shape_type::TRIMESH,
-    },
-};
-
-}; //namespace rooms
-
-namespace items {
-
-}; //namespace items
-
-namespace weapons {
-
-DB_ENTRY
-shotgun {
-    .type = entity_type::weapon,
-    .type_name = "shotgun",
-    .gfx = {
-        .mesh_name = "assets/models/rifle.obj",
-        .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
-    },
-    .weapon = wep::create_shotgun(),
-};
-
-DB_ENTRY
-rifle {
-    .type = entity_type::weapon,
-    .type_name = "rifle",
-    .gfx = {
-        .mesh_name = "rifle",
-        .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
-    },
-    .weapon = wep::create_rifle(),
-};
-
-DB_ENTRY
-pistol {
-    .type = entity_type::weapon,
-    .type_name = "pistol",
-    .gfx = {
-        .mesh_name = "pistol",
-        .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
-    },
-    .weapon = wep::create_pistol(),
-};
-
-}; // namespace weapons
-
-// Character Class Definitions
-
-namespace characters {
-
-DB_ENTRY
-soldier {
-    .type = entity_type::player,
-    .type_name = "soldier",
-    .gfx = {
-        .mesh_name = "assets/models/capsule.obj",
-    },
-    .stats = character_stats_t {
-        .health = {
-            120
-        },
-        .movement = {
-            .move_speed = 1.0f,
-        },
-    },
-    .physics = entity_def_t::physics_t {
-        .flags = PhysicsEntityFlags_Dynamic | PhysicsEntityFlags_Character,
-        .shape = phys::physics_shape_type::CAPSULE,
-        .shape_def = {
-            .capsule = {
-                .radius = 1.0f,
-                .height = 3.0f,
-            },
-        },
-    },
-    .    = {
-        {
-            .entity = weapons::rifle,
-            .offset = v3f{0.0f},
-        },
-        {
-            .entity = weapons::shotgun,
-            .offset = v3f{0.0f},
-        },
-    },
-};
-
-DB_ENTRY
-assassin {
-    .type = entity_type::player,
-    .type_name = "assassin",
-    .gfx = {
-        .mesh_name = "assets/models/capsule.obj",
-    },
-    .stats = character_stats_t {
-        .health = {
-            80
-        },
-        .movement = {
-            .move_speed = 1.3f,
-        },
-    },
-    .physics = entity_def_t::physics_t {
-        .flags = PhysicsEntityFlags_Dynamic | PhysicsEntityFlags_Character,
-        .shape = phys::physics_shape_type::CAPSULE,
-        .shape_def = {
-            .capsule = {
-                .radius = 1.0f,
-                .height = 3.0f,
-            },
-        },
-    },
-    .children = {
-        {
-            .entity = weapons::rifle,
-            .offset = v3f{0.0f},
-        },
-        {
-            .entity = weapons::pistol,
-            .offset = v3f{0.0f},
-        },
-    },
-};
-
-}; // namespace characters
-
-using namespace std::string_view_literals;
-
-template <size_t N>
-using entity_lut_t = std::array<std::pair<std::string_view, const entity_def_t*>, N>;
-
-constexpr static entity_lut_t<2> gs_database{{
-    {"pistol", &weapons::pistol},
-    {"shotgun", &weapons::shotgun},
-}};
-
-template <size_t N>
-constexpr const entity_def_t*
-query(
-    std::string_view name,
-    const entity_lut_t<N>& database
-) noexcept {
-    for (const auto& [key, val]: database) {
-        if (key == name) {
-            return val;
-        }
-    }
-    return nullptr;
-}
-
-}; // namespace db
+// inline void
+// entity_update_physics(entity_t* entity) {
+//     if (entity->physics.flags & PhysicsEntityFlags_Dynamic) {
+//         if (entity->physics.rigid_body.dynamic) {
+//             TIMED_FUNCTION;
+//             const auto physx_transform = entity->physics.rigid_body.dynamic->getGlobalPose();
+//             const auto& [x, y, z] = physx_transform.p;
+//             const auto& q = physx_transform.q;
+//             entity->transform.origin = { x, y, z }; // Need to set to global position
+//             entity->transform.basis = glm::toMat4(glm::quat{ q.w, q.x, q.y, q.z });
+//         }
+//     }
+// }
 
 }; // namespace entity
+
+#include "entity_db.hpp"

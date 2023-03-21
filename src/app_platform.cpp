@@ -12,6 +12,9 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include "Windows.h"
+// #include "combaseapi.h"
+// #include <Psapi.h>
+// #include <winternl.h>
 #undef near
 #undef far
 
@@ -23,7 +26,7 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
-#define USE_SDL 1
+// #define USE_SDL 1
 
 #if USE_SDL
 #define SDL_MAIN_HANDLED
@@ -282,14 +285,15 @@ update_dlls(app_dll_t* app_dlls, app_memory_t* app_mem) {
 
         while (std::filesystem::exists("./build/lock.tmp")) {
             gen_warn("win32", "Game DLL Reload Detected");
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             need_reload = true;
+            
             if (app_dlls->dll) {
                 while(FreeLibrary((HMODULE)app_dlls->dll)==0) {
                     gen_error("dll", "Error Freeing Library: {}", GetLastError());
                 }
                 app_dlls->dll = nullptr;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         reload_dlls(app_dlls);
         gen_warn("win32", "Game DLL has reloaded");
@@ -303,6 +307,10 @@ main(int argc, char* argv[]) {
     create_meta_data_dir();
 
     gen_info("win32", "Loading Platform Layer");
+    defer {
+        gen_info("win32", "Closing Application");
+    };
+
     app_memory_t app_mem{};
     app_mem.perm_memory_size = gigabytes(4);
     app_mem.perm_memory = 
@@ -332,6 +340,19 @@ main(int argc, char* argv[]) {
             std::terminate();
         }
     };
+
+    void* physics_dll{nullptr};
+    arena_t physics_arena = arena_create(new std::byte[gigabytes(1)], gigabytes(1));
+    {
+        app_mem.physics = new physics::api_t;
+        physics_dll = LoadLibraryA(".\\build\\app_physics.dll");
+        assert(physics_dll && "Failing to load physics layer dll");
+        physics::init_function init_physics = 
+            reinterpret_cast<physics::init_function>(
+                GetProcAddress((HMODULE)physics_dll, "physics_init_api")
+            );
+        init_physics(app_mem.physics, physics::backend_type::PHYSX, &physics_arena);
+    }
 
 #if USE_SDL
     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
@@ -409,6 +430,8 @@ main(int argc, char* argv[]) {
         
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);
+        }
+        if (app_dlls.on_render) {
             app_dlls.on_render(&app_mem);
         }
 
@@ -431,6 +454,6 @@ main(int argc, char* argv[]) {
 
     app_dlls.on_deinit(&app_mem);
 
-    gen_info("win32", "Closing Application");
+    // gen_info("win32", "Closing Application");
     return 0;
 }

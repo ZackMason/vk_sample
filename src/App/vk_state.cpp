@@ -103,7 +103,7 @@ inline int
 find_memory_that_is_host_visable(VkPhysicalDevice gpu_device, uint32_t memoryTypeBits) {
 	return find_memory_by_flag_and_type(
         gpu_device, 
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         memoryTypeBits 
     );
 }
@@ -172,8 +172,12 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(std::span<VkSurfaceFormatKHR> availab
     return availableFormats[0];
 }
 
+// Do you want to minimize latency? Use mailbox.
+// Do you want to minimize stuttering? Use relaxed FIFO.
+// Do you want to minimize power consumption? Fall back to regular FIFO.
 VkPresentModeKHR chooseSwapPresentMode(std::span<VkPresentModeKHR> availablePresentModes, bool vsync) {
     if (vsync) {
+        return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
         return VK_PRESENT_MODE_FIFO_KHR;
     }
 

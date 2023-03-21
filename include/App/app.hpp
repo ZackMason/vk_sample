@@ -6,8 +6,6 @@
 
 #include "App/Game/Util/camera.hpp"
 
-#include "App/Game/Physics/physics_world.hpp"
-
 #include "App/Game/Rendering/render_system.hpp"
 
 namespace game {
@@ -117,7 +115,7 @@ struct app_t {
 
         
     game::world_t* game_world{0};
-    game::phys::physx_state_t* physics{0};
+    // game::phys::physx_state_t* physics{0};
 
     f32 time_scale = 1.0f;
     f32 time_text_anim = 0.0f;

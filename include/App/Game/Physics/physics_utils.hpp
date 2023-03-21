@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "foundation/PxAllocatorCallback.h"
 
 #include <mutex>
@@ -8,7 +7,20 @@
 #define PVD_HOST "127.0.0.1"
 #define PX_RELEASE(x)	if(x)	{ x->release(); x = NULL; }
 
-namespace game::phys {
+namespace physics {
+
+physx::PxTransform
+cast_transform(const math::transform_t& transform) {
+    physx::PxVec3 p;
+    p.x = transform.origin.x;
+    p.y = transform.origin.y;
+    p.z = transform.origin.z;
+
+    const auto temp_q = transform.get_orientation();
+    physx::PxQuat q{ temp_q.x, temp_q.y, temp_q.z, temp_q.w };
+
+    return physx::PxTransform(p, q);
+}
 
 class arena_heap_t : public physx::PxAllocatorCallback {
     struct mem_block_t {

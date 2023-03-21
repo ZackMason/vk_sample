@@ -16,7 +16,7 @@
 #include "physics_utils.hpp"
 
 
-namespace game::phys {
+namespace physics {
 
     enum struct physics_shape_type {
         NONE, CAPSULE, SPHERE, BOX, CONVEX, TRIMESH, SIZE
@@ -64,6 +64,7 @@ namespace game::phys {
     struct rigid_body_t {
         physx_state_t*          state;
 
+        bool is_dynamic = false;
         union {
             physx::PxRigidActor*    rigid{nullptr};
             physx::PxRigidDynamic*  dynamic;
@@ -96,8 +97,35 @@ namespace game::phys {
             type = physics_shape_type::CAPSULE;
         }
 
+        void load_sphere(float radius, const math::transform_t& transform) {
+            type = physics_shape_type::SPHERE;
+
+            physx::PxVec3 p;
+            
+            p.x = transform.origin.x;
+            p.y = transform.origin.y;
+            p.z = transform.origin.z;
+
+            const auto temp_q = transform.get_orientation();
+            physx::PxQuat q{ temp_q.x, temp_q.y, temp_q.z, temp_q.w };
+
+            physx::PxTransform t(p, q);
+
+            material = state->physics->createMaterial(0.5f, 0.5f, 0.1f);
+            if (is_dynamic) {
+                dynamic = state->physics->createRigidDynamic(t);
+                shape = physx::PxRigidActorExt::createExclusiveShape(*dynamic, physx::PxSphereGeometry(1.0f), *material);
+            } else {
+                rigid = state->physics->createRigidStatic(t);
+                shape = physx::PxRigidActorExt::createExclusiveShape(*rigid, physx::PxSphereGeometry(1.0f), *material);
+            }
+        }
+
         void load(std::byte* data, size_t size, const math::transform_t& transform) {
             switch(type) {
+                case physics_shape_type::SPHERE:
+                    load_sphere(1.0f, transform);
+                    break;
                 case physics_shape_type::TRIMESH:
                     load_trimesh(data, size, transform);
                     break;

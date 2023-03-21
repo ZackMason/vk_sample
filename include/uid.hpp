@@ -4,7 +4,7 @@
 #include "core.hpp"
 
 namespace uid {
-	using id_type = u32;
+	using id_type = u64;
 	namespace internal {
 		constexpr u32 generation_bits{ 8 };
 		constexpr u32 index_bits{ sizeof(id_type) * 8 - generation_bits };

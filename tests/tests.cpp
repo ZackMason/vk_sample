@@ -115,7 +115,7 @@ struct test_script_t : public game::script::entity_script_t {
 
 
 #define RUN_TEST(x) \
-    run_test(x, [] {\
+    run_test(x, [&] {\
         utl::profile_t p{x};
 
 int main(int argc, char** argv) {

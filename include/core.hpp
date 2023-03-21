@@ -31,7 +31,7 @@
 
 #elif defined(_WIN64) || defined(_WIN32)
     #include <process.h>
-    #include <Windows.h>
+    
     #define RAND_GETPID _getpid()
     
     #undef DELETE
@@ -57,6 +57,7 @@
 #include <array>
 #include <fstream>
 #include <chrono>
+#include <functional>
 
 #include <string>
 #include <string_view>
@@ -110,6 +111,19 @@ namespace axis {
     constexpr inline static v3f backward    {0.0f, 0.0f, 1.0f};
 };
 
+struct arena_t {
+    std::byte* start{0};
+    size_t top{0};
+    size_t size{0};
+};
+
+struct frame_arena_t {
+    arena_t arena[2];
+    u32     active{0};
+};
+
+using temp_arena_t = arena_t;
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define global_variable static
@@ -117,7 +131,33 @@ namespace axis {
 
 #define no_mangle extern "C"
 #define export_dll __declspec(dllexport)
-#define export_fn(rt_type) no_mangle rt_type export_dll __cdecl
+#define export_fn(rt_type) no_mangle export_dll rt_type __cdecl
+
+struct _auto_deferer_t {
+    std::function<void(void)> fn;
+
+    template<typename Fn>
+    _auto_deferer_t(Fn _fn) 
+        : fn{_fn}
+    {
+    }
+
+    template<typename Fn>
+    _auto_deferer_t& operator=(Fn _fn) {
+        fn = _fn;
+        return *this;
+    }
+
+    ~_auto_deferer_t() {
+        fn();
+    }
+};
+
+
+#define VAR_CAT(a,b) a ## b
+#define VAR_CAT_(a,b) VAR_CAT(a, b)
+#define defer _auto_deferer_t VAR_CAT_(_res_auto_defer_, __LINE__) = [&]()
+
 
 #define array_count(arr) (sizeof((arr)) / (sizeof((arr)[0])))
 #define kilobytes(x) (x*1024ull)
@@ -422,24 +462,7 @@ namespace utl {
 };
 
 
-#ifdef GEN_INTERNAL
-
-inline u64
-get_perf_counter() {
-#if _WIN32
-    LARGE_INTEGER result;
-    QueryPerformanceCounter(&result);
-    return result.QuadPart;
-#endif
-}
-inline u64
-get_perf_freq() {
-#if _WIN32
-    LARGE_INTEGER result;
-    QueryPerformanceFrequency(&result);
-    return result.QuadPart;
-#endif
-}
+#if GEN_INTERNAL
 
 inline u64
 get_nano_time() {
@@ -495,15 +518,14 @@ record_debug_event(int record_index, debug_event_type event_type) {
     event->clock_count = get_nano_time();
     event->core_index = 0;
     event->thread_id = 0;
-    // event->thread_id = std::hash<std::thread::id>()(std::this_thread::get_id());
     event->type = event_type;
     event->record_index = (u16)record_index;
 }
 
 extern size_t gs_main_debug_record_size;
 
-#define TIMED_FUNCTION timed_block_t _TimedBlock_##__LINE__(__COUNTER__, __FILE__, __LINE__, __FUNCTION__)
-#define TIMED_BLOCK(Name) timed_block_t _TimedBlock_##__LINE__(__COUNTER__, __FILE__, __LINE__, #Name)
+#define TIMED_FUNCTION timed_block_t VAR_CAT_(_TimedBlock_, __LINE__)(__COUNTER__, __FILE__, __LINE__, __FUNCTION__)
+#define TIMED_BLOCK(Name) timed_block_t VAR_CAT_(_TimedBlock_, __LINE__)(__COUNTER__, __FILE__, __LINE__, #Name)
 
 struct timed_block_t {
     debug_record_t* record;
@@ -529,14 +551,14 @@ struct timed_block_t {
     }
 };
 
-
 #else 
 
 #define TIMED_BLOCK
 #define TIMED_FUNCTION
 
-
 #endif
+
+#include "app_physics.hpp"
 
 struct app_memory_t {
     void* perm_memory{nullptr};
@@ -556,12 +578,18 @@ struct app_memory_t {
         utl::closure_t* play_sound_closure;
         utl::closure_t* stop_sound_closure;
     } audio;
+
+    physics::api_t* physics{nullptr};
 };
 
 using app_func_t = void(__cdecl *)(app_memory_t*);
 
 struct app_dll_t {
+#if _WIN32
     void* dll{nullptr};
+#else
+#error "no linux"
+#endif
     app_func_t on_update{nullptr};
     app_func_t on_render{nullptr};
     app_func_t on_init{nullptr};
@@ -596,18 +624,6 @@ struct node_t {
 
 // allocators
 
-struct arena_t {
-    std::byte* start{0};
-    size_t top{0};
-    size_t size{0};
-};
-
-struct frame_arena_t {
-    arena_t arena[2];
-    u32     active{0};
-};
-
-using temp_arena_t = arena_t;
 
 inline arena_t
 arena_create(void* p, size_t bytes) {

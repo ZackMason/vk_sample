@@ -11,30 +11,37 @@ set PhysXSDK=C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.
 set PhysXInclude=%PhysXSDK%/include
 Set PhysXCompiler=%PhysXSDK%\bin\win.x86_64.vc143.md
 rem use physx checked or debug for development
-set PhysXOpt=checked
+set PhysXOpt=release
 set PhysXLinkLibs=PhysX_64.lib PhysXCommon_64.lib PhysXCooking_64.lib PhysXFoundation_64.lib PhysXExtensions_static_64.lib PhysXCharacterKinematic_static_64.lib PhysXPvdSDK_static_64.lib PhysXVehicle_static_64.lib
 
-rem set OptimizationFlags=/fp:fast /arch:AVX2 /O2
-set OptimizationFlags=/DEBUG:FULL /O2 /Zi /fp:fast /arch:AVX2 
-rem -DGEN_INTERNAL=1
-set IncludeFlags=/I ..\include /I ..\include\vendor /I..\include\vendor\SDL /I %VULKAN_SDK%/include /I %PhysXInclude%  /D GAME_USE_SIMD
+
+set OptimizationFlags=/O2 /fp:fast /arch:AVX2 -DGEN_INTERNAL=1
+rem set OptimizationFlags=/DEBUG:full /Zi /O0 /fp:fast /arch:AVX2
+set IncludeFlags=/I ..\include /I ..\include\vendor /I..\include\vendor\SDL /I %VULKAN_SDK%/include 
 set CompilerFlags=-nologo -FC -WX -W4 -wd4100 -wd4201 -wd4702 -wd4701 -wd4189 -MD -EHsc /std:c++20
 set SDLLinkFlags=SDL2.lib SDL2_mixer.lib SDL2main.lib
-set LinkFlags=-opt:ref user32.lib gdi32.lib winmm.lib shell32.lib /LIBPATH:%VULKAN_SDK%/lib /LIBPATH:..\lib\debug vulkan-1.lib /LIBPATH:%PhysXCompiler%/%PhysXOpt% %PhysXLinkLibs%
+set LinkFlags=-opt:ref user32.lib gdi32.lib shell32.lib /LIBPATH:%VULKAN_SDK%/lib /LIBPATH:..\lib\debug vulkan-1.lib
+set PhysicsLinkFlags=-opt:ref user32.lib gdi32.lib shell32.lib /LIBPATH:%PhysXCompiler%/%PhysXOpt% %PhysXLinkLibs%
+
+xcopy %PhysXCompiler%\%PhysXOpt%\*.dll . /yq
 
 if "%~2"=="game" (
-    del *.pdb > NUL 2> NUL
+    del app_build.pdb > NUL 2> NUL
     echo Build Lock > lock.tmp
-    cl  %OptimizationFlags% %IncludeFlags% /I ..\src %CompilerFlags% ..\src\app_build.cpp -LD /link %LinkFlags% /OUT:code.dll
+    cl  %OptimizationFlags% -DGEN_INTERNAL=1 %IncludeFlags% /I ..\src %CompilerFlags% ..\src\app_build.cpp -LD /link %LinkFlags%
     del lock.tmp
 )
 
 if "%~1"=="win32" (
-    cl %OptimizationFlags% %IncludeFlags% %CompilerFlags% ..\src\app_platform.cpp /link %LinkFlags% %SDLLinkFlags% glfw3.lib /OUT:game.exe
+    cl %OptimizationFlags% -DGEN_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\src\app_platform.cpp /link %LinkFlags% %SDLLinkFlags% glfw3.lib /OUT:game.exe
+)
+
+if "%~1"=="physics" (
+    cl %OptimizationFlags% -DGEN_INTERNAL=0 %IncludeFlags% /I %PhysXInclude% %CompilerFlags% ..\src\app_physics.cpp -LD /link %PhysicsLinkFlags%
 )
 
 if "%~1"=="tests" (
-    cl %OptimizationFlags% %IncludeFlags% %CompilerFlags% ..\tests\tests.cpp /link %LinkFlags% %SDLLinkFlags%
+    cl %OptimizationFlags% -DGEN_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\tests\tests.cpp /link %LinkFlags% %SDLLinkFlags%
 )
 
 popd build

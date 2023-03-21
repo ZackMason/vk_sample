@@ -248,6 +248,10 @@ app_on_init(app_memory_t* app_mem) {
     app->game_arena = arena_sub_arena(&app->main_arena, megabytes(512));
     app->gui.arena = arena_sub_arena(main_arena, megabytes(8));
 
+    defer {
+        arena_clear(&app->temp_arena);
+    };
+
     using namespace std::string_view_literals;
 #ifdef GEN_INTERNAL
     app->debug.console = arena_alloc<debug_console_t>(main_arena);
@@ -269,18 +273,19 @@ app_on_init(app_memory_t* app_mem) {
 
     // app->panel_coro = arena_alloc_ctor<coroutine_t>(main_arena, 1, app_mem->input.time);
 
-    gen_info("init", "init physx");
-    app->physics = arena_alloc_ctor<game::phys::physx_state_t>(
-        main_arena, 1,
-        *main_arena, megabytes(512)
-    );
+    // gen_info("init", "init physx");
+    // app->physics = arena_alloc_ctor<game::phys::physx_state_t>(
+    //     main_arena, 1,
+    //     *main_arena, megabytes(512)
+    // );
     
-    game::phys::init_physx_state(*app->physics);
+    // game::phys::init_physx_state(*app->physics);
 
     app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./assets/res.pack");
     
-    app->game_world = game::world_init(&app->game_arena, app, *app->physics);
+    app->game_world = game::world_init(&app->game_arena, app);
     
+
     // setup graphics
 
     {
@@ -426,7 +431,7 @@ app_on_init(app_memory_t* app_mem) {
     // auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
-    loop_iota_u64(i, 100) {
+    loop_iota_u64(i, 1500) {
         auto* e = game::spawn(
             app->game_world, 
             app->render_system->mesh_hash, 
@@ -438,13 +443,18 @@ app_on_init(app_memory_t* app_mem) {
         e->gfx.material_id = rng.rand() % 6;
     }
 
-    arena_clear(&app->temp_arena);
+    gen_info("app", "player id: {} - {}", 
+        app->game_world->player->id,
+        (void*)game::find_entity_by_id(app->game_world, app->game_world->player->id)
+    );
+
+    
     app->game_world->player->transform.origin.y = 5.0f;
     app->game_world->player->transform.origin.z = -5.0f;
 
 
     std::memcpy(&gs_saved_world, app->game_world, sizeof(game::world_t));
-    gen_info("app", "world size: {}kb", GEN_TYPE_INFO(game::world_t).size/kilobytes(1));
+    gen_info("app", "world size: {}kb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
 }
 
 export_fn(void) 
@@ -548,14 +558,17 @@ app_on_input(app_t* app, app_input_t* input) {
     }
 
     if (input->pressed.keys['P']) {
+        const game::entity::entity_t player = *app->game_world->player;
         std::memcpy(app->game_world, &gs_saved_world, sizeof(game::world_t));
-        range_u64(i, 0, app->game_world->entity_count) {
-            auto* e = app->game_world->entities + i;
-            if (e->physics.flags == game::entity::PhysicsEntityFlags_Dynamic) {
-                e->physics.rigid_body.set_velocity(v3f{0.0f});
-                e->physics.rigid_body.set_angular_velocity(v3f{0.0f});
-            }
-        }
+        *app->game_world->player = player;
+        // range_u64(i, 0, app->game_world->entity_count) {
+        //     auto* e = app->game_world->entities + i;
+        //     if (e->physics.flags == game::entity::PhysicsEntityFlags_Dynamic &&
+        //         e->physics.rigid_body.dynamic) {
+        //         e->physics.rigid_body.set_velocity(v3f{0.0f});
+        //         e->physics.rigid_body.set_angular_velocity(v3f{0.0f});
+        //     }
+        // }
     }
 
     if (input->gamepads[0].buttons[button_id::dpad_left].is_released) {
@@ -571,7 +584,7 @@ app_on_input(app_t* app, app_input_t* input) {
 void game_on_gameplay(app_t* app, app_input_t* input) {
     TIMED_FUNCTION;
 
-    std::lock_guard lock{app->render_system->ticket};
+    // std::lock_guard lock{app->render_system->ticket};
 
     input->dt *= app->time_scale;
     app_on_input(app, input);
@@ -584,35 +597,37 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
     local_persist f32 accum = 0.0f;
     const u32 sub_steps = 1;
-    const f32 step = 1.0f/(2.0f*sub_steps);
+    const f32 step = 1.0f/(30.0f*sub_steps);
 
-    accum += f32(input->dt > 0.0f) * input->dt;
+    accum += f32(std::min(input->dt, 1.0f) > 0.0f) * input->dt;
 
     // for (size_t i{0}; i < app->game_world->entity_count; i++) {
     //     auto* e = app->game_world->entities + i;
-    //     game::entity::entity_set_physics_transform(e);
+    //     game::entity::entity_set__transform(e);
     // }
 
-    while (accum >= step*sub_steps) {
-        range_u32(_i, 0, sub_steps) {
-            TIMED_BLOCK(PhysicsStep);
-            accum -= step;
-            world->physics_world->scene->simulate(step);
-            world->physics_world->scene->fetchResults(true);
-        }
-    }
+    // if (accum >= sub_steps) {
+    //     // range_u32(_i, 0, sub_steps) {
+    //         TIMED_BLOCK(PhysicsStep);
+    //         accum -= step;
+    //         world->physics_world->scene->simulate(step);
+    //         world->physics_world->scene->fetchResults(true);
+    //     // }
+    // }
 
     game::rendering::begin_frame(app->render_system);
         
-    for (size_t i{0}; i < app->game_world->entity_count; i++) {
+    for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
         auto* e = app->game_world->entities + i;
-    // for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
+        if (e->id == uid::invalid_id) {
+            continue;
+        }
         const bool is_physics_object = e->physics.flags != game::entity::PhysicsEntityFlags_None;
         const bool is_pickupable = (e->flags & game::entity::EntityFlags_Pickupable);
         const bool is_not_renderable = (e->flags & game::entity::EntityFlags_Renderable) == 0;
 
         if (is_physics_object) {
-            game::entity::entity_update_physics(e);
+            // game::entity::entity_update_physics(e);
         }
         
         if (is_pickupable) {
@@ -648,8 +663,7 @@ game_on_update(app_memory_t* app_mem) {
 
 void 
 draw_gui(app_memory_t* app_mem) {
-
-    // TIMED_FUNCTION;
+    TIMED_FUNCTION;
     app_t* app = get_app(app_mem);
 
     auto string_mark = arena_get_mark(&app->string_arena);
@@ -662,8 +676,8 @@ draw_gui(app_memory_t* app_mem) {
         &app->texture_arena,
         &app->game_arena,
         &app->game_world->arena,
-        &app->physics->default_allocator.arena,
-        &app->physics->default_allocator.heap_arena,
+        // &app->physics->default_allocator.arena,
+        // &app->physics->default_allocator.heap_arena,
         &app->render_system->arena,
         &app->render_system->frame_arena,
         &app->render_system->vertices.pool,
@@ -680,8 +694,8 @@ draw_gui(app_memory_t* app_mem) {
         "- Texture Arena",
         "- Game Arena",
         "- World Arena",
-        "- Physics Arena",
-        "- Physics Heap",
+        // "- Physics Arena",
+        // "- Physics Heap",
         "- Rendering Arena",
         "- Rendering Frame Arena",
         "- 3D Vertex",
@@ -746,7 +760,7 @@ draw_gui(app_memory_t* app_mem) {
                 }
         
                 local_persist bool show_record[128];
-                if (im::text(state, "- Perf"sv, &show_stats)) {
+                if (im::text(state, "- Perf"sv, &show_perf)) {
                     range_u64(i, 0, gs_main_debug_record_size) {
                         auto* record = gs_debug_table.records + i;
                         const auto cycle = record->history[record->hist_id?record->hist_id-1:array_count(record->history)-1];
@@ -996,25 +1010,25 @@ draw_gui(app_memory_t* app_mem) {
                     )
                 );
 
-                switch(e->physics.flags) {
-                    case game::entity::PhysicsEntityFlags_None:
-                        im::text(state, "Physics Type: None");
-                        break;
-                    case game::entity::PhysicsEntityFlags_Static:
-                        im::text(state, "Physics Type: Static");
-                        break;
-                    case game::entity::PhysicsEntityFlags_Dynamic:
-                        im::text(state, "Physics Type: Dynamic");
-                        break;
-                }
-                switch(e->physics.rigid_body.type) {
-                    case game::phys::physics_shape_type::TRIMESH:
-                        im::text(state, "Physics Shape: Trimesh");
-                        break;
-                    case game::phys::physics_shape_type::CONVEX:
-                        im::text(state, "Physics Shape: Convex");
-                        break;
-                }
+                // switch(e->physics.flags) {
+                //     case game::entity::PhysicsEntityFlags_None:
+                //         im::text(state, "Physics Type: None");
+                //         break;
+                //     case game::entity::PhysicsEntityFlags_Static:
+                //         im::text(state, "Physics Type: Static");
+                //         break;
+                //     case game::entity::PhysicsEntityFlags_Dynamic:
+                //         im::text(state, "Physics Type: Dynamic");
+                //         break;
+                // }
+                // switch(e->physics.rigid_body.type) {
+                //     case game::phys::physics_shape_type::TRIMESH:
+                //         im::text(state, "Physics Shape: Trimesh");
+                //         break;
+                //     case game::phys::physics_shape_type::CONVEX:
+                //         im::text(state, "Physics Shape: Convex");
+                //         break;
+                // }
 
                 switch(e->type) {
                     case game::entity::entity_type::weapon: {
@@ -1107,7 +1121,7 @@ game_on_render(app_memory_t* app_mem) {
         vk_gfx.image_available_semaphore[frame_count&1], VK_NULL_HANDLE, &imageIndex);
 
 
-    std::lock_guard lock{app->render_system->ticket};
+    // std::lock_guard lock{app->render_system->ticket};
 
     {
         app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
@@ -1138,8 +1152,9 @@ game_on_render(app_memory_t* app_mem) {
     );
     
     
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->sky_pipeline->pipeline);
     {
+        TIMED_BLOCK(SkyPass);
+        vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->sky_pipeline->pipeline);
         VkBuffer buffers[1] = { app->render_system->vertices.buffer };
         VkDeviceSize offsets[1] = { 0 };
 
@@ -1211,6 +1226,7 @@ game_on_render(app_memory_t* app_mem) {
     game::rendering::build_commands(app->render_system, command_buffer);
 
     if (app->debug.show) {
+        TIMED_BLOCK(DebugPass);
         vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline);
         vkCmdBindDescriptorSets(command_buffer, 
             VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline_layout,
@@ -1233,8 +1249,9 @@ game_on_render(app_memory_t* app_mem) {
         );
     }
 
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline);
     {
+        TIMED_BLOCK(GUIPass);
+        vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline);
         vkCmdBindDescriptorSets(command_buffer, 
             VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
             0, 1, &app->default_font_descriptor, 0, nullptr);
@@ -1308,12 +1325,14 @@ global_variable u64 scene_state = 1;
 export_fn(void) 
 app_on_render(app_memory_t* app_mem) {
     switch (scene_state) {
-        case 1: // Game
+        case 1:{
+            // Game
             game_on_render(app_mem);
-            break;
+        }   break;
         default:
             gen_warn("scene::render", "Unknown scene: {}", scene_state);
-            scene_state = 1;
+            break;
+        //     scene_state = 1;
     }
 }
 
@@ -1328,10 +1347,11 @@ app_on_update(app_memory_t* app_mem) {
         //     main_menu_on_update(app_mem);
         //     break;
         case 1: // Game
-            game_on_update(app_mem);
+            // game_on_update(app_mem);
             break;
         default:
             gen_warn("scene::update", "Unknown scene: {}", scene_state);
-            scene_state = 1;
+            break;
+        //     scene_state = 1;
     }
 }
