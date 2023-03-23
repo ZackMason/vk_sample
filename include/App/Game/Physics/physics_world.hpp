@@ -110,7 +110,7 @@ namespace physics {
             physx::PxQuat q{ temp_q.x, temp_q.y, temp_q.z, temp_q.w };
 
             physx::PxTransform t(p, q);
-
+            
             material = state->physics->createMaterial(0.5f, 0.5f, 0.1f);
             if (is_dynamic) {
                 dynamic = state->physics->createRigidDynamic(t);
@@ -191,18 +191,25 @@ namespace physics {
     };
 
     inline void
-    physics_world_init(physx_state_t& state, physics_world_t* world) {
+    physics_world_init(
+        physx_state_t* state, 
+        physics_world_t* world,
+        physx::PxSimulationEventCallback* sim_callback,
+        physx::PxSimulationFilterShader filter_shader = physx::PxDefaultSimulationFilterShader
+    ) {
         assert(world);
 
-        world->state = &state;
+        gen_info("physx", "physics_world_init: {}", (void*)world);
+        world->state = state;
 
-        physx::PxSceneDesc scene_desc(state.physics->getTolerancesScale());
+        physx::PxSceneDesc scene_desc(state->physics->getTolerancesScale());
         scene_desc.gravity = physx::PxVec3(0.0f, -9.81f, 0.0f);
 
-        scene_desc.filterShader = physx::PxDefaultSimulationFilterShader;
-        scene_desc.cpuDispatcher = state.dispatcher;
+        scene_desc.filterShader = filter_shader;
+        scene_desc.cpuDispatcher = state->dispatcher;
+        scene_desc.simulationEventCallback = sim_callback;
 
-        world->scene = state.physics->createScene(scene_desc);
+        world->scene = state->physics->createScene(scene_desc);
 
         if (world->controller_manager) {
             world->controller_manager->release();

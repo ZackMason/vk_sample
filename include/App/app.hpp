@@ -13,7 +13,7 @@ struct world_t;
 };
 
 struct player_controller_t {
-    v2f move_input;
+    v3f move_input;
     v2f look_input;
 
     bool fire1;
@@ -21,8 +21,51 @@ struct player_controller_t {
 
     bool jump;
     bool sprint;
-
 };
+
+inline static player_controller_t 
+gamepad_controller(app_input_t* input) {
+    player_controller_t pc{};
+
+    pc.move_input = v3f{
+        input->gamepads[0].left_stick.x,
+        f32(input->gamepads[0].buttons[button_id::shoulder_left].is_held) - 
+        f32(input->gamepads[0].buttons[button_id::shoulder_right].is_held),
+        input->gamepads[0].left_stick.y,
+    };
+    
+    pc.look_input = v2f{
+        input->gamepads[0].right_stick.x,
+        input->gamepads[0].right_stick.y,
+    } * 2.0f;
+
+    pc.fire1 = input->gamepads->right_trigger > 0.0f;
+    pc.iron_sight = input->gamepads->left_trigger > 0.0f;
+    pc.jump = input->gamepads->buttons[button_id::action_down].is_held;
+    pc.sprint = input->gamepads->buttons[button_id::action_right].is_held;
+    return pc;
+}
+inline static player_controller_t 
+keyboard_controller(app_input_t* input) {
+    player_controller_t pc{};
+    pc.move_input = v3f{
+        f32(input->keys['D']) - f32(input->keys['A']),
+        f32(input->keys['Q']) - f32(input->keys['E']),
+        f32(input->keys['S']) - f32(input->keys['W'])
+    };
+
+    pc.look_input = (f32(input->mouse.buttons[0]) * v2f{
+        input->mouse.delta[0], 
+        input->mouse.delta[1] 
+    }) + v2f {
+        f32(input->keys['L']) - f32(input->keys['J']),
+        f32(input->keys['I']) - f32(input->keys['K'])
+    };
+
+    pc.fire1 = input->keys['F'] || input->mouse.buttons[0];
+    pc.iron_sight = input->mouse.buttons[1];
+    return pc;
+}
 
 struct debug_console_t;
 

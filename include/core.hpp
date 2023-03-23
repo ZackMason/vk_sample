@@ -129,6 +129,7 @@ using temp_arena_t = arena_t;
 #define global_variable static
 #define local_persist static
 
+#define case_invalid_default default: assert(!"Invalid Default Case!"); break
 #define no_mangle extern "C"
 #define export_dll __declspec(dllexport)
 #define export_fn(rt_type) no_mangle export_dll rt_type __cdecl
@@ -626,7 +627,7 @@ struct node_t {
 
 
 inline arena_t
-arena_create(void* p, size_t bytes) {
+arena_create(void* p, size_t bytes) noexcept {
     arena_t arena;
     arena.start = (std::byte*)p;
     arena.size = bytes;
@@ -634,12 +635,17 @@ arena_create(void* p, size_t bytes) {
 }
 
 inline size_t
-arena_get_mark(arena_t* arena) {
+arena_get_remaining(arena_t* arena) noexcept {
+    return arena->size - arena->top;
+}
+
+inline size_t
+arena_get_mark(arena_t* arena) noexcept {
     return arena->top;
 }
 
 inline void
-arena_set_mark(arena_t* arena, size_t m) {
+arena_set_mark(arena_t* arena, size_t m) noexcept {
     arena->top = m;
 }
 
@@ -920,6 +926,8 @@ struct type_info_t {
 
 #define GEN_TYPE_ID(type) (sid(#type))
 #define GEN_TYPE_INFO(type) (type_info_t{sid(#type), sizeof(type), #type})
+#define GEN_REFLECT_VAR(type, var) size_t offset{offsetof(type, var)}; const char* name{#var};
+#define GEN_REFLECT_INFO(type, var, ...) struct VAR_CAT_(type, VAR_CAT(var, _info)) { GEN_REFLECT_VAR(type, var) }
 
 struct any_t {
     enum struct type_tag {
@@ -1025,9 +1033,13 @@ namespace math {
         v3f origin;
         f32 radius;
     };
+    struct circle_t {
+        v2f origin;
+        f32 radius;
+    };
 
-    bool intersect(sphere_t a, sphere_t b) {
-        return glm::distance2(a.origin, b.origin) < (a.radius + b.radius) * (a.radius + b.radius);
+    bool intersect(circle_t c, v2f p) {
+        return glm::distance2(c.origin, p) < c.radius * c.radius;
     }
 
     bool intersect(sphere_t a, v3f b) {
@@ -1706,6 +1718,121 @@ namespace gui {
         }
     }
 
+    inline void 
+    draw_circle(
+        ctx_t* ctx,
+        v2f pos, f32 radius,
+        u32 color, u32 res = 32
+    ) {
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
+
+        vertex_t* center = ctx->vertices->allocate(1);
+
+        center->pos = pos / ctx->screen_size;
+        center->col = color;
+        center->img = ~(0ui32);
+
+        vertex_t* lv{0};
+        range_u32(i, 0, res) {
+            const auto a = math::constants::tau32 * f32(i)/f32(res-2);
+            vertex_t* v = ctx->vertices->allocate(1);
+
+            v->pos = center->pos + v2f{glm::cos(a), glm::sin(a)} * radius / ctx->screen_size;
+            v->col = color;
+            v->img = ~(0ui32);
+
+            if (lv) {
+                u32* tris = ctx->indices->allocate(3);
+                *tris++ = v_start;
+                *tris++ = v_start + i - 1;
+                *tris++ = v_start + i;
+            }
+            lv = v;
+        }
+    }
+
+    inline void
+    draw_line(
+        ctx_t* ctx,
+        v2f a, v2f b,
+        f32 line_width,
+        u32 color
+    ) {
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
+        const v2f d{(b-a)/ctx->screen_size};
+        const v2f ud{glm::normalize(d)};
+        const v2f n{v2f{-ud.y, ud.x}};
+
+        vertex_t* v = ctx->vertices->allocate(4);
+        u32* i = ctx->indices->allocate(6);
+        v[0] = vertex_t { .pos = a/ctx->screen_size + n * (line_width/ctx->screen_size * 0.5f), .tex = v2f{0.0f, 1.0f}, .img = ~(0ui32), .col = color};
+        v[1] = vertex_t { .pos = a/ctx->screen_size - n * (line_width/ctx->screen_size * 0.5f), .tex = v2f{0.0f, 0.0f}, .img = ~(0ui32), .col = color};
+        v[2] = vertex_t { .pos = b/ctx->screen_size + n * (line_width/ctx->screen_size * 0.5f), .tex = v2f{1.0f, 0.0f}, .img = ~(0ui32), .col = color};
+        v[3] = vertex_t { .pos = b/ctx->screen_size - n * (line_width/ctx->screen_size * 0.5f), .tex = v2f{1.0f, 1.0f}, .img = ~(0ui32), .col = color};
+
+        i[0] = v_start + 0;
+        i[1] = v_start + 1;
+        i[2] = v_start + 2;
+
+        i[3] = v_start + 2;
+        i[4] = v_start + 1;
+        i[5] = v_start + 3;
+    }
+
+    inline void 
+    draw_arc(
+        ctx_t* ctx,
+        v2f pos, f32 radius,
+        f32 start, f32 end,
+        f32 line_width, u32 color, u32 res = 10
+    ) {
+        range_u32(i, 1, res) {
+            const f32 ae = math::constants::tau32 * (start + end * f32(i-1)/f32(res-1));
+            const f32 as = math::constants::tau32 * (start + end * f32(i)/f32(res-1));
+
+            const v2f p0 = pos + v2f{glm::cos(ae), glm::sin(ae)} * radius;
+            const v2f p1 = pos + v2f{glm::cos(as), glm::sin(as)} * radius;
+
+            draw_line(ctx, p0, p1, line_width, color);
+        }
+    }
+
+    inline void 
+    draw_ellipse_arc(
+        ctx_t* ctx,
+        v2f pos, v2f radius,
+        f32 start, f32 end,
+        f32 line_width, u32 color, u32 res = 10
+    ) {
+        range_u32(i, 1, res) {
+            const f32 ae = math::constants::tau32 * (start + end * f32(i-1)/f32(res-1));
+            const f32 as = math::constants::tau32 * (start + end * f32(i)/f32(res-1));
+
+            const v2f p0 = pos + v2f{glm::cos(ae), glm::sin(ae)} * radius;
+            const v2f p1 = pos + v2f{glm::cos(as), glm::sin(as)} * radius;
+
+            draw_line(ctx, p0, p1, line_width, color);
+        }
+    }
+
+    inline void 
+    draw_ellipse_arc_with_basis(
+        ctx_t* ctx,
+        v2f pos, v2f radius, v2f b0, v2f b1,
+        f32 start, f32 end,
+        f32 line_width, u32 color, u32 res = 10
+    ) {
+        range_u32(i, 1, res) {
+            const f32 ae = math::constants::tau32 * (start + end * f32(i-1)/f32(res-1));
+            const f32 as = math::constants::tau32 * (start + end * f32(i)/f32(res-1));
+
+            const v2f p0 = pos + b0 * glm::cos(ae) * radius.x + b1 * glm::sin(ae) * radius.y;
+            const v2f p1 = pos + b0 * glm::cos(as) * radius.x + b1 * glm::sin(as) * radius.y;
+
+            draw_line(ctx, p0, p1, line_width, color);
+        }
+    }
+
     inline void
     draw_round_rect(
         ctx_t* ctx,
@@ -1874,6 +2001,10 @@ namespace gui {
             ctx_t& ctx;
 
             v2f draw_cursor{0.0f}; 
+            v2f gizmo_mouse_start{};
+            v3f gizmo_world_start{};
+            v2f gizmo_axis_dir{};
+            v3f gizmo_axis_wdir{};
 
             theme_t theme;
 
@@ -1961,6 +2092,172 @@ namespace gui {
             imgui.panel = {};
         }
 
+        inline void
+        draw_gizmo(
+            state_t& imgui,
+            v3f* pos,
+            const m44& vp
+        ) {
+            const v3f ndc = math::world_to_screen(vp, *pos);
+            math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
+
+            if (viewable.contains(ndc)) {
+                const v2f screen = v2f{ndc} * imgui.ctx.screen_size;
+                
+                auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::up)};
+                auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::forward)};
+                auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::right)};
+                auto v_pos        = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos)};
+                
+                const f32 line_width = 3.0f;
+
+                const v2f rd = v_right - v_pos;
+                const v2f ud = v_up - v_pos;
+                const v2f fd = v_forward - v_pos;
+                
+
+                draw_circle(&imgui.ctx, v_pos, 3.0f,     color::rgba::light_gray);
+                draw_circle(&imgui.ctx, v_up, 3.0f,     color::rgba::light_gray);
+                draw_circle(&imgui.ctx, v_right, 3.0f,  color::rgba::light_gray);
+                draw_circle(&imgui.ctx, v_forward, 3.0f,color::rgba::light_gray);
+
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{0.75f}, ud, fd, 0.0f, 0.25f, 3.0f, color::rgba::red, 64);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{0.75f}, rd, fd, 0.0f, 0.25f, 3.0f, color::rgba::green, 64);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{0.75f}, rd, ud, 0.0f, 0.25f, 3.0f, color::rgba::blue, 64);
+
+                draw_circle(&imgui.ctx, v_up, 5.0f, color::rgba::green);
+                draw_circle(&imgui.ctx, v_right, 5.0f, color::rgba::red);
+                draw_circle(&imgui.ctx, v_forward, 5.0f, color::rgba::blue);
+
+                draw_line(&imgui.ctx, v_pos, v_up, line_width, color::rgba::green);
+                draw_line(&imgui.ctx, v_pos, v_right, line_width, color::rgba::red);
+                draw_line(&imgui.ctx, v_pos, v_forward, line_width, color::rgba::blue);
+
+            }
+        }
+        inline void
+        gizmo(
+            state_t& imgui,
+            v3f* pos,
+            const m44& vp
+        ) {
+            draw_gizmo(imgui, pos, vp);
+
+            const v3f ndc = math::world_to_screen(vp, *pos);
+            math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
+
+            if (viewable.contains(ndc)) {
+                const v2f screen = v2f{ndc} * imgui.ctx.screen_size;
+                
+                const auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::up)};
+                const auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::forward)};
+                const auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::right)};
+                const auto v_pos        = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos)};
+
+                const v2f rd = v_right - v_pos;
+                const v2f ud = v_up - v_pos;
+                const v2f fd = v_forward - v_pos;
+                
+
+                math::circle_t pc{v_pos, 8.0f};
+                math::circle_t rc{v_right, 8.0f};
+                math::circle_t uc{v_up, 8.0f};
+                math::circle_t fc{v_forward, 8.0f};
+                const auto [mx,my] = imgui.ctx.input->mouse.pos;
+                const v2f mouse{mx,my};
+                const v2f mdelta{-(imgui.gizmo_mouse_start-mouse)};
+                u64 giz_id = 0;
+
+                const auto is_gizmo_id =[](u64 id){
+                    switch(id) {
+                        case "gizmo_pos"_sid: 
+                        case "gizmo_right"_sid: 
+                        case "gizmo_up"_sid: 
+                        case "gizmo_forward"_sid:
+                            return true;
+                        default:
+                            return false;
+                    }                        
+                };
+
+                if (math::intersect(pc, mouse)) {giz_id = "gizmo_pos"_sid;} else
+                if (math::intersect(rc, mouse)) {giz_id = "gizmo_right"_sid;} else
+                if (math::intersect(uc, mouse)) {giz_id = "gizmo_up"_sid;} else
+                if (math::intersect(fc, mouse)) {giz_id = "gizmo_forward"_sid;}
+
+                const bool clicked = imgui.ctx.input->mouse.buttons[0];
+                if (is_gizmo_id(imgui.active.id)) {
+                    if (is_gizmo_id(imgui.hot.id)) {
+                        if (imgui.gizmo_mouse_start != v2f{0.0f}) {
+                            const v2f naxis = glm::normalize(imgui.gizmo_axis_dir);
+                            const f32 scale = glm::length(imgui.gizmo_axis_dir);
+                            *pos = imgui.gizmo_world_start + imgui.gizmo_axis_wdir * glm::dot(mdelta/scale, naxis);
+                            const f32 proj = glm::dot(mdelta, naxis);
+
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 3.0f, color::rgba::light_gray);
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 5.0f, color::to_color32(imgui.gizmo_axis_wdir));
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 3.0f, color::rgba::light_gray);
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 5.0f, color::to_color32(imgui.gizmo_axis_wdir));
+                            
+                            draw_line(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, imgui.gizmo_mouse_start, 3.0f, color::to_color32(imgui.gizmo_axis_wdir * 0.7f));
+                            draw_line(&imgui.ctx, v_pos - naxis * 10000.0f, v_pos + naxis * 10000.0f, 2.0f, color::rgba::light_gray);
+
+                        } else {
+                            imgui.gizmo_world_start = *pos;
+                            switch(giz_id) {
+                                case 0: break;
+                                case "gizmo_pos"_sid: {
+                                    imgui.gizmo_mouse_start = v_pos;
+                                    imgui.gizmo_axis_dir = (rd);
+                                    break;
+                                }
+                                case "gizmo_right"_sid: {
+                                    imgui.gizmo_axis_dir = (rd);
+                                    imgui.gizmo_axis_wdir = axis::right;
+                                    imgui.gizmo_mouse_start = v_right;
+                                    break;
+                                }
+                                case "gizmo_up"_sid: {
+                                    imgui.gizmo_axis_dir = (ud);
+                                    imgui.gizmo_axis_wdir = axis::up;
+                                    imgui.gizmo_mouse_start = v_up;
+                                    break;
+                                }
+                                case "gizmo_forward"_sid: {
+                                    imgui.gizmo_axis_dir = (fd);
+                                    imgui.gizmo_axis_wdir = axis::forward;
+                                    imgui.gizmo_mouse_start = v_forward;
+                                    break;
+                                }
+                                case_invalid_default;
+                            }
+                        }
+                    }
+                    if (!clicked) {
+                        imgui.active = 0;
+                        imgui.gizmo_mouse_start = v2f{0.0f};
+                        imgui.gizmo_axis_dir = v2f{0.0f};
+                        imgui.gizmo_axis_wdir = v3f{0.0f};
+                    }
+                }
+                if (imgui.hot.id == giz_id) {
+                    if (clicked) {
+                        imgui.active = giz_id;
+                    }
+                } else if (is_gizmo_id(imgui.hot.id)) {
+                    if (!clicked) {
+                        imgui.hot = 0;
+                        imgui.gizmo_mouse_start = v2f{0.0f};
+                        imgui.gizmo_axis_dir = v2f{0.0f};
+                        imgui.gizmo_axis_wdir = v3f{0.0f};
+                    }
+                }
+
+                if (giz_id) {
+                    imgui.hot = giz_id;
+                }
+            }
+        }
         inline void
         color_edit(
             state_t& imgui,

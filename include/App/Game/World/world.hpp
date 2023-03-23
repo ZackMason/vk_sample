@@ -29,7 +29,7 @@ namespace game {
 
         game::cam::camera_t camera;
 
-        // phys::physics_world_t* physics_world{0};
+        physics::api_t* physics{0};
 
         utl::rng::random_t<utl::rng::xor64_random_t> entropy;
 
@@ -90,10 +90,11 @@ namespace game {
     }
 
     inline world_t*
-    world_init(arena_t* arena, app_t* app) {
+    world_init(arena_t* arena, app_t* app, physics::api_t* api) {
         TIMED_FUNCTION;
         world_t* world = arena_alloc_ctor<world_t>(arena, 1);
         world->app = app;
+        world->physics = api;
         
         world->arena = arena_sub_arena(arena, megabytes(32));
 
@@ -197,6 +198,48 @@ spawn(
             // world->physics_world
         );
         world->player = entity;
+    } if (def.physics) {
+        physics::rigidbody_t* rb{0};
+        if (def.physics->flags & entity::PhysicsEntityFlags_Static) {
+            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::STATIC);
+        } else if (def.physics->flags & entity::PhysicsEntityFlags_Dynamic) {
+            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::DYNAMIC);
+        }
+        entity->physics.rigidbody = rb;
+        rb->position = pos;
+        rb->orientation = entity->global_transform().get_orientation();
+        std::string collider_name;
+        switch(def.physics->shape) {
+            case physics::collider_shape_type::CONVEX: {
+                collider_name = fmt_str("{}.convex.physx", def.gfx.mesh_name.c_data);
+                physics::collider_convex_info_t ci;
+                ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
+                ci.size = safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name));
+                world->physics->create_collider(
+                    world->physics,
+                    rb, def.physics->shape, &ci
+                );
+            }   break;
+            case physics::collider_shape_type::TRIMESH: {
+                collider_name = fmt_str("{}.trimesh.physx", def.gfx.mesh_name.c_data);
+                physics::collider_trimesh_info_t ci;
+                ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
+                ci.size = safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name));
+                world->physics->create_collider(
+                    world->physics,
+                    rb, def.physics->shape, &ci
+                );
+            }   break;
+            case physics::collider_shape_type::SPHERE: {
+                physics::collider_sphere_info_t ci;
+                ci.radius = def.physics->shape_def.sphere.radius;
+                world->physics->create_collider(
+                    world->physics,
+                    rb, def.physics->shape, &ci
+                );
+            }   break;
+        }
+        world->physics->set_rigidbody(0, rb);
     }
     // if (def.physics && false) {
     //     if (def.physics->flags & entity::PhysicsEntityFlags_Static) {

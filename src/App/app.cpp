@@ -14,6 +14,27 @@
 global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
 global_variable game::world_t gs_saved_world;
 
+void teapot_on_collision(
+    physics::rigidbody_t* teapot,
+    physics::rigidbody_t* other
+) {
+    auto* entity = (game::entity::entity_t*) teapot->user_data;
+    // gen_info(__FUNCTION__, "teapot hit: {} - id", entity->id);
+    auto* saved_entity = game::find_entity_by_id(&gs_saved_world, entity->id);
+    entity->transform.origin = saved_entity->transform.origin;
+    teapot->position = entity->transform.origin;
+    
+    entity->physics.rigidbody->flags = physics::rigidbody_flags::SKIP_SYNC;
+}
+
+void player_on_collision(
+    physics::rigidbody_t* player,
+    physics::rigidbody_t* other
+) {
+    auto* other_entity = (game::entity::entity_t*) other->user_data;
+    gen_info(__FUNCTION__, "hit: {} - id", other_entity->id);
+}
+
 namespace tween {
 
 template <typename T, f32 D>
@@ -37,15 +58,6 @@ T in_out_expo(T b, T c, f32 t) {
 }
 
 };
-
-void 
-co_modulate_opacity(coroutine_t* coro) {
-    co_begin(coro);
-
-
-
-    co_reset(coro);
-}
 
 
 inline gfx::mesh_list_t
@@ -237,7 +249,6 @@ app_on_init(app_memory_t* app_mem) {
     app->main_arena.start = (std::byte*)app_mem->perm_memory + sizeof(app_t);
     app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
 
-
     arena_t* main_arena = &app->main_arena;
     arena_t* string_arena = &app->string_arena;
 
@@ -270,27 +281,22 @@ app_on_init(app_memory_t* app_mem) {
 #endif
     TIMED_FUNCTION;
 
-
-    // app->panel_coro = arena_alloc_ctor<coroutine_t>(main_arena, 1, app_mem->input.time);
-
-    // gen_info("init", "init physx");
-    // app->physics = arena_alloc_ctor<game::phys::physx_state_t>(
-    //     main_arena, 1,
-    //     *main_arena, megabytes(512)
-    // );
-    
-    // game::phys::init_physx_state(*app->physics);
-
     app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./assets/res.pack");
     
-    app->game_world = game::world_init(&app->game_arena, app);
-    
+    physics::api_t* physics = app_mem->physics;
+    if (physics) {
+        gen_info("app_init", "Creating physics scene");
+        assert(physics->create_scene);
+        physics->create_scene(physics, 0);
+        gen_info("app_init", "Created physics scene");
+    }
+    app->game_world = game::world_init(&app->game_arena, app, physics);
 
     // setup graphics
 
     {
         auto entity_info = GEN_TYPE_INFO(game::entity::entity_t);
-        gen_info("app", "{}: {} - {} bytes", entity_info.name, entity_info.type_id, entity_info.size);
+        gen_info("app", "typeof {}: {} - {} bytes", entity_info.name, entity_info.type_id, entity_info.size);
     }
 
     app_init_graphics(app_mem);
@@ -301,10 +307,9 @@ app_on_init(app_memory_t* app_mem) {
         );
     };
 
-    u32 red_plastic_mat = make_material("red-plastic", gfx::material_t::plastic(gfx::color::v4::red));
-    u32 blue_plastic_mat = make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
-    u32 gold_mat = make_material("gold-metal", gfx::material_t::metal(gfx::color::v4::yellow));
-
+    make_material("red-plastic", gfx::material_t::plastic(gfx::color::v4::red));
+    make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
+    make_material("gold-metal", gfx::material_t::metal(gfx::color::v4::yellow));
     make_material("silver-metal", gfx::material_t::metal(gfx::color::v4::white));
     make_material("sand", gfx::material_t::plastic(gfx::color::v4::sand));
     make_material("dirt", gfx::material_t::plastic(gfx::color::v4::dirt));
@@ -418,7 +423,9 @@ app_on_init(app_memory_t* app_mem) {
         game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
     }
 
-    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::characters::soldier);
+    auto* player = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::characters::soldier);
+    player->physics.rigidbody->on_collision = player_on_collision;
+    player->physics.rigidbody->on_collision_end = player_on_collision;
 
     game::spawn(app->game_world, app->render_system->mesh_hash, 
 
@@ -431,7 +438,7 @@ app_on_init(app_memory_t* app_mem) {
     // auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
-    loop_iota_u64(i, 1500) {
+    loop_iota_u64(i, 150) {
         auto* e = game::spawn(
             app->game_world, 
             app->render_system->mesh_hash, 
@@ -441,6 +448,7 @@ app_on_init(app_memory_t* app_mem) {
         e->transform.set_scale(v3f{2.f});
         e->transform.set_rotation(rng.randnv<v3f>());
         e->gfx.material_id = rng.rand() % 6;
+        e->physics.rigidbody->on_collision = teapot_on_collision;
     }
 
     gen_info("app", "player id: {} - {}", 
@@ -470,105 +478,64 @@ app_on_deinit(app_memory_t* app_mem) {
 export_fn(void) 
 app_on_unload(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
-
-    // app->physics->physics->getTaskManager()->suspendProcessing();
-
-    // app->gfx.cleanup();
 }
 
 export_fn(void)
 app_on_reload(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
-
-    // app->physics->physics->getTaskManager()->resumeProcessing();
-    
-
-    // app->gfx.init(&app_mem->config);
 }
 
-
 void 
-camera_input(app_t* app, app_input_t* input) {
+camera_input(app_t* app, player_controller_t pc, f32 dt) {
+    auto* world = app->game_world;
+    auto* player = world->player;
+    auto* rigidbody = player->physics.rigidbody;
+
     app->game_world->player->camera_controller.transform = 
         app->game_world->player->transform;
     
-    const v3f move = v3f{
-        input->gamepads[0].left_stick.x,
-        f32(input->gamepads[0].buttons[button_id::shoulder_left].is_held) - 
-        f32(input->gamepads[0].buttons[button_id::shoulder_right].is_held),
-        -input->gamepads[0].left_stick.y,
-    };
-    const v2f head_move = v2f{
-        input->gamepads[0].right_stick.x,
-        input->gamepads[0].right_stick.y,
-    } * 2.0f;
+    const v3f move = pc.move_input;
+    const v2f head_move = pc.look_input;
 
-    auto& yaw = app->game_world->player->camera_controller.yaw;
-    auto& pitch = app->game_world->player->camera_controller.pitch;
+    auto& yaw = player->camera_controller.yaw;
+    auto& pitch = player->camera_controller.pitch;
 
-    const v3f forward   = game::cam::get_direction(yaw, pitch);
-    const v3f up        = v3f{0.0f, 1.0f, 0.0f};
-    const v3f right     = glm::cross(forward, up);
+    const v3f forward   = -game::cam::get_direction(yaw, pitch);
+    const v3f right     = glm::cross(-forward, axis::up);
 
-    // if (input->mouse.buttons[1] || input->gamepads[0].is_connected) {
-    yaw += head_move.x * input->dt;
-    pitch -= head_move.y * input->dt;
-    // }
+    if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
+        yaw += head_move.x * dt;
+        pitch -= head_move.y * dt;
+    }
 
-    app->game_world->player->camera_controller.translate((forward * move.z + right * move.x + up * move.y) * 10.0f * input->dt);
-    app->game_world->player->transform = 
-        app->game_world->player->camera_controller.camera->affine_invert();
-}
-
-void fake_controller_input(app_input_t* input, v2f screen_size) {
-    // if (input->gamepads[0].is_connected == false || 1) {
-        const v3f move = v3f{
-            f32(input->keys['D']) - f32(input->keys['A']),
-            f32(input->keys['Q']) - f32(input->keys['E']),
-            f32(input->keys['S']) - f32(input->keys['W'])
-        };
-
-        // todo clamp
-        const v2f head_move = (f32(input->mouse.buttons[0]) * 100.0f * v2f{
-            input->mouse.delta[0], 
-            input->mouse.delta[1] 
-        } / screen_size) + 
-        v2f {
-            f32(input->keys['L']) - f32(input->keys['J']),
-            f32(input->keys['I']) - f32(input->keys['K'])
-        };
-
-        input->gamepads->left_stick.x += move.x;
-        input->gamepads->left_stick.y += move.z;
-
-        input->gamepads->right_stick.x += head_move.x;
-        input->gamepads->right_stick.y += head_move.y;
-
-        input->gamepads->buttons[button_id::shoulder_left].is_held |= input->keys['Q'];
-        input->gamepads->buttons[button_id::shoulder_right].is_held |= input->keys['E'];
-    // }
+    rigidbody->velocity += (forward * move.z + right * move.x + axis::up * move.y) * 10.0f * dt;
+    rigidbody->orientation = glm::quat{yaw * axis::up};
+    rigidbody->angular_velocity = v3f{0.0f};
+    player->camera_controller.translate(v3f{0.0f});
+    player->transform = player->camera_controller.camera->affine_invert();
 }
 
 void 
 app_on_input(app_t* app, app_input_t* input) {
-
-    fake_controller_input(input, app->gui.ctx.screen_size);
-    if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
-        camera_input(app, input);
-    }
+    camera_input(app, 
+        input->gamepads->is_connected ? 
+        gamepad_controller(input) : keyboard_controller(input),
+        input->dt
+    );
 
     if (input->pressed.keys['P']) {
         const game::entity::entity_t player = *app->game_world->player;
         std::memcpy(app->game_world, &gs_saved_world, sizeof(game::world_t));
         *app->game_world->player = player;
-        // range_u64(i, 0, app->game_world->entity_count) {
-        //     auto* e = app->game_world->entities + i;
-        //     if (e->physics.flags == game::entity::PhysicsEntityFlags_Dynamic &&
-        //         e->physics.rigid_body.dynamic) {
-        //         e->physics.rigid_body.set_velocity(v3f{0.0f});
-        //         e->physics.rigid_body.set_angular_velocity(v3f{0.0f});
-        //     }
-        // }
+        range_u64(i, 0, app->game_world->entity_count) {
+            auto* e = app->game_world->entities + i;
+            if (e->physics.flags == game::entity::PhysicsEntityFlags_Dynamic &&
+                e->physics.rigidbody
+            ) {
+                e->physics.rigidbody->velocity = v3f{0.0f};
+                e->physics.rigidbody->angular_velocity = v3f{0.0f};
+            }
+        }
     }
 
     if (input->gamepads[0].buttons[button_id::dpad_left].is_released) {
@@ -601,19 +568,22 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
     accum += f32(std::min(input->dt, 1.0f) > 0.0f) * input->dt;
 
-    // for (size_t i{0}; i < app->game_world->entity_count; i++) {
-    //     auto* e = app->game_world->entities + i;
-    //     game::entity::entity_set__transform(e);
-    // }
+    for (size_t i{0}; i < app->game_world->entity_count; i++) {
+        auto* e = app->game_world->entities + i;
+        if (e->physics.rigidbody) {
+            e->physics.rigidbody->position = e->global_transform().origin;
+            e->physics.rigidbody->orientation = e->global_transform().get_orientation();
+            app->game_world->physics->set_rigidbody(0, e->physics.rigidbody);
+        }
+    }
 
-    // if (accum >= sub_steps) {
-    //     // range_u32(_i, 0, sub_steps) {
-    //         TIMED_BLOCK(PhysicsStep);
-    //         accum -= step;
-    //         world->physics_world->scene->simulate(step);
-    //         world->physics_world->scene->fetchResults(true);
-    //     // }
-    // }
+    if (accum >= sub_steps) {
+        // range_u32(_i, 0, sub_steps) {
+            TIMED_BLOCK(PhysicsStep);
+            accum -= step;
+            world->physics->simulate(world->physics, step);
+        // }
+    }
 
     game::rendering::begin_frame(app->render_system);
         
@@ -622,12 +592,17 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         if (e->id == uid::invalid_id) {
             continue;
         }
-        const bool is_physics_object = e->physics.flags != game::entity::PhysicsEntityFlags_None;
+        const bool is_physics_object = e->physics.flags != game::entity::PhysicsEntityFlags_None && e->physics.rigidbody;
         const bool is_pickupable = (e->flags & game::entity::EntityFlags_Pickupable);
         const bool is_not_renderable = (e->flags & game::entity::EntityFlags_Renderable) == 0;
 
         if (is_physics_object) {
-            // game::entity::entity_update_physics(e);
+            const auto skip = (e->physics.rigidbody->flags & physics::rigidbody_flags::SKIP_SYNC);
+            app->game_world->physics->sync_rigidbody(0, e->physics.rigidbody);
+            if (!skip) {
+                e->transform.origin = e->physics.rigidbody->position;
+                e->transform.set_rotation(e->physics.rigidbody->orientation);
+            }
         }
         
         if (is_pickupable) {
@@ -736,9 +711,16 @@ draw_gui(app_memory_t* app_mem) {
     {
         using namespace std::string_view_literals;
         using namespace gfx::gui;
+        const m44 vp = 
+            app->render_system->vp;
 
         // draw_console(state, app->debug.console, v2f{0.0, 800.0f});
         
+
+        local_persist v3f default_widget_pos{10.0f};
+        local_persist v3f* widget_pos = &default_widget_pos;
+        im::gizmo(state, widget_pos, vp);
+
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
             local_persist bool show_stats = !false;
@@ -976,9 +958,7 @@ draw_gui(app_memory_t* app_mem) {
         }
 
 
-        const m44 vp = 
-            app->render_system->vp;
-
+    
     
         // for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
         for (size_t i = 0; i < app->game_world->entity_count; i++) {
@@ -1002,13 +982,15 @@ draw_gui(app_memory_t* app_mem) {
                     fmt_sv("Screen Pos: {:.2f} {:.2f}", ndc.x, ndc.y)
                 );
 
-                im::text(state,
+                if (im::text(state,
                     fmt_sv("Origin: {:.2f} {:.2f} {:.2f}", 
                         e->global_transform().origin.x,
                         e->global_transform().origin.y,
                         e->global_transform().origin.z
                     )
-                );
+                )) {
+                    widget_pos = &e->transform.origin;
+                }
 
                 // switch(e->physics.flags) {
                 //     case game::entity::PhysicsEntityFlags_None:
@@ -1179,7 +1161,7 @@ game_on_render(app_memory_t* app_mem) {
                 app->game_world->player->camera_controller.yaw,
                 app->game_world->player->camera_controller.pitch
             ), 
-            v3f{0.0f, 1.0f, 0.0f}
+            axis::up
         );
         sky_constants.directional_light = app->scene.lighting.directional_light;
 
@@ -1347,7 +1329,7 @@ app_on_update(app_memory_t* app_mem) {
         //     main_menu_on_update(app_mem);
         //     break;
         case 1: // Game
-            // game_on_update(app_mem);
+            game_on_update(app_mem);
             break;
         default:
             gen_warn("scene::update", "Unknown scene: {}", scene_state);

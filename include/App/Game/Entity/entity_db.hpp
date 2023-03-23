@@ -68,13 +68,16 @@ teapot {
     },
     .physics = entity_def_t::physics_t {
         .flags = PhysicsEntityFlags_Dynamic,
+    #if 1 // use convex
         .shape = physics::collider_shape_type::CONVEX,
-        // .shape = physics::collider_shape_type::SPHERE,
-        // .shape_def = {
-        //     .sphere = {
-        //         .radius = 1.0f,
-        //     },
-        // },
+    #else 
+        .shape = physics::collider_shape_type::SPHERE,
+        .shape_def = {
+            .sphere = {
+                .radius = 1.0f,
+            },
+        },
+    #endif
     },
 };
 
@@ -192,14 +195,20 @@ soldier {
         },
     },
     .physics = entity_def_t::physics_t {
-        .flags = PhysicsEntityFlags_Dynamic | PhysicsEntityFlags_Character,
-        .shape = physics::collider_shape_type::CAPSULE,
+        .flags = PhysicsEntityFlags_Character | PhysicsEntityFlags_Dynamic,
+        .shape = physics::collider_shape_type::SPHERE,
         .shape_def = {
-            .capsule = {
-                .radius = 1.0f,
-                .height = 3.0f,
+            .sphere = {
+                .radius = 3.0f,
             },
         },
+        // .shape = physics::collider_shape_type::CAPSULE,
+        // .shape_def = {
+        //     .capsule = {
+        //         .radius = 1.0f,
+        //         .height = 3.0f,
+        //     },
+        // },
     },
     .children = {
         {
@@ -229,7 +238,7 @@ assassin {
         },
     },
     .physics = entity_def_t::physics_t {
-        .flags = PhysicsEntityFlags_Dynamic | PhysicsEntityFlags_Character,
+        .flags = PhysicsEntityFlags_Character,
         .shape = physics::collider_shape_type::CAPSULE,
         .shape_def = {
             .capsule = {

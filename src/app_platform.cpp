@@ -18,6 +18,16 @@
 #undef near
 #undef far
 
+void* win32_alloc(size_t size){
+    return VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+}
+template <typename T>
+T* win32_alloc(){
+    auto* t = (T*)win32_alloc(sizeof(T));
+    new (t) T();
+    return t;
+}
+
 #endif
 
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -150,6 +160,7 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
 
     app_mem->input.mouse.pos[0] = mouse[0];
     app_mem->input.mouse.pos[1] = mouse[1];
+
 
     app_mem->input.mouse.delta[0] = mouse[0] - last_input.mouse.pos[0];
     app_mem->input.mouse.delta[1] = mouse[1] - last_input.mouse.pos[1];
@@ -341,11 +352,12 @@ main(int argc, char* argv[]) {
         }
     };
 
-    void* physics_dll{nullptr};
-    arena_t physics_arena = arena_create(new std::byte[gigabytes(1)], gigabytes(1));
+    void* physics_dll = LoadLibraryA(".\\build\\app_physics.dll");
+    if (physics_dll)
     {
-        app_mem.physics = new physics::api_t;
-        physics_dll = LoadLibraryA(".\\build\\app_physics.dll");
+        gen_info("win32", "Initializing Physics");
+        arena_t physics_arena = arena_create(win32_alloc(megabytes(1024)), megabytes(1024));
+        app_mem.physics = win32_alloc<physics::api_t>();
         assert(physics_dll && "Failing to load physics layer dll");
         physics::init_function init_physics = 
             reinterpret_cast<physics::init_function>(

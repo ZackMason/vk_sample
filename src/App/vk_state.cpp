@@ -254,6 +254,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 #else
     constexpr bool enable_validation = true;
 #endif
+
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
     };
@@ -731,7 +732,7 @@ void state_t::create_surface(app_config_t* info) {
 }
 
 void state_t::create_debug_messenger() {
-    // IS_VK_FUNCT;
+#ifndef NDEBUG
     VkDebugUtilsMessengerCreateInfoEXT createInfo{};
 
     internal::populateDebugMessengerCreateInfo(createInfo);
@@ -740,13 +741,16 @@ void state_t::create_debug_messenger() {
         gen_error("vulkan", "failed to set up debug messenger!");
         std::terminate();
     }
+#endif
 }
 
 void state_t::create_instance(app_config_t* info) {
-    if (internal::enable_validation && !internal::check_validation_layer_support()) {
-        assert(0  && "Failed to provide validation layers");
-        gen_error("vulkan", "Failed to provide validation layers");
-        std::terminate();
+    if constexpr (internal::enable_validation){
+        if (!internal::check_validation_layer_support()) {
+            assert(0  && "Failed to provide validation layers");
+            gen_error("vulkan", "Failed to provide validation layers");
+            std::terminate();
+        }
     }
 
     VkApplicationInfo app_info{};

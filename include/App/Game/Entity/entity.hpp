@@ -40,6 +40,14 @@ enum struct entity_type {
     SIZE
 };
 
+// type traits
+constexpr bool 
+is_pickupable(entity_type type) noexcept {
+    return 
+        type == entity_type::weapon || 
+        type == entity_type::weapon_part;
+}
+
 struct health_t {
     f32 max{100.0f};
     f32 current{};
@@ -116,7 +124,7 @@ struct entity_t : node_t<entity_t> {
 
     struct physics_t {
         u32 flags{0};
-        // phys::rigid_body_t rigid_body;
+        physics::rigidbody_t* rigidbody;
     } physics;
 
 

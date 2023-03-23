@@ -39,50 +39,79 @@ struct collider_t {
     collider_id         id{uid::invalid_id};
     void*               shape;
 
-    v3f                 offset;
-    glm::quat           orientation;
+    // v3f                 offset;
+    // glm::quat           orientation;
 };
 
-#define MAX_COLLIDER_COUNT 8
+struct rigidbody_t;
+using rigidbody_on_collision_function = void(*)(rigidbody_t*, rigidbody_t*);
+
+struct rigidbody_flags {
+    enum {
+        SKIP_SYNC = BIT(0),
+
+    };
+};
+
+#define RIGIDBODY_MAX_COLLIDER_COUNT 8
 DEFINE_TYPED_ID(rigidbody_id)
 struct rigidbody_t {
     rigidbody_type  type;
     rigidbody_id    id{uid::invalid_id};
+    u64             flags{0};
+    
+    v3f             position{0.0f};
+    glm::quat       orientation{};
 
     v3f             velocity{0.0f};
     v3f             angular_velocity{0.0f};
 
-    collider_t*     colliders[MAX_COLLIDER_COUNT];
+    collider_t      colliders[RIGIDBODY_MAX_COLLIDER_COUNT];
     size_t          collider_count{0};
 
     const void*     user_data{0};
+    const void*     api_data{0};
+
+    rigidbody_on_collision_function on_collision{0};
+    rigidbody_on_collision_function on_collision_end{0};
 };
 
 struct raycast_result_t {
+    bool hit{false};
     v3f point;
+    v3f normal;
     f32 distance;
-    const void* user_data;
+    const void* user_data{0};
 };
 
 struct api_t;
 
-using create_scene = void(*)(const api_t*);
-using destroy_scene = void(*)(const api_t*);
+using create_scene_function = void(*)(api_t*, const void* filter_fn);
+using destroy_scene_function = void(*)(api_t*);
 
-using create_rigidbody_function = rigidbody_t*(*)(const api_t*, void* entity, rigidbody_type);
-using create_collider_function = collider_t*(*)(const api_t*, const rigidbody_t*, collider_shape_type, void* collider_info);
+using create_rigidbody_function = rigidbody_t*(*)(api_t*, void* entity, rigidbody_type);
+using create_collider_function = collider_t*(*)(api_t*, rigidbody_t*, collider_shape_type, void* collider_info);
+using simulate_function = void(*)(api_t*, f32 dt);
 using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd);
-using simulate_function = void(*)(f32 dt);
+
+// updates a rigidbody pos and orientation
+using update_rigidbody_function = void(*)(api_t*, rigidbody_t*);
 
 struct api_t {
     backend_type type;
     void*        backend{nullptr};
 
-    simulate_function simulate{0};
+    arena_t*        arena;
 
-    create_rigidbody_function create_rigidbody{0};
-    create_collider_function create_collider{0};
-    raycast_world_function raycast_world{0};
+    simulate_function           simulate{0};
+    update_rigidbody_function   set_rigidbody{0};
+    update_rigidbody_function   sync_rigidbody{0};
+
+    create_rigidbody_function   create_rigidbody{0};
+    create_collider_function    create_collider{0};
+    raycast_world_function      raycast_world{0};
+    create_scene_function       create_scene{0};
+    destroy_scene_function      destroy_scene{0};
 
     // TODO(Zack): Add hashes
     rigidbody_t rigidbodies[PHYSICS_MAX_RIGIDBODY_COUNT];
