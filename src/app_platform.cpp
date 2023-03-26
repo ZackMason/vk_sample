@@ -358,6 +358,7 @@ main(int argc, char* argv[]) {
         gen_info("win32", "Initializing Physics");
         arena_t physics_arena = arena_create(win32_alloc(megabytes(1024)), megabytes(1024));
         app_mem.physics = win32_alloc<physics::api_t>();
+        app_mem.physics->rigidbody_count = 0;
         assert(physics_dll && "Failing to load physics layer dll");
         physics::init_function init_physics = 
             reinterpret_cast<physics::init_function>(

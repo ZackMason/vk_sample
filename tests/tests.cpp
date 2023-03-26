@@ -119,6 +119,8 @@ struct test_script_t : public game::script::entity_script_t {
         utl::profile_t p{x};
 
 int main(int argc, char** argv) {
+    using namespace std::string_view_literals;
+
     utl::profile_t p{"Total Run Time"};
     RUN_TEST("control")
         
@@ -430,17 +432,23 @@ int main(int argc, char** argv) {
         TEST_ASSERT(child_count == 2);
         
         const auto& p0 = game::entity::db::characters::soldier;
+        const auto& p1 = game::entity::db::rooms::map_01;
         TEST_ASSERT(p0.stats->health.max == 120);
         TEST_ASSERT(p0.stats->health.max == p0.stats->health.current);
+        
         TEST_ASSERT(!p0.emitter);
 
         utl::memory_blob_t blob{&arena};
         blob.serialize(&arena, p0);
+        blob.serialize(&arena, p1);
 
-        auto p1 = blob.deserialize<game::entity::db::entity_def_t>();
+        auto r0 = blob.deserialize<game::entity::db::entity_def_t>();
+        auto r1 = blob.deserialize<game::entity::db::entity_def_t>();
 
         
-        TEST_ASSERT(p1.stats->health.max == 120);
+        TEST_ASSERT(r0.stats->health.max == 120);
+        TEST_ASSERT(r0.type_name == "soldier"sv);
+        TEST_ASSERT(!r1.stats);
     });
 
     RUN_TEST("weapons")

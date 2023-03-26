@@ -36,9 +36,10 @@ main() {
         color = mix(vec3(1.0), vec3(0.3412, 0.1569, 0.1569), .750-vN.y);
 	}
     
-	// color = pow(color * 1.0, vec3(2.2));
+	color = pow(color, vec3(2.2));
+	color = pow(color, vec3(2.2));
 
-	// color = ACESFilm(color);
+
 
 	// color = pow(color * 1.0, vec3(1.0/2.2));
 

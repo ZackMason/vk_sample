@@ -18,13 +18,13 @@ void teapot_on_collision(
     physics::rigidbody_t* teapot,
     physics::rigidbody_t* other
 ) {
-    auto* entity = (game::entity::entity_t*) teapot->user_data;
+    auto* teapot_entity = (game::entity::entity_t*) teapot->user_data;
     // gen_info(__FUNCTION__, "teapot hit: {} - id", entity->id);
-    auto* saved_entity = game::find_entity_by_id(&gs_saved_world, entity->id);
-    entity->transform.origin = saved_entity->transform.origin;
-    teapot->position = entity->transform.origin;
+    auto* saved_entity = game::find_entity_by_id(&gs_saved_world, teapot_entity->id);
+    teapot_entity->transform.origin = saved_entity->transform.origin;
+    teapot->position = saved_entity->transform.origin;
     
-    entity->physics.rigidbody->flags = physics::rigidbody_flags::SKIP_SYNC;
+    teapot->flags = physics::rigidbody_flags::SKIP_SYNC;
 }
 
 void player_on_collision(
@@ -102,10 +102,6 @@ load_bin_mesh_data(
         std::memcpy(v, blob.read_data(), vertex_bytes);
         blob.advance(vertex_bytes);
 
-        loop_iota_u64(j, results.meshes[i].vertex_count) {
-            results.meshes[i].aabb.expand(v[j].pos);
-        }
-
         const size_t index_count = blob.deserialize<u64>();
         const size_t index_bytes = sizeof(u32) * index_count;
         results.meshes[i].index_count = safe_truncate_u64(index_count);
@@ -113,8 +109,18 @@ load_bin_mesh_data(
         u32* tris = indices->allocate(index_count);
         std::memcpy(tris, blob.read_data(), index_bytes);
         blob.advance(index_bytes);
+
+        results.meshes[i].aabb = {};
+        range_u64(j, 0, vertex_count) {
+            results.meshes[i].aabb.expand(v[j].pos);
+        }
     }
 
+    results.aabb = {};
+    range_u64(m, 0, results.count) {
+        results.aabb.expand(results.meshes[m].aabb);
+    }
+    
     return results;
 }
 
@@ -130,15 +136,14 @@ load_bin_mesh(
     
     std::byte* file_data = utl::res::pack_file_get_file(packed_file, file_index);
 
-    gfx::mesh_list_t results;
     
     if (file_data) {
-        return load_bin_mesh_data(arena, file_data, vertices, indices);
+        gfx::mesh_list_t results = load_bin_mesh_data(arena, file_data, vertices, indices);
     } else {
         gen_warn("app::load_bin_mesh", "Failed to open mesh file: {}", path);
     }
 
-    return results;
+    return {};
 }
 
 inline app_t*
@@ -161,9 +166,9 @@ app_init_graphics(app_memory_t* app_mem) {
 
     auto* rs = app->render_system;
 
-    app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
     app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
-    app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0],
+    app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass);
+    app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass,
         gfx::vul::mesh_pipeline_info_t{
             vk_gfx.sporadic_uniform_buffer.buffer,
             app->render_system->job_storage_buffer.buffer,
@@ -178,9 +183,7 @@ app_init_graphics(app_memory_t* app_mem) {
     app->debug_pipeline = gfx::vul::create_debug_pipeline(
         &app->mesh_arena, 
         &vk_gfx, 
-        rs->render_passes[0],
-        app->scene.debug_scene_uniform_buffer.buffer, 
-        sizeof(gfx::vul::scene_buffer_t)
+        rs->render_targets[0].render_pass
     );
 
     gfx::font_load(&app->texture_arena, &app->default_font, "./assets/fonts/Go-Mono-Bold.ttf", 18.0f);
@@ -193,13 +196,24 @@ app_init_graphics(app_memory_t* app_mem) {
             &app->default_font);
     }
 
-    gfx::vul::texture_2d_t* ui_textures[64];
+    gfx::vul::texture_2d_t* ui_textures[4096];
     for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = app->default_font_texture; }
+    gfx::vul::texture_2d_t scene_c_fb;
+    gfx::vul::texture_2d_t scene_d_fb;
+    scene_c_fb.sampler = rs->render_targets->sampler;
+    scene_c_fb.image_view = rs->render_targets->attachments->next->view;
+    scene_c_fb.image_layout = rs->render_targets->attachments->next->description.finalLayout;
+    ui_textures[1] = &scene_c_fb;
+    
+    scene_d_fb.sampler = rs->render_targets->sampler;
+    scene_d_fb.image_view = rs->render_targets->attachments->view;
+    scene_d_fb.image_layout = rs->render_targets->attachments->description.finalLayout;
+    ui_textures[2] = &scene_d_fb;
     
     app->default_font_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
         app->gui_pipeline->descriptor_set_layouts[0],
-        ui_textures, 64);
+        ui_textures, array_count(ui_textures));
 
     app->brick_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
     {
@@ -223,14 +237,18 @@ app_init_graphics(app_memory_t* app_mem) {
     );
 
     vk_gfx.create_vertex_buffer(
-        &app->gui.vertices
+        &app->gui.vertices[0]
     );
     vk_gfx.create_index_buffer(
-        &app->gui.indices
+        &app->gui.indices[0]
+    );
+    vk_gfx.create_vertex_buffer(
+        &app->gui.vertices[1]
+    );
+    vk_gfx.create_index_buffer(
+        &app->gui.indices[1]
     );
 
-    app->gui.ctx.vertices = &app->gui.vertices.pool;
-    app->gui.ctx.indices = &app->gui.indices.pool;
     app->gui.ctx.font = &app->default_font;
     app->gui.ctx.input = &app_mem->input;
     app->gui.ctx.screen_size = v2f{
@@ -286,7 +304,7 @@ app_on_init(app_memory_t* app_mem) {
     physics::api_t* physics = app_mem->physics;
     if (physics) {
         gen_info("app_init", "Creating physics scene");
-        assert(physics->create_scene);
+        assert(physics && physics->create_scene);
         physics->create_scene(physics, 0);
         gen_info("app_init", "Created physics scene");
     }
@@ -316,7 +334,7 @@ app_on_init(app_memory_t* app_mem) {
     
     using namespace gfx::color;
 
-    app->scene.sporadic_buffer.mode = 2;
+    app->scene.sporadic_buffer.mode = 1;
     app->scene.sporadic_buffer.use_lighting = 1;
 
     if (0)
@@ -405,7 +423,7 @@ app_on_init(app_memory_t* app_mem) {
     #endif
 
     // load all meshes from the resource file
-    for (size_t i = 0; i < app->resource_file->file_count; i++) {
+    range_u64(i, 0, app->resource_file->file_count) {
         if (app->resource_file->table[i].file_type != utl::res::magic::mesh) { 
             continue; 
         }
@@ -423,27 +441,24 @@ app_on_init(app_memory_t* app_mem) {
         game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
     }
 
-    auto* player = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::characters::soldier);
+    auto* player = game::spawn(app->game_world, app->render_system, game::entity::db::characters::soldier, v3f{0.0f, 4.0f, 0.0f});
     player->physics.rigidbody->on_collision = player_on_collision;
-    player->physics.rigidbody->on_collision_end = player_on_collision;
 
-    game::spawn(app->game_world, app->render_system->mesh_hash, 
-
-        *game::entity::db::query("shotgun", game::entity::db::gs_database)
-    // game::entity::db::weapons::shotgun,
-    , v3f{10,3,10});
+    game::spawn(app->game_world, app->render_system,
+        game::entity::db::weapons::shotgun,
+        v3f{10,3,10});
 
 
-    game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::map_01);
-    // auto* e2 = game::spawn(app->game_world, app->render_system->mesh_hash, game::entity::db::rooms::room_0);
+    // game::spawn(app->game_world, app->render_system, game::entity::db::rooms::map_01);
+    game::spawn(app->game_world, app->render_system, game::entity::db::rooms::room_0);
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
-    loop_iota_u64(i, 150) {
+    loop_iota_u64(i, 200) {
         auto* e = game::spawn(
             app->game_world, 
-            app->render_system->mesh_hash, 
+            app->render_system,
             game::entity::db::misc::teapot,
-            rng.randnv<v3f>() * 100.0f
+            rng.randnv<v3f>() * 100.0f * planes::xz + axis::up * 8.0f
         );
         e->transform.set_scale(v3f{2.f});
         e->transform.set_rotation(rng.randnv<v3f>());
@@ -462,7 +477,7 @@ app_on_init(app_memory_t* app_mem) {
 
 
     std::memcpy(&gs_saved_world, app->game_world, sizeof(game::world_t));
-    gen_info("app", "world size: {}kb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
+    gen_info("app", "world size: {}mb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
 }
 
 export_fn(void) 
@@ -492,6 +507,7 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
     auto* rigidbody = player->physics.rigidbody;
 
     app->game_world->player->camera_controller.transform = 
+        // app->game_world->player->physics.rigidbody->position;
         app->game_world->player->transform;
     
     const v3f move = pc.move_input;
@@ -586,6 +602,7 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
     }
 
     game::rendering::begin_frame(app->render_system);
+    app->debug.debug_vertices.pool.clear();
         
     for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
         auto* e = app->game_world->entities + i;
@@ -619,6 +636,10 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
             gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
             return;
         }
+
+        
+        app->debug.draw_aabb(e->transform.xform_aabb(e->aabb), gfx::color::v3::yellow);
+
         game::rendering::submit_job(
             app->render_system, 
             e->gfx.mesh_id, 
@@ -641,6 +662,7 @@ draw_gui(app_memory_t* app_mem) {
     TIMED_FUNCTION;
     app_t* app = get_app(app_mem);
 
+    local_persist u64 frame{0}; frame++;
     auto string_mark = arena_get_mark(&app->string_arena);
 
     arena_t* display_arenas[] = {
@@ -657,8 +679,8 @@ draw_gui(app_memory_t* app_mem) {
         &app->render_system->frame_arena,
         &app->render_system->vertices.pool,
         &app->render_system->indices.pool,
-        &app->gui.vertices.pool,
-        &app->gui.indices.pool,
+        &app->gui.vertices[!(frame&1)].pool,
+        &app->gui.indices[!(frame&1)].pool,
     };
 
     const char* display_arena_names[] = {
@@ -678,8 +700,7 @@ draw_gui(app_memory_t* app_mem) {
         "- 2D Vertex",
         "- 2D Index",
     };
-
-    gfx::gui::ctx_clear(&app->gui.ctx);
+    gfx::gui::ctx_clear(&app->gui.ctx, &app->gui.vertices[frame&1].pool, &app->gui.indices[frame&1].pool);
     
     app->time_text_anim -= app_mem->input.dt;
     if (app->time_text_anim > 0.0f) {
@@ -695,7 +716,8 @@ draw_gui(app_memory_t* app_mem) {
         .theme = gfx::gui::theme_t {
             .fg_color = gfx::color::rgba::gray,
             // .bg_color = gfx::color::rgba::purple,
-            .bg_color = gfx::color::rgba::dark_gray,
+            .bg_color = gfx::color::rgba::black,
+            // .bg_color = gfx::color::rgba::dark_gray,
             .text_color = gfx::color::rgba::cream,
             .disabled_color = gfx::color::rgba::dark_gray,
             .border_color = gfx::color::rgba::white,
@@ -719,6 +741,9 @@ draw_gui(app_memory_t* app_mem) {
 
         local_persist v3f default_widget_pos{10.0f};
         local_persist v3f* widget_pos = &default_widget_pos;
+
+        im::clear(state);
+
         im::gizmo(state, widget_pos, vp);
 
         local_persist bool show_entities = false;
@@ -889,10 +914,23 @@ draw_gui(app_memory_t* app_mem) {
 
             local_persist bool show_gfx = false;
             local_persist bool show_mats = false;
+            local_persist bool show_probes = false;
             local_persist bool show_env = !false;
             local_persist bool show_mat_id[8] = {};
             if (im::text(state, "Graphics"sv, &show_gfx)) { 
                 local_persist bool show_sky = false;
+                if (im::text(state, "- Probes"sv, &show_probes)) { 
+                    auto& probes = app->render_system->light_probes;
+                    range_u64(i, 0, probes.probe_count) {
+                        auto& p = probes.probes[i];
+                        if (im::draw_circle_3d(state, vp, p.position, 0.1f, gfx::color::rgba::white)) {
+                            if (im::begin_panel_3d(state, "probe"sv, vp, p.position)) {
+                                im::text(state, fmt_sv("Probe ID: {}"sv, p.id));
+                                im::end_panel(state);
+                            }
+                        }
+                    }
+                }
                 if (im::text(state, "- Environment"sv, &show_env)) { 
                     auto& env = app->render_system->environment_storage_buffer.pool[0];
                     local_persist bool show_amb = false;
@@ -963,15 +1001,25 @@ draw_gui(app_memory_t* app_mem) {
         // for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
         for (size_t i = 0; i < app->game_world->entity_count; i++) {
             auto* e = app->game_world->entities + i;
-            if (!show_entities && ((e->flags & BIT(23)) == 0)) continue;
+            // if (!show_entities && ((e->flags & BIT(23)) == 0)) continue;
             const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
 
+            bool is_selected = widget_pos == &e->transform.origin;
+            bool not_player = e != app->game_world->player;
+            bool opened = false;
+            if (show_entities || 
+                is_selected || 
+                (not_player && im::draw_hiding_circle_3d(state, vp, e->global_transform().origin, 0.1f, static_cast<u32>(utl::rng::fnv_hash_u64(e->id)), 2.0f, 4)))
             if (im::begin_panel_3d(state, 
                 e->name.c_data ? 
                 fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e) :
                 fmt_sv("Entity: {}", (void*)e),
                 vp, e->global_transform().origin
             )) {
+                opened = true;
+                if (state.ctx.input->mouse.buttons[0]) {
+                    widget_pos = &e->transform.origin;
+                }
                 im::text(state, 
                     e->name.c_data ? 
                     fmt_sv("Entity: {}", std::string_view{e->name}) :
@@ -992,25 +1040,17 @@ draw_gui(app_memory_t* app_mem) {
                     widget_pos = &e->transform.origin;
                 }
 
-                // switch(e->physics.flags) {
-                //     case game::entity::PhysicsEntityFlags_None:
-                //         im::text(state, "Physics Type: None");
-                //         break;
-                //     case game::entity::PhysicsEntityFlags_Static:
-                //         im::text(state, "Physics Type: Static");
-                //         break;
-                //     case game::entity::PhysicsEntityFlags_Dynamic:
-                //         im::text(state, "Physics Type: Dynamic");
-                //         break;
-                // }
-                // switch(e->physics.rigid_body.type) {
-                //     case game::phys::physics_shape_type::TRIMESH:
-                //         im::text(state, "Physics Shape: Trimesh");
-                //         break;
-                //     case game::phys::physics_shape_type::CONVEX:
-                //         im::text(state, "Physics Shape: Convex");
-                //         break;
-                // }
+                switch(e->physics.flags) {
+                    case game::entity::PhysicsEntityFlags_None:
+                        im::text(state, "Physics Type: None");
+                        break;
+                    case game::entity::PhysicsEntityFlags_Static:
+                        im::text(state, "Physics Type: Static");
+                        break;
+                    case game::entity::PhysicsEntityFlags_Dynamic:
+                        im::text(state, "Physics Type: Dynamic");
+                        break;
+                }
 
                 switch(e->type) {
                     case game::entity::entity_type::weapon: {
@@ -1038,16 +1078,81 @@ draw_gui(app_memory_t* app_mem) {
 
                 im::end_panel(state);
             }
+            const auto panel = im::get_last_panel(state);
+            if (is_selected && opened && im::draw_circle(state, panel.max, 8.0f, gfx::color::rgba::red, 4)) {
+                widget_pos = &default_widget_pos;
+            }
         }
+        local_persist viewport_t viewport{};
+        viewport.images[0] = 1;
+        viewport.images[1] = 2;
+        viewport.images[2] = 1;
+        viewport.images[3] = 2;
+
+        draw_viewport(state, &viewport);
+
+        // const math::aabb_t<v2f> screen{v2f{0.0f}, state.ctx.screen_size};
+        // im::image(state, 2, math::aabb_t<v2f>{v2f{state.ctx.screen_size.x - 400, 0.0f}, v2f{state.ctx.screen_size.x, 400.0f}});
+        // im::image(state, 1, screen);
     }
+
 
     arena_set_mark(&app->string_arena, string_mark);
 }
 
-void
-game_on_render(app_memory_t* app_mem) {
-    draw_gui(app_mem);
+inline static u32
+wait_for_frame(app_t* app, u64 frame_count) {
+    gfx::vul::state_t& vk_gfx = app->gfx;
+    vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count&1], VK_TRUE, UINT64_MAX);
+    vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count&1]);
+    u32 imageIndex;
+    vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
+        vk_gfx.image_available_semaphore[frame_count&1], VK_NULL_HANDLE, &imageIndex);
+    return imageIndex;
+}
 
+inline static void
+present_frame(app_t* app, VkCommandBuffer command_buffer, u32 imageIndex, u64 frame_count) {
+    gfx::vul::state_t& vk_gfx = app->gfx;
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore waitSemaphores[] = {vk_gfx.image_available_semaphore[frame_count&1]};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &command_buffer;
+
+    VkSemaphore signalSemaphores[] = {vk_gfx.render_finished_semaphore[frame_count&1]};
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+    if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[frame_count&1]) != VK_SUCCESS) {
+        gen_error("vk:submit", "failed to submit draw command buffer!");
+        std::terminate();
+    }
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signalSemaphores;
+
+    VkSwapchainKHR swapChains[] = {vk_gfx.swap_chain};
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+    presentInfo.pImageIndices = &imageIndex;
+
+    presentInfo.pResults = nullptr; // Optional
+
+    vkQueuePresentKHR(vk_gfx.present_queue, &presentInfo);
+}
+
+void
+game_on_render(app_memory_t* app_mem) { 
     TIMED_FUNCTION;
     
     app_t* app = get_app(app_mem);
@@ -1077,7 +1182,6 @@ game_on_render(app_memory_t* app_mem) {
 
     
     // render
-    app->debug.debug_vertices.pool.clear();
         
     v3f cam_dir = 
         game::cam::get_direction(
@@ -1090,18 +1194,8 @@ game_on_render(app_memory_t* app_mem) {
     app->debug.draw_line(cam_pos, cam_pos + v3f{axis_line_size, 0.0f, 0.0f}, v3f{1.0f, 0.0f, 0.0f});
     app->debug.draw_line(cam_pos, cam_pos + v3f{0.0f, axis_line_size, 0.0f}, v3f{0.0f, 1.0f, 0.0f});
     app->debug.draw_line(cam_pos, cam_pos + v3f{0.0f, 0.0f, axis_line_size}, v3f{0.0f, 0.0f, 1.0f});
-    
-    {
-        // this isnt right
-        // utl::profile_t _p_fence{"fencewait"};
-        vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count&1], VK_TRUE, UINT64_MAX);
-        vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count&1]);
-    }
 
-    u32 imageIndex;
-    vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
-        vk_gfx.image_available_semaphore[frame_count&1], VK_NULL_HANDLE, &imageIndex);
-
+    u32 imageIndex = wait_for_frame(app, frame_count);
 
     // std::lock_guard lock{app->render_system->ticket};
 
@@ -1128,11 +1222,10 @@ game_on_render(app_memory_t* app_mem) {
     }
 
     gfx::vul::begin_render_pass(vk_gfx,
-        app->render_system->render_passes[0],
-        app->render_system->framebuffers[imageIndex],
-        command_buffer, imageIndex
+        app->render_system->render_targets->render_pass,
+        app->render_system->render_targets->framebuffer,
+        command_buffer
     );
-    
     
     {
         TIMED_BLOCK(SkyPass);
@@ -1185,6 +1278,7 @@ game_on_render(app_memory_t* app_mem) {
         }
     }
 
+
     {
         vkCmdBindDescriptorSets(command_buffer, 
             VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
@@ -1203,16 +1297,19 @@ game_on_render(app_memory_t* app_mem) {
         vkCmdBindIndexBuffer(command_buffer,
             app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
         );
+        game::rendering::build_commands(app->render_system, command_buffer);
     }
 
-    game::rendering::build_commands(app->render_system, command_buffer);
 
-    if (app->debug.show) {
+    // if (app->debug.show) 
+    {
         TIMED_BLOCK(DebugPass);
         vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline);
-        vkCmdBindDescriptorSets(command_buffer, 
-            VK_PIPELINE_BIND_POINT_GRAPHICS, app->debug_pipeline->pipeline_layout,
-            0, 1, app->debug_pipeline->descriptor_sets, 0, nullptr);
+
+        vkCmdPushConstants(command_buffer, app->sky_pipeline->pipeline_layout,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+            0, sizeof(m44), &app->render_system->vp
+        );
 
         VkBuffer buffers[1] = { app->debug.debug_vertices.buffer };
         VkDeviceSize offsets[1] = { 0 };
@@ -1230,6 +1327,13 @@ game_on_render(app_memory_t* app_mem) {
             0 // instance start
         );
     }
+    gfx::vul::end_render_pass(command_buffer);
+
+    gfx::vul::begin_render_pass(vk_gfx,
+        app->render_system->render_passes[0],
+        app->render_system->framebuffers[imageIndex],
+        command_buffer
+    );
 
     {
         TIMED_BLOCK(GUIPass);
@@ -1240,10 +1344,10 @@ game_on_render(app_memory_t* app_mem) {
 
         VkDeviceSize offsets[1] = { 0 };
         vkCmdBindVertexBuffers(command_buffer,
-            0, 1, &app->gui.vertices.buffer, offsets);
+            0, 1, &app->gui.vertices[frame_count&1].buffer, offsets);
 
         vkCmdBindIndexBuffer(command_buffer,
-            app->gui.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+            app->gui.indices[frame_count&1].buffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdDrawIndexed(command_buffer,
             (u32)app->gui.ctx.indices->count,
@@ -1261,54 +1365,32 @@ game_on_render(app_memory_t* app_mem) {
         std::terminate();
     }
 
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore waitSemaphores[] = {vk_gfx.image_available_semaphore[frame_count&1]};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
-
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &command_buffer;
-
-    VkSemaphore signalSemaphores[] = {vk_gfx.render_finished_semaphore[frame_count&1]};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
-
-    if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[frame_count&1]) != VK_SUCCESS) {
-        gen_error("vk:submit", "failed to submit draw command buffer!");
-        std::terminate();
-    }
-
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-
-    VkSwapchainKHR swapChains[] = {vk_gfx.swap_chain};
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
-
-    presentInfo.pResults = nullptr; // Optional
-
-    vkQueuePresentKHR(vk_gfx.present_queue, &presentInfo);
+    present_frame(app, command_buffer, imageIndex, frame_count);
 }
 
 void
 main_menu_on_update(app_memory_t* app_mem) {
 }
 
-global_variable u64 scene_state = 1;
+global_variable u64 scene_state = 0;
+
+#include "App/Game/GUI/entity_editor.hpp"
+
+inline entity_editor_t* get_entity_editor(app_memory_t* app) {
+    local_persist entity_editor_t ee{get_app(app)};
+    return &ee;
+}
 
 export_fn(void) 
 app_on_render(app_memory_t* app_mem) {
     switch (scene_state) {
+        case 0:{
+            entity_editor_render(get_entity_editor(app_mem));
+            game_on_render(app_mem);
+        }   break;
         case 1:{
             // Game
+            draw_gui(app_mem);
             game_on_render(app_mem);
         }   break;
         default:
@@ -1320,14 +1402,14 @@ app_on_render(app_memory_t* app_mem) {
 
 export_fn(void) 
 app_on_update(app_memory_t* app_mem) {
-    if (app_mem->input.keys[key_id::ENTER] || 
+    if (app_mem->input.pressed.keys[key_id::F3] || 
         app_mem->input.gamepads->buttons[button_id::action_down].is_pressed) {
-        scene_state = 1;
+        scene_state = !scene_state;
     }
     switch (scene_state) {
-        // case 0: // Main Menu
-        //     main_menu_on_update(app_mem);
-        //     break;
+        case 0: // Main Menu
+            entity_editor_update(get_entity_editor(app_mem));
+            break;
         case 1: // Game
             game_on_update(app_mem);
             break;

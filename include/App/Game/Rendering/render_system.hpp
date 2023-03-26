@@ -5,6 +5,8 @@
 
 #include "App/vk_state.hpp"
 
+#include "lighting.hpp"
+
 namespace game::rendering {
     struct mesh_cache_t {
         struct link_t : node_t<link_t> {
@@ -97,6 +99,8 @@ namespace game::rendering {
         arena_t arena;
         arena_t frame_arena;
 
+        gfx::vul::state_t* vk_gfx{0};
+
         std::mutex ticket;
 
         // utl::deque<render_job_t> render_jobs{};
@@ -115,6 +119,8 @@ namespace game::rendering {
         u32                 render_pass_count{1};
         VkFramebuffer*      framebuffers{0};
         u32                 framebuffer_count{0};
+        gfx::vul::framebuffer_t* render_targets{0};
+        u32                     render_target_count{0};
 
         gfx::vul::vertex_buffer_t<gfx::vertex_t, max_scene_vertex_count> vertices;
         gfx::vul::index_buffer_t<max_scene_index_count> indices;
@@ -125,6 +131,8 @@ namespace game::rendering {
 
         m44 vp{1.0f};
         v3f camera_pos{0.0f};
+
+        lighting::probe_box_t light_probes{v3f{-30.0f, -6.0f, -30.0f}, v3f{40.0f}};
 
         frame_data_t& get_frame_data() {
             return frames[frame_count%frame_overlap];
@@ -158,6 +166,7 @@ namespace game::rendering {
         auto* rs = arena_alloc_ctor<system_t>(arena, 1,
             arena_sub_arena(arena, Size)
         );
+        rs->vk_gfx = &state;
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
         rs->render_jobs = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
@@ -186,6 +195,9 @@ namespace game::rendering {
 
             VK_OK(vkAllocateCommandBuffers(state.device, &cmdAllocInfo, &rs->frames[i].main_command_buffer));
         }
+
+        lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
+
         return rs;
     }
 
@@ -314,6 +326,14 @@ namespace game::rendering {
         return utl::str_hash_find(rs->mesh_hash, name);
     }
 
+    inline math::aabb_t<v3f>
+    get_mesh_aabb(
+        system_t* rs,
+        std::string_view name
+    ) {
+        return rs->mesh_cache.get(utl::str_hash_find(rs->mesh_hash, name)).aabb;
+    }
+
     inline u32
     create_material(
         system_t* rs,
@@ -392,28 +412,26 @@ namespace game::rendering {
         renderPassInfo.subpassCount = 1;
         renderPassInfo.pSubpasses = &subpass;
         
-        VkSubpassDependency dependency{};
-        VkSubpassDependency depth_dependency{};
-        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        dependency.dstSubpass = 0;
+        // idk if this is correct
+        VkSubpassDependency dependencies[2];
+        dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependencies[0].dstSubpass = 0;
+        dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.srcAccessMask = 0;
-
-        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-
-        depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        depth_dependency.dstSubpass = 0;
-        depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depth_dependency.srcAccessMask = 0;
-        depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-        VkSubpassDependency deps[] = {dependency, depth_dependency};
+        dependencies[1].srcSubpass = 0;
+        dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+        dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         renderPassInfo.dependencyCount = 2;
-        renderPassInfo.pDependencies = deps;
+        renderPassInfo.pDependencies = dependencies;
 
         if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &rs->render_passes[0]) != VK_SUCCESS) {
             gen_error("vulkan", "failed to create render pass!");
@@ -431,6 +449,36 @@ namespace game::rendering {
         VkImageView depth_image_view,
         u32 w, u32 h
     ) {
+        rs->render_targets = arena_alloc_ctor<gfx::vul::framebuffer_t>(arena, 1);
+        rs->render_target_count = 1;
+        rs->render_targets->width = w;
+        rs->render_targets->height = h;
+        {
+            rs->vk_gfx->create_framebuffer(rs->render_targets);
+            {
+                gfx::vul::framebuffer_attachment_create_info_t fbaci{};
+                fbaci.width = w; fbaci.height = h;
+                fbaci.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+                // fbaci.format = VK_FORMAT_B32G32R32A32_SFLOAT;
+                // fbaci.format = VK_FORMAT_B8G8R8A8_SRGB;
+                fbaci.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+                rs->vk_gfx->add_framebuffer_attachment(arena, rs->render_targets, fbaci);
+            }
+            {
+                gfx::vul::framebuffer_attachment_create_info_t fbaci{};
+                fbaci.width = w; fbaci.height = h;
+                fbaci.format = VK_FORMAT_D24_UNORM_S8_UINT;
+                fbaci.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+                rs->vk_gfx->add_framebuffer_attachment(arena, rs->render_targets, fbaci);
+            }
+
+            rs->vk_gfx->create_framebuffer_sampler(rs->render_targets, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+            rs->vk_gfx->framebuffer_create_renderpass(rs->render_targets);
+        }
+
+
         rs->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, swap_chain_count);
         rs->framebuffer_count = safe_truncate_u64(swap_chain_count);
         for (size_t i = 0; i < swap_chain_count; i++) {

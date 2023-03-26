@@ -165,6 +165,9 @@ struct swapchain_support_details_t {
 
 VkSurfaceFormatKHR chooseSwapSurfaceFormat(std::span<VkSurfaceFormatKHR> availableFormats) {
     for (const auto& availableFormat : availableFormats) {
+        // if (availableFormat.format == VK_FORMAT_R32G32B32A32_SFLOAT && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+        //     return availableFormat;
+        // }
         if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             return availableFormat;
         }
@@ -455,8 +458,16 @@ state_t::end_single_time_commands(VkCommandBuffer cmd_buffer) {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &cmd_buffer;
 
-    vkQueueSubmit(gfx_queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(gfx_queue);
+    VkFenceCreateInfo vfci{};
+    VkFence fence{};
+    vfci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    vfci.flags = 0;
+    VK_OK(vkCreateFence(device, &vfci, 0, &fence));
+
+    VK_OK(vkQueueSubmit(gfx_queue, 1, &submitInfo, fence));
+    
+    VK_OK(vkWaitForFences(device, 1, &fence, VK_TRUE, 100000000000));
+    vkDestroyFence(device, fence, nullptr);
 
     vkFreeCommandBuffers(device, command_pool, 1, &cmd_buffer);
 }
@@ -482,7 +493,7 @@ begin_render_pass(
     state_t& state,
     VkRenderPass p_render_pass,
     VkFramebuffer framebuffer,
-    VkCommandBuffer command_buffer, u32 index
+    VkCommandBuffer command_buffer
 ) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -493,10 +504,10 @@ begin_render_pass(
     renderPassInfo.renderArea.extent = state.swap_chain_extent;
 
     VkClearColorValue			vccv;
-		vccv.float32[0] = 0.0f;
+		vccv.float32[3] = 0.0f;
 		vccv.float32[1] = 0.0f;
 		vccv.float32[2] = 0.0f;
-		vccv.float32[3] = 1.0f;
+		vccv.float32[0] = 1.0f;
 
 	VkClearDepthStencilValue		vcdsv;
 		vcdsv.depth = 1.f;
@@ -1334,27 +1345,6 @@ state_t::create_pipeline_state(
 
     vkDestroyShaderModule(device, fragShaderModule, nullptr);
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
-
-    // for (size_t i = 0; i < swap_chain_image_views.size(); i++) {
-    //     VkImageView attachments[] = {
-    //         swap_chain_image_views[i],
-    //         depth_stencil_texture.image_view
-    //     };
-
-    //     VkFramebufferCreateInfo vfci{};
-    //     vfci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    //     vfci.renderPass = pipeline->render_passes[0];
-    //     vfci.attachmentCount = array_count(attachments);
-    //     vfci.pAttachments = attachments;
-    //     vfci.width = swap_chain_extent.width;
-    //     vfci.height = swap_chain_extent.height;
-    //     vfci.layers = 1;
-
-    //     if (vkCreateFramebuffer(device, &vfci, nullptr, &pipeline->framebuffers[i]) != VK_SUCCESS) {
-    //         gen_error("vulkan", "failed to create framebuffer!");
-    //         std::terminate();
-    //     }
-    // }
 }
 
 void 
@@ -1388,6 +1378,146 @@ state_t::copy_buffer_to_image(
         1,
         &region
     );
+}
+
+void set_image_layout(
+    VkCommandBuffer cmdbuffer,
+    VkImage image,
+    VkImageLayout oldImageLayout,
+    VkImageLayout newImageLayout,
+    VkImageSubresourceRange subresourceRange,
+    VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+) {
+    // Create an image barrier object
+    VkImageMemoryBarrier imageMemoryBarrier = utl::image_memory_barrier();
+    imageMemoryBarrier.oldLayout = oldImageLayout;
+    imageMemoryBarrier.newLayout = newImageLayout;
+    imageMemoryBarrier.image = image;
+    imageMemoryBarrier.subresourceRange = subresourceRange;
+
+    // Source layouts (old)
+    // Source access mask controls actions that have to be finished on the old layout
+    // before it will be transitioned to the new layout
+    switch (oldImageLayout)
+    {
+    case VK_IMAGE_LAYOUT_UNDEFINED:
+        // Image layout is undefined (or does not matter)
+        // Only valid as initial layout
+        // No flags required, listed only for completeness
+        imageMemoryBarrier.srcAccessMask = 0;
+        break;
+
+    case VK_IMAGE_LAYOUT_PREINITIALIZED:
+        // Image is preinitialized
+        // Only valid as initial layout for linear images, preserves memory contents
+        // Make sure host writes have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        // Image is a color attachment
+        // Make sure any writes to the color buffer have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        // Image is a depth/stencil attachment
+        // Make sure any writes to the depth/stencil buffer have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        // Image is a transfer source
+        // Make sure any reads from the image have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        // Image is a transfer destination
+        // Make sure any writes to the image have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        // Image is read by a shader
+        // Make sure any shader reads from the image have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        break;
+    default:
+        // Other source layouts aren't handled (yet)
+        break;
+    }
+
+    // Target layouts (new)
+    // Destination access mask controls the dependency for the new image layout
+    switch (newImageLayout)
+    {
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        // Image will be used as a transfer destination
+        // Make sure any writes to the image have been finished
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        // Image will be used as a transfer source
+        // Make sure any reads from the image have been finished
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        // Image will be used as a color attachment
+        // Make sure any writes to the color buffer have been finished
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        // Image layout will be used as a depth/stencil attachment
+        // Make sure any writes to depth/stencil buffer have been finished
+        imageMemoryBarrier.dstAccessMask = imageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        // Image will be read in a shader (sampler, input attachment)
+        // Make sure any writes to the image have been finished
+        if (imageMemoryBarrier.srcAccessMask == 0)
+        {
+            imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+        }
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        break;
+    default:
+        // Other source layouts aren't handled (yet)
+        break;
+    }
+
+    // Put barrier inside setup command buffer
+    vkCmdPipelineBarrier(
+        cmdbuffer,
+        srcStageMask,
+        dstStageMask,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imageMemoryBarrier);
+}
+
+// Uses a fixed sub resource layout with first mip level and layer
+void set_image_layout(
+    VkCommandBuffer cmdbuffer,
+    VkImage image,
+    VkImageAspectFlags aspectMask,
+    VkImageLayout oldImageLayout,
+    VkImageLayout newImageLayout,
+    VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+) {
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = aspectMask;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.layerCount = 1;
+    set_image_layout(cmdbuffer, image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
 }
 
 void 
@@ -1558,7 +1688,86 @@ state_t::load_font_sampler(
     VK_OK(vkCreateImageView(device, &viewInfo, nullptr, &texture->image_view));
 }
 
+void state_t::create_cube_map(cube_map_t* cube_map, VkFormat format) {
+    assert(cube_map);
 
+    auto vici = utl::image_create_info();
+    vici.imageType = VK_IMAGE_TYPE_2D;
+    vici.format = format;
+    vici.extent = { cube_map->size[0], cube_map->size[1], 1 };
+    vici.mipLevels = 1;
+    vici.arrayLayers = 6;
+    vici.samples = VK_SAMPLE_COUNT_1_BIT;
+    vici.tiling = VK_IMAGE_TILING_OPTIMAL;
+    vici.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    vici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    vici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    vici.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+    VkMemoryAllocateInfo memAlloc = utl::memory_allocate_info();
+    VkMemoryRequirements memReqs;
+
+    // Create cube map image
+    VK_OK(vkCreateImage(device, &vici, nullptr, &cube_map->image));
+    vkGetImageMemoryRequirements(device, cube_map->image, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    memAlloc.memoryTypeIndex = find_memory_that_is_device_local(gpu_device, memReqs.memoryTypeBits);
+    VK_OK(vkAllocateMemory(device, &memAlloc, nullptr, &cube_map->memory));
+    VK_OK(vkBindImageMemory(device, cube_map->image, cube_map->memory, 0));
+
+    // Image barrier for optimal image (target)
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.layerCount = 6;
+
+    {
+        quick_cmd_raii_t c{this};
+
+        set_image_layout(
+            c.c(),
+            cube_map->image,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            subresourceRange
+        );
+    }
+    VkSamplerCreateInfo sampler = utl::sampler_create_info();
+    sampler.magFilter = VK_FILTER_LINEAR;
+    sampler.minFilter = VK_FILTER_LINEAR;
+    sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    sampler.addressModeV = sampler.addressModeU;
+    sampler.addressModeW = sampler.addressModeU;
+    sampler.mipLodBias = 0.0f;
+    sampler.maxAnisotropy = 1.0f;
+    sampler.compareOp = VK_COMPARE_OP_NEVER;
+    sampler.minLod = 0.0f;
+    sampler.maxLod = 1.0f;
+    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    VK_OK(vkCreateSampler(device, &sampler, nullptr, &cube_map->sampler));
+
+    // Create image view
+    VkImageViewCreateInfo view = utl::image_view_create_info();
+    view.image = VK_NULL_HANDLE;
+    view.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    view.format = format;
+    view.components = { VK_COMPONENT_SWIZZLE_R };
+    view.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    view.subresourceRange.layerCount = 6;
+    view.image = cube_map->image;
+    VK_OK(vkCreateImageView(device, &view, nullptr, &cube_map->view));
+
+    view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view.subresourceRange.layerCount = 1;
+    view.image = cube_map->image;
+
+    for (uint32_t i = 0; i < 6; i++) {
+        view.subresourceRange.baseArrayLayer = i;
+        VK_OK(vkCreateImageView(device, &view, nullptr, &cube_map->face_views[i]));
+    }
+}
 
 
 void 
@@ -1605,7 +1814,7 @@ state_t::create_image(
 }
 
 void 
-state_t::load_texture_sampler(
+state_t::load_texture(
     texture_2d_t* texture, 
     std::string_view path, 
     arena_t* arena
@@ -1613,18 +1822,34 @@ state_t::load_texture_sampler(
     gen_info("vk::load_texture_sampler", "Loading Texture:\n\t{}\n", path);
 
     stbi_set_flip_vertically_on_load(true);
-    i32 channels = 0;
-    u8* data = stbi_load(path.data(), texture->size + 0, texture->size + 1, &channels, 0);
+    texture->channels = 0;
+    u8* data = stbi_load(path.data(), texture->size + 0, texture->size + 1, &texture->channels, 0);
     assert(data);
-    const auto image_size = texture->size[0] * texture->size[1] * channels;
+    const auto image_size = texture->size[0] * texture->size[1] * texture->channels;
     texture->pixels = (u8*)arena_alloc(arena, image_size);
     std::memcpy(texture->pixels, data, image_size);
     stbi_image_free(data);
     gen_info("vk::load_texture_sampler", 
         "Texture Info:\n\twidth: {}\n\theight: {}\n\tchannels: {}", 
-        texture->size[0], texture->size[1], channels    
+        texture->size[0], texture->size[1], texture->channels
     );
+}
+void 
+state_t::load_texture_sampler(
+    texture_2d_t* texture, 
+    std::string_view path, 
+    arena_t* arena
+) {
+    load_texture(texture, path, arena);
+    load_texture_sampler(texture, arena);
+}
 
+void 
+state_t::load_texture_sampler(
+    texture_2d_t* texture, 
+    arena_t* arena
+) {
+    const auto image_size = texture->size[0] * texture->size[1] * texture->channels;
     VkSamplerCreateInfo vsci;
         vsci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         vsci.pNext = nullptr;
@@ -1764,11 +1989,11 @@ state_t::create_image_descriptor_set(
 
     VK_OK(vkAllocateDescriptorSets(device, &vdsai, &descriptor_set));
 
-    VkDescriptorImageInfo vdii[64];
+    VkDescriptorImageInfo vdii[4096];
         for (size_t i = 0; i < count; i++) {
             vdii[i].sampler = texture[i]->sampler;
             vdii[i].imageView = texture[i]->image_view;
-            vdii[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            vdii[i].imageLayout = texture[i]->image_layout;
         }
     
     VkWriteDescriptorSet vwds[1];
@@ -1787,6 +2012,216 @@ state_t::create_image_descriptor_set(
     vkUpdateDescriptorSets(device, 1, vwds, copy_count, nullptr);
 
     return descriptor_set;
+}
+
+
+///////////////////////////////////////////////////////////////////
+// Framebuffer
+
+
+VkResult state_t::create_framebuffer_sampler(framebuffer_t* fb, VkFilter magFilter, VkFilter minFilter, VkSamplerAddressMode adressMode)
+{
+    VkSamplerCreateInfo samplerInfo = utl::sampler_create_info();
+    samplerInfo.magFilter = magFilter;
+    samplerInfo.minFilter = minFilter;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.addressModeU = adressMode;
+    samplerInfo.addressModeV = adressMode;
+    samplerInfo.addressModeW = adressMode;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.maxAnisotropy = 1.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 1.0f;
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    return vkCreateSampler(device, &samplerInfo, nullptr, &fb->sampler);
+}
+void state_t::create_framebuffer(framebuffer_t* fb) {
+    assert(fb);
+
+}
+
+void state_t::add_framebuffer_attachment(arena_t* arena, framebuffer_t* fb, framebuffer_attachment_create_info_t fbaci) {
+    auto* attachment = arena_alloc_ctor<framebuffer_attachment_t>(arena);
+    node_push(attachment, fb->attachments);
+
+    attachment->format = fbaci.format;
+
+    VkImageAspectFlags aspectMask = 0;
+
+    if (fbaci.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+        aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
+    
+    if (fbaci.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+        if (attachment->has_depth()) {
+            aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        }
+        if (attachment->has_stencil()) {
+            aspectMask = aspectMask | VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+    }
+
+    assert(aspectMask > 0);
+    VkImageCreateInfo image = utl::image_create_info();
+    image.imageType = VK_IMAGE_TYPE_2D;
+    image.format = fbaci.format;
+    image.extent.width = fbaci.width;
+    image.extent.height = fbaci.height;
+    image.extent.depth = 1;
+    image.mipLevels = 1;
+    image.arrayLayers = fbaci.layer;
+    image.samples = fbaci.image_sample_count;
+    image.tiling = VK_IMAGE_TILING_OPTIMAL;
+    image.usage = fbaci.usage;
+
+    VkMemoryAllocateInfo memAlloc = utl::memory_allocate_info();
+    VkMemoryRequirements memReqs;
+
+    // Create image for this attachment
+    VK_OK(vkCreateImage(device, &image, nullptr, &attachment->image));
+    vkGetImageMemoryRequirements(device, attachment->image, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    memAlloc.memoryTypeIndex = find_memory_that_is_device_local(gpu_device, memReqs.memoryTypeBits);
+    VK_OK(vkAllocateMemory(device, &memAlloc, nullptr, &attachment->memory));
+    VK_OK(vkBindImageMemory(device, attachment->image, attachment->memory, 0));
+
+    attachment->subresource_range = {};
+    attachment->subresource_range.aspectMask = aspectMask;
+    attachment->subresource_range.levelCount = 1;
+    attachment->subresource_range.layerCount = fbaci.layer;
+
+    VkImageViewCreateInfo imageView = utl::image_view_create_info();
+    imageView.viewType = (fbaci.layer == 1) ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    imageView.format = fbaci.format;
+    imageView.subresourceRange = attachment->subresource_range;
+    //todo: workaround for depth+stencil attachments
+    imageView.subresourceRange.aspectMask = (attachment->has_depth()) ? VK_IMAGE_ASPECT_DEPTH_BIT : aspectMask;
+    imageView.image = attachment->image;
+    VK_OK(vkCreateImageView(device, &imageView, nullptr, &attachment->view));
+
+    // Fill attachment description
+    attachment->description = {};
+    attachment->description.samples = fbaci.image_sample_count;
+    attachment->description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachment->description.storeOp = (fbaci.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachment->description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment->description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachment->description.format = fbaci.format;
+    attachment->description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    // Final layout
+    // If not, final layout depends on attachment type
+    if (attachment->has_depth() || attachment->has_stencil())
+    {
+        attachment->description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    }
+    else
+    {
+        attachment->description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
+}
+
+VkResult state_t::framebuffer_create_renderpass(framebuffer_t* fb) {
+    assert(fb);
+    std::vector<VkAttachmentDescription> attachmentDescriptions;
+    node_for(auto, fb->attachments, attachment) {
+        attachmentDescriptions.push_back(attachment->description);
+    };
+
+    // Collect attachment references
+    std::vector<VkAttachmentReference> colorReferences;
+    VkAttachmentReference depthReference = {};
+    bool hasDepth = false; 
+    bool hasColor = false;
+
+    uint32_t attachmentIndex = 0;
+
+    node_for(auto, fb->attachments, attachment) {
+        if (attachment->has_depth() || attachment->has_stencil())
+        {
+            // Only one depth attachment allowed
+            assert(!hasDepth);
+            depthReference.attachment = attachmentIndex;
+            depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            hasDepth = true;
+        }
+        else
+        {
+            colorReferences.push_back({ attachmentIndex, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+            hasColor = true;
+        }
+        attachmentIndex++;
+    }
+
+    // Default render pass setup uses only one subpass
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    if (hasColor)
+    {
+        subpass.pColorAttachments = colorReferences.data();
+        subpass.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
+    }
+    if (hasDepth)
+    {
+        subpass.pDepthStencilAttachment = &depthReference;
+    }
+
+    // Use subpass dependencies for attachment layout transitions
+    std::array<VkSubpassDependency, 2> dependencies;
+
+    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass = 0;
+    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    dependencies[1].srcSubpass = 0;
+    dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    // Create render pass
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.pAttachments = attachmentDescriptions.data();
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescriptions.size());
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = 2;
+    renderPassInfo.pDependencies = dependencies.data();
+    VK_OK(vkCreateRenderPass(device, &renderPassInfo, nullptr, &fb->render_pass));
+
+    std::vector<VkImageView> attachmentViews;
+    node_for(auto, fb->attachments, attachment) {
+        attachmentViews.push_back(attachment->view);
+    }
+
+    // Find. max number of layers across attachments
+    uint32_t maxLayers = 0;
+    
+    node_for(auto, fb->attachments, attachment) {
+        if (attachment->subresource_range.layerCount > maxLayers)
+        {
+            maxLayers = attachment->subresource_range.layerCount;
+        }
+    }
+
+    VkFramebufferCreateInfo framebufferInfo = {};
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass = fb->render_pass;
+    framebufferInfo.pAttachments = attachmentViews.data();
+    framebufferInfo.attachmentCount = static_cast<uint32_t>(attachmentViews.size());
+    framebufferInfo.width = fb->width;
+    framebufferInfo.height = fb->height;
+    framebufferInfo.layers = maxLayers;
+    VK_OK(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &fb->framebuffer));
+
+    return VK_SUCCESS;
 }
 
 };

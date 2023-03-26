@@ -76,6 +76,27 @@ inline static physx_backend_t* get_physx(const api_t* api) {
     return (physx_backend_t*)api->backend;
 }
 
+void
+physx_remove_rigidbody(api_t* api, rigidbody_t* rb) {
+    const auto* ps = get_physx(api);
+    assert(ps);
+    assert(rb);
+    assert(ps->world);
+    assert(ps->world->scene);
+    ps->world->scene->removeActor(*(physx::PxActor*)rb->api_data);
+}
+
+void
+physx_add_rigidbody(api_t* api, rigidbody_t* rb) {
+    const auto* ps = get_physx(api);
+    assert(ps);
+    assert(rb);
+    assert(ps->world);
+    assert(ps->world->scene);
+    ps->world->scene->addActor(*(physx::PxActor*)rb->api_data);
+    ((physx::PxActor*)rb->api_data)->userData = rb;
+}
+
 static rigidbody_t*
 physx_create_rigidbody_impl(
     api_t* api,
@@ -85,18 +106,17 @@ physx_create_rigidbody_impl(
     const auto* ps = get_physx(api);
     assert(api->rigidbody_count < PHYSICS_MAX_RIGIDBODY_COUNT);
     rigidbody_t* rb = &api->rigidbodies[api->rigidbody_count++];
+    *rb = {};
     const auto t = cast_transform(math::transform_t{});
     switch (rb->type = type) {
         case rigidbody_type::DYNAMIC: {
             rb->api_data = ps->state->physics->createRigidDynamic(t);
-            ps->world->scene->addActor(*(physx::PxActor*)rb->api_data);
-            ((physx::PxActor*)rb->api_data)->userData = rb;
+            physx_add_rigidbody(api, rb);
             rb->user_data = data;
         }   break;
         case rigidbody_type::STATIC: {
             rb->api_data = ps->state->physics->createRigidStatic(t);
-            ps->world->scene->addActor(*(physx::PxActor*)rb->api_data);
-            ((physx::PxActor*)rb->api_data)->userData = rb;
+            physx_add_rigidbody(api, rb);
             rb->user_data = data;
         }   break;
         case_invalid_default;
@@ -115,6 +135,7 @@ physx_create_collider_impl(
     assert(rigidbody->collider_count < RIGIDBODY_MAX_COLLIDER_COUNT);
     local_persist u64 s_collider_id = 1; 
     collider_t* col = &rigidbody->colliders[rigidbody->collider_count++];
+    *col = {};
     col->id = s_collider_id++;
     auto* material = ps->state->physics->createMaterial(0.5f, 0.5f, 0.1f);
     switch (col->type = type) {
@@ -283,5 +304,4 @@ physx_set_rigidbody(api_t* api, rigidbody_t* rb) {
 }
 
 };
-
 #endif

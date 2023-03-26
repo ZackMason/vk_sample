@@ -53,12 +53,23 @@ struct storage_buffer_t : public gpu_buffer_t {
 
 struct texture_2d_t {
     i32 size[2];
+    i32 channels{3};
     u8* pixels;
     VkImage image;
     VkImageView image_view;
     VkImageLayout image_layout;
     VkSampler sampler;
     VkDeviceMemory vdm;
+};
+
+struct cube_map_t {
+    u32 size[2];
+    VkImage image;
+    VkImageView view;
+    VkImageView face_views[6];
+    VkImageLayout image_layout;
+    VkSampler sampler;
+    VkDeviceMemory memory;
 };
 
 struct object_buffer_t {
@@ -89,25 +100,61 @@ struct sporadic_buffer_t {
 };
 
 struct framebuffer_attachment_t {
+    framebuffer_attachment_t* next{0};
     VkImage image;
-    VkDeviceMemory mem;
+    VkDeviceMemory memory;
     VkImageView view;
     VkFormat format;
+    VkImageSubresourceRange subresource_range;
+    VkAttachmentDescription description;
 
     void destroy(VkDevice device) {
         vkDestroyImageView(device, view, nullptr);
         vkDestroyImage(device, image, nullptr);
-        vkFreeMemory(device, mem, nullptr);
+        vkFreeMemory(device, memory, nullptr);
     }
+
+        bool has_depth() {
+			switch (format)	{
+				case VK_FORMAT_D16_UNORM:
+				case VK_FORMAT_X8_D24_UNORM_PACK32:
+				case VK_FORMAT_D32_SFLOAT:
+				case VK_FORMAT_D16_UNORM_S8_UINT:
+				case VK_FORMAT_D24_UNORM_S8_UINT:
+				case VK_FORMAT_D32_SFLOAT_S8_UINT:
+                    return true;
+                default: break;
+			};
+			return false;
+		}
+
+		bool has_stencil() {
+			switch (format)	{
+				case VK_FORMAT_S8_UINT:
+				case VK_FORMAT_D16_UNORM_S8_UINT:
+				case VK_FORMAT_D24_UNORM_S8_UINT:
+				case VK_FORMAT_D32_SFLOAT_S8_UINT:
+                    return true;
+                default: break;
+			};
+			return false;
+		}
 };
 
 struct framebuffer_t {
-    int32_t width, height;
+    u32 width, height;
     VkFramebuffer framebuffer;
-    framebuffer_attachment_t color;
-    framebuffer_attachment_t depth;
+    framebuffer_attachment_t* attachments{0};
     VkRenderPass render_pass;
     VkSampler sampler;
+};
+
+struct framebuffer_attachment_create_info_t {
+    u32 width, height;
+    u32 layer=1;
+    VkFormat format;
+    VkImageUsageFlags usage;
+    VkSampleCountFlagBits image_sample_count = VK_SAMPLE_COUNT_1_BIT;
 };
 
 struct debug_line_vertex_t {
@@ -252,6 +299,12 @@ struct state_t {
     void copy_buffer_to_image(gpu_buffer_t* buffer, texture_2d_t* texture);
     void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
+    void create_cube_map(cube_map_t* cube_map, VkFormat format);
+
+    void create_framebuffer(framebuffer_t* fb);
+    void add_framebuffer_attachment(arena_t* arena, framebuffer_t* fb, framebuffer_attachment_create_info_t fbaci);
+    VkResult create_framebuffer_sampler(framebuffer_t* fb, VkFilter magFilter, VkFilter minFilter, VkSamplerAddressMode adressMode);
+    VkResult framebuffer_create_renderpass(framebuffer_t* fb);
     VkCommandBuffer begin_single_time_commands();
     void end_single_time_commands(VkCommandBuffer command_buffer);
 
@@ -262,6 +315,8 @@ struct state_t {
         size_t count
     );
 
+    void load_texture(texture_2d_t* texture, std::string_view path, arena_t* arena);
+    void load_texture_sampler(texture_2d_t* texture, arena_t* arena);
     void load_texture_sampler(texture_2d_t* texture, std::string_view path, arena_t* arena);
     void load_font_sampler(arena_t* arena, texture_2d_t* texture, font_t* font);
 
@@ -303,10 +358,6 @@ struct state_t {
     }
 
     VkResult create_data_buffer(VkDeviceSize size, VkBufferUsageFlags usage, gpu_buffer_t* buffer);
-    // VkResult create_uniform_buffer(VkDeviceSize size, uniform_buffer_t* buffer);
-    // VkResult create_vertex_buffer(VkDeviceSize size, vertex_buffer_t* buffer);
-    // VkResult create_index_buffer(VkDeviceSize size, index_buffer_t* buffer);
-
     VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data);
     VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data, size_t size);
 
@@ -328,7 +379,7 @@ begin_render_pass(
     state_t& state,
     VkRenderPass p_render_pass,
     VkFramebuffer framebuffer,
-    VkCommandBuffer command_buffer, u32 index
+    VkCommandBuffer command_buffer
 );
 
 namespace utl {
@@ -400,6 +451,36 @@ inline VkDescriptorSetAllocateInfo descriptor_set_allocate_info(
     descriptorSetAllocateInfo.descriptorSetCount = descriptorSetCount;
     return descriptorSetAllocateInfo;
 }
+inline VkImageMemoryBarrier image_memory_barrier()
+{
+    VkImageMemoryBarrier imageMemoryBarrier {};
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    return imageMemoryBarrier;
+}
+inline VkMemoryAllocateInfo memory_allocate_info()
+{
+    VkMemoryAllocateInfo memAllocInfo {};
+    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    return memAllocInfo;
+}
+
+inline VkImageCreateInfo image_create_info()
+{
+    VkImageCreateInfo imageCreateInfo {};
+    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    return imageCreateInfo;
+}
+
+inline VkSamplerCreateInfo sampler_create_info()
+{
+    VkSamplerCreateInfo samplerCreateInfo {};
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.maxAnisotropy = 1.0f;
+    return samplerCreateInfo;
+}
+
 
 inline VkDescriptorImageInfo descriptor_image_info(VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout)
 {
@@ -413,6 +494,14 @@ inline VkDescriptorImageInfo descriptor_image_info(VkSampler sampler, VkImageVie
 inline VkDescriptorImageInfo descriptor_image_info(texture_2d_t* texture) {
     return descriptor_image_info(texture->sampler, texture->image_view, texture->image_layout);
 }
+
+inline VkImageViewCreateInfo image_view_create_info()
+{
+    VkImageViewCreateInfo imageViewCreateInfo {};
+    imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    return imageViewCreateInfo;
+}
+
 
 inline VkVertexInputBindingDescription vertex_input_binding_description(
     uint32_t binding,

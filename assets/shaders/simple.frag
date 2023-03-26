@@ -79,6 +79,7 @@ main( )
 
 		case 1:
 			rgb = texture( uSampler, vTexCoord ).rgb;
+			rgb = pow(rgb, vec3(2.2));
 			toon = true;
 			break;
 
@@ -107,7 +108,7 @@ main( )
     	F0 = mix(F0, albedo, metallic);
 
 		vec3 Lv = (vec3(0.0, 100.0, 0.0) - vWorldPos);
-		vec3 Lc = vec3(0.8431, 0.8784, 0.5137);
+		vec3 Lc = vec3(0.9686, 0.9765, 0.902);
 
 		vec3 N = normalize(vN);
 		vec3 L = normalize(Lv);
@@ -148,6 +149,7 @@ main( )
 	}
 	// rgb = albedo;
 	// rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
+	// rgb = pow(rgb, vec3(2.2));
 
 	fFragColor = vec4( rgb, 1. );
 }

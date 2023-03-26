@@ -4,6 +4,7 @@
 
 #include "App/app.hpp"
 #include "App/Game/Entity/entity.hpp"
+#include "App/Game/Rendering/render_system.hpp"
 
 namespace game {
     static constexpr u64 max_entities = 500000;
@@ -37,6 +38,7 @@ namespace game {
     };
 
     void add_entity_to_id_hash(world_t* world, entity::entity_t* entity) {
+        // todo(zack): better hash,
         const u64 id_hash = utl::rng::fnv_hash_u64(entity->id);
         const u64 id_bucket = id_hash % 4096;
 
@@ -140,15 +142,17 @@ namespace game {
         assert(e->id != uid::invalid_id);
         remove_entity_from_id_hash(world, e);
 
+        if (e->physics.rigidbody) {
+            world->physics->remove_rigidbody(world->physics, e->physics.rigidbody);
+        }
+
         constexpr bool maintain_references = true;
         if constexpr (maintain_references) {
             e->id = uid::invalid_id;
             node_push(e, world->free_entities);
-
         } else {
             *e = world->entities[(world->entity_count - 1)];
         }
-
 
         e = nullptr;
         world->entity_count--;
@@ -162,7 +166,7 @@ namespace game {
 inline entity::entity_t*
 spawn(
     world_t* world,
-    utl::str_hash_t& mesh_hash,
+    rendering::system_t* rs,
     const entity::db::entity_def_t& def,
     const v3f& pos = {}
 ) {
@@ -170,7 +174,8 @@ spawn(
     utl::res::pack_file_t* resource_file = world->app->resource_file;
 
     entity::entity_t* entity = world_create_entity(world);
-    entity::entity_init(entity, utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data));
+    entity::entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name));
+    entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
     entity->name.view(def.type_name);
     entity->transform.origin = pos;
 
@@ -194,8 +199,7 @@ spawn(
         entity::player_init(
             entity,
             &world->camera, 
-            utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data)
-            // world->physics_world
+            rendering::get_mesh_id(rs, def.gfx.mesh_name)
         );
         world->player = entity;
     } if (def.physics) {
@@ -241,55 +245,6 @@ spawn(
         }
         world->physics->set_rigidbody(0, rb);
     }
-    // if (def.physics && false) {
-    //     if (def.physics->flags & entity::PhysicsEntityFlags_Static) {
-    //         std::string collider_name;
-    //         switch(def.physics->shape) {
-    //             case phys::physics_shape_type::TRIMESH:
-    //                 collider_name = fmt_str("{}.trimesh.physx", def.gfx.mesh_name.c_data);
-    //                 break;
-    //             case phys::physics_shape_type::CONVEX:
-    //                 collider_name = fmt_str("{}.convex.physx", def.gfx.mesh_name.c_data);
-    //                 break;
-    //         }
-    //         entity::physics_entity_init(
-    //             entity,
-    //             utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data),
-    //             utl::res::pack_file_get_file_by_name(resource_file, collider_name),
-    //             safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name)),
-    //             world->physics_world->state
-    //         );
-    //         world->physics_world->scene->addActor(*entity->physics.rigid_body.rigid);
-    //         return entity;
-    //     } else if (def.physics->flags & entity::PhysicsEntityFlags_Dynamic) {
-    //         entity->physics.rigid_body.is_dynamic = true;
-    //         switch(def.physics->shape) {
-    //             case phys::physics_shape_type::SPHERE:{
-    //                 entity::physics_entity_init(
-    //                     entity,
-    //                     utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data),
-    //                     0,0,
-    //                     world->physics_world->state
-    //                 );
-    //                 world->physics_world->scene->addActor(*entity->physics.rigid_body.dynamic);
-    //                 return entity;
-    //             }break;
-    //             case phys::physics_shape_type::CONVEX:{
-    //                 const auto collider_name = fmt_str("{}.convex.physx", def.gfx.mesh_name.c_data);
-    //                 entity::physics_entity_init(
-    //                     entity,
-    //                     utl::str_hash_find(mesh_hash, def.gfx.mesh_name.c_data),
-    //                     utl::res::pack_file_get_file_by_name(resource_file, collider_name),
-    //                     safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name)),
-    //                     world->physics_world->state
-    //                 );
-    //                 world->physics_world->scene->addActor(*entity->physics.rigid_body.dynamic);
-    //                 return entity;
-    //                 break;
-    //             }
-    //         }
-    //     } 
-    // }
     return entity;
 }
 

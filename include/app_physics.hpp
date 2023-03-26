@@ -59,7 +59,7 @@ struct rigidbody_t {
     rigidbody_type  type;
     rigidbody_id    id{uid::invalid_id};
     u64             flags{0};
-    
+
     v3f             position{0.0f};
     glm::quat       orientation{};
 
@@ -106,6 +106,9 @@ struct api_t {
     simulate_function           simulate{0};
     update_rigidbody_function   set_rigidbody{0};
     update_rigidbody_function   sync_rigidbody{0};
+
+    update_rigidbody_function   add_rigidbody{0};
+    update_rigidbody_function   remove_rigidbody{0};
 
     create_rigidbody_function   create_rigidbody{0};
     create_collider_function    create_collider{0};

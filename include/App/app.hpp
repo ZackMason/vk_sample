@@ -8,6 +8,8 @@
 
 #include "App/Game/Rendering/render_system.hpp"
 
+#include "App/Game/GUI/viewport.hpp"
+
 namespace game {
 struct world_t;
 };
@@ -110,8 +112,8 @@ struct app_t {
 
     struct gui_state_t {
         gfx::gui::ctx_t ctx;
-        gfx::vul::vertex_buffer_t<gfx::gui::vertex_t, 4'000'000> vertices;
-        gfx::vul::index_buffer_t<6'000'000> indices;
+        gfx::vul::vertex_buffer_t<gfx::gui::vertex_t, 4'000'000> vertices[2];
+        gfx::vul::index_buffer_t<6'000'000> indices[2];
 
         arena_t  arena;
     } gui;
@@ -120,8 +122,7 @@ struct app_t {
         debug_console_t* console;
 
         bool show = false;
-        u64 mesh_sub_index{0};
-        u64 mesh_index{0};
+
         gfx::vul::vertex_buffer_t<gfx::vul::debug_line_vertex_t, 100'000> debug_vertices;
 
         void draw_aabb(const math::aabb_t<v3f>& aabb, gfx::color3 color) {

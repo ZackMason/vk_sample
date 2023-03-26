@@ -17,6 +17,9 @@ init_physx(api_t* api, arena_t* arena) {
     api->set_rigidbody      = physx_set_rigidbody;
     api->sync_rigidbody     = physx_sync_rigidbody;
 
+    api->add_rigidbody      = physx_add_rigidbody;
+    api->remove_rigidbody   = physx_remove_rigidbody;
+
     api->create_rigidbody   = physx_create_rigidbody;
     api->create_collider    = physx_create_collider;
     api->raycast_world      = physx_raycast_world;

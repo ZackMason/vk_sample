@@ -54,6 +54,7 @@ struct entity_def_t {
     child_t children[10]{};
 };
 
+
 #define DB_ENTRY static constexpr entity_def_t
 
 namespace misc {
@@ -112,10 +113,10 @@ room_0 {
         .mesh_name = "assets/models/rooms/room_0.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    // .physics = entity_def_t::physics_t {
-    //     .flags = PhysicsEntityFlags_Static,
-    //     .shape = physics::collider_shape_type::TRIMESH,
-    // },
+    .physics = entity_def_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shape = physics::collider_shape_type::TRIMESH,
+    },
 };
 
 DB_ENTRY
@@ -286,5 +287,40 @@ query(
 }
 
 }; // namespace db
+
+template<>
+void utl::memory_blob_t::serialize
+    <game::entity::db::entity_def_t>
+    (arena_t* arena, const game::entity::db::entity_def_t& def
+) {
+    serialize(arena, def.type);
+    serialize(arena, def.type_name);
+    serialize(arena, def.gfx.mesh_name);
+    serialize(arena, def.gfx.albedo_tex);
+    serialize(arena, def.gfx.normal_tex);
+    serialize(arena, def.gfx.animations);
+    serialize(arena, def.stats);
+    serialize(arena, def.weapon);
+    serialize(arena, def.physics);
+    serialize(arena, def.emitter);
+}
+
+template<>
+game::entity::db::entity_def_t utl::memory_blob_t::deserialize<game::entity::db::entity_def_t>() {
+    game::entity::db::entity_def_t def{};
+
+    def.type      = deserialize<decltype(def.type)>();
+    def.type_name = deserialize<decltype(def.type_name)>();
+    def.gfx.mesh_name = deserialize<decltype(def.gfx.mesh_name)>();
+    def.gfx.albedo_tex = deserialize<decltype(def.gfx.albedo_tex)>();
+    def.gfx.normal_tex = deserialize<decltype(def.gfx.normal_tex)>();
+    def.gfx.animations = deserialize<decltype(def.gfx.animations)>();
+    def.stats = deserialize<decltype(def.stats)>();
+    def.weapon = deserialize<decltype(def.weapon)>();
+    def.physics = deserialize<decltype(def.physics)>();
+    def.emitter = deserialize<decltype(def.emitter)>();
+
+    return def;
+}
 
 #endif
