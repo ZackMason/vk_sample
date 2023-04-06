@@ -3,10 +3,10 @@
 
 #include "App/Game/Entity/entity.hpp"
 
-namespace game::entity::db {
+namespace game::db {
 
 struct entity_def_t {
-    entity::entity_type type{entity::entity_type::environment};
+    entity_type type{entity_type::environment};
     string_t type_name{};
 
     struct gfx_t {
@@ -104,6 +104,34 @@ door {
 }; //namespace misc
 
 namespace rooms {
+
+DB_ENTRY
+tower_01 {
+    .type = entity_type::environment,
+    .type_name = "tower_01",
+    .gfx = {
+        .mesh_name = "assets/models/rooms/tower_01.obj",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = entity_def_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shape = physics::collider_shape_type::TRIMESH,
+    },
+};
+
+DB_ENTRY
+room_01 {
+    .type = entity_type::environment,
+    .type_name = "room_01",
+    .gfx = {
+        .mesh_name = "assets/models/rooms/room_01.obj",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = entity_def_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shape = physics::collider_shape_type::TRIMESH,
+    },
+};
 
 DB_ENTRY
 room_0 {
@@ -290,8 +318,8 @@ query(
 
 template<>
 void utl::memory_blob_t::serialize
-    <game::entity::db::entity_def_t>
-    (arena_t* arena, const game::entity::db::entity_def_t& def
+    <game::db::entity_def_t>
+    (arena_t* arena, const game::db::entity_def_t& def
 ) {
     serialize(arena, def.type);
     serialize(arena, def.type_name);
@@ -306,8 +334,8 @@ void utl::memory_blob_t::serialize
 }
 
 template<>
-game::entity::db::entity_def_t utl::memory_blob_t::deserialize<game::entity::db::entity_def_t>() {
-    game::entity::db::entity_def_t def{};
+game::db::entity_def_t utl::memory_blob_t::deserialize<game::db::entity_def_t>() {
+    game::db::entity_def_t def{};
 
     def.type      = deserialize<decltype(def.type)>();
     def.type_name = deserialize<decltype(def.type_name)>();

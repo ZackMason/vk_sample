@@ -4,7 +4,7 @@
 #include "core.hpp"
 #include "uid.hpp"
 
-namespace game::entity {
+namespace game {
     DEFINE_TYPED_ID(entity_id);
 };
 
@@ -47,7 +47,7 @@ namespace game {
     };
 };
 
-namespace game::entity {
+namespace game {
     struct ecs_world_t;
     
     struct scriptable_entity_t {
@@ -70,7 +70,7 @@ namespace game::script {
     struct entity_script_t;
 };
 
-namespace game::entity {
+namespace game {
     struct ecs_world_t {
         u64 capacity{0};
 
@@ -171,10 +171,10 @@ namespace game::script {
 
     namespace detail {
         using script_ptr = entity_script_t*;
-        using script_creator = script_ptr(*)(arena_t*, game::entity::scriptable_entity_t);
+        using script_creator = script_ptr(*)(arena_t*, game::scriptable_entity_t);
 
         template <typename ScriptClass>
-        script_ptr create_script(arena_t* arena, game::entity::scriptable_entity_t entity) {
+        script_ptr create_script(arena_t* arena, game::scriptable_entity_t entity) {
             assert(entity.is_valid());
             return arena_alloc_ctor<ScriptClass>(arena, 1, entity);
         }

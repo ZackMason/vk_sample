@@ -1,9 +1,14 @@
 {
     "trimesh": [
         "assets/models/rooms/room_0.obj",
+        "assets/models/rooms/room_01.obj",
+        "assets/models/rooms/tower_01.obj",
+        "assets/models/rooms/stairs_10x10x2_01.obj",
         "assets/models/map_01.obj"
     ],
     "convex": [
+        "assets/models/rooms/wall_10x10_01.obj",
+        "assets/models/rooms/floor_10x10_01.obj",
         "assets/models/utah-teapot.obj"
     ]
 }

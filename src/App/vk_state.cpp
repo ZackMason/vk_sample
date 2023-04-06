@@ -504,10 +504,10 @@ begin_render_pass(
     renderPassInfo.renderArea.extent = state.swap_chain_extent;
 
     VkClearColorValue			vccv;
-		vccv.float32[3] = 0.0f;
-		vccv.float32[1] = 0.0f;
-		vccv.float32[2] = 0.0f;
 		vccv.float32[0] = 1.0f;
+		vccv.float32[1] = 1.0f;
+		vccv.float32[2] = 1.0f;
+		vccv.float32[3] = 1.0f;
 
 	VkClearDepthStencilValue		vcdsv;
 		vcdsv.depth = 1.f;

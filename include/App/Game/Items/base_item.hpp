@@ -27,11 +27,11 @@ namespace game::item {
     };
 
     namespace augment_character {
-        using function_type = game::entity::character_stats_t(*)(const game::entity::character_stats_t&);
+        using function_type = game::character_stats_t(*)(const game::character_stats_t&);
 
-        #define AUGMENT_STATS_DEF(x) inline game::entity::character_stats_t \
+        #define AUGMENT_STATS_DEF(x) inline game::character_stats_t \
         x(\
-            const game::entity::character_stats_t& _stats\
+            const game::character_stats_t& _stats\
         ) noexcept 
         
         AUGMENT_STATS_DEF(vitality) {

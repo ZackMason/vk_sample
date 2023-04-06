@@ -33,7 +33,7 @@ gamepad_controller(app_input_t* input) {
         input->gamepads[0].left_stick.x,
         f32(input->gamepads[0].buttons[button_id::shoulder_left].is_held) - 
         f32(input->gamepads[0].buttons[button_id::shoulder_right].is_held),
-        input->gamepads[0].left_stick.y,
+        -input->gamepads[0].left_stick.y,
     };
     
     pc.look_input = v2f{
@@ -47,13 +47,14 @@ gamepad_controller(app_input_t* input) {
     pc.sprint = input->gamepads->buttons[button_id::action_right].is_held;
     return pc;
 }
+
 inline static player_controller_t 
 keyboard_controller(app_input_t* input) {
     player_controller_t pc{};
     pc.move_input = v3f{
         f32(input->keys['D']) - f32(input->keys['A']),
         f32(input->keys['Q']) - f32(input->keys['E']),
-        f32(input->keys['S']) - f32(input->keys['W'])
+        f32(input->keys['W']) - f32(input->keys['S'])
     };
 
     pc.look_input = (f32(input->mouse.buttons[0]) * v2f{
@@ -66,6 +67,8 @@ keyboard_controller(app_input_t* input) {
 
     pc.fire1 = input->keys['F'] || input->mouse.buttons[0];
     pc.iron_sight = input->mouse.buttons[1];
+    pc.jump = input->pressed.keys[key_id::SPACE];
+    pc.sprint = input->keys[key_id::LEFT_SHIFT];
     return pc;
 }
 

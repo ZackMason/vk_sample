@@ -37,7 +37,7 @@ struct entity_editor_t {
 inline static void
 entity_editor_update(entity_editor_t* ee) {
     auto* app = ee->app;
-    
+
     game::rendering::begin_frame(app->render_system);
 
 }
@@ -64,7 +64,7 @@ entity_editor_render(entity_editor_t* ee) {
     }
 
     local_persist viewport_t viewport{};
-    viewport.images[0] = 1;
+    viewport.images[0] = 4;
     viewport.images[1] = 1;
     viewport.images[2] = 1;
     viewport.images[3] = 2;

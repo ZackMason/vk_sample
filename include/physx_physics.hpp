@@ -10,6 +10,23 @@
 namespace physics {
 
 using namespace physx;
+
+glm::mat3 tensor_to_mat3(const physx::PxVec3& inertiaTensor) {
+    glm::mat3 mat;
+
+    mat[0][0] = inertiaTensor.x;
+    mat[0][1] = 0.0f;
+    mat[0][2] = 0.0f;
+    mat[1][0] = 0.0f;
+    mat[1][1] = inertiaTensor.y;
+    mat[1][2] = 0.0f;
+    mat[2][0] = 0.0f;
+    mat[2][1] = 0.0f;
+    mat[2][2] = inertiaTensor.z;
+
+    return mat;
+}
+
 // note(zack): SDK says not to create stuff during this callback
 class rigidbody_event_callback : public physx::PxSimulationEventCallback {
     // std::unordered_map<u64, PxU32> active_contacts;
@@ -83,7 +100,14 @@ physx_remove_rigidbody(api_t* api, rigidbody_t* rb) {
     assert(rb);
     assert(ps->world);
     assert(ps->world->scene);
-    ps->world->scene->removeActor(*(physx::PxActor*)rb->api_data);
+    if (rb->type == rigidbody_type::CHARACTER) {
+        auto* controller = (physx::PxController*)rb->api_data;
+        
+        ps->world->scene->removeActor(*controller->getActor());
+        
+    } else {
+        ps->world->scene->removeActor(*(physx::PxActor*)rb->api_data);
+    }
 }
 
 void
@@ -93,8 +117,14 @@ physx_add_rigidbody(api_t* api, rigidbody_t* rb) {
     assert(rb);
     assert(ps->world);
     assert(ps->world->scene);
-    ps->world->scene->addActor(*(physx::PxActor*)rb->api_data);
-    ((physx::PxActor*)rb->api_data)->userData = rb;
+    if (rb->type == rigidbody_type::CHARACTER) {
+        auto* controller = (physx::PxController*)rb->api_data;
+        // ps->world->scene->addActor(*controller->getActor());
+        controller->getActor()->userData = rb;
+    } else {
+        ps->world->scene->addActor(*(physx::PxActor*)rb->api_data);
+        ((physx::PxActor*)rb->api_data)->userData = rb;
+    }
 }
 
 static rigidbody_t*
@@ -112,7 +142,22 @@ physx_create_rigidbody_impl(
         case rigidbody_type::DYNAMIC: {
             rb->api_data = ps->state->physics->createRigidDynamic(t);
             physx_add_rigidbody(api, rb);
+            rb->inertia = tensor_to_mat3(((physx::PxRigidBody*)rb->api_data)->getMassSpaceInertiaTensor());
+            rb->inverse_inertia = tensor_to_mat3(((physx::PxRigidBody*)rb->api_data)->getMassSpaceInvInertiaTensor());
             rb->user_data = data;
+        }   break;
+        case rigidbody_type::CHARACTER: {
+            PxCapsuleControllerDesc desc;
+            desc.height = 1.7f;
+            desc.radius = .5f;
+            desc.climbingMode = PxCapsuleClimbingMode::eEASY;
+            desc.behaviorCallback = nullptr;
+            desc.reportCallback = nullptr;
+            desc.material = ps->state->physics->createMaterial(0.5f, 0.5f, 0.1f);
+            rb->api_data = ps->world->controller_manager->createController(desc);
+            physx_add_rigidbody(api, rb);
+            assert(api->character_count < PHYSICS_MAX_CHARACTER_COUNT);
+            api->characters[api->character_count++] = rb;
         }   break;
         case rigidbody_type::STATIC: {
             rb->api_data = ps->state->physics->createRigidStatic(t);
@@ -218,6 +263,7 @@ physx_destroy_scene(api_t*) {
     assert(0);
 }
 
+
 rigidbody_t*
 physx_create_rigidbody(api_t* api, void* entity, rigidbody_type type) {
     auto* ps = get_physx(api);
@@ -233,6 +279,7 @@ physx_create_collider(api_t* api, rigidbody_t* rigidbody, collider_shape_type ty
 raycast_result_t
 physx_raycast_world(const api_t* api, v3f ro, v3f rd) {
     auto* ps = get_physx(api);
+    rd = glm::normalize(rd);
     const physx::PxVec3 pro{ ro.x, ro.y, ro.z };
     const physx::PxVec3 prd{ rd.x, rd.y, rd.z };
     physx::PxRaycastBuffer hit;
@@ -253,37 +300,112 @@ physx_raycast_world(const api_t* api, v3f ro, v3f rd) {
     return result;
 }
 
+auto dampen(auto currentValue, auto targetValue, float dampingFactor, float deltaTime) {
+    auto valueDifference = targetValue - currentValue;
+
+    auto changeAmount = valueDifference * dampingFactor * deltaTime;
+
+    currentValue += changeAmount;
+
+    return currentValue;
+}
+
+bool isOnGround(physx::PxController* controller) {
+    auto [x,y,z] = controller->getFootPosition();
+    PxVec3 rayOrigin{(f32)x,(f32)y + 0.05f,(f32)z}; 
+    
+    PxVec3 rayDirection = -PxVec3(0.0f, 1.0f, 0.0f);
+
+    physx::PxRaycastBuffer hit;
+    
+    physx::PxSceneQueryFilterData filter{PxQueryFlag::eSTATIC};
+    bool hasHit = 
+        controller->getScene()->raycast(
+            rayOrigin, 
+            rayDirection, 
+            0.5f, hit, 
+            PxHitFlag::eDEFAULT, filter);
+    return hit.hasAnyHits();
+}
+
 void
 physx_simulate(api_t* api, f32 dt) {
     const auto* ps = get_physx(api);
-    const auto mark = arena_get_mark(api->arena);
+
+    range_u64(i, 0, api->character_count) {
+        auto* rb = api->characters[i];
+        if (rb) {
+            auto* controller = (physx::PxController*)rb->api_data;
+            auto& v = rb->velocity;
+
+            const PxU32 move_flags = controller->move(
+                {v.x, v.y, v.z}, 0.01f, dt, {}
+            );
+
+            if(move_flags & PxControllerCollisionFlag::eCOLLISION_DOWN) {
+                rb->flags |= rigidbody_flags::IS_ON_GROUND;
+                v.y = 0.0f;
+			} else {
+                rb->flags &= ~rigidbody_flags::IS_ON_GROUND;
+            }
+            if(move_flags & PxControllerCollisionFlag::eCOLLISION_SIDES) {
+                rb->flags |= rigidbody_flags::IS_ON_WALL;
+            } else {
+                rb->flags &= ~rigidbody_flags::IS_ON_WALL;
+            }
+
+            v = math::damp(v, v3f{0.0f}, rb->linear_dampening, dt);
+
+            if (isOnGround(controller)) {
+                // gen_info(__FUNCTION__, "on ground");
+                v.y = 0.0f;
+                rb->flags |= rigidbody_flags::IS_ON_GROUND;
+            } else {
+                rb->flags &= ~rigidbody_flags::IS_ON_GROUND;
+            }
+            
+            const auto [px,py,pz] = controller->getPosition();
+            rb->position = v3f{px,py,pz};
+        }
+    }
+
+    temp_arena_t scratch = *api->arena;
+    scratch.top = align16(scratch.top);
+    scratch.size = (scratch.size / kilobytes(16)) * kilobytes(16);
+
     ps->world->scene->simulate(
-        dt
-        // 0, 
-        // arena_get_top(api->arena), 
-        // safe_truncate_u64(arena_get_remaining(api->arena))
+        dt,
+        0, 
+        arena_get_top(&scratch), 
+        safe_truncate_u64(arena_get_remaining(&scratch))
     );
     ps->world->scene->fetchResults(true);
-    arena_set_mark(api->arena, mark);
 }
 
 void
 physx_sync_rigidbody(api_t* api, rigidbody_t* rb) {
     assert(rb && rb->api_data);
-    physx::PxTransform t = ((physx::PxRigidActor*)rb->api_data)->getGlobalPose();
 
-    if ((rb->flags & rigidbody_flags::SKIP_SYNC) == 0) {
-        rb->position = v3f{t.p.x, t.p.y, t.p.z};
-        rb->orientation = glm::quat{t.q.w, t.q.x, t.q.y, t.q.z};
-        if (rb->type == physics::rigidbody_type::DYNAMIC) {
-            const auto [vx,vy,vz] = ((physx::PxRigidBody*)rb->api_data)->getLinearVelocity();
-            const auto [ax,ay,az] = ((physx::PxRigidBody*)rb->api_data)->getAngularVelocity();
-            rb->velocity = v3f{vx,vy,vz};
-            rb->angular_velocity = v3f{ax,ay,az};
+    if (rb->type == rigidbody_type::DYNAMIC) {
+        if ((rb->flags & rigidbody_flags::SKIP_SYNC) == 0) {
+            physx::PxTransform t = ((physx::PxRigidActor*)rb->api_data)->getGlobalPose();
+            rb->position = v3f{t.p.x, t.p.y, t.p.z};
+            rb->orientation = glm::quat{t.q.w, t.q.x, t.q.y, t.q.z};
+            if (rb->type == physics::rigidbody_type::DYNAMIC) {
+                const auto [vx,vy,vz] = ((physx::PxRigidBody*)rb->api_data)->getLinearVelocity();
+                const auto [ax,ay,az] = ((physx::PxRigidBody*)rb->api_data)->getAngularVelocity();
+                rb->velocity = v3f{vx,vy,vz};
+                rb->angular_velocity = v3f{ax,ay,az};
+            }
+        } else if (rb->type == rigidbody_type::CHARACTER) {
+            auto* controller = ((physx::PxController*)rb->api_data);
+            const auto [px,py,pz]  = controller->getPosition();
+            rb->position = v3f{px,py,pz};
+
         }
+        
+        rb->flags &= ~rigidbody_flags::SKIP_SYNC;
     }
-    
-    rb->flags &= ~rigidbody_flags::SKIP_SYNC;
 }
 
 void
@@ -292,14 +414,20 @@ physx_set_rigidbody(api_t* api, rigidbody_t* rb) {
     const auto& q = rb->orientation;
     const auto& v = rb->velocity;
     const auto& av = rb->angular_velocity;
-    physx::PxTransform t;
-    t.p = {p.x, p.y, p.z};
-    t.q = {q.x, q.y, q.z, q.w};
+    if (rb->type == rigidbody_type::CHARACTER) {
+        auto* controller = (physx::PxController*)rb->api_data;
+        controller->setPosition({p.x,p.y,p.z});
+    } else {
+        physx::PxTransform t;
+        t.p = {p.x, p.y, p.z};
+        t.q = {q.x, q.y, q.z, q.w};
 
-    ((physx::PxRigidActor*)rb->api_data)->setGlobalPose(t, false);
-    if (rb->type == physics::rigidbody_type::DYNAMIC) {
-        ((physx::PxRigidBody*)rb->api_data)->setLinearVelocity({v.x,v.y,v.z}, false);
-        ((physx::PxRigidBody*)rb->api_data)->setAngularVelocity({av.x,av.y,av.z}, false);
+        ((physx::PxRigidActor*)rb->api_data)->setGlobalPose(t, false);
+        if (rb->type == physics::rigidbody_type::DYNAMIC) {
+            ((physx::PxRigidBody*)rb->api_data)->setLinearVelocity({v.x,v.y,v.z}, false);
+            ((physx::PxRigidBody*)rb->api_data)->setAngularVelocity({av.x,av.y,av.z}, false);
+        }
+
     }
 }
 

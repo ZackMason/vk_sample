@@ -5,6 +5,7 @@
 
 #define PHYSICS_MAX_RIGIDBODY_COUNT 4096
 #define PHYSICS_MAX_COLLIDER_COUNT 256
+#define PHYSICS_MAX_CHARACTER_COUNT 512
 
 namespace physics {
 
@@ -49,7 +50,8 @@ using rigidbody_on_collision_function = void(*)(rigidbody_t*, rigidbody_t*);
 struct rigidbody_flags {
     enum {
         SKIP_SYNC = BIT(0),
-
+        IS_ON_GROUND = BIT(1), // note(zack): these are only set for character bodies
+        IS_ON_WALL = BIT(2),
     };
 };
 
@@ -60,11 +62,20 @@ struct rigidbody_t {
     rigidbody_id    id{uid::invalid_id};
     u64             flags{0};
 
+    f32 mass{1.0f};
+    f32 linear_dampening{2.995f};
+    f32 angular_dampening{0.5f};
+
     v3f             position{0.0f};
     glm::quat       orientation{};
 
     v3f             velocity{0.0f};
     v3f             angular_velocity{0.0f};
+
+    v3f             force{0.0f};
+    v3f             torque{0.0f};
+
+    m33             inertia{0.0f}, inverse_inertia{0.0f};
 
     collider_t      colliders[RIGIDBODY_MAX_COLLIDER_COUNT];
     size_t          collider_count{0};
@@ -74,6 +85,48 @@ struct rigidbody_t {
 
     rigidbody_on_collision_function on_collision{0};
     rigidbody_on_collision_function on_collision_end{0};
+
+    // transform direction from body space to world space
+    inline glm::vec3 transform_direction(const glm::vec3& direction) const
+    { return orientation * direction; }
+
+    // transform direction from world space to body space
+    inline glm::vec3 inverse_transform_direction(const glm::vec3& direction) const
+    { return glm::inverse(orientation) * direction; }
+
+    // get velocity and angular velocity in body space
+    inline glm::vec3 get_point_velocity(const glm::vec3& point) const
+    { return inverse_transform_direction(velocity) + glm::cross(angular_velocity, point); }
+
+    // force and point vectors are in body space
+    inline void add_force_at_point(const glm::vec3& force_, const glm::vec3& point)
+    { force += transform_direction(force_), torque += glm::cross(point, force_); }
+
+    // force vector in body space
+    inline void add_relative_force(const glm::vec3& force_)
+    { force += transform_direction(force_); }
+
+    // integrate using the euler method
+    void integrate(float dt, bool apply_gravity = false) {
+        // integrate position
+        v3f acceleration = force / mass;
+
+        const bool is_on_ground = flags & rigidbody_flags::IS_ON_GROUND;
+
+        if (apply_gravity && !is_on_ground) { acceleration.y -= 9.81f * 0.15f; }
+        velocity += acceleration * dt;
+        // position += velocity * dt;
+        
+        // integrate orientation
+        angular_velocity += inverse_inertia *
+            (torque - glm::cross(angular_velocity, inertia * angular_velocity)) * dt;
+        // orientation += (orientation * glm::quat(0.0f, angular_velocity)) * (0.5f * dt);
+        // orientation = glm::normalize(orientation);
+
+        // reset accumulators
+        force = v3f{0.0f};
+        torque = v3f{0.0f};
+    }
 };
 
 struct raycast_result_t {
@@ -97,7 +150,7 @@ using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd)
 // updates a rigidbody pos and orientation
 using update_rigidbody_function = void(*)(api_t*, rigidbody_t*);
 
-struct api_t {
+struct export_dll api_t {
     backend_type type;
     void*        backend{nullptr};
 
@@ -122,6 +175,9 @@ struct api_t {
 
     collider_t  colliders[PHYSICS_MAX_COLLIDER_COUNT];
     size_t      collider_count{0};
+
+    rigidbody_t* characters[PHYSICS_MAX_CHARACTER_COUNT];
+    size_t       character_count{0};
 };
 
 using init_function = void(__cdecl *)(api_t* api, backend_type type, arena_t* arena);

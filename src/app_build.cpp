@@ -6,5 +6,7 @@
 #include "App/app.cpp"
 #include "App/vk_state.cpp"
 
+#if GEN_INTERNAL
 debug_table_t gs_debug_table;
 size_t gs_main_debug_record_size = __COUNTER__;
+#endif

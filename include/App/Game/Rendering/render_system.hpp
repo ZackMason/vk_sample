@@ -23,6 +23,7 @@ namespace game::rendering {
         }
 
         const gfx::mesh_list_t& get(u64 id) const {
+            assert(id < meshes.size() && "Mesh is not loaded");
             return meshes[id]->mesh;
         }
     };
@@ -130,9 +131,14 @@ namespace game::rendering {
         gfx::vul::storage_buffer_t<environment_t, 1>    environment_storage_buffer;
 
         m44 vp{1.0f};
+        m44 projection{1.0f};
         v3f camera_pos{0.0f};
 
         lighting::probe_box_t light_probes{v3f{-30.0f, -6.0f, -30.0f}, v3f{40.0f}};
+
+        void set_view(const m44& view) {
+            vp = projection * view;
+        }
 
         frame_data_t& get_frame_data() {
             return frames[frame_count%frame_overlap];
@@ -170,6 +176,15 @@ namespace game::rendering {
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
         rs->render_jobs = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
+
+        {
+            const f32 w = (f32)state.swap_chain_extent.width;
+            const f32 h = (f32)state.swap_chain_extent.height;
+            const f32 aspect = w / h;
+
+            rs->projection = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
+            rs->projection[1][1] *= -1.0f;
+        }
 
         create_render_pass(rs, state.device, state.swap_chain_image_format);
         create_framebuffers(
@@ -326,13 +341,22 @@ namespace game::rendering {
         return utl::str_hash_find(rs->mesh_hash, name);
     }
 
+    inline const gfx::mesh_list_t&
+    get_mesh(
+        system_t* rs,
+        std::string_view name
+    ) {
+        return rs->mesh_cache.get(utl::str_hash_find(rs->mesh_hash, name));
+    }
+
     inline math::aabb_t<v3f>
     get_mesh_aabb(
         system_t* rs,
         std::string_view name
     ) {
-        return rs->mesh_cache.get(utl::str_hash_find(rs->mesh_hash, name)).aabb;
+        return get_mesh(rs, name).aabb;
     }
+
 
     inline u32
     create_material(

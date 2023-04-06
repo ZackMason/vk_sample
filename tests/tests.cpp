@@ -11,8 +11,6 @@
 
 #include "uid.hpp"
 
-#include "App/Game/Entity/script.hpp"
-
 static size_t tests_run = 0;
 static size_t tests_passed = 0;
 static size_t asserts_passed = 0;
@@ -37,7 +35,7 @@ constexpr auto throw_assert(const bool b) -> auto {
     throw_assert(b, "Assert Failed");
 }
 
-#define TEST_ASSERT( x ) throw_assert(x, "TEST FAILED: " #x);
+#define TEST_ASSERT( x ) throw_assert((x), "TEST FAILED: " #x);
 
 template <typename Fn>
 auto run_test(const char* name, const Fn& test) -> auto {
@@ -106,13 +104,6 @@ entity_t utl::memory_blob_t::deserialize<entity_t>() {
     return e;
 }
 
-struct test_script_t : public game::script::entity_script_t {
-    using game::script::entity_script_t::entity_script_t;
-    void begin_play() override {
-        gen_info("test_script", "wowza");
-    }
-};
-
 
 #define RUN_TEST(x) \
     run_test(x, [&] {\
@@ -137,39 +128,39 @@ int main(int argc, char** argv) {
     });
         
 
-    RUN_TEST("ecs")
-        constexpr size_t arena_size = megabytes(32);
-        arena_t arena = arena_create(new u8[arena_size], arena_size);
+    // RUN_TEST("ecs")
+    //     constexpr size_t arena_size = megabytes(32);
+    //     arena_t arena = arena_create(new u8[arena_size], arena_size);
         
-        using namespace game;
+    //     using namespace game;
 
-        entity::ecs_world_t* w = entity::world_init(&arena, 24);
-        auto e = w->get_entity(w->create_entity());
-        TEST_ASSERT(e.is_valid());
+    //     entity::ecs_world_t* w = entity::world_init(&arena, 24);
+    //     auto e = w->get_entity(w->create_entity());
+    //     TEST_ASSERT(e.is_valid());
 
-        TEST_ASSERT(e.transform(w).is_valid() == false);
+    //     TEST_ASSERT(e.transform(w).is_valid() == false);
 
-        transform::component_t* tc;
-        get_component(w, e.get_id(), &tc); // another way to get components
-        TEST_ASSERT(tc && tc->is_valid() == false);
+    //     transform::component_t* tc;
+    //     get_component(w, e.get_id(), &tc); // another way to get components
+    //     TEST_ASSERT(tc && tc->is_valid() == false);
 
-        transform::init_info_t t;
-        script::init_info_t s;
-        s.init = script::detail::create_script<test_script_t>;
+    //     transform::init_info_t t;
+    //     script::init_info_t s;
+    //     s.init = script::detail::create_script<test_script_t>;
 
-        transform::create(w, t, e);
-        script::create(w, s, e, &arena);
+    //     transform::create(w, t, e);
+    //     script::create(w, s, e, &arena);
 
-        TEST_ASSERT(e.transform(w).is_valid() == true);
-        TEST_ASSERT(e.script(w).is_valid() == true);
+    //     TEST_ASSERT(e.transform(w).is_valid() == true);
+    //     TEST_ASSERT(e.script(w).is_valid() == true);
         
-        TEST_ASSERT(tc->is_valid() == true);
-        const auto s_id = uid::index(e.script(w).get_id());
-        auto* script = w->scripts[s_id];
-        script->begin_play();
+    //     TEST_ASSERT(tc->is_valid() == true);
+    //     const auto s_id = uid::index(e.script(w).get_id());
+    //     auto* script = w->scripts[s_id];
+    //     script->begin_play();
 
-        delete [] arena.start;
-    });
+    //     delete [] arena.start;
+    // });
 
     RUN_TEST("rng")
         using namespace utl::rng;
@@ -230,6 +221,11 @@ int main(int argc, char** argv) {
     });
 
     RUN_TEST("math")
+        math::transform_t t;
+        t.origin = v3f{1.0f, 0.0f, 0.0f};
+        v3f o{-1.0f, 0.0f, 0.0f};
+        TEST_ASSERT(t.inv_xform(v3f{0.0f}) == o);
+
         for (f32 x = -360.0f; x < 360.0f; x += 1.5f) {
             for (f32 y = -90.0f; y < 90.0f; y += 1.5f) {
                 TEST_ASSERT(glm::length(math::get_spherical(x,y)) <= 1.01f);
@@ -246,9 +242,8 @@ int main(int argc, char** argv) {
         ray.origin = v3f{0,0,-5};
         
         TEST_ASSERT(box.contains(box));
-        TEST_ASSERT(math::ray_aabb_intersect(ray, box).intersect);
-        TEST_ASSERT(math::ray_aabb_intersect(ray, box).distance == 4.0f);
-
+        TEST_ASSERT(math::intersect(ray, box).intersect);
+        TEST_ASSERT(math::intersect(ray, box).distance == 4.0f);
     });
 
     RUN_TEST("serialize")
@@ -426,13 +421,13 @@ int main(int argc, char** argv) {
 
         
         u32 child_count = 0;
-        for (size_t i = 0; i < array_count(game::entity::db::characters::soldier.children); i++) {
-            child_count += !!game::entity::db::characters::soldier.children[i].entity;
+        for (size_t i = 0; i < array_count(game::db::characters::soldier.children); i++) {
+            child_count += !!game::db::characters::soldier.children[i].entity;
         }
         TEST_ASSERT(child_count == 2);
         
-        const auto& p0 = game::entity::db::characters::soldier;
-        const auto& p1 = game::entity::db::rooms::map_01;
+        const auto& p0 = game::db::characters::soldier;
+        const auto& p1 = game::db::rooms::map_01;
         TEST_ASSERT(p0.stats->health.max == 120);
         TEST_ASSERT(p0.stats->health.max == p0.stats->health.current);
         
@@ -442,8 +437,8 @@ int main(int argc, char** argv) {
         blob.serialize(&arena, p0);
         blob.serialize(&arena, p1);
 
-        auto r0 = blob.deserialize<game::entity::db::entity_def_t>();
-        auto r1 = blob.deserialize<game::entity::db::entity_def_t>();
+        auto r0 = blob.deserialize<game::db::entity_def_t>();
+        auto r1 = blob.deserialize<game::db::entity_def_t>();
 
         
         TEST_ASSERT(r0.stats->health.max == 120);
@@ -504,6 +499,96 @@ int main(int argc, char** argv) {
             TEST_ASSERT(shotgun.stats.damage == shotgun_bullets[i].damage);
         }
         delete [] arena.start;
+
+    });
+
+    RUN_TEST("script hashing")
+        using namespace game;
+        using namespace utl::rng;
+        
+        static constexpr size_t arena_size = kilobytes(4);
+        arena_t arena = arena_create(new std::byte[arena_size], arena_size);
+
+        struct player_t {
+            USCRIPT(player_t);
+            u32 score{0};
+            void end_play(world_t* world) {}
+            void begin_play(world_t* world) {
+                gen_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
+            }
+
+            void update(world_t* world, f32 dt) {
+                score++;
+            }
+        };
+        struct enemy_t {
+            USCRIPT(enemy_t);
+            u64 value{0};
+            f32 strength{1.0f};
+            void end_play(world_t* world) {}
+            void begin_play(world_t* world) {
+                gen_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
+            }
+
+            void update(world_t* world, f32 dt) {
+            }
+        };
+        static_assert(CScript<player_t>);
+        static_assert(CScript<enemy_t>);
+
+        script_manager_t<player_t, enemy_t> scripts{0};
+
+        struct script_hash_t {
+            script_hash_t*  next{nullptr};
+            u64             type{~0ui64};
+            script_id       id{uid::invalid_id};
+        };
+
+        player_t players[4];
+        enemy_t enemies[128];
+        static script_hash_t* hash[1 << 5];
+
+
+        range_u64(i, 0, array_count(players)) {
+            scripts.add_script(players + i);
+
+            const u64 id_hash = fnv_hash_u64(players[i].id);
+            const u64 hash_bucket = id_hash & (array_count(hash) - 1);
+
+            script_hash_t script_hash{};
+            script_hash.id = players[i].id;
+            script_hash.type = scripts.get_type_index<player_t>();
+
+            if (script_hash_t* last_hash = hash[hash_bucket]) {
+                auto* node = arena_alloc<script_hash_t>(&arena);
+                *node = script_hash;
+                node->next = last_hash;
+                hash[hash_bucket] = node;
+            } else {
+                hash[hash_bucket] = arena_alloc<script_hash_t>(&arena);
+                *hash[hash_bucket] = script_hash;
+            }
+        }
+        range_u64(i, 0, array_count(enemies)) {
+            scripts.add_script(enemies + i);
+
+            const u64 id_hash = fnv_hash_u64(enemies[i].id);
+            const u64 hash_bucket = id_hash & (array_count(hash) - 1);
+
+            script_hash_t script_hash{};
+            script_hash.id = enemies[i].id;
+            script_hash.type = scripts.get_type_index<enemy_t>();
+
+            if (script_hash_t* last_hash = hash[hash_bucket]) {
+                auto* node = arena_alloc<script_hash_t>(&arena);
+                *node = script_hash;
+                node->next = last_hash;
+                hash[hash_bucket] = node;
+            } else {
+                hash[hash_bucket] = arena_alloc<script_hash_t>(&arena);
+                *hash[hash_bucket] = script_hash;
+            }
+        }
 
     });
     

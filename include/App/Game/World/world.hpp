@@ -19,14 +19,12 @@ namespace game {
 
         size_t                  entity_count{0};
         size_t                  entity_capacity{0};
-        game::entity::entity_id next_entity_id{1};
-        game::entity::entity_t  entities[65535];
-        game::entity::entity_t* entity_id_hash[4096];
-        game::entity::entity_t* free_entities{0};
-        // game::entity::entity_t* entity_spatial_hash[4096];
-        // game::entity::entity_t  entities[4096];
+        game::entity_id next_entity_id{1};
+        game::entity_t  entities[65535];
+        game::entity_t* entity_id_hash[BIT(12)];
+        game::entity_t* free_entities{0};
 
-        game::entity::entity_t* player;
+        game::entity_t* player;
 
         game::cam::camera_t camera;
 
@@ -37,10 +35,10 @@ namespace game {
         world_t() = default;
     };
 
-    void add_entity_to_id_hash(world_t* world, entity::entity_t* entity) {
+    void add_entity_to_id_hash(world_t* world, entity_t* entity) {
         // todo(zack): better hash,
         const u64 id_hash = utl::rng::fnv_hash_u64(entity->id);
-        const u64 id_bucket = id_hash % 4096;
+        const u64 id_bucket = id_hash & (array_count(world->entity_id_hash)-1);
 
         if (world->entity_id_hash[id_bucket]) {
             entity->next_id_hash = world->entity_id_hash[id_bucket];
@@ -48,12 +46,12 @@ namespace game {
         world->entity_id_hash[id_bucket] = entity;
     }
 
-    void remove_entity_from_id_hash(world_t* world, entity::entity_t* entity) {
+    void remove_entity_from_id_hash(world_t* world, entity_t* entity) {
         const u64 id_hash = utl::rng::fnv_hash_u64(entity->id);
-        const u64 id_bucket = id_hash % 4096;
+        const u64 id_bucket = id_hash & (array_count(world->entity_id_hash)-1);
 
         if (world->entity_id_hash[id_bucket]) {
-            entity::entity_t* last = nullptr;
+            entity_t* last = nullptr;
             auto* c = world->entity_id_hash[id_bucket];
             while(c && c->id != entity->id) {
                 last = c;
@@ -70,11 +68,11 @@ namespace game {
         }
     }
 
-    entity::entity_t*
-    find_entity_by_id(world_t* world, entity::entity_id id) {
+    inline static entity_t*
+    find_entity_by_id(world_t* world, entity_id id) {
         // TIMED_FUNCTION;
         const u64 id_hash = utl::rng::fnv_hash_u64(id);
-        const u64 id_bucket = id_hash % 4096;
+        const u64 id_bucket = id_hash & (array_count(world->entity_id_hash)-1);
 
         if (world->entity_id_hash[id_bucket]) {
             auto* e = world->entity_id_hash[id_bucket];
@@ -86,9 +84,8 @@ namespace game {
         return nullptr;
     }
 
-    entity::entity_t* entity_itr(world_t* world) {
+    entity_t* entity_itr(world_t* world) {
         return world->entities;
-        // return world->entities.deque.front();
     }
 
     inline world_t*
@@ -110,14 +107,14 @@ namespace game {
         return world;
     }
 
-    inline game::entity::entity_t*
+    inline entity_t*
     world_create_entity(world_t* world) {
         TIMED_FUNCTION;
         assert(world);
         assert(world->entity_capacity < array_count(world->entities));
 
         if (world->free_entities) {
-            game::entity::entity_t* e{0};
+            entity_t* e{0};
             node_pop(e, world->free_entities);
             world->entity_count++;
             assert(e);
@@ -136,7 +133,7 @@ namespace game {
 
     // TODO(Zack): Change this so that it maintains pointer
     inline void
-    world_destroy_entity(world_t* world, game::entity::entity_t*& e) {
+    world_destroy_entity(world_t* world, entity_t*& e) {
         TIMED_FUNCTION;
         assert(world->entity_count > 0);
         assert(e->id != uid::invalid_id);
@@ -163,18 +160,18 @@ namespace game {
 
     }
     
-inline entity::entity_t*
+inline entity_t*
 spawn(
     world_t* world,
     rendering::system_t* rs,
-    const entity::db::entity_def_t& def,
+    const db::entity_def_t& def,
     const v3f& pos = {}
 ) {
     TIMED_FUNCTION;
     utl::res::pack_file_t* resource_file = world->app->resource_file;
 
-    entity::entity_t* entity = world_create_entity(world);
-    entity::entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name));
+    entity_t* entity = world_create_entity(world);
+    entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name));
     entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
     entity->name.view(def.type_name);
     entity->transform.origin = pos;
@@ -184,8 +181,8 @@ spawn(
     // entity->physics.rigid_body.type = def.physics ? def.physics->shape : physics::collider_shape_type::NONE;
 
     switch(entity->type) {
-        case entity::entity_type::weapon:
-            entity->flags |= entity::EntityFlags_Pickupable;
+        case entity_type::weapon:
+            entity->flags |= EntityFlags_Pickupable;
             break;
     }
 
@@ -195,20 +192,24 @@ spawn(
         entity->stats.weapon_ = *def.weapon;
     }
 
-    if (def.physics && def.physics->flags & entity::PhysicsEntityFlags_Character) {
-        entity::player_init(
+    if (def.physics && def.physics->flags & PhysicsEntityFlags_Character) {
+        player_init(
             entity,
             &world->camera, 
             rendering::get_mesh_id(rs, def.gfx.mesh_name)
         );
         world->player = entity;
-    } if (def.physics) {
+    } 
+    if (def.physics) {
         physics::rigidbody_t* rb{0};
-        if (def.physics->flags & entity::PhysicsEntityFlags_Static) {
+        if (def.physics->flags & PhysicsEntityFlags_Static) {
             rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::STATIC);
-        } else if (def.physics->flags & entity::PhysicsEntityFlags_Dynamic) {
+        } else if (def.physics->flags & PhysicsEntityFlags_Dynamic) {
             rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::DYNAMIC);
+        } else if (def.physics->flags & PhysicsEntityFlags_Character) {
+            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::CHARACTER);
         }
+        assert(rb);
         entity->physics.rigidbody = rb;
         rb->position = pos;
         rb->orientation = entity->global_transform().get_orientation();

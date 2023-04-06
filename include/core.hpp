@@ -5,6 +5,7 @@
 #define FMT_HEADER_ONLY
 #include <fmt/core.h>
 #include <fmt/color.h>
+#include <fmt/format.h>
 
 #define fmt_str(...) (fmt::format(__VA_ARGS__))
 #define fmt_sv(...) (std::string_view{fmt::format(__VA_ARGS__)})
@@ -102,6 +103,36 @@ using m33 = glm::mat3x3;
 using m34 = glm::mat3x4;
 using m43 = glm::mat4x3;
 using m44 = glm::mat4x4;
+
+
+template<>
+struct fmt::formatter<v3f>
+{
+    template<typename ParseContext>
+    constexpr auto parse(ParseContext& ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FormatContext>
+    auto format(v3f const& v, FormatContext& ctx) {
+        return fmt::format_to(ctx.out(), "[{:.2f}, {:.2f}, {:.2f}]", v.x, v.y, v.z);
+    }
+};
+
+template<typename T>
+struct fmt::formatter<glm::vec<3, T>>
+{
+    template<typename ParseContext>
+    constexpr auto parse(ParseContext& ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FormatContext>
+    auto format(glm::vec<3, T> const& v, FormatContext& ctx) {
+        return fmt::format_to(ctx.out(), "[{}, {}, {}]", v.x, v.y, v.z);
+    }
+};
+
 
 namespace axis {
     constexpr inline static v3f up          {0.0f, 1.0f, 0.0f};
@@ -432,6 +463,14 @@ struct app_input_t {
         i32 scroll[2];
     } mouse;
 
+    char keyboard_input() const noexcept {
+        range_u64(c, key_id::SPACE, key_id::GRAVE_ACCENT+1) {
+            if (pressed.keys[c]) { return (char)c; }
+        }
+        if (pressed.keys[key_id::ENTER]) return -1;
+        return 0;
+    }
+
 };
 
 inline void
@@ -565,7 +604,7 @@ struct timed_block_t {
 
 #else 
 
-#define TIMED_BLOCK
+#define TIMED_BLOCK(Name)
 #define TIMED_FUNCTION
 
 #endif
@@ -996,6 +1035,85 @@ struct any_t {
 
 
 namespace math {
+    template <typename T>
+    inline T lerp(T a, T b, f32 t) {
+        return b * t + a * (1.0f - t);
+    }
+    template <typename T>
+    inline T lerp_dt(T a, T b, f32 s, f32 dt) {
+        return lerp(b, a, std::pow(1.0f - s, dt));
+    }
+    template <typename T>
+    inline T damp(T a, T b, f32 lambda, f32 dt) {
+        return lerp<T>(a, b, 1.0f - std::exp(-lambda * dt));
+    }
+
+    template <typename T>
+    inline T bilinear(T a, T b, T c, T d, f32 u, f32 v) {
+        return glm::mix(
+            glm::mix(a, b, v),
+            glm::mix(c, d, v),
+            u
+        );
+    }
+
+    template <typename T>
+    inline T bezier4(T x, f32 a, f32 b) {
+        a = glm::clamp(a, 0.0f, 1.0f);
+        b = glm::clamp(b, 0.0f, 1.0f);
+        if (a==0.5f) {
+            a += 0.00001f;
+        }
+        f32 om2a = 1.0f - 2.0f*a;
+        f32 t = (glm::sqrt(a*a + om2a*x) - a)/om2a;
+        return (1.0f - 2.0f*b)*(t*t) + (2.0f*b)*t;
+    }
+
+
+    namespace swizzle {
+
+        constexpr v2f xx(v2f v) { return v2f{v.x,v.x}; }
+        constexpr v2f yx(v2f v) { return v2f{v.y,v.x}; }
+        constexpr v2f yy(v2f v) { return v2f{v.y,v.y}; }
+        
+        constexpr v2f xy(v3f v) { return v2f{v.x,v.y}; }
+        constexpr v2f xx(v3f v) { return v2f{v.x,v.x}; }
+        constexpr v2f yx(v3f v) { return v2f{v.y,v.x}; }
+        constexpr v2f yy(v3f v) { return v2f{v.y,v.y}; }
+        constexpr v2f zy(v3f v) { return v2f{v.z,v.y}; }
+        constexpr v2f yz(v3f v) { return v2f{v.y,v.z}; }
+        constexpr v2f xz(v3f v) { return v2f{v.x,v.z}; }
+        constexpr v2f zx(v3f v) { return v2f{v.z,v.x}; }
+    };
+
+    constexpr v2f octahedral_mapping(v3f co) {
+        using namespace swizzle;
+        // projection onto octahedron
+        co /= glm::dot( v3f(1.0f), glm::abs(co) );
+
+        // out-folding of the downward faces
+        if ( co.y < 0.0f ) {
+            co = v3f(1.0f - glm::abs(zx(co)) * glm::sign(xz(co)), co.z);
+        }
+
+        // mapping to [0;1]ˆ2 texture space
+        return xy(co) * 0.5f + 0.5f;
+    }
+
+    constexpr v3f octahedral_unmapping(v2f co) {
+        using namespace swizzle;
+        co = co * 2.0f - 1.0f;
+
+        v2f abs_co = glm::abs(co);
+        v3f v = v3f(co, 1.0f - (abs_co.x + abs_co.y));
+
+        if ( abs_co.x + abs_co.y > 1.0f ) {
+            v = v3f{(glm::abs(yx(co)) - 1.0f) * -glm::sign(co), v.z};
+        }
+
+        return v;
+    }
+
     constexpr v3f get_spherical(f32 yaw, f32 pitch) {
         return v3f{
             glm::cos((yaw)) * glm::cos((pitch)),
@@ -1033,6 +1151,10 @@ namespace math {
 
     struct triangle_t {
         std::array<v3f,3> p;
+
+        v3f normal() const {
+            return glm::normalize(glm::cross(p[1]-p[0], p[2]-p[0]));
+        }
     };
 
     struct plane_t {
@@ -1163,8 +1285,51 @@ struct aabb_t {
     // }
 };
 
+inline static bool
+intersect(const ray_t& ray, const triangle_t& tri, f32& t) noexcept {
+    const auto& [v0, v1, v2] = tri.p;
+    const v3f v0v1 = v1 - v0;
+    const v3f v0v2 = v2 - v0;
+    const v3f n = glm::cross(v0v1, v0v2);
+    const f32 area = glm::length(n);
+    const f32 NoR = glm::dot(ray.direction, n);
+    if (glm::abs(NoR) < 0.00001f) {
+        return false;
+    }
+    const f32 d = -glm::dot(n, v0);
+
+    t = -(glm::dot(n,ray.origin) + d) / NoR;
+    if (t < 0.0f) {
+        return false;
+    }
+    
+    const v3f p = ray.origin + ray.direction * t;
+    v3f c;
+
+    // edge 0
+    v3f edge0 = v1 - v0; 
+    v3f vp0 = p - v0;
+    c = glm::cross(edge0, vp0);
+    if (glm::dot(n, c) < 0.0f) {return false;} // P is on the right side
+ 
+    // edge 1
+    v3f edge1 = v2 - v1; 
+    v3f vp1 = p - v1;
+    c = glm::cross(edge1, vp1);
+    if (glm::dot(n, c) < 0.0f) {return false;} // P is on the right side
+  
+    // edge 2
+    v3f edge2 = v0 - v2; 
+    v3f vp2 = p - v2;
+    c = glm::cross(edge2, vp2);
+    if (glm::dot(n, c) < 0.0f) {return false;} // P is on the right side
+
+    return true; 
+}
+
+
 inline hit_result_t          //<u64> 
-ray_aabb_intersect(const ray_t& ray, const aabb_t<v3f>& aabb) {
+intersect(const ray_t& ray, const aabb_t<v3f>& aabb) {
     const v3f inv_dir = 1.0f / ray.direction;
 
     const v3f min_v = (aabb.min - ray.origin) * inv_dir;
@@ -3004,9 +3169,9 @@ struct xor64_random_t {
         if constexpr (sizeof(time_t) >= 8) {
             constexpr u64 comp_time_entropy = sid(__TIME__) ^ sid(__DATE__);
             const u64 this_entropy = utl::rng::fnv_hash_u64((std::uintptr_t)this);
-            const u64 pid_entropy = utl::rng::fnv_hash_u64(RAND_GETPID);
+            // const u64 pid_entropy = utl::rng::fnv_hash_u64(RAND_GETPID);
         
-            state = static_cast<uint64_t>(time(0)) ^ comp_time_entropy ^ this_entropy ^ pid_entropy;
+            state = static_cast<uint64_t>(time(0)) + 7 * comp_time_entropy + 23 * this_entropy;
             state = utl::rng::fnv_hash_u64(state);
         }
         else {
@@ -3067,6 +3232,12 @@ struct random_t {
         } else {
             randomize();
         }
+    }
+
+    auto norm_dist() {
+        const auto theta = math::constants::tau32 * randf();
+        const auto rho = glm::sqrt(-2.0f * glm::log(randf()));
+        return rho * glm::cos(theta);
     }
 
     auto rand() {
@@ -3148,9 +3319,14 @@ namespace noise {
 inline f32 
 hash21(v2f in) {
     return glm::fract(
-        glm::sin(glm::dot(in, v2f{12.9898f, 78.233f})
-        * 43758.5453123f)
+        glm::sin(glm::dot(in, v2f{12.9898f, 78.233f}))
+        * 43758.5453123f
     );
+}
+
+inline f32 hash(v2f p) {
+    p  = 50.0f*glm::fract( p*0.3183099f + v2f(0.71f,0.113f));
+    return -1.0f+2.0f*glm::fract( p.x*p.y*(p.x+p.y) );
 }
 
 inline f32 
@@ -3158,10 +3334,10 @@ noise21(v2f in) {
     const v2f i = glm::floor(in);
     const v2f f = glm::fract(in);
 
-    const f32 a = hash21(i + v2f{0.0f, 0.0f});
-    const f32 b = hash21(i + v2f{1.0f, 0.0f});
-    const f32 c = hash21(i + v2f{0.0f, 1.0f});
-    const f32 d = hash21(i + v2f{1.0f, 1.0f});
+    const f32 a = hash(i + v2f{0.0f, 0.0f});
+    const f32 b = hash(i + v2f{1.0f, 0.0f});
+    const f32 c = hash(i + v2f{0.0f, 1.0f});
+    const f32 d = hash(i + v2f{1.0f, 1.0f});
 
     const v2f u = f*f*(3.0f-2.0f*f);
 
@@ -3169,6 +3345,28 @@ noise21(v2f in) {
         (c - a) * u.y * (1.0f - u.x) +
         (d - b) * u.x * u.y;
 }
+
+f32 value_noise( v2f p ) {
+    v2f i = glm::floor( p );
+    v2f f = glm::fract( p );
+	
+	v2f u = f*f*(3.0f-2.0f*f);
+
+    return glm::mix( glm::mix( hash( i + v2f(0.0,0.0) ), 
+                     hash( i + v2f(1.0,0.0) ), u.x),
+                glm::mix( hash( i + v2f(0.0,1.0) ), 
+                     hash( i + v2f(1.0,1.0) ), u.x), u.y);
+}
+
+f32 fbm(v2f uv) {
+    m22 m = m22( 1.6f, 1.2f, -1.2f,  1.6f);
+    f32 f  = 0.5000f*noise21( uv ); uv = m*uv;
+    f += 0.2500f*noise21( uv ); uv = m*uv;
+    f += 0.1250f*noise21( uv ); uv = m*uv;
+    f += 0.0625f*noise21( uv ); uv = m*uv;
+    return f;
+}
+
 
 };
 
@@ -3888,6 +4086,7 @@ struct pack_file_t {
 inline pack_file_t* 
 load_pack_file(
     arena_t* arena,
+    arena_t* temp_arena,
     arena_t* string_arena,
     std::string_view path
 ) {
@@ -3902,7 +4101,7 @@ load_pack_file(
     const size_t size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::byte* data = arena_alloc(arena, size);
+    std::byte* data = arena_alloc(temp_arena, size);
     file.read((char*)data, size);
     memory_blob_t loader{data};
     
@@ -3910,10 +4109,8 @@ load_pack_file(
     const auto meta = loader.deserialize<u64>();
     const auto vers = loader.deserialize<u64>();
 
-#if !NDEBUG
     assert(meta == magic::meta);
     assert(vers == magic::vers);
-#endif
 
     pack_file_t* packed_file = arena_alloc_ctor<pack_file_t>(arena, 1);
 

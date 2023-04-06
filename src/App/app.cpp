@@ -18,7 +18,7 @@ void teapot_on_collision(
     physics::rigidbody_t* teapot,
     physics::rigidbody_t* other
 ) {
-    auto* teapot_entity = (game::entity::entity_t*) teapot->user_data;
+    auto* teapot_entity = (game::entity_t*) teapot->user_data;
     // gen_info(__FUNCTION__, "teapot hit: {} - id", entity->id);
     auto* saved_entity = game::find_entity_by_id(&gs_saved_world, teapot_entity->id);
     teapot_entity->transform.origin = saved_entity->transform.origin;
@@ -31,7 +31,7 @@ void player_on_collision(
     physics::rigidbody_t* player,
     physics::rigidbody_t* other
 ) {
-    auto* other_entity = (game::entity::entity_t*) other->user_data;
+    auto* other_entity = (game::entity_t*) other->user_data;
     gen_info(__FUNCTION__, "hit: {} - id", other_entity->id);
 }
 
@@ -146,10 +146,57 @@ load_bin_mesh(
     return {};
 }
 
+inline static gfx::vul::texture_2d_t*
+make_noise_texture(arena_t* arena, u32 size) {
+    auto* tex = arena_alloc<gfx::vul::texture_2d_t>(arena);
+
+    tex->size[0] = tex->size[1] = size;
+    tex->channels = 4;
+    tex->pixels = arena_alloc_ctor<u8>(arena, size*size*4);
+    u64 i = 0;
+    range_u64(x, 0, size) {
+        range_u64(y, 0, size) {
+            const auto n = glm::clamp(utl::noise::fbm(v2f{x,y} * 0.15f) * 0.5f + 0.5f, 0.0f, 1.0f);
+            tex->pixels[i++] = u8(n*255.0f);
+            tex->pixels[i++] = u8(n*255.0f);
+            tex->pixels[i++] = u8(n*255.0f);
+            tex->pixels[i++] = 255ui8;
+        }
+    }
+
+    return tex;
+}
+
 inline app_t*
 get_app(app_memory_t* mem) {
     // note(zack): App should always be the first thing initialized in perm_memory
     return (app_t*)mem->perm_memory;
+}
+
+inline static
+game::rendering::lighting::ray_scene_t*
+raytrace_test(app_memory_t* app_mem) {
+    using namespace game::rendering;
+    auto* app = get_app(app_mem);
+
+    auto* scene = lighting::init_ray_scene(&app->main_arena, 64, 64);
+
+    scene->camera.origin = v3f{0.0f, 0.0f, 10.0f};
+    scene->camera.direction = v3f{0.0, 0.0, -1.0f};
+
+    auto& teapot = get_mesh(app->render_system, "assets/models/utah-teapot.obj");
+    auto* teapot_vertices = &app->render_system->vertices.pool[teapot.meshes->vertex_start];
+    auto* teapot_indices = &app->render_system->indices.pool[teapot.meshes->index_start];
+    auto teapot_n_vertices = teapot.meshes->vertex_count;
+    auto teapot_n_indices = teapot.meshes->index_count;
+
+    auto* teapot_model = lighting::add_model(scene, teapot_vertices, teapot_n_vertices, teapot_indices, teapot_n_indices);
+
+    lighting::add_node(scene, &app->main_arena, teapot_model, math::transform_t{});
+
+    lighting::raytrace(scene);
+
+    return scene;
 }
 
 void
@@ -162,9 +209,35 @@ app_init_graphics(app_memory_t* app_mem) {
         temp_arena_t t = app->main_arena;
         app->gfx.init(&app_mem->config, &t);
     }
+    
     app->render_system = game::rendering::init<megabytes(256)>(vk_gfx, &app->main_arena);
-
+    vk_gfx.create_vertex_buffer(&app->render_system->vertices);
+    vk_gfx.create_index_buffer(&app->render_system->indices);
+    vk_gfx.create_vertex_buffer(&app->debug.debug_vertices);
+    vk_gfx.create_vertex_buffer(&app->gui.vertices[0]);
+    vk_gfx.create_index_buffer(&app->gui.indices[0]);
+    vk_gfx.create_vertex_buffer(&app->gui.vertices[1]);
+    vk_gfx.create_index_buffer(&app->gui.indices[1]);
     auto* rs = app->render_system;
+
+    // load all meshes from the resource file
+    range_u64(i, 0, app->resource_file->file_count) {
+        if (app->resource_file->table[i].file_type != utl::res::magic::mesh) { 
+            continue; 
+        }
+
+        std::byte* file_data = utl::res::pack_file_get_file(app->resource_file, i);
+
+        auto loaded_mesh = load_bin_mesh_data(
+            &app->mesh_arena,
+            file_data, 
+            &app->render_system->vertices.pool,
+            &app->render_system->indices.pool
+        );
+        const char* file_name = app->resource_file->table[i].name.c_data;
+
+        game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
+    }
 
     app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
     app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass);
@@ -209,7 +282,21 @@ app_init_graphics(app_memory_t* app_mem) {
     scene_d_fb.image_view = rs->render_targets->attachments->view;
     scene_d_fb.image_layout = rs->render_targets->attachments->description.finalLayout;
     ui_textures[2] = &scene_d_fb;
+
+    ui_textures[3] = make_noise_texture(&app->texture_arena, 128);
+    vk_gfx.load_texture_sampler(ui_textures[3], &app->texture_arena);
+
+    // gfx::vul::texture_2d_t rt_tex;
     
+    // auto* scene = raytrace_test(app_mem);
+
+    // rt_tex.size[0] = (i32)scene->width;
+    // rt_tex.size[1] = (i32)scene->height;
+    // rt_tex.pixels = (u8*)scene->pixels;
+    // rt_tex.channels = 4;
+    // vk_gfx.load_texture_sampler(&rt_tex, &app->texture_arena);
+    // ui_textures[4] = &rt_tex;
+
     app->default_font_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
         app->gui_pipeline->descriptor_set_layouts[0],
@@ -225,29 +312,7 @@ app_init_graphics(app_memory_t* app_mem) {
         app->mesh_pipeline->descriptor_set_layouts[4],
         &app->brick_texture, 1);
 
-    vk_gfx.create_vertex_buffer(
-        &app->render_system->vertices
-    );
-    vk_gfx.create_index_buffer(
-        &app->render_system->indices
-    );
-
-    vk_gfx.create_vertex_buffer(
-        &app->debug.debug_vertices
-    );
-
-    vk_gfx.create_vertex_buffer(
-        &app->gui.vertices[0]
-    );
-    vk_gfx.create_index_buffer(
-        &app->gui.indices[0]
-    );
-    vk_gfx.create_vertex_buffer(
-        &app->gui.vertices[1]
-    );
-    vk_gfx.create_index_buffer(
-        &app->gui.indices[1]
-    );
+  
 
     app->gui.ctx.font = &app->default_font;
     app->gui.ctx.input = &app_mem->input;
@@ -295,11 +360,12 @@ app_on_init(app_memory_t* app_mem) {
         console_log(app->debug.console, string_t{}.own(&app->string_arena, fmt_sv("You tell me {}", i++)), &app->string_arena);
     }, app);
 
-    // gs_debug_table = arena_alloc<debug_table_t>(main_arena);
 #endif
     TIMED_FUNCTION;
-
-    app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./assets/res.pack");
+    {
+        temp_arena_t temp = *main_arena;
+        app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &temp, &app->string_arena, "./assets/res.pack");
+    }
     
     physics::api_t* physics = app_mem->physics;
     if (physics) {
@@ -313,7 +379,7 @@ app_on_init(app_memory_t* app_mem) {
     // setup graphics
 
     {
-        auto entity_info = GEN_TYPE_INFO(game::entity::entity_t);
+        auto entity_info = GEN_TYPE_INFO(game::entity_t);
         gen_info("app", "typeof {}: {} - {} bytes", entity_info.name, entity_info.type_id, entity_info.size);
     }
 
@@ -379,7 +445,7 @@ app_on_init(app_memory_t* app_mem) {
         auto mesh_id = game::rendering::add_mesh(app->render_system, "ground", mesh_builder.build(&app->mesh_arena));
 
         // auto* e0 = game::world_create_entity(app->game_world, 0);
-        // game::entity::entity_init(e0, mesh_id);
+        // game::entity_init(e0, mesh_id);
     }
     #if 0
     
@@ -422,42 +488,30 @@ app_on_init(app_memory_t* app_mem) {
     // game::rendering::add_mesh(app->render_system, "ground", app->mesh_cache.get(0));
     #endif
 
-    // load all meshes from the resource file
-    range_u64(i, 0, app->resource_file->file_count) {
-        if (app->resource_file->table[i].file_type != utl::res::magic::mesh) { 
-            continue; 
-        }
-
-        std::byte* file_data = utl::res::pack_file_get_file(app->resource_file, i);
-
-        auto loaded_mesh = load_bin_mesh_data(
-            &app->mesh_arena,
-            file_data, 
-            &app->render_system->vertices.pool,
-            &app->render_system->indices.pool
-        );
-        const char* file_name = app->resource_file->table[i].name.c_data;
-
-        game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
-    }
-
-    auto* player = game::spawn(app->game_world, app->render_system, game::entity::db::characters::soldier, v3f{0.0f, 4.0f, 0.0f});
+    auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::assassin, v3f{0.0f, 4.0f, 0.0f});
     player->physics.rigidbody->on_collision = player_on_collision;
 
     game::spawn(app->game_world, app->render_system,
-        game::entity::db::weapons::shotgun,
+        game::db::weapons::shotgun,
         v3f{10,3,10});
 
 
-    // game::spawn(app->game_world, app->render_system, game::entity::db::rooms::map_01);
-    game::spawn(app->game_world, app->render_system, game::entity::db::rooms::room_0);
+    // game::spawn(app->game_world, app->render_system, game::db::rooms::room_01);
+
+    
+    // range_u64(i, 0, 1) {
+    //     v3f pos = v3f{0.0f, 35.0f * f32(i), 0.0f};
+    //     auto* r = game::spawn(app->game_world, app->render_system, game::db::rooms::tower_01, pos);
+    //     r->transform.set_rotation(axis::up * math::constants::pi32 * f32(i));
+    // }
+    game::spawn(app->game_world, app->render_system, game::db::rooms::room_0);
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
     loop_iota_u64(i, 200) {
         auto* e = game::spawn(
             app->game_world, 
             app->render_system,
-            game::entity::db::misc::teapot,
+            game::db::misc::teapot,
             rng.randnv<v3f>() * 100.0f * planes::xz + axis::up * 8.0f
         );
         e->transform.set_scale(v3f{2.f});
@@ -475,6 +529,23 @@ app_on_init(app_memory_t* app_mem) {
     app->game_world->player->transform.origin.y = 5.0f;
     app->game_world->player->transform.origin.z = -5.0f;
 
+    game::script_manager_t<game::player_script_t> scripts{app->game_world};
+
+    game::player_script_t plr{};
+    static_assert(game::CScript<game::player_script_t>);
+    assert(scripts.get_type_index<decltype(plr)>() == 0);
+    
+
+    scripts.add_script(&plr);
+    assert(scripts.get_script<decltype(plr)>(0, 1) != nullptr);
+
+    scripts.begin_play();
+    scripts.update(0);
+    assert(plr.score == 1);
+
+    assert(plr.id != uid::invalid_id);
+    scripts.remove_script(&plr);
+    assert(plr.id == uid::invalid_id);
 
     std::memcpy(&gs_saved_world, app->game_world, sizeof(game::world_t));
     gen_info("app", "world size: {}mb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
@@ -503,8 +574,11 @@ app_on_reload(app_memory_t* app_mem) {
 void 
 camera_input(app_t* app, player_controller_t pc, f32 dt) {
     auto* world = app->game_world;
+    auto* physics = app->game_world->physics;
     auto* player = world->player;
     auto* rigidbody = player->physics.rigidbody;
+    const bool is_on_ground = rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
+    const bool is_on_wall = rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
 
     app->game_world->player->camera_controller.transform = 
         // app->game_world->player->physics.rigidbody->position;
@@ -516,19 +590,55 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
     auto& yaw = player->camera_controller.yaw;
     auto& pitch = player->camera_controller.pitch;
 
-    const v3f forward   = -game::cam::get_direction(yaw, pitch);
-    const v3f right     = glm::cross(-forward, axis::up);
+    const v3f forward = game::cam::get_direction(yaw, pitch);
+    const v3f right   = glm::cross(forward, axis::up);
 
     if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
         yaw += head_move.x * dt;
         pitch -= head_move.y * dt;
     }
 
-    rigidbody->velocity += (forward * move.z + right * move.x + axis::up * move.y) * 10.0f * dt;
-    rigidbody->orientation = glm::quat{yaw * axis::up};
+    const f32 move_speed = 40.0f * (pc.sprint ? 1.75f : 1.0f);
+
+    // rigidbody->velocity += (forward * move.z + right * move.x + axis::up * move.y) * dt;
+    rigidbody->add_relative_force((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
+    // rigidbody->orientation = glm::quat{yaw * axis::up};
+    
+    if(player->primary_weapon.entity) {
+        player->primary_weapon.entity->transform.set_rotation(v3f{yaw * axis::up});
+    }
     rigidbody->angular_velocity = v3f{0.0f};
-    player->camera_controller.translate(v3f{0.0f});
-    player->transform = player->camera_controller.camera->affine_invert();
+
+
+    if (pc.jump && (is_on_ground || is_on_wall)) {
+        // rigidbody->add_relative_force(axis::up * 100.0f);
+        rigidbody->velocity.y = 1.0f;
+    }
+
+    
+    if (pc.fire1 && player->primary_weapon.entity) {
+        auto ro = player->primary_weapon.entity->global_transform().origin + forward*3.0f;
+        auto rd = forward;
+
+        temp_arena_t fire_arena = world->frame_arena[world->frame_count&1];
+        u64 fired{0};
+        auto* bullets = player->primary_weapon.entity->stats.weapon().fire(&fire_arena, dt, &fired);
+
+        // range_u64(bullet, 0, fired) {
+        
+            if (auto ray = physics->raycast_world(physics, ro, rd); ray.hit) {
+                auto* rb = (physics::rigidbody_t*)ray.user_data;
+                if (rb == player->physics.rigidbody) {
+                    gen_warn(__FUNCTION__, "player shot them self");
+                }
+                if (rb->type == physics::rigidbody_type::DYNAMIC) {
+                    auto hp = ray.point - rb->position;
+                    auto f = rb->transform_direction(rd);
+                    rb->add_force_at_point(f*100.0f, hp);
+                }
+            }
+        // }
+    }
 }
 
 void 
@@ -540,12 +650,12 @@ app_on_input(app_t* app, app_input_t* input) {
     );
 
     if (input->pressed.keys['P']) {
-        const game::entity::entity_t player = *app->game_world->player;
+        const game::entity_t player = *app->game_world->player;
         std::memcpy(app->game_world, &gs_saved_world, sizeof(game::world_t));
         *app->game_world->player = player;
         range_u64(i, 0, app->game_world->entity_count) {
             auto* e = app->game_world->entities + i;
-            if (e->physics.flags == game::entity::PhysicsEntityFlags_Dynamic &&
+            if (e->physics.flags == game::PhysicsEntityFlags_Dynamic &&
                 e->physics.rigidbody
             ) {
                 e->physics.rigidbody->velocity = v3f{0.0f};
@@ -579,10 +689,10 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
     auto* world = app->game_world;
 
     local_persist f32 accum = 0.0f;
-    const u32 sub_steps = 1;
-    const f32 step = 1.0f/(30.0f*sub_steps);
+    const u32 sub_steps = 5;
+    const f32 step = 1.0f/(60.0f*sub_steps);
 
-    accum += f32(std::min(input->dt, 1.0f) > 0.0f) * input->dt;
+    accum += f32(input->dt > 0.0f) * std::min(input->dt, 1.0f);
 
     for (size_t i{0}; i < app->game_world->entity_count; i++) {
         auto* e = app->game_world->entities + i;
@@ -593,9 +703,9 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         }
     }
 
-    if (accum >= sub_steps) {
+    while (accum >= step) {
+        TIMED_BLOCK(PhysicsStep);
         // range_u32(_i, 0, sub_steps) {
-            TIMED_BLOCK(PhysicsStep);
             accum -= step;
             world->physics->simulate(world->physics, step);
         // }
@@ -609,26 +719,27 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         if (e->id == uid::invalid_id) {
             continue;
         }
-        const bool is_physics_object = e->physics.flags != game::entity::PhysicsEntityFlags_None && e->physics.rigidbody;
-        const bool is_pickupable = (e->flags & game::entity::EntityFlags_Pickupable);
-        const bool is_not_renderable = (e->flags & game::entity::EntityFlags_Renderable) == 0;
+        const bool is_physics_object = e->physics.flags != game::PhysicsEntityFlags_None && e->physics.rigidbody;
+        const bool is_pickupable = (e->flags & game::EntityFlags_Pickupable);
+        const bool is_not_renderable = (e->flags & game::EntityFlags_Renderable) == 0;
 
         if (is_physics_object) {
             const auto skip = (e->physics.rigidbody->flags & physics::rigidbody_flags::SKIP_SYNC);
+            e->physics.rigidbody->integrate(input->dt, 1 && e->physics.flags & game::PhysicsEntityFlags_Character);
             app->game_world->physics->sync_rigidbody(0, e->physics.rigidbody);
             if (!skip) {
                 e->transform.origin = e->physics.rigidbody->position;
                 e->transform.set_rotation(e->physics.rigidbody->orientation);
             }
         }
-        
+
         if (is_pickupable) {
             e->transform.rotate(axis::up, input->dt);
             if (math::intersect(math::sphere_t{e->global_transform().origin, 2.0f}, app->game_world->player->global_transform().origin)) {
-                // app->game_world->player->primary_weapon = {e};
+                app->game_world->player->primary_weapon.entity = e;
                 e->parent = app->game_world->player;
                 e->transform.origin = v3f{0.5, 0.0f, -0.5f};
-                e->flags &= ~game::entity::EntityFlags_Pickupable;
+                e->flags &= ~game::EntityFlags_Pickupable;
             }
         }
 
@@ -637,8 +748,12 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
             return;
         }
 
-        
-        app->debug.draw_aabb(e->transform.xform_aabb(e->aabb), gfx::color::v3::yellow);
+        if (e == app->game_world->player) {
+            e->camera_controller.transform = e->global_transform();
+            e->camera_controller.translate(axis::up);
+        }
+
+        app->debug.draw_aabb(e->global_transform().xform_aabb(e->aabb), gfx::color::v3::yellow);
 
         game::rendering::submit_job(
             app->render_system, 
@@ -655,6 +770,23 @@ game_on_update(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
 
     game_on_gameplay(app, &app_mem->input);
+}
+
+void 
+draw_game_gui(app_memory_t* app_mem) {
+    TIMED_FUNCTION;
+    app_t* app = get_app(app_mem);
+    auto* world = app->game_world;
+    auto* player = world->player;
+
+    local_persist u64 frame{0}; frame++;
+    auto& imgui = *gs_imgui_state;
+
+    if (player->primary_weapon.entity) {
+        const auto center = imgui.ctx.screen_size * 0.5f;
+        gfx::gui::im::draw_circle(imgui, center, 2.0f, gfx::color::rgba::white);
+        gfx::gui::im::draw_circle(imgui, center, 4.0f, gfx::color::rgba::light_gray);
+    }
 }
 
 void 
@@ -748,6 +880,7 @@ draw_gui(app_memory_t* app_mem) {
 
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
+            local_persist bool show_player = !false;
             local_persist bool show_stats = !false;
             local_persist bool show_resources = false;
             local_persist bool show_window = false;
@@ -757,6 +890,14 @@ draw_gui(app_memory_t* app_mem) {
             local_persist bool show_theme = false;
             local_persist bool show_colors= false;
             local_persist bool show_files[0xff];
+
+            if (im::text(state, "Player"sv, &show_player)) {
+                const bool on_ground = app->game_world->player->physics.rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
+                im::text(state, fmt_sv("- On Ground: {}", on_ground?"true":"false"));
+                const auto v = app->game_world->player->physics.rigidbody->velocity;
+                im::text(state, fmt_sv("- Velocity: {}", v));
+
+            }
             
             if (im::text(state, "Stats"sv, &show_stats)) {
                 im::text(state, fmt_sv("- FPS: {:.2f} - {:.2f} ms", 1.0f / app_mem->input.dt, app_mem->input.dt * 1000.0f));
@@ -765,7 +906,7 @@ draw_gui(app_memory_t* app_mem) {
                     const auto [x,y] = app_mem->input.mouse.pos;
                     im::text(state, fmt_sv("- Mouse: [{:.2f}, {:.2f}]", x, y));
                 }
-        
+#if GEN_INTERNAL
                 local_persist bool show_record[128];
                 if (im::text(state, "- Perf"sv, &show_perf)) {
                     range_u64(i, 0, gs_main_debug_record_size) {
@@ -803,7 +944,7 @@ draw_gui(app_memory_t* app_mem) {
                         }
                     }
                 }
-                
+#endif
                 if (im::text(state, "- GFX Config"sv, &show_gfx_cfg)) {
                     auto& config = app_mem->config.graphics_config;
 
@@ -998,7 +1139,7 @@ draw_gui(app_memory_t* app_mem) {
 
     
     
-        // for (game::entity::entity_t* e = game::entity_itr(app->game_world); e; e = e->next) {
+        // for (game::entity_t* e = game_itr(app->game_world); e; e = e->next) {
         for (size_t i = 0; i < app->game_world->entity_count; i++) {
             auto* e = app->game_world->entities + i;
             // if (!show_entities && ((e->flags & BIT(23)) == 0)) continue;
@@ -1041,19 +1182,19 @@ draw_gui(app_memory_t* app_mem) {
                 }
 
                 switch(e->physics.flags) {
-                    case game::entity::PhysicsEntityFlags_None:
+                    case game::PhysicsEntityFlags_None:
                         im::text(state, "Physics Type: None");
                         break;
-                    case game::entity::PhysicsEntityFlags_Static:
+                    case game::PhysicsEntityFlags_Static:
                         im::text(state, "Physics Type: Static");
                         break;
-                    case game::entity::PhysicsEntityFlags_Dynamic:
+                    case game::PhysicsEntityFlags_Dynamic:
                         im::text(state, "Physics Type: Dynamic");
                         break;
                 }
 
                 switch(e->type) {
-                    case game::entity::entity_type::weapon: {
+                    case game::entity_type::weapon: {
                         auto stats = e->stats.weapon();
                         im::text(state, "Type: Weapon");
                         im::text(state, "- Stats");
@@ -1083,6 +1224,9 @@ draw_gui(app_memory_t* app_mem) {
                 widget_pos = &default_widget_pos;
             }
         }
+
+        draw_game_gui(app_mem);
+
         local_persist viewport_t viewport{};
         viewport.images[0] = 1;
         viewport.images[1] = 2;
@@ -1175,38 +1319,14 @@ game_on_render(app_memory_t* app_mem) {
 
     app->scene.sporadic_buffer.num_instances = 1;
 
-    const f32 w = (f32)app_mem->config.window_size[0];
-    const f32 h = (f32)app_mem->config.window_size[1];
-    const f32 aspect = (f32)app_mem->config.window_size[0] / (f32)app_mem->config.window_size[1];
-
-
-    
-    // render
-        
-    v3f cam_dir = 
-        game::cam::get_direction(
-            app->game_world->player->camera_controller.yaw, 
-            app->game_world->player->camera_controller.pitch
-        );
-    v3f cam_pos = app->game_world->player->camera_controller.transform.origin + cam_dir * 3.0f;
-    
-    constexpr f32 axis_line_size = 0.1f;
-    app->debug.draw_line(cam_pos, cam_pos + v3f{axis_line_size, 0.0f, 0.0f}, v3f{1.0f, 0.0f, 0.0f});
-    app->debug.draw_line(cam_pos, cam_pos + v3f{0.0f, axis_line_size, 0.0f}, v3f{0.0f, 1.0f, 0.0f});
-    app->debug.draw_line(cam_pos, cam_pos + v3f{0.0f, 0.0f, axis_line_size}, v3f{0.0f, 0.0f, 1.0f});
-
     u32 imageIndex = wait_for_frame(app, frame_count);
-
-    // std::lock_guard lock{app->render_system->ticket};
+    //std::lock_guard lock{app->render_system->ticket};
 
     {
         app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
-        m44 proj = (app_mem->input.keys['U'] ?
-            glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f,  -1000.0f, 1000.f) :
-            glm::perspective(45.0f, aspect, 0.3f, 1000.0f));
-        proj[1][1] *= -1.0f;
-        app->render_system->vp = proj * app->game_world->camera.to_matrix();
+        app->render_system->set_view(app->game_world->camera.to_matrix());
     }
+
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
     auto& command_buffer = vk_gfx.command_buffer[frame_count&1];
     vkResetCommandBuffer(command_buffer, 0);
@@ -1246,10 +1366,7 @@ game_on_render(app_memory_t* app_mem) {
         } sky_constants;
 
         
-        m44 proj = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
-        proj[1][1] *= -1.0f;
-
-        sky_constants.vp = proj * glm::lookAt(v3f{0.0f}, 
+        sky_constants.vp = app->render_system->projection * glm::lookAt(v3f{0.0f}, 
             game::cam::get_direction(
                 app->game_world->player->camera_controller.yaw,
                 app->game_world->player->camera_controller.pitch
@@ -1372,7 +1489,7 @@ void
 main_menu_on_update(app_memory_t* app_mem) {
 }
 
-global_variable u64 scene_state = 0;
+global_variable u64 scene_state = 1;
 
 #include "App/Game/GUI/entity_editor.hpp"
 
@@ -1407,7 +1524,7 @@ app_on_update(app_memory_t* app_mem) {
         scene_state = !scene_state;
     }
     switch (scene_state) {
-        case 0: // Main Menu
+        case 0: // Editor
             entity_editor_update(get_entity_editor(app_mem));
             break;
         case 1: // Game

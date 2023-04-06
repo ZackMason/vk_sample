@@ -309,6 +309,9 @@ create_debug_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) 
 
     create_info->topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;    
     create_info->line_width = 1.0f;
+
+    create_info->cull_mode = VK_CULL_MODE_NONE;
+    create_info->write_depth = false;
     
     create_info->push_constant_size = sizeof(m44);
 
