@@ -1,10 +1,20 @@
 #include "core.hpp"
 
+#ifndef GEN_LINK_PHYSICS_API_PHYSX
+#define GEN_LINK_PHYSICS_API_PHYSX 1
+#endif
+
+#if GEN_LINK_PHYSICS_API_PHYSX
 #include "App\Game\Physics\physics_world.hpp"
 #include "physx_physics.hpp"
+#endif
+
+#include "custom_physics.hpp"
+
 
 namespace physics {
 
+#if GEN_LINK_PHYSICS_API_PHYSX
 static void 
 init_physx(api_t* api, arena_t* arena) {
     api->arena = arena;
@@ -27,6 +37,26 @@ init_physx(api_t* api, arena_t* arena) {
     api->create_scene       = physx_create_scene;
     api->destroy_scene      = physx_destroy_scene;
 }
+#endif
+
+static void 
+init_custom(api_t* api, arena_t* arena) {
+    api->arena = arena;
+    
+    api->simulate           = custom_simulate;
+    api->set_rigidbody      = custom_set_rigidbody;
+    api->sync_rigidbody     = custom_sync_rigidbody;
+
+    api->add_rigidbody      = custom_add_rigidbody;
+    api->remove_rigidbody   = custom_remove_rigidbody;
+
+    api->create_rigidbody   = custom_create_rigidbody;
+    api->create_collider    = custom_create_collider;
+    api->raycast_world      = custom_raycast_world;
+
+    api->create_scene       = custom_create_scene;
+    api->destroy_scene      = custom_destroy_scene;
+}
 
 };
 
@@ -36,9 +66,14 @@ export_fn(void)
 physics_init_api(api_t* api, backend_type type, arena_t* arena) {
     assert(api && arena);
     switch (api->type = type) {
+        case backend_type::CUSTOM: {
+            init_custom(api, arena);
+        } break;
+#if GEN_LINK_PHYSICS_API_PHYSX
         case backend_type::PHYSX: {
             init_physx(api, arena);
         } break;
+#endif
         case_invalid_default;
     }
 }

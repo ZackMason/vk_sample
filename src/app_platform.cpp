@@ -367,7 +367,7 @@ main(int argc, char* argv[]) {
             reinterpret_cast<physics::init_function>(
                 GetProcAddress((HMODULE)physics_dll, "physics_init_api")
             );
-        init_physics(app_mem.physics, physics::backend_type::PHYSX, &physics_arena);
+        init_physics(app_mem.physics, physics::backend_type::CUSTOM, &physics_arena);
     }
 
 #if USE_SDL
