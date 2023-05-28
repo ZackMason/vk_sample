@@ -151,8 +151,8 @@ namespace game {
             *e = world->entities[(world->entity_count - 1)];
         }
 
-        e = nullptr;
         world->entity_count--;
+        e = nullptr;
     }
 
     inline void

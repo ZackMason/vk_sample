@@ -423,10 +423,10 @@ physx_set_rigidbody(api_t* api, rigidbody_t* rb) {
         t.q = {q.x, q.y, q.z, q.w};
 
         ((physx::PxRigidActor*)rb->api_data)->setGlobalPose(t, false);
-        if (rb->type == physics::rigidbody_type::DYNAMIC) {
-            ((physx::PxRigidBody*)rb->api_data)->setLinearVelocity({v.x,v.y,v.z}, false);
-            ((physx::PxRigidBody*)rb->api_data)->setAngularVelocity({av.x,av.y,av.z}, false);
-        }
+        // if (rb->type == physics::rigidbody_type::DYNAMIC) {
+        //     ((physx::PxRigidBody*)rb->api_data)->setLinearVelocity({v.x,v.y,v.z}, false);
+        //     ((physx::PxRigidBody*)rb->api_data)->setAngularVelocity({av.x,av.y,av.z}, false);
+        // }
 
     }
 }

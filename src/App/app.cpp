@@ -507,7 +507,7 @@ app_on_init(app_memory_t* app_mem) {
     game::spawn(app->game_world, app->render_system, game::db::rooms::room_0);
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
-    loop_iota_u64(i, 200) {
+    loop_iota_u64(i, 20) {
         auto* e = game::spawn(
             app->game_world, 
             app->render_system,
@@ -716,7 +716,7 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         
     for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
         auto* e = app->game_world->entities + i;
-        if (e->id == uid::invalid_id) {
+        if (e->is_alive() == false) {
             continue;
         }
         const bool is_physics_object = e->physics.flags != game::PhysicsEntityFlags_None && e->physics.rigidbody;
@@ -1128,20 +1128,20 @@ draw_gui(app_memory_t* app_mem) {
                 im::text(state, fmt_sv("- Count: {}", entity_count));
 
                 if (im::text(state, "- Kill All"sv)) {
+
                     // app->game_world->entities.clear();
-                    app->game_world->entity_count = 1;
+                    // app->game_world->entity_count = 1;
                 }
             }
             
             im::end_panel(state);
         }
 
-
-    
-    
         // for (game::entity_t* e = game_itr(app->game_world); e; e = e->next) {
-        for (size_t i = 0; i < app->game_world->entity_count; i++) {
+        for (size_t i = 0; i < app->game_world->entity_capacity; i++) {
             auto* e = app->game_world->entities + i;
+            if (e->is_alive() == false) { continue; }
+
             // if (!show_entities && ((e->flags & BIT(23)) == 0)) continue;
             const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
 

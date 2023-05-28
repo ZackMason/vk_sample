@@ -315,7 +315,11 @@ struct entity_t : node_t<entity_t> {
     script_id script{uid::invalid_id};
 
     virtual ~entity_t() = default;
-    entity_t() noexcept = default;
+    constexpr entity_t() noexcept = default;
+
+    constexpr bool is_alive() const noexcept {
+        return id != uid::invalid_id;
+    }
 };
 
 static_assert(CEntity<entity_t>);
