@@ -174,6 +174,11 @@ int main(int argc, char** argv) {
 
         constexpr size_t rng_test_count = 100'000;
 
+        math::statistic_t stats[3];
+        math::begin_statistic(stats[0]);
+        math::begin_statistic(stats[1]);
+        math::begin_statistic(stats[2]);
+
         for (size_t i = 0; i < rng_test_count; i++) {
             const auto rf32 = xor32.randf();
             const auto rn32 = xor32.randn();
@@ -182,6 +187,10 @@ int main(int argc, char** argv) {
             const auto rf256 = xor256.randf();
             const auto rn256 = xor256.randn();
 
+            math::update_statistic(stats[0], (f64)rf32);
+            math::update_statistic(stats[1], (f64)rf64);
+            math::update_statistic(stats[2], (f64)rf256);
+
             TEST_ASSERT(rf32 <= 1.0f && rf32 >= 0.0f);
             TEST_ASSERT(rn32 <= 1.0f && rn32 >= -1.0f);
             TEST_ASSERT(rf64 <= 1.0f && rf64 >= 0.0f);
@@ -189,6 +198,14 @@ int main(int argc, char** argv) {
             TEST_ASSERT(rf256 <= 1.0f && rf256 >= 0.0f);
             TEST_ASSERT(rn256 <= 1.0f && rn256 >= -1.0f);
         }
+
+        math::end_statistic(stats[0]);
+        math::end_statistic(stats[1]);
+        math::end_statistic(stats[2]);
+        TEST_ASSERT(std::fabs(stats[0].average - 0.5) < 1e-2);
+        TEST_ASSERT(std::fabs(stats[1].average - 0.5) < 1e-2);
+        TEST_ASSERT(std::fabs(stats[2].average - 0.5) < 1e-2);
+
     });
 
     
@@ -350,9 +367,10 @@ int main(int argc, char** argv) {
     RUN_TEST("pack file")
         constexpr size_t arena_size = megabytes(64);
         arena_t arena = arena_create(new u8[arena_size], arena_size);
+        arena_t arena_temp = arena_create(new u8[arena_size], arena_size);
 
         utl::res::pack_file_t* file = utl::res::load_pack_file(
-            &arena, &arena, "./assets/res.pack"
+            &arena, &arena_temp, &arena, "./assets/res.pack"
         );
 
         TEST_ASSERT(file != nullptr);

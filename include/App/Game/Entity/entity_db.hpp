@@ -228,7 +228,7 @@ soldier {
         .shape = physics::collider_shape_type::SPHERE,
         .shape_def = {
             .sphere = {
-                .radius = 3.0f,
+                .radius = 1.0f,
             },
         },
         // .shape = physics::collider_shape_type::CAPSULE,

@@ -488,7 +488,7 @@ app_on_init(app_memory_t* app_mem) {
     // game::rendering::add_mesh(app->render_system, "ground", app->mesh_cache.get(0));
     #endif
 
-    auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::assassin, v3f{0.0f, 4.0f, 0.0f});
+    auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::soldier, v3f{0.0f, 4.0f, 0.0f});
     player->physics.rigidbody->on_collision = player_on_collision;
 
     game::spawn(app->game_world, app->render_system,
@@ -725,7 +725,7 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
         if (is_physics_object) {
             const auto skip = (e->physics.rigidbody->flags & physics::rigidbody_flags::SKIP_SYNC);
-            e->physics.rigidbody->integrate(input->dt, 1 && e->physics.flags & game::PhysicsEntityFlags_Character);
+            e->physics.rigidbody->integrate(input->dt, e->physics.flags & game::PhysicsEntityFlags_Character);
             app->game_world->physics->sync_rigidbody(0, e->physics.rigidbody);
             if (!skip) {
                 e->transform.origin = e->physics.rigidbody->position;

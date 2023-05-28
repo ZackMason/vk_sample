@@ -375,9 +375,9 @@ physx_simulate(api_t* api, f32 dt) {
 
     ps->world->scene->simulate(
         dt,
-        0, 
-        arena_get_top(&scratch), 
-        safe_truncate_u64(arena_get_remaining(&scratch))
+        0
+        // arena_get_top(&scratch), 
+        // safe_truncate_u64(arena_get_remaining(&scratch))
     );
     ps->world->scene->fetchResults(true);
 }
@@ -401,7 +401,6 @@ physx_sync_rigidbody(api_t* api, rigidbody_t* rb) {
             auto* controller = ((physx::PxController*)rb->api_data);
             const auto [px,py,pz]  = controller->getPosition();
             rb->position = v3f{px,py,pz};
-
         }
         
         rb->flags &= ~rigidbody_flags::SKIP_SYNC;
@@ -417,17 +416,18 @@ physx_set_rigidbody(api_t* api, rigidbody_t* rb) {
     if (rb->type == rigidbody_type::CHARACTER) {
         auto* controller = (physx::PxController*)rb->api_data;
         controller->setPosition({p.x,p.y,p.z});
+        controller->move({v.x,v.y,v.z}, 0.01f, 1.0f/60.0f, physx::PxControllerFilters{});
     } else {
         physx::PxTransform t;
         t.p = {p.x, p.y, p.z};
         t.q = {q.x, q.y, q.z, q.w};
 
         ((physx::PxRigidActor*)rb->api_data)->setGlobalPose(t, false);
-        // if (rb->type == physics::rigidbody_type::DYNAMIC) {
-        //     ((physx::PxRigidBody*)rb->api_data)->setLinearVelocity({v.x,v.y,v.z}, false);
-        //     ((physx::PxRigidBody*)rb->api_data)->setAngularVelocity({av.x,av.y,av.z}, false);
-        // }
 
+        if (rb->type == physics::rigidbody_type::DYNAMIC) {
+            ((physx::PxRigidDynamic*)rb->api_data)->setLinearVelocity({v.x,v.y,v.z}, false);
+            ((physx::PxRigidDynamic*)rb->api_data)->setAngularVelocity({av.x,av.y,av.z}, false);
+        }
     }
 }
 
