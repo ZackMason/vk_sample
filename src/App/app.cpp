@@ -598,7 +598,7 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
         pitch -= head_move.y * dt;
     }
 
-    const f32 move_speed = 40.0f * (pc.sprint ? 1.75f : 1.0f);
+    const f32 move_speed = 12.0f * (pc.sprint ? 1.75f : 1.0f);
 
     // rigidbody->velocity += (forward * move.z + right * move.x + axis::up * move.y) * dt;
     rigidbody->add_relative_force((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
@@ -855,6 +855,7 @@ draw_gui(app_memory_t* app_mem) {
             .border_color = gfx::color::rgba::white,
 
             .padding = 4.0f,
+            .margin = 8.0f
         },
     };
     gs_imgui_state = &state;
@@ -1151,6 +1152,7 @@ draw_gui(app_memory_t* app_mem) {
             if (show_entities || 
                 is_selected || 
                 (not_player && im::draw_hiding_circle_3d(state, vp, e->global_transform().origin, 0.1f, static_cast<u32>(utl::rng::fnv_hash_u64(e->id)), 2.0f, 4)))
+
             if (im::begin_panel_3d(state, 
                 e->name.c_data ? 
                 fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e) :
@@ -1202,7 +1204,7 @@ draw_gui(app_memory_t* app_mem) {
                         im::text(state, fmt_sv("--- Pen: {}", stats.stats.pen));
                         im::text(state, fmt_sv("- Fire Rate: {}", stats.fire_rate));
                         im::text(state, fmt_sv("- Load Speed: {}", stats.load_speed));
-                        im::text(state, "- Clip");
+                        im::text(state, "- Ammo");
                         im::text(state, fmt_sv("--- {}/{}", stats.clip.current, stats.clip.max));
                     }   break;
                 }
