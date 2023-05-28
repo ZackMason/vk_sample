@@ -107,5 +107,8 @@
       "cinttypes": "cpp",
       "*.rh": "cpp"
     },
-    "cmake.configureOnOpen": false
+    "cmake.configureOnOpen": false,
+    "cSpell.words": [
+      "viewtok"
+    ]
 }

@@ -7,6 +7,7 @@
 
 #include "lighting.hpp"
 
+
 namespace game::rendering {
     struct mesh_cache_t {
         struct link_t : node_t<link_t> {

@@ -16,13 +16,7 @@
 #define gen_profile(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::blue) | fmt::emphasis::bold, fmt_str("[profile][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
 
 #if defined(GAME_USE_SIMD)
-
-#if defined(_WIN64) || defined(_WIN32)
 #include <immintrin.h>
-#else
-#error "No Unix SIMD yet"
-#endif
-
 #endif
 
 #define WIN32_MEAN_AND_LEAN
@@ -119,6 +113,7 @@ struct fmt::formatter<v3f>
     }
 };
 
+// why do I have two of these?
 template<typename T>
 struct fmt::formatter<glm::vec<3, T>>
 {
@@ -212,24 +207,26 @@ struct _auto_deferer_t {
 
 
 #define to_secs(x) (f32(x/1000))
+// #define co_lerp(coro, val, start, end, duration) do { if (coro->start_time == 0) { coro->start_time = coro->now; } val = glm::mix(start, end, (coro->now - coro->start_time)/duration); co_yield_until(coro,  coro->now > (coro->start_time) + (f32)duration); coro->start_time = 0; } while(0)
 
 struct coroutine_t {
-	f32& now;
+	const f32& now;
 	u64 line;
 	f32 start_time;
 	void* data;
 };
 
-// #define co_lerp(coro, val, start, end, duration) do { if (coro->start_time == 0) { coro->start_time = coro->now; } val = glm::mix(start, end, (coro->now - coro->start_time)/duration); co_yield_until(coro,  coro->now > (coro->start_time) + (f32)duration); coro->start_time = 0; } while(0)
 #define co_begin(coro) switch (coro->line) {case 0: coro->line = 0;
 #define co_yield(coro) do { coro->line = __LINE__; return; case __LINE__:;} while(0)
 #define co_yield_until(coro, condition) while (!(condition)) { co_yield(coro); }
-#define co_wait(coro, duration) do {if (coro->start_time == 0) { coro->start_time = coro->now; } co_yield_until(coro, coro->now > (coro->start_time) + (f32)duration); coro->start_time = 0; } while (0)
+#define co_wait(coro, duration) do {if (coro->start_time == 0) \
+    { coro->start_time = coro->now; } \
+    co_yield_until(coro, coro->now > (coro->start_time) + (f32)duration);\
+    coro->start_time = 0; } while (0)
 #define co_end(coro) do { coro->line = __LINE__; } while (0); }
 #define co_reset(coro) do { coro->line = 0; } while (0); }
 #define co_set_label(coro, label) case label:
 #define co_goto_label(coro, label) do { coro->line = (label); return; } while(0)
-// #define co_is_finished(coro) (coro->line == -1)
 #define co_lerp(coro, value, start, end, duration, func) \
 do { \
     coro->start_time = coro->now;\
@@ -240,6 +237,7 @@ do { \
     (value) = (end); \
 } while (0)
 
+// #define co_is_finished(coro) (coro->line == -1)
 #define loop_iota_u64(itr, stop) for (size_t itr = 0; itr < stop; itr++)
 #define range_u32(itr, start, stop) for (u32 itr = (start); itr < (stop); itr++)
 #define range_u64(itr, start, stop) for (size_t itr = (start); itr < (stop); itr++)
@@ -797,8 +795,8 @@ struct closure_t {
     void* data{0};
 
     template <typename ... Args>
-    void dispatch(Args ... args) {
-        ((void(*)(void*, Args...))func)(data, args...);// std::forward<Args>(args)...);
+    void dispatch(Args&& ... args) {
+        ((void(*)(void*, Args...))func)(data, std::forward<Args>(args)...);
     }
 
     template <typename ReturnType, typename ... Args>
@@ -1069,6 +1067,33 @@ namespace math {
         return (1.0f - 2.0f*b)*(t*t) + (2.0f*b)*t;
     }
 
+    template <typename T>
+    T smoothdamp(
+        T current, T target, T& velocity, 
+        f32 smooth_time, f32 max_speed, f32 dt
+    ) {
+        smooth_time = glm::max(0.0001f, smooth_time);
+        f32 omega = 2.0f / smooth_time;
+
+        f32 x = omega * dt;
+        f32 exp = 1.0f / (1.0f + x + 0.48f * x * x + 0.235f * x * x * x);
+        auto change = current - target;
+        auto original = target;
+        auto maxChange = max_speed * smooth_time;
+        change = glm::clamp(change, -maxChange, maxChange);
+        target = current - change;
+        auto temp = (velocity + omega * change) * dt;
+        velocity = (velocity - omega * temp) * exp;
+        auto output = target + (change + temp) * exp;
+
+        if(original - current > 0.0f == output > original) {
+            output = original;
+            velocity = (output - original) / dt;
+        }
+        
+        return output;
+    }
+
 
     namespace swizzle {
 
@@ -1269,20 +1294,10 @@ struct aabb_t {
             p.z <= max.z;
     }
 
-    // bool contains(const v2f& p) const {
-    //     //static_assert(std::is_same<T, v3f>::value);
+    aabb_t<T> operator+(const T& v) const {
+        return aabb_t<T>{min+v,max+v};
+    }
     
-    //     return 
-    //         min.x <= p.x &&
-    //         min.y <= p.y &&
-    //         p.x <= max.x &&
-    //         p.y <= max.y;
-    // }
-
-    // bool contains(const f32 p) const {
-    //     static_assert(std::is_same<T, f32>::value);
-    //     return min <= p && p <= max;
-    // }
 };
 
 inline static bool
@@ -1847,7 +1862,7 @@ namespace gui {
     draw_circle(
         ctx_t* ctx,
         v2f pos, f32 radius,
-        u32 color, u32 res = 32
+        u32 color, u32 res = 32, f32 perc = 1.0f, f32 start = 0.0f
     ) {
         const u32 v_start = safe_truncate_u64(ctx->vertices->count);
 
@@ -1859,7 +1874,7 @@ namespace gui {
 
         vertex_t* lv{0};
         range_u32(i, 0, res) {
-            const auto a = math::constants::tau32 * f32(i)/f32(res);
+            const auto a = start * math::constants::tau32 + perc * math::constants::tau32 * f32(i)/f32(res);
             vertex_t* v = ctx->vertices->allocate(1);
 
             v->pos = center->pos + v2f{glm::cos(a), glm::sin(a)} * radius / ctx->screen_size;
@@ -1963,83 +1978,6 @@ namespace gui {
     }
 
     inline void
-    draw_round_rect(
-        ctx_t* ctx,
-        math::aabb_t<v2f> box,
-        f32 radius,
-        u32 color,
-        u64 num_segments = 8
-    ) {
-        const auto hw = box.size().x * 0.5f;
-        const auto hh = box.size().y * 0.5f;
-        const auto half_extents = box.size().y * 0.5f;
-        // Calculate the corner positions of the rounded rectangle
-        
-        glm::vec2 p1(-hw + radius, hh - radius);
-        glm::vec2 p2(hw - radius, hh - radius);
-        glm::vec2 p3(hw - radius, -hh + radius);
-        glm::vec2 p4(-hw + radius, -hh + radius);
-        const f32 pi_32 = (glm::pi<f32>());
-        float theta = pi_32 * 0.5f;
-        float delta_theta = pi_32 * 2.0f / num_segments;
-
-        // Calculate the number of vertices and indices
-        const size_t num_vertices = (num_segments) * 6;
-        const size_t num_indices = num_segments * 12;
-        const u32 start_index = safe_truncate_u64(ctx->vertices->count);
-
-        // Resize the vertex and index vectors to hold the generated data
-        vertex_t* vertices = ctx->vertices->allocate(num_vertices);
-        u32* indices = ctx->indices->allocate(num_indices);
-
-        // Generate the vertex data for the rounded rectangle
-        for (int i = 0; i < num_segments; i++) {
-            const glm::vec2 v1(glm::cos(theta), glm::sin(theta));
-            const glm::vec2 v2(glm::cos(theta + delta_theta * 0.5f), glm::sin(theta + delta_theta * 0.5f));
-            const glm::vec2 v3(glm::cos(theta + delta_theta), glm::sin(theta + delta_theta));
-            const glm::vec2 t1 = box.center() + p1 + v1 * radius;
-            const glm::vec2 t2 = box.center() + p2 + v2 * radius;
-            const glm::vec2 t3 = box.center() + p2 + v3 * radius;
-            const glm::vec2 t4 = box.center() + p3 + v3 * radius;
-            const glm::vec2 t5 = box.center() + p4 + v3 * radius;
-            const glm::vec2 t6 = box.center() + p4 + v1 * radius;
-            
-            const size_t index = i * 6;
-            vertices[index + 0].pos = t1 / ctx->screen_size;
-            vertices[index + 1].pos = t2 / ctx->screen_size;
-            vertices[index + 2].pos = t3 / ctx->screen_size;
-            vertices[index + 3].pos = t4 / ctx->screen_size;
-            vertices[index + 4].pos = t5 / ctx->screen_size;
-            vertices[index + 5].pos = t6 / ctx->screen_size;
-            theta += delta_theta;
-
-            loop_iota_u64(j, 6) {
-                vertices[index + j].tex = v2f{0.0f};
-                vertices[index + j].img = ~0ui32;
-                vertices[index + j].col = color;
-            }
-
-            const size_t tri_index = i * 12;
-            
-            indices[tri_index + 0] = (start_index + 6 * i);
-            indices[tri_index + 1] = (start_index + 6 * i + 1);
-            indices[tri_index + 2] = (start_index + 6 * i + 2);
-            indices[tri_index + 3] = (start_index + 6 * i);
-            indices[tri_index + 4] = (start_index + 6 * i + 2);
-            indices[tri_index + 5] = (start_index + 6 * i + 3);
-            indices[tri_index + 6] = (start_index + 6 * i);
-            indices[tri_index + 7] = (start_index + 6 * i + 3);
-            indices[tri_index + 8] = (start_index + 6 * i + 4);
-            indices[tri_index + 9] = (start_index + 6 * i);
-            indices[tri_index + 10] = (start_index + 6 * i + 4);
-            indices[tri_index + 11] = (start_index + 6 * i + 5);
-        }
-
-
- 
-    }   
-    
-    inline void
     draw_rect(
         ctx_t* ctx,
         math::aabb_t<v2f> box,
@@ -2135,6 +2073,36 @@ namespace gui {
         i[5] = v_start + 3;
     }
 
+    inline void
+    draw_round_rect(
+        ctx_t* ctx,
+        math::aabb_t<v2f> box,
+        f32 radius,
+        u32 color,
+        u32 num_segments = 20
+    ) {
+        math::aabb_t<v2f> inner{box.min+radius, box.max-radius};
+
+
+        //top
+        draw_rect(ctx, math::aabb_t<v2f>{box.min + v2f{radius,0}, inner.max-v2f{0,inner.size().y}}, color);
+        //bot
+        draw_rect(ctx, math::aabb_t<v2f>{inner.min + v2f{0,inner.size().y}, inner.max+v2f{0,radius}}, color);
+        //left
+        draw_rect(ctx, math::aabb_t<v2f>{box.min + v2f{0,radius}, inner.max-v2f{inner.size().x,0}}, color);
+        //right
+        draw_rect(ctx, math::aabb_t<v2f>{inner.max - v2f{0,inner.size().y}, inner.max+v2f{radius,0}}, color);
+
+        draw_rect(ctx, inner, color);
+        
+        draw_circle(ctx, inner.min, radius, color, num_segments);
+        draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments);
+        draw_circle(ctx, inner.max, radius, color, num_segments);
+        draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments);
+    }   
+    
+
+
     namespace im {
         struct ui_id_t {
             u64 owner;
@@ -2152,6 +2120,7 @@ namespace gui {
         struct state_t {
             ctx_t& ctx;
 
+            f32 gizmo_scale_start{};
             v2f draw_cursor{0.0f}; 
             v2f gizmo_mouse_start{};
             v3f gizmo_world_start{};
@@ -2226,11 +2195,11 @@ namespace gui {
             m44 vp,
             v3f pos
         ) {
-            const v3f ndc = math::world_to_screen(vp, pos);
+            const v3f spos = math::world_to_screen(vp, pos);
             math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
 
-            if (viewable.contains(ndc)) {
-                const v2f screen = v2f{ndc} * imgui.ctx.screen_size;
+            if (viewable.contains(spos)) {
+                const v2f screen = v2f{spos} * imgui.ctx.screen_size;
                 return begin_panel(imgui, name, screen);
             }
             return false;
@@ -2245,10 +2214,10 @@ namespace gui {
             constexpr f32 border_size = 1.0f;
             constexpr f32 corner_radius = 16.0f;
 
-            draw_rect(&imgui.ctx, *imgui.panel, imgui.theme.bg_color);
+            draw_round_rect(&imgui.ctx, *imgui.panel, 16.0f, imgui.theme.bg_color);
             imgui.panel->min -= v2f{border_size};
             imgui.panel->max += v2f{border_size};
-            draw_rect(&imgui.ctx, *imgui.panel, imgui.theme.fg_color);
+            draw_round_rect(&imgui.ctx, *imgui.panel, 16.0f, imgui.theme.fg_color);
 
             // imgui.panel->draw_cursor = v2f{0.0f};
             imgui.panel--;
@@ -2280,12 +2249,12 @@ namespace gui {
             v3f pos, f32 radius,
             color32 color, f32 show_distance, u32 res = 16
         ) {
-            const v3f ndc = math::world_to_screen(vp, pos);
+            const v3f spos = math::world_to_screen(vp, pos);
             math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
 
-            if (viewable.contains(ndc)) {
+            if (viewable.contains(spos)) {
                 const v3f offset = math::world_to_screen(vp, pos + axis::up * radius);
-                const v2f screen = v2f{ndc} * imgui.ctx.screen_size;
+                const v2f screen = v2f{spos} * imgui.ctx.screen_size;
                 const f32 scr_radius = glm::distance(v2f{offset} * imgui.ctx.screen_size, screen);
                 auto [x,y] = imgui.ctx.input->mouse.pos;
                 if (math::intersect(math::circle_t{screen, scr_radius + show_distance}, v2f{x,y})) {
@@ -2313,11 +2282,11 @@ namespace gui {
             v3f* pos,
             const m44& vp
         ) {
-            const v3f ndc = math::world_to_screen(vp, *pos);
+            const v3f spos = math::world_to_screen(vp, *pos);
             math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
 
-            if (viewable.contains(ndc)) {
-                const v2f screen = v2f{ndc} * imgui.ctx.screen_size;
+            if (viewable.contains(spos)) {
+                const v2f screen = v2f{spos} * imgui.ctx.screen_size;
                 
                 auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::up)};
                 auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::forward)};
@@ -2345,9 +2314,9 @@ namespace gui {
                 draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.0f, 0.25f, clw, color::rgba::green, 64);
                 draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.0f, 0.25f, clw, color::rgba::blue, 64);
 
-                // draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 64);
-                // draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 64);
-                // draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.25f, 1.0f, dlw, color::rgba::light_gray, 64);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 64);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 64);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.25f, 1.0f, dlw, color::rgba::light_gray, 64);
 
                 draw_circle(&imgui.ctx, v_up,       abw, color::rgba::green);
                 draw_circle(&imgui.ctx, v_right,    abw, color::rgba::red);
@@ -2367,10 +2336,10 @@ namespace gui {
         ) {
             draw_gizmo(imgui, pos, vp);
 
-            const v3f ndc = math::world_to_screen(vp, *pos);
+            const v3f spos = math::world_to_screen(vp, *pos);
             math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
 
-            if (viewable.contains(ndc)) {
+            if (viewable.contains(spos)) {
                 // gizmo points in screen space
                 const auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::up)};
                 const auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::forward)};
@@ -2391,7 +2360,7 @@ namespace gui {
                 const v2f mdelta{-(imgui.gizmo_mouse_start-mouse)};
                 u64 giz_id = 0;
 
-                const auto is_gizmo_id =[](u64 id){
+                const auto is_gizmo_id = [](u64 id){
                     switch(id) {
                         case "gizmo_pos"_sid: 
                         case "gizmo_right"_sid: 
@@ -2414,8 +2383,8 @@ namespace gui {
                         if (imgui.gizmo_mouse_start != v2f{0.0f}) {
                             const v2f naxis = glm::normalize(imgui.gizmo_axis_dir);
                             const f32 proj = glm::dot(mdelta, naxis);
-                            const f32 scale = glm::length(imgui.gizmo_axis_dir);
-                            *pos = imgui.gizmo_world_start + imgui.gizmo_axis_wdir * glm::dot(mdelta/scale, naxis);
+                            const f32 scale = imgui.gizmo_scale_start;
+                            *pos = imgui.gizmo_world_start + imgui.gizmo_axis_wdir * glm::dot(mdelta, naxis/scale);
 
                             draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 3.0f, color::rgba::light_gray);
                             draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 5.0f, color::to_color32(imgui.gizmo_axis_wdir));
@@ -2438,18 +2407,21 @@ namespace gui {
                                     imgui.gizmo_axis_dir = (rd);
                                     imgui.gizmo_axis_wdir = axis::right;
                                     imgui.gizmo_mouse_start = v_right;
+                                    imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
                                     break;
                                 }
                                 case "gizmo_up"_sid: {
                                     imgui.gizmo_axis_dir = (ud);
                                     imgui.gizmo_axis_wdir = axis::up;
                                     imgui.gizmo_mouse_start = v_up;
+                                    imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
                                     break;
                                 }
                                 case "gizmo_forward"_sid: {
                                     imgui.gizmo_axis_dir = (fd);
                                     imgui.gizmo_axis_wdir = axis::forward;
                                     imgui.gizmo_mouse_start = v_forward;
+                                    imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
                                     break;
                                 }
                                 case_invalid_default;
@@ -2481,6 +2453,7 @@ namespace gui {
                 }
             }
         }
+
         inline void
         color_edit(
             state_t& imgui,

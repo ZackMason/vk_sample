@@ -28,7 +28,6 @@ class arena_heap_t : public physx::PxAllocatorCallback {
         size_t          size{0};
         mem_block_t*    next{nullptr};
     };
-
     std::mutex mut{};
     mem_block_t* heap{nullptr};
     mem_block_t* empty_block{nullptr};
