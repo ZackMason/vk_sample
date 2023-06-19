@@ -28,6 +28,47 @@ namespace game::rendering {
             return meshes[id]->mesh;
         }
     };
+    
+    struct shader_cache_t {
+        struct link_t : node_t<link_t> {
+            std::string_view name;
+            u64 hash{0};
+            VkShaderEXT shader{VK_NULL_HANDLE};
+        };
+
+        link_t shaders[512]{};
+
+        u64 add(VkShaderEXT shader, std::string_view name) {
+            u64 hash = sid(name);
+            u64 id = hash % array_count(shaders);
+            // probe
+            while(shaders[id].hash != 0 && shaders[id].hash != hash) {
+                id = (id+1) % array_count(shaders);
+            }
+            shaders[id].hash = hash;
+            shaders[id].name = name;
+            shaders[id].shader = shader;
+            return id;
+        }
+
+        VkShaderEXT get(std::string_view name) const {
+            u64 hash = sid(name);
+            u64 id = hash % array_count(shaders);
+            u64 start = id;
+            // probe
+            while(shaders[id].hash != id) {
+                id = (id+1) % array_count(shaders);
+                if (id == start) return VK_NULL_HANDLE;
+            }
+            return shaders[id].shader;
+        }
+
+        VkShaderEXT get(u64 id) const {
+            assert(shaders[id].hash);
+            assert(shaders[id].shader != VK_NULL_HANDLE);
+            return shaders[id].shader;
+        }
+    };
 
     struct material_node_t : public gfx::material_t, node_t<material_node_t> {
         using gfx::material_t::material_t;

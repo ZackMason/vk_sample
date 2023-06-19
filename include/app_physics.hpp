@@ -63,7 +63,7 @@ struct rigidbody_t {
     u64             flags{0};
 
     f32 mass{1.0f};
-    f32 linear_dampening{2.995f};
+    f32 linear_dampening{0.5f};
     f32 angular_dampening{0.5f};
 
     v3f             position{0.0f};

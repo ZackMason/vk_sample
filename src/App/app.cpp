@@ -12,17 +12,18 @@
 #include "App/Game/Weapons/base_weapon.hpp"
 
 global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
-global_variable game::world_t gs_saved_world;
+// global_variable game::world_t gs_saved_world;
 
 void teapot_on_collision(
     physics::rigidbody_t* teapot,
     physics::rigidbody_t* other
 ) {
     auto* teapot_entity = (game::entity_t*) teapot->user_data;
-    // gen_info(__FUNCTION__, "teapot hit: {} - id", entity->id);
-    auto* saved_entity = game::find_entity_by_id(&gs_saved_world, teapot_entity->id);
-    teapot_entity->transform.origin = saved_entity->transform.origin;
-    teapot->position = saved_entity->transform.origin;
+    gen_info(__FUNCTION__, "teapot hit: {} - id", teapot->id);
+    // auto* saved_entity = game::find_entity_by_id(&gs_saved_world, teapot_entity->id);
+    // teapot_entity->transform.origin = saved_entity->transform.origin;
+    // teapot->position = saved_entity->transform.origin;
+    teapot->add_relative_force(axis::up);
     
     teapot->flags = physics::rigidbody_flags::SKIP_SYNC;
 }
@@ -32,7 +33,7 @@ void player_on_collision(
     physics::rigidbody_t* other
 ) {
     auto* other_entity = (game::entity_t*) other->user_data;
-    gen_info(__FUNCTION__, "hit: {} - id", other_entity->id);
+    // gen_info(__FUNCTION__, "player hit: {} - id", other_entity->id);
 }
 
 namespace tween {
@@ -312,6 +313,30 @@ app_init_graphics(app_memory_t* app_mem) {
         app->mesh_pipeline->descriptor_set_layouts[4],
         &app->brick_texture, 1);
 
+    { //@test loading shader objects
+        const char* files[2]{
+            "./assets/shaders/bin/simple.vert.spv",
+            "./assets/shaders/bin/simple.frag.spv",
+        };
+        VkShaderStageFlagBits stages[2]{
+            VK_SHADER_STAGE_VERTEX_BIT,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+        };
+        VkShaderStageFlagBits stages_next[2]{
+            VK_SHADER_STAGE_FRAGMENT_BIT, (VkShaderStageFlagBits)0
+        };
+        VkShaderEXT shaders[2];
+
+        create_shader_objects_from_files(
+            app->main_arena,
+            vk_gfx,
+            app->mesh_pipeline->descriptor_set_layouts,
+            stages, stages_next,
+            files,
+            array_count(stages),
+            shaders /* out */
+        );
+    }
   
 
     app->gui.ctx.font = &app->default_font;
@@ -488,12 +513,17 @@ app_on_init(app_memory_t* app_mem) {
     // game::rendering::add_mesh(app->render_system, "ground", app->mesh_cache.get(0));
     #endif
 
-    auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::soldier, v3f{0.0f, 4.0f, 0.0f});
+    auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::assassin, v3f{3.0f, 5.0f, 0.0f});
     player->physics.rigidbody->on_collision = player_on_collision;
 
     game::spawn(app->game_world, app->render_system,
         game::db::weapons::shotgun,
         v3f{10,3,10});
+
+
+    game::spawn(app->game_world, app->render_system,
+        game::db::load_from_file(app->main_arena, "assets/entity/shaderball.entt"),
+        v3f{-10,1,-10});
 
 
     // game::spawn(app->game_world, app->render_system, game::db::rooms::room_01);
@@ -547,7 +577,7 @@ app_on_init(app_memory_t* app_mem) {
     scripts.remove_script(&plr);
     assert(plr.id == uid::invalid_id);
 
-    std::memcpy(&gs_saved_world, app->game_world, sizeof(game::world_t));
+    // std::memcpy(&gs_saved_world, app->game_world, sizeof(game::world_t));
     gen_info("app", "world size: {}mb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
 }
 
@@ -598,7 +628,7 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
         pitch -= head_move.y * dt;
     }
 
-    const f32 move_speed = 12.0f * (pc.sprint ? 1.75f : 1.0f);
+    const f32 move_speed = 120.0f * (pc.sprint ? 1.75f : 1.0f);
 
     // rigidbody->velocity += (forward * move.z + right * move.x + axis::up * move.y) * dt;
     rigidbody->add_relative_force((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
@@ -612,7 +642,7 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
 
     if (pc.jump && (is_on_ground || is_on_wall)) {
         // rigidbody->add_relative_force(axis::up * 100.0f);
-        rigidbody->velocity.y = 1.0f;
+        rigidbody->velocity.y = .3f;
     }
 
     
@@ -649,20 +679,20 @@ app_on_input(app_t* app, app_input_t* input) {
         input->dt
     );
 
-    if (input->pressed.keys['P']) {
-        const game::entity_t player = *app->game_world->player;
-        std::memcpy(app->game_world, &gs_saved_world, sizeof(game::world_t));
-        *app->game_world->player = player;
-        range_u64(i, 0, app->game_world->entity_count) {
-            auto* e = app->game_world->entities + i;
-            if (e->physics.flags == game::PhysicsEntityFlags_Dynamic &&
-                e->physics.rigidbody
-            ) {
-                e->physics.rigidbody->velocity = v3f{0.0f};
-                e->physics.rigidbody->angular_velocity = v3f{0.0f};
-            }
-        }
-    }
+    // if (input->pressed.keys['P']) {
+    //     const game::entity_t player = *app->game_world->player;
+    //     std::memcpy(app->game_world, &gs_saved_world, sizeof(game::world_t));
+    //     *app->game_world->player = player;
+    //     range_u64(i, 0, app->game_world->entity_count) {
+    //         auto* e = app->game_world->entities + i;
+    //         if (e->physics.flags == game::PhysicsEntityFlags_Dynamic &&
+    //             e->physics.rigidbody
+    //         ) {
+    //             e->physics.rigidbody->velocity = v3f{0.0f};
+    //             e->physics.rigidbody->angular_velocity = v3f{0.0f};
+    //         }
+    //     }
+    // }
 
     if (input->gamepads[0].buttons[button_id::dpad_left].is_released) {
         app->time_scale *= 0.5f;
@@ -689,7 +719,7 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
     auto* world = app->game_world;
 
     local_persist f32 accum = 0.0f;
-    const u32 sub_steps = 5;
+    const u32 sub_steps = 1;
     const f32 step = 1.0f/(60.0f*sub_steps);
 
     accum += f32(input->dt > 0.0f) * std::min(input->dt, 1.0f);
@@ -699,6 +729,7 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         if (e->physics.rigidbody) {
             e->physics.rigidbody->position = e->global_transform().origin;
             e->physics.rigidbody->orientation = e->global_transform().get_orientation();
+            e->physics.rigidbody->integrate(input->dt, e->physics.flags & game::PhysicsEntityFlags_Character);
             app->game_world->physics->set_rigidbody(0, e->physics.rigidbody);
         }
     }
@@ -725,7 +756,6 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
         if (is_physics_object) {
             const auto skip = (e->physics.rigidbody->flags & physics::rigidbody_flags::SKIP_SYNC);
-            e->physics.rigidbody->integrate(input->dt, e->physics.flags & game::PhysicsEntityFlags_Character);
             app->game_world->physics->sync_rigidbody(0, e->physics.rigidbody);
             if (!skip) {
                 e->transform.origin = e->physics.rigidbody->position;
@@ -893,11 +923,15 @@ draw_gui(app_memory_t* app_mem) {
             local_persist bool show_files[0xff];
 
             if (im::text(state, "Player"sv, &show_player)) {
+                auto* player = app->game_world->player;
                 const bool on_ground = app->game_world->player->physics.rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
+                const bool on_wall = app->game_world->player->physics.rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
                 im::text(state, fmt_sv("- On Ground: {}", on_ground?"true":"false"));
-                const auto v = app->game_world->player->physics.rigidbody->velocity;
+                im::text(state, fmt_sv("- On Wall: {}", on_wall?"true":"false"));
+                const auto v = player->physics.rigidbody->velocity;
+                const auto p = player->global_transform().origin;
+                im::text(state, fmt_sv("- Position: {}", p));
                 im::text(state, fmt_sv("- Velocity: {}", v));
-
             }
             
             if (im::text(state, "Stats"sv, &show_stats)) {
@@ -1491,7 +1525,7 @@ void
 main_menu_on_update(app_memory_t* app_mem) {
 }
 
-global_variable u64 scene_state = 1;
+global_variable u64 scene_state = 0;
 
 #include "App/Game/GUI/entity_editor.hpp"
 

@@ -462,8 +462,15 @@ struct app_input_t {
     } mouse;
 
     char keyboard_input() const noexcept {
+        const bool shift = keys[key_id::LEFT_SHIFT] || keys[key_id::RIGHT_SHIFT];
         range_u64(c, key_id::SPACE, key_id::GRAVE_ACCENT+1) {
-            if (pressed.keys[c]) { return (char)c; }
+            if (pressed.keys[c]) { 
+                if (shift) {
+                    return (char)c;
+                } else {
+                    return (char)std::tolower((char)c); 
+                }
+            }
         }
         if (pressed.keys[key_id::ENTER]) return -1;
         return 0;
@@ -2660,6 +2667,70 @@ namespace gui {
             return result;
         }
 
+        inline bool
+        text_edit(
+            state_t& imgui, 
+            std::string_view text,
+            size_t* position,
+            sid_t txt_id_ = 0,
+            bool* toggle_state = 0         
+        ) {
+            const sid_t txt_id = txt_id_ ? txt_id_ : sid(text);
+            bool result = toggle_state ? *toggle_state : false;
+
+            constexpr f32 text_pad = 4.0f;
+            const auto min_size = font_get_size(imgui.ctx.font, "Hello world");
+            const auto font_size = font_get_size(imgui.ctx.font, text);
+            imgui.panel->expand(imgui.panel->draw_cursor + font_size + text_pad * 2.0f);
+            v2f temp_cursor = imgui.panel->draw_cursor;
+            const f32 start_x = imgui.panel->draw_cursor.x;
+            temp_cursor.x += text_pad + imgui.theme.padding;
+
+            math::aabb_t<v2f> text_box;
+            text_box.expand(temp_cursor);
+            text_box.expand(temp_cursor + min_size);
+            text_box.expand(temp_cursor + font_size);
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            if (text_box.contains(v2f{x,y})) {
+                imgui.hot = txt_id;
+            }
+
+            if (imgui.active.id == txt_id) {
+                auto key = imgui.ctx.input->keyboard_input();
+                if (key > 0) {                    
+                    const_cast<char&>(text[(*position)++]) = key;
+                    imgui.hot = txt_id;
+                } else if ((*position) && imgui.ctx.input->pressed.keys[key_id::BACKSPACE]) {
+                    (*position)--;
+                    const_cast<char&>(text[(*position)]) = '\0';
+                    imgui.hot = txt_id;
+                }
+                if (imgui.ctx.input->pressed.keys[key_id::ENTER]) {
+                    imgui.active = 0;
+                    result = true;
+                }
+            }
+            if (imgui.hot.id == txt_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = txt_id;
+                }
+            }
+
+            string_render(&imgui.ctx, text, temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            if (imgui.hot.id != txt_id && *position == 0) {
+                draw_rect(&imgui.ctx, text_box, imgui.theme.fg_color);
+            }
+            if (imgui.next_same_line) {
+                imgui.next_same_line = false;
+                imgui.panel->draw_cursor.x += font_size.x;
+            } else {
+                imgui.panel->draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
+                imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
+            }
+            return result;
+        }
+
         inline void
         histogram(
             state_t& imgui, 
@@ -2703,14 +2774,15 @@ namespace gui {
         inline void
         checkbox(
             state_t& imgui, 
-            string_t name,
             bool* var,
+            sid_t id = 0,
             v2f size = v2f{16.0f}
         ) {
-            const sid_t btn_id = sid(name.sv());
+            const sid_t btn_id = id ? id : (sid_t)var;
             math::aabb_t<v2f> box;
-            box.min = imgui.panel->draw_cursor;
-            box.max = imgui.panel->draw_cursor + v2f{size};
+            v2f temp_cursor = imgui.panel->draw_cursor + v2f{imgui.theme.padding};
+            box.min = temp_cursor;
+            box.max = temp_cursor + v2f{size};
 
             if (imgui.active.id == btn_id) {
                 if (!imgui.ctx.input->mouse.buttons[0]) {
@@ -2729,17 +2801,47 @@ namespace gui {
             if (box.contains( v2f{x,y} )) {
                 // todo check  not active?
                 imgui.hot = btn_id;
-            } else {
-                imgui.hot = 0;
             }
-            
-            draw_rect(&imgui.ctx, box, imgui.theme.border_color);
-            box.min += v2f{1.0f};
-            box.max -= v2f{1.0f};
-            draw_rect(&imgui.ctx, box, *var ? imgui.theme.bg_color : imgui.theme.disabled_color);
-            
-            imgui.panel->draw_cursor.y += size.y + imgui.theme.padding;
 
+            // draw_rect(&imgui.ctx, box, imgui.theme.border_color);
+            draw_circle(&imgui.ctx, box.center(), box.size().x * 0.5f, *var ? imgui.theme.active_color : imgui.theme.disabled_color);
+            box.min -= v2f{1.0f};
+            box.max += v2f{1.0f};
+            draw_circle(&imgui.ctx, box.center(), box.size().x * 0.5f, imgui.hot.id == btn_id ? imgui.theme.active_color : imgui.theme.border_color);
+            // draw_rect(&imgui.ctx, box, *var ? imgui.theme.active_color : imgui.theme.disabled_color);
+            
+            if (imgui.next_same_line) {
+                imgui.panel->draw_cursor.x += size.x + imgui.theme.padding;
+                imgui.next_same_line = false;
+            } else {
+                imgui.panel->draw_cursor.y += size.y + imgui.theme.padding;
+                imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
+            }
+        }
+
+        inline void
+        bitflag(
+            state_t& imgui,
+            std::span<std::string_view> names,
+            u64* flag
+        ) {
+            bool b[64];
+            size_t i{0};
+            for (const auto& name: names) {
+                b[i] = (*flag) & (1ui64<<i);
+
+                same_line(imgui);
+                checkbox(imgui, &b[i]);
+                b[i] ^= text(imgui, fmt_sv(" - {}", name));
+                // *flag ^= (b[i] << i);
+                if (b[i]) {
+                    *flag |= (1ui64 << i); // Set the corresponding bit to 1
+                } else {
+                    *flag &= ~(1ui64 << i); // Set the corresponding bit to 0
+                }
+
+                i++;
+            }
         }
 
         inline bool
@@ -2936,15 +3038,17 @@ font_render(
 
             cursor.x += glyph.screen.size().x + 1;
         } else if (c == '\n') {
-            cursor.y += font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().y + 1;
+            cursor.y += font_get_glyph(font, cursor.x, cursor.y, 'G').screen.size().y + 1;
             cursor.x = start_x;
         } else if (c == ' ') {
-            cursor.x += font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1;
+            cursor.x += font_get_glyph(font, cursor.x, cursor.y, 'G').screen.size().x + 1;
         } else if (c == '\t') {
-            cursor.x += (font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1) * 5;
+            cursor.x += (font_get_glyph(font, cursor.x, cursor.y, 'G').screen.size().x + 1) * 4;
         }
     }
-    cursor.y += font_get_glyph(font, cursor.x, cursor.y, ';').screen.size().y + 1;
+    if (text.size()) {
+        cursor.y += font_get_glyph(font, cursor.x, cursor.y, 'G').screen.size().y + 1;
+    }
     cursor.x = start_x; 
 }
 

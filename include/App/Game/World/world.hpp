@@ -9,7 +9,7 @@
 namespace game {
     static constexpr u64 max_entities = 500000;
 
-    // everything I need to rebuild game state should be in this struct
+    // note(zack): everything I need to rebuild game state should be in this struct
     struct world_t {
         app_t* app;
 
@@ -32,10 +32,47 @@ namespace game {
 
         utl::rng::random_t<utl::rng::xor64_random_t> entropy;
 
-        world_t() = default;
+        // world_t() = default;
     };
 
-    void add_entity_to_id_hash(world_t* world, entity_t* entity) {
+    inline world_t*
+    world_init(arena_t* arena, app_t* app, physics::api_t* phys_api) {
+        TIMED_FUNCTION;
+        world_t* world = arena_alloc_ctor<world_t>(arena, 1);
+        world->app = app;
+        world->physics = phys_api;
+        
+        world->arena = arena_sub_arena(arena, megabytes(32));
+
+        world->frame_arena[0] = arena_sub_arena(&world->arena, kilobytes(4));
+        world->frame_arena[1] = arena_sub_arena(&world->arena, kilobytes(4));
+
+        return world;
+    }
+
+    inline world_t* 
+    clone(world_t* src, arena_t* arena) noexcept {
+        assert(src);
+
+        world_t* new_world = world_init(arena, src->app, src->physics);
+
+        new_world->entity_count = src->entity_count;
+        new_world->entity_capacity = src->entity_capacity;
+        new_world->next_entity_id = src->next_entity_id;
+
+        new_world->camera = src->camera;
+        
+        new_world->entropy = src->entropy;
+
+        range_u64(i, 0, src->entity_capacity) {
+            new_world->entities[i] = src->entities[i];
+        }
+
+        return new_world;
+    }
+
+    inline void 
+    add_entity_to_id_hash(world_t* world, entity_t* entity) {
         // todo(zack): better hash,
         const u64 id_hash = utl::rng::fnv_hash_u64(entity->id);
         const u64 id_bucket = id_hash & (array_count(world->entity_id_hash)-1);
@@ -46,7 +83,8 @@ namespace game {
         world->entity_id_hash[id_bucket] = entity;
     }
 
-    void remove_entity_from_id_hash(world_t* world, entity_t* entity) {
+    inline void 
+    remove_entity_from_id_hash(world_t* world, entity_t* entity) {
         const u64 id_hash = utl::rng::fnv_hash_u64(entity->id);
         const u64 id_bucket = id_hash & (array_count(world->entity_id_hash)-1);
 
@@ -82,29 +120,6 @@ namespace game {
             return e;
         } 
         return nullptr;
-    }
-
-    entity_t* entity_itr(world_t* world) {
-        return world->entities;
-    }
-
-    inline world_t*
-    world_init(arena_t* arena, app_t* app, physics::api_t* api) {
-        TIMED_FUNCTION;
-        world_t* world = arena_alloc_ctor<world_t>(arena, 1);
-        world->app = app;
-        world->physics = api;
-        
-        world->arena = arena_sub_arena(arena, megabytes(32));
-
-        world->frame_arena[0] = arena_sub_arena(&world->arena, kilobytes(4));
-        world->frame_arena[1] = arena_sub_arena(&world->arena, kilobytes(4));
-
-        // world->physics_world = arena_alloc<phys::physics_world_t>(&world->arena);
-
-        // phys::physics_world_init(physx_state, world->physics_world);
-
-        return world;
     }
 
     inline entity_t*
@@ -173,7 +188,7 @@ spawn(
     entity_t* entity = world_create_entity(world);
     entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name));
     entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
-    entity->name.view(def.type_name);
+    entity->name.own(&world->app->string_arena, def.type_name);
     entity->transform.origin = pos;
 
     entity->type = def.type;
@@ -202,12 +217,12 @@ spawn(
     } 
     if (def.physics) {
         physics::rigidbody_t* rb{0};
-        if (def.physics->flags & PhysicsEntityFlags_Static) {
+        if (def.physics->flags & PhysicsEntityFlags_Character) {
+            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::CHARACTER);
+        } else if (def.physics->flags & PhysicsEntityFlags_Static) {
             rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::STATIC);
         } else if (def.physics->flags & PhysicsEntityFlags_Dynamic) {
             rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::DYNAMIC);
-        } else if (def.physics->flags & PhysicsEntityFlags_Character) {
-            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::CHARACTER);
         }
         assert(rb);
         entity->physics.rigidbody = rb;
@@ -216,7 +231,7 @@ spawn(
         std::string collider_name;
         switch(def.physics->shape) {
             case physics::collider_shape_type::CONVEX: {
-                collider_name = fmt_str("{}.convex.physx", def.gfx.mesh_name.c_data);
+                collider_name = fmt_str("{}.convex.physx", def.gfx.mesh_name);
                 physics::collider_convex_info_t ci;
                 ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
                 ci.size = safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name));
@@ -226,7 +241,7 @@ spawn(
                 );
             }   break;
             case physics::collider_shape_type::TRIMESH: {
-                collider_name = fmt_str("{}.trimesh.physx", def.gfx.mesh_name.c_data);
+                collider_name = fmt_str("{}.trimesh.physx", def.gfx.mesh_name);
                 physics::collider_trimesh_info_t ci;
                 ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
                 ci.size = safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name));

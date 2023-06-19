@@ -336,76 +336,18 @@ entity_init(entity_t* entity, u64 mesh_id = -1) {
     entity->gfx.mesh_id = mesh_id;
 }
 
-// inline void
-// physics_entity_init_character(
-//     entity_t* entity,
-//     u64 mesh_id = 0
-//     // phys::physics_world_t* physx_world = 0
-// ) {
-//     entity_init(entity, mesh_id);
-
-//     // entity->physics.rigid_body.state = physx_world->state;
-//     // entity->physics.rigid_body.create_character(physx_world);
-// }
-
-
-// inline void
-// physics_entity_init(
-//     entity_t* entity, 
-//     u64 mesh_id = 0, 
-//     std::byte* physx_data = 0, 
-//     u32 physx_size = 0,
-//     phys::physx_state_t* physx_world = 0
-// ) {
-//     entity->physics.rigid_body.state = physx_world;
-//     entity->physics.rigid_body.load(physx_data, physx_size, entity->global_transform());
-// }
 
 inline void 
 player_init(
     entity_t* player, 
     cam::camera_t* camera, 
     u64 mesh_id) {
-    // physics_entity_init_character(player, mesh_id, phys);
 
     player->type = entity_type::player;
 
     player->gfx.mesh_id = mesh_id;
     player->camera_controller.camera = camera;
 }
-
-// inline void
-// entity_set_physics_transform(entity_t* entity) {
-//     TIMED_FUNCTION;
-//     physx::PxTransform t;
-//     const auto& v = entity->global_transform().origin;
-//     const auto& q = entity->global_transform().get_orientation();
-//     t.p = {v.x, v.y, v.z};
-//     t.q = {q.x, q.y, q.z, q.w};
-
-//     bool is_dynamic = entity->physics.flags == PhysicsEntityFlags_Dynamic && entity->physics.rigid_body.dynamic;
-//     bool is_static = entity->physics.flags == PhysicsEntityFlags_Static && entity->physics.rigid_body.rigid;
-
-//     if (is_dynamic) {
-//         entity->physics.rigid_body.dynamic->setGlobalPose(t, false);
-//     } else if (is_static) {
-//         entity->physics.rigid_body.rigid->setGlobalPose(t);
-//     }
-// }
-
-// inline void
-// entity_update_physics(entity_t* entity) {
-//     if (entity->physics.flags & PhysicsEntityFlags_Dynamic) {
-//         if (entity->physics.rigid_body.dynamic) {
-//             TIMED_FUNCTION;
-//             const auto physx_transform = entity->physics.rigid_body.dynamic->getGlobalPose();
-//             const auto& [x, y, z] = physx_transform.p;
-//             const auto& q = physx_transform.q;
-//             entity->transform.origin = { x, y, z }; // Need to set to global position
-//             entity->transform.basis = glm::toMat4(glm::quat{ q.w, q.x, q.y, q.z });
-//         }
-//     }
-// }
 
 }; // namespace entity
 

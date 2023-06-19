@@ -7,10 +7,11 @@ namespace game::db {
 
 struct entity_def_t {
     entity_type type{entity_type::environment};
-    string_t type_name{};
+    char type_name[128]{0};
 
     struct gfx_t {
-        string_t mesh_name{};
+        // string_t mesh_name{};
+        char mesh_name[512]{0};
         gfx::material_t material{};
         string_t albedo_tex{};
         string_t normal_tex{};
@@ -54,6 +55,30 @@ struct entity_def_t {
     child_t children[10]{};
 };
 
+
+inline static entity_def_t 
+load_from_file(arena_t temp_arena, std::string_view path) {
+    entity_def_t entity;
+
+    std::ifstream file{path.data(), std::ios::binary};
+
+    if(!file.is_open()) {
+        gen_error("res", "Failed to open file");
+        return entity;
+    }
+
+    file.seekg(0, std::ios::end);
+    const size_t size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    std::byte* data = arena_alloc(&temp_arena, size);
+    file.read((char*)data, size);
+    utl::memory_blob_t loader{data};
+
+    entity = loader.deserialize<entity_def_t>();
+
+    return entity;
+}
 
 #define DB_ENTRY static constexpr entity_def_t
 
@@ -331,24 +356,6 @@ void utl::memory_blob_t::serialize
     serialize(arena, def.weapon);
     serialize(arena, def.physics);
     serialize(arena, def.emitter);
-}
-
-template<>
-game::db::entity_def_t utl::memory_blob_t::deserialize<game::db::entity_def_t>() {
-    game::db::entity_def_t def{};
-
-    def.type      = deserialize<decltype(def.type)>();
-    def.type_name = deserialize<decltype(def.type_name)>();
-    def.gfx.mesh_name = deserialize<decltype(def.gfx.mesh_name)>();
-    def.gfx.albedo_tex = deserialize<decltype(def.gfx.albedo_tex)>();
-    def.gfx.normal_tex = deserialize<decltype(def.gfx.normal_tex)>();
-    def.gfx.animations = deserialize<decltype(def.gfx.animations)>();
-    def.stats = deserialize<decltype(def.stats)>();
-    def.weapon = deserialize<decltype(def.weapon)>();
-    def.physics = deserialize<decltype(def.physics)>();
-    def.emitter = deserialize<decltype(def.emitter)>();
-
-    return def;
 }
 
 #endif

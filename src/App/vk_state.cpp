@@ -47,6 +47,26 @@ std::string error_string(VkResult errorCode) {
 }
 };
 
+void load_extension_functions(state_t& state) {
+    auto& device = state.device;
+    state.ext.vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
+    state.ext.vkCmdBindShadersEXT = reinterpret_cast<PFN_vkCmdBindShadersEXT>(vkGetDeviceProcAddr(device, "vkCmdBindShadersEXT"));
+    state.ext.vkGetShaderBinaryDataEXT = reinterpret_cast<PFN_vkGetShaderBinaryDataEXT>(vkGetDeviceProcAddr(device, "vkGetShaderBinaryDataEXT"));
+
+    state.khr.vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(vkGetDeviceProcAddr(device, "vkCmdBeginRenderingKHR"));
+    state.khr.vkCmdEndRenderingKHR = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(vkGetDeviceProcAddr(device, "vkCmdEndRenderingKHR"));
+
+    state.ext.vkCmdSetViewportWithCountEXT = reinterpret_cast<PFN_vkCmdSetViewportWithCountEXT>(vkGetDeviceProcAddr(device, "vkCmdSetViewportWithCountEXT"));;
+    state.ext.vkCmdSetScissorWithCountEXT = reinterpret_cast<PFN_vkCmdSetScissorWithCountEXT>(vkGetDeviceProcAddr(device, "vkCmdSetScissorWithCountEXT"));
+    state.ext.vkCmdSetDepthCompareOpEXT = reinterpret_cast<PFN_vkCmdSetDepthCompareOpEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthCompareOpEXT"));
+    state.ext.vkCmdSetCullModeEXT = reinterpret_cast<PFN_vkCmdSetCullModeEXT>(vkGetDeviceProcAddr(device, "vkCmdSetCullModeEXT"));
+    state.ext.vkCmdSetDepthTestEnableEXT = reinterpret_cast<PFN_vkCmdSetDepthTestEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthTestEnableEXT"));
+    state.ext.vkCmdSetDepthWriteEnableEXT = reinterpret_cast<PFN_vkCmdSetDepthWriteEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthWriteEnableEXT"));
+    state.ext.vkCmdSetFrontFaceEXT = reinterpret_cast<PFN_vkCmdSetFrontFaceEXT>(vkGetDeviceProcAddr(device, "vkCmdSetFrontFaceEXT"));
+    state.ext.vkCmdSetPrimitiveTopologyEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveTopologyEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPrimitiveTopologyEXT"));
+    state.ext.vkCmdSetVertexInputEXT = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(vkGetDeviceProcAddr(device, "vkCmdSetVertexInputEXT"));
+}
+
 VkSampleCountFlagBits get_max_usable_sample_count(VkPhysicalDevice gpu_device) {
     VkPhysicalDeviceProperties physicalDeviceProperties;
     vkGetPhysicalDeviceProperties(gpu_device, &physicalDeviceProperties);
@@ -265,6 +285,14 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     const std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+        VK_EXT_SHADER_OBJECT_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+        VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
+        VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME,
+        VK_KHR_MAINTENANCE2_EXTENSION_NAME,
+        VK_KHR_MULTIVIEW_EXTENSION_NAME,
+        VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+        VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
         // VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME,
         VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
         //"VK_NV_shader_module_validation_cache"
@@ -383,6 +411,9 @@ void state_t::init(app_config_t* info, arena_t* temp_arena) {
     gen_info("vulkan", "created surface.");
     find_device(temp_arena);
     create_logical_device();
+
+    load_extension_functions(*this);
+    
     gen_info("vulkan", "created device.");
 
     create_swap_chain(info->window_size[0], info->window_size[1], info->graphics_config.vsync);
@@ -898,6 +929,15 @@ void state_t::create_logical_device() {
     createInfo.enabledExtensionCount = safe_truncate_u64(internal::deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = internal::deviceExtensions.data();
     
+    // Note(ZacK): Setting up Shader Objects
+    enabled_shader_object_features_EXT.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT;
+    enabled_shader_object_features_EXT.shaderObject = VK_TRUE;
+
+    enabled_dynamic_rendering_features_KHR.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
+    enabled_dynamic_rendering_features_KHR.dynamicRendering = VK_TRUE;
+    enabled_dynamic_rendering_features_KHR.pNext = &enabled_shader_object_features_EXT;
+
+    createInfo.pNext = &enabled_dynamic_rendering_features_KHR;
 
     if (internal::enable_validation) {
         createInfo.enabledLayerCount = static_cast<uint32_t>(internal::validationLayers.size());
@@ -979,6 +1019,73 @@ VkShaderModule create_shader_module(VkDevice device, std::span<char> code) {
         gen_error("vulkan", "failed to create shader module!");
     }
     return shaderModule;
+}
+
+void create_shader_objects(
+    arena_t arena,
+    state_t& state,
+    VkDescriptorSetLayout* descriptor_set_layouts,
+    const VkShaderStageFlagBits* const stages,
+    const VkShaderStageFlagBits* const next_stages,
+    const char** const code, 
+    const size_t* const code_size, 
+    const u32 shader_count,
+    VkShaderEXT* const shaders /* out */
+) {
+    assert(shaders);
+    assert(code);
+    assert(stages);
+    assert(shader_count <= 10);
+
+    auto& device = state.device;
+    VkShaderCreateInfoEXT* shader_create_info = arena_alloc_ctor<VkShaderCreateInfoEXT>(&arena, shader_count);
+
+    range_u64(i, 0, shader_count) {
+        shader_create_info[i].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
+        shader_create_info[i].flags = VK_SHADER_CREATE_LINK_STAGE_BIT_EXT;
+        shader_create_info[i].stage = stages[i];
+        shader_create_info[i].nextStage = next_stages[i];
+        shader_create_info[i].codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT; // @hardcoded
+        shader_create_info[i].pCode = code[i];
+        shader_create_info[i].codeSize = code_size[i];
+        shader_create_info[i].pName = "main";
+        shader_create_info[i].setLayoutCount = 1;
+        shader_create_info[i].pSetLayouts = descriptor_set_layouts;
+    }
+
+    VK_OK(state.ext.vkCreateShadersEXT(device, shader_count, shader_create_info, nullptr, shaders));
+}
+
+void create_shader_objects_from_files(
+    arena_t arena,
+    state_t& state,
+    VkDescriptorSetLayout* descriptor_set_layout,
+    const VkShaderStageFlagBits* const stages,
+    const VkShaderStageFlagBits* const next_stages,
+    const char** const filenames,
+    const u32 shader_count,
+    VkShaderEXT* const shaders /* out */
+) {
+    assert(shader_count <= 10);
+    std::vector<char> code_mem[10];
+    const char* code[10];
+    size_t code_size[10];
+    range_u64(i, 0, shader_count) {
+        code_mem[i] = read_bin_file(filenames[i]);
+        code[i] = code_mem[i].data();
+        code_size[i] = code_mem[i].size();
+    }
+    create_shader_objects(
+        arena,
+        state, 
+        descriptor_set_layout, 
+        stages, 
+        next_stages, 
+        code, 
+        code_size, 
+        shader_count, 
+        shaders
+    );
 }
 
 VkResult 

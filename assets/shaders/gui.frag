@@ -18,7 +18,6 @@ vec3 aces_film(vec3 x)
     return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
 }
 
-
 layout(set = 0, binding = 0) uniform sampler2D uTextures[4096];
 
 void main() {

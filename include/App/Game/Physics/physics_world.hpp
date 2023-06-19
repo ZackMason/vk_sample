@@ -208,7 +208,7 @@ namespace physics {
         scene_desc.filterShader = filter_shader;
         scene_desc.cpuDispatcher = state->dispatcher;
         scene_desc.simulationEventCallback = sim_callback;
-
+        scene_desc.flags = physx::PxSceneFlag::eENABLE_CCD;
         world->scene = state->physics->createScene(scene_desc);
 
         if (world->controller_manager) {

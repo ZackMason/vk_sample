@@ -49,7 +49,7 @@ class rigidbody_event_callback : public physx::PxSimulationEventCallback {
             auto* rb0 = (rigidbody_t*)pairHeader.actors[0]->userData;
             auto* rb1 = (rigidbody_t*)pairHeader.actors[1]->userData;
 
-            if(cp.events & PxPairFlag::eNOTIFY_TOUCH_FOUND) {      
+            if (cp.events & PxPairFlag::eNOTIFY_TOUCH_FOUND) {      
                 if (rb0->on_collision) {
                     rb0->on_collision(rb0, rb1);
                 }
@@ -58,12 +58,32 @@ class rigidbody_event_callback : public physx::PxSimulationEventCallback {
                 }
             } else if (cp.events & PxPairFlag::eNOTIFY_TOUCH_LOST) {
                 if (rb0->on_collision_end) {
-                    rb0->on_collision(rb0, rb1);
+                    rb0->on_collision_end(rb0, rb1);
                 }
                 if (rb1->on_collision_end) {
-                    rb1->on_collision(rb1, rb0);
+                    rb1->on_collision_end(rb1, rb0);
                 }
             }
+        }
+    }
+};
+
+class character_hit_report : public physx::PxUserControllerHitReport
+{
+public:
+    void onControllerHit(const physx::PxControllersHit& hit) override { }
+    void onObstacleHit(const physx::PxControllerObstacleHit& hit) override { }
+    void onShapeHit(const physx::PxControllerShapeHit& hit) override
+    {
+        physx::PxRigidActor* actor = hit.shape->getActor();
+        auto* rb0 = (rigidbody_t*)hit.controller->getActor()->userData;
+        auto* rb1 = (rigidbody_t*)actor->userData;
+
+        if (rb0->on_collision) {
+            rb0->on_collision(rb0, rb1);
+        }
+        if (rb1->on_collision) {
+            rb1->on_collision(rb1, rb0);
         }
     }
 };
@@ -152,9 +172,12 @@ physx_create_rigidbody_impl(
             desc.radius = .5f;
             desc.climbingMode = PxCapsuleClimbingMode::eEASY;
             desc.behaviorCallback = nullptr;
-            desc.reportCallback = nullptr;
+            desc.reportCallback = new character_hit_report;
             desc.material = ps->state->physics->createMaterial(0.5f, 0.5f, 0.1f);
-            rb->api_data = ps->world->controller_manager->createController(desc);
+            auto* controller = ps->world->controller_manager->createController(desc);
+            // controller->setSlopeLimit(3.14159f*0.25f);
+            rb->api_data = controller;
+
             physx_add_rigidbody(api, rb);
             assert(api->character_count < PHYSICS_MAX_CHARACTER_COUNT);
             api->characters[api->character_count++] = rb;
@@ -230,8 +253,6 @@ static PxFilterFlags filterShader(
 {
     pairFlags = PxPairFlag::eCONTACT_DEFAULT;
     pairFlags |= PxPairFlag::eNOTIFY_TOUCH_FOUND;
-    // pairFlags |= PxPairFlag::eDETECT_DISCRETE_CONTACT;
-    // pairFlags |= PxPairFlag::eDETECT_CCD_CONTACT;
     return PxFilterFlag::eDEFAULT;
 }
 
@@ -318,7 +339,7 @@ bool isOnGround(physx::PxController* controller) {
 
     physx::PxRaycastBuffer hit;
     
-    physx::PxSceneQueryFilterData filter{PxQueryFlag::eSTATIC};
+    physx::PxSceneQueryFilterData filter{PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC};
     bool hasHit = 
         controller->getScene()->raycast(
             rayOrigin, 
@@ -339,12 +360,12 @@ physx_simulate(api_t* api, f32 dt) {
             auto& v = rb->velocity;
 
             const PxU32 move_flags = controller->move(
-                {v.x, v.y, v.z}, 0.01f, dt, {}
+                {v.x, v.y, v.z}, 0.0f, dt, {}
             );
 
             if(move_flags & PxControllerCollisionFlag::eCOLLISION_DOWN) {
                 rb->flags |= rigidbody_flags::IS_ON_GROUND;
-                v.y = 0.0f;
+                // v.y = 0.0f;
 			} else {
                 rb->flags &= ~rigidbody_flags::IS_ON_GROUND;
             }
@@ -356,13 +377,13 @@ physx_simulate(api_t* api, f32 dt) {
 
             v = math::damp(v, v3f{0.0f}, rb->linear_dampening, dt);
 
-            if (isOnGround(controller)) {
-                // gen_info(__FUNCTION__, "on ground");
-                v.y = 0.0f;
-                rb->flags |= rigidbody_flags::IS_ON_GROUND;
-            } else {
-                rb->flags &= ~rigidbody_flags::IS_ON_GROUND;
-            }
+            // if (isOnGround(controller)) {
+            //     // gen_info(__FUNCTION__, "on ground");
+            //     v.y = 0.0f;
+            //     rb->flags |= rigidbody_flags::IS_ON_GROUND;
+            // } else {
+            //     rb->flags &= ~rigidbody_flags::IS_ON_GROUND;
+            // }
             
             const auto [px,py,pz] = controller->getPosition();
             rb->position = v3f{px,py,pz};
@@ -385,38 +406,41 @@ physx_simulate(api_t* api, f32 dt) {
 void
 physx_sync_rigidbody(api_t* api, rigidbody_t* rb) {
     assert(rb && rb->api_data);
+    if ((rb->flags & rigidbody_flags::SKIP_SYNC) == 0) {
+        rb->flags &= ~rigidbody_flags::SKIP_SYNC;
+        return;
+    }
 
     if (rb->type == rigidbody_type::DYNAMIC) {
-        if ((rb->flags & rigidbody_flags::SKIP_SYNC) == 0) {
-            physx::PxTransform t = ((physx::PxRigidActor*)rb->api_data)->getGlobalPose();
-            rb->position = v3f{t.p.x, t.p.y, t.p.z};
-            rb->orientation = glm::quat{t.q.w, t.q.x, t.q.y, t.q.z};
-            if (rb->type == physics::rigidbody_type::DYNAMIC) {
-                const auto [vx,vy,vz] = ((physx::PxRigidBody*)rb->api_data)->getLinearVelocity();
-                const auto [ax,ay,az] = ((physx::PxRigidBody*)rb->api_data)->getAngularVelocity();
-                rb->velocity = v3f{vx,vy,vz};
-                rb->angular_velocity = v3f{ax,ay,az};
-            }
-        } else if (rb->type == rigidbody_type::CHARACTER) {
-            auto* controller = ((physx::PxController*)rb->api_data);
-            const auto [px,py,pz]  = controller->getPosition();
-            rb->position = v3f{px,py,pz};
+        physx::PxTransform t = ((physx::PxRigidActor*)rb->api_data)->getGlobalPose();
+        rb->position = v3f{t.p.x, t.p.y, t.p.z};
+        rb->orientation = glm::quat{t.q.w, t.q.x, t.q.y, t.q.z};
+        if (rb->type == physics::rigidbody_type::DYNAMIC) {
+            const auto [vx,vy,vz] = ((physx::PxRigidBody*)rb->api_data)->getLinearVelocity();
+            const auto [ax,ay,az] = ((physx::PxRigidBody*)rb->api_data)->getAngularVelocity();
+            rb->velocity = v3f{vx,vy,vz};
+            rb->angular_velocity = v3f{ax,ay,az};
         }
-        
-        rb->flags &= ~rigidbody_flags::SKIP_SYNC;
+    } else if (rb->type == rigidbody_type::CHARACTER) {
+        auto* controller = ((physx::PxController*)rb->api_data);
+        const auto& v = rb->velocity;
+        const auto [px,py,pz]  = controller->getPosition();
+        rb->position = v3f{px,py,pz};
     }
+    rb->flags &= ~rigidbody_flags::SKIP_SYNC;
 }
 
+// set -> sim -> sync
 void
 physx_set_rigidbody(api_t* api, rigidbody_t* rb) {
     const auto& p = rb->position;
     const auto& q = rb->orientation;
     const auto& v = rb->velocity;
     const auto& av = rb->angular_velocity;
+    
     if (rb->type == rigidbody_type::CHARACTER) {
         auto* controller = (physx::PxController*)rb->api_data;
-        controller->setPosition({p.x,p.y,p.z});
-        controller->move({v.x,v.y,v.z}, 0.01f, 1.0f/60.0f, physx::PxControllerFilters{});
+        // controller->setPosition({p.x,p.y,p.z});
     } else {
         physx::PxTransform t;
         t.p = {p.x, p.y, p.z};

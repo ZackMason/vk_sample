@@ -271,6 +271,33 @@ struct state_t {
 
     VkDebugUtilsMessengerEXT debug_messenger;
 
+    VkPhysicalDeviceShaderObjectFeaturesEXT enabled_shader_object_features_EXT{};
+	VkPhysicalDeviceDynamicRenderingFeaturesKHR enabled_dynamic_rendering_features_KHR{};
+        
+    struct khr_functions_t {
+        // VK_EXT_shader_objects requires render passes to be dynamic
+        PFN_vkCmdBeginRenderingKHR vkCmdBeginRenderingKHR;
+        PFN_vkCmdEndRenderingKHR vkCmdEndRenderingKHR;
+    } khr;
+
+    struct ext_functions_t {
+        PFN_vkCreateShadersEXT vkCreateShadersEXT;
+        PFN_vkCmdBindShadersEXT vkCmdBindShadersEXT;
+        PFN_vkGetShaderBinaryDataEXT vkGetShaderBinaryDataEXT;
+        // With VK_EXT_shader_object pipeline state must be set at command buffer creation using these functions
+        // VK_EXT_dynamic_state
+        PFN_vkCmdSetViewportWithCountEXT vkCmdSetViewportWithCountEXT;
+        PFN_vkCmdSetScissorWithCountEXT vkCmdSetScissorWithCountEXT;
+        PFN_vkCmdSetDepthCompareOpEXT vkCmdSetDepthCompareOpEXT;
+        PFN_vkCmdSetCullModeEXT vkCmdSetCullModeEXT;
+        PFN_vkCmdSetDepthTestEnableEXT vkCmdSetDepthTestEnableEXT;
+        PFN_vkCmdSetDepthWriteEnableEXT vkCmdSetDepthWriteEnableEXT;
+        PFN_vkCmdSetFrontFaceEXT vkCmdSetFrontFaceEXT;
+        PFN_vkCmdSetPrimitiveTopologyEXT vkCmdSetPrimitiveTopologyEXT;
+        // VK_EXT_vertex_input_dynamic_state
+        PFN_vkCmdSetVertexInputEXT vkCmdSetVertexInputEXT;
+    } ext;
+
     void init(app_config_t* info, arena_t* temp_arena);
     void cleanup();
 
@@ -389,6 +416,14 @@ command_pool_create_info() {
     VkCommandPoolCreateInfo cmdPoolCreateInfo {};
     cmdPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     return cmdPoolCreateInfo;
+}
+
+inline VkCommandBufferBeginInfo command_buffer_begin_info(
+
+) {
+    VkCommandBufferBeginInfo cmdBufferBeginInfo {};
+    cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    return cmdBufferBeginInfo;
 }
 
 inline VkCommandBufferAllocateInfo command_buffer_allocate_info(
@@ -681,11 +716,52 @@ inline VkRect2D rect2D(
     rect2D.offset.y = offsetY;
     return rect2D;
 }
+void insert_image_memory_barrier(
+    VkCommandBuffer cmdbuffer,
+    VkImage image,
+    VkAccessFlags srcAccessMask,
+    VkAccessFlags dstAccessMask,
+    VkImageLayout oldImageLayout,
+    VkImageLayout newImageLayout,
+    VkPipelineStageFlags srcStageMask,
+    VkPipelineStageFlags dstStageMask,
+    VkImageSubresourceRange subresourceRange)
+{
+    VkImageMemoryBarrier imageMemoryBarrier = image_memory_barrier();
+    imageMemoryBarrier.srcAccessMask = srcAccessMask;
+    imageMemoryBarrier.dstAccessMask = dstAccessMask;
+    imageMemoryBarrier.oldLayout = oldImageLayout;
+    imageMemoryBarrier.newLayout = newImageLayout;
+    imageMemoryBarrier.image = image;
+    imageMemoryBarrier.subresourceRange = subresourceRange;
+
+    vkCmdPipelineBarrier(
+        cmdbuffer,
+        srcStageMask,
+        dstStageMask,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imageMemoryBarrier);
+}
 
 std::string error_string(VkResult errorCode);
 
+
+
+
 }; // namespace utl
 
+// extensions
+void create_shader_objects_from_files(
+    arena_t arena, state_t& state,
+    VkDescriptorSetLayout* descriptor_set_layout,
+    const VkShaderStageFlagBits* const stages,
+    const VkShaderStageFlagBits* const next_stages,
+    const char** const filenames,
+    const u32 shader_count,
+    VkShaderEXT* const shaders /* out */
+);
 
 
-};
+}; // namespace gfx::vul
