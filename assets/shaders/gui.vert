@@ -23,5 +23,5 @@ main() {
 ;
     vec2 pos = aVertex.xy * 2.0 - 1.0;
         
-    gl_Position = vec4(pos, 0.00001, 1);
+    gl_Position = vec4(pos, 0.00001 * gl_VertexIndex, 1);
 }

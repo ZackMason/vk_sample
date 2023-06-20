@@ -38,6 +38,29 @@ namespace game::rendering {
 
         link_t shaders[512]{};
 
+        u64 load(
+            arena_t arena,
+            gfx::vul::state_t vk_gfx,
+            const char* filename,
+            VkShaderStageFlagBits stage,
+            VkShaderStageFlagBits next_stage,
+            VkDescriptorSetLayout* descriptor_set_layouts,
+            u32 descriptor_count
+        ) {
+            VkShaderEXT shader[1];
+            create_shader_objects_from_files(
+                arena,
+                vk_gfx,
+                descriptor_set_layouts,
+                descriptor_count,
+                &stage, &next_stage,
+                &filename,
+                1,
+                shader /* out */
+            );
+            return add(shader[0], filename);
+        }
+
         u64 add(VkShaderEXT shader, std::string_view name) {
             u64 hash = sid(name);
             u64 id = hash % array_count(shaders);
@@ -56,7 +79,7 @@ namespace game::rendering {
             u64 id = hash % array_count(shaders);
             u64 start = id;
             // probe
-            while(shaders[id].hash != id) {
+            while(shaders[id].hash != hash) {
                 id = (id+1) % array_count(shaders);
                 if (id == start) return VK_NULL_HANDLE;
             }
@@ -73,10 +96,20 @@ namespace game::rendering {
     struct material_node_t : public gfx::material_t, node_t<material_node_t> {
         using gfx::material_t::material_t;
 
-        material_node_t(gfx::material_t&& mat) : gfx::material_t{std::move(mat)} {}
+        material_node_t(
+            gfx::material_t&& mat,
+            VkShaderEXT* shaders_,
+            u32 shader_count_
+        ) : gfx::material_t{std::move(mat)}, shader_count{shader_count_}
+        {
+            std::memcpy(shaders, shaders_, sizeof(VkShaderEXT) * shader_count_);
+        }
+
         string_t name{};
         VkPipeline pipeline;
         VkPipelineLayout pipeline_layout;
+        VkShaderEXT shaders[10];
+        u32 shader_count=0;
     };
 
     struct render_job_t : public node_t<render_job_t> {
@@ -153,6 +186,8 @@ namespace game::rendering {
         mesh_cache_t    mesh_cache{};
         utl::str_hash_t mesh_hash{};
 
+        shader_cache_t  shader_cache{};
+
         utl::deque<material_node_t> materials{};
 
         u64             frame_count{0};
@@ -175,13 +210,19 @@ namespace game::rendering {
         m44 vp{1.0f};
         m44 projection{1.0f};
         v3f camera_pos{0.0f};
+        u32 width{}, height{};
 
         lighting::probe_box_t light_probes{v3f{-30.0f, -6.0f, -30.0f}, v3f{40.0f}};
 
-        void set_view(const m44& view) {
+        void set_view(const m44& view, u32 w, u32 h) {
             vp = projection * view;
+            width = w;
+            height = h;
         }
 
+        size_t get_frame() {
+            return frame_count%frame_overlap;
+        }
         frame_data_t& get_frame_data() {
             return frames[frame_count%frame_overlap];
         }
@@ -299,6 +340,48 @@ namespace game::rendering {
         // rs->render_jobs.push_back(job);
     }
 
+    inline void build_shader_commands(
+        system_t* rs,
+        VkCommandBuffer command_buffer,
+        VkPipelineLayout pipeline_layout, // ??? needed for push constants ???
+        VkDescriptorSet* descriptor_set,
+        u32 descriptor_count
+    ) {
+        TIMED_FUNCTION;
+        auto& ext = rs->vk_gfx->ext;
+        auto& khr = rs->vk_gfx->khr;
+        
+        for (size_t i = 0; i < rs->render_job_count; i++) {
+            render_job_t* job = rs->render_jobs + i;
+
+            const auto* material = rs->materials[job->material];
+
+            vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material->pipeline_layout, 0, descriptor_count, descriptor_set, 0, nullptr);
+
+            VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
+            ext.vkCmdBindShadersEXT(command_buffer, material->shader_count, stages, material->shaders);
+
+            range_u64(j, 0, job->meshes->count) {
+                if (job->meshes->meshes[j].index_count) {
+                    vkCmdDrawIndexed(command_buffer,
+                        job->meshes->meshes[j].index_count,
+                        1, 
+                        job->meshes->meshes[j].index_start,
+                        job->meshes->meshes[j].vertex_start,
+                        safe_truncate_u64(i)
+                    );
+                } else {
+                    vkCmdDraw(command_buffer,
+                        job->meshes->meshes[j].vertex_count,
+                        job->meshes->meshes[j].instance_count,
+                        job->meshes->meshes[j].vertex_start,
+                        safe_truncate_u64(i)
+                    );
+                }
+            }
+        }
+    }
+
     inline void
     build_commands(
         system_t* rs,
@@ -406,7 +489,9 @@ namespace game::rendering {
         std::string_view name, 
         gfx::material_t&& p_material,
         VkPipeline pipeline,
-        VkPipelineLayout pipeline_layout
+        VkPipelineLayout pipeline_layout,
+        VkShaderEXT* shaders,
+        u32 shader_count
     ) {
         material_node_t* material{0};
         for (u32 i = 0; i < rs->materials.size(); i++) {
@@ -417,7 +502,7 @@ namespace game::rendering {
         }
         if (!material) {
             gen_info("rendering", "Creating material: {}", name);
-            material = arena_alloc_ctor<material_node_t>(&rs->arena, 1, std::move(p_material));
+            material = arena_alloc_ctor<material_node_t>(&rs->arena, 1, std::move(p_material), shaders, shader_count);
             material->name.own(&rs->arena, name);
             material->pipeline = pipeline;
             material->pipeline_layout = pipeline_layout;

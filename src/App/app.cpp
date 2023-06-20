@@ -331,10 +331,48 @@ app_init_graphics(app_memory_t* app_mem) {
             app->main_arena,
             vk_gfx,
             app->mesh_pipeline->descriptor_set_layouts,
+            app->mesh_pipeline->descriptor_count,
             stages, stages_next,
             files,
             array_count(stages),
             shaders /* out */
+        );
+
+        const auto make_material = [&](std::string_view n, auto&& mat) {
+            return game::rendering::create_material(
+                app->render_system, 
+                n, std::move(mat), 
+                app->mesh_pipeline->pipeline, 
+                app->mesh_pipeline->pipeline_layout,
+                shaders, array_count(shaders)
+            );
+        };
+
+        make_material("red-plastic", gfx::material_t::plastic(gfx::color::v4::red));
+        make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
+        make_material("gold-metal", gfx::material_t::metal(gfx::color::v4::yellow));
+        make_material("silver-metal", gfx::material_t::metal(gfx::color::v4::white));
+        make_material("sand", gfx::material_t::plastic(gfx::color::v4::sand));
+        make_material("dirt", gfx::material_t::plastic(gfx::color::v4::dirt));
+
+        rs->shader_cache.load(
+            app->main_arena, 
+            vk_gfx,
+            "./assets/shaders/bin/gui.vert.spv",
+            VK_SHADER_STAGE_VERTEX_BIT,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            app->gui_pipeline->descriptor_set_layouts,
+            app->gui_pipeline->descriptor_count
+        );
+
+        rs->shader_cache.load(
+            app->main_arena, 
+            vk_gfx,
+            "./assets/shaders/bin/gui.frag.spv",
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            (VkShaderStageFlagBits)0,
+            app->gui_pipeline->descriptor_set_layouts,
+            app->gui_pipeline->descriptor_count
         );
     }
   
@@ -410,19 +448,7 @@ app_on_init(app_memory_t* app_mem) {
 
     app_init_graphics(app_mem);
 
-    const auto make_material = [&](std::string_view n, auto&& mat) {
-        return game::rendering::create_material(
-            app->render_system, n, std::move(mat), app->mesh_pipeline->pipeline, app->mesh_pipeline->pipeline_layout
-        );
-    };
 
-    make_material("red-plastic", gfx::material_t::plastic(gfx::color::v4::red));
-    make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
-    make_material("gold-metal", gfx::material_t::metal(gfx::color::v4::yellow));
-    make_material("silver-metal", gfx::material_t::metal(gfx::color::v4::white));
-    make_material("sand", gfx::material_t::plastic(gfx::color::v4::sand));
-    make_material("dirt", gfx::material_t::plastic(gfx::color::v4::dirt));
-    
     using namespace gfx::color;
 
     app->scene.sporadic_buffer.mode = 1;
@@ -1255,6 +1281,7 @@ draw_gui(app_memory_t* app_mem) {
 
                 im::end_panel(state);
             }
+
             const auto panel = im::get_last_panel(state);
             if (is_selected && opened && im::draw_circle(state, panel.max, 8.0f, gfx::color::rgba::red, 4)) {
                 widget_pos = &default_widget_pos;
@@ -1263,13 +1290,13 @@ draw_gui(app_memory_t* app_mem) {
 
         draw_game_gui(app_mem);
 
-        local_persist viewport_t viewport{};
-        viewport.images[0] = 1;
-        viewport.images[1] = 2;
-        viewport.images[2] = 1;
-        viewport.images[3] = 2;
+        // local_persist viewport_t viewport{};
+        // viewport.images[0] = 1;
+        // viewport.images[1] = 2;
+        // viewport.images[2] = 1;
+        // viewport.images[3] = 2;
 
-        draw_viewport(state, &viewport);
+        // draw_viewport(state, &viewport);
 
         // const math::aabb_t<v2f> screen{v2f{0.0f}, state.ctx.screen_size};
         // im::image(state, 2, math::aabb_t<v2f>{v2f{state.ctx.screen_size.x - 400, 0.0f}, v2f{state.ctx.screen_size.x, 400.0f}});
@@ -1344,6 +1371,286 @@ game_on_render(app_memory_t* app_mem) {
     // maybe it only happens on the second frame
     local_persist u32 frame_count = 0;
     if (frame_count++ < 3) {
+        gen_info(__FUNCTION__, "frame: {}", frame_count);
+    }
+
+    u32 imageIndex = wait_for_frame(app, frame_count);
+    //std::lock_guard lock{app->render_system->ticket};
+    {
+        app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
+        app->render_system->set_view(app->game_world->camera.to_matrix(), app->width(), app->height());
+    }
+
+    *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
+    auto& command_buffer = vk_gfx.command_buffer[frame_count&1];
+    vkResetCommandBuffer(command_buffer, 0);
+
+    {
+        auto& rs = app->render_system;
+        auto& khr = vk_gfx.khr;
+        auto& ext = vk_gfx.ext;
+
+        auto command_buffer_begin_info = gfx::vul::utl::command_buffer_begin_info();
+        VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
+
+        gfx::vul::utl::insert_image_memory_barrier(
+            command_buffer,
+            vk_gfx.swap_chain_images[imageIndex],
+            0,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+        
+        gfx::vul::utl::insert_image_memory_barrier(
+            command_buffer,
+            vk_gfx.depth_stencil_texture.image,
+            0,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
+
+        {
+
+        // New structures are used to define the attachments used in dynamic rendering
+        VkRenderingAttachmentInfoKHR colorAttachment{};
+        colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+        colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
+        colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
+
+        // A single depth stencil attachment info can be used, but they can also be specified separately.
+        // When both are specified separately, the only requirement is that the image view is identical.			
+        VkRenderingAttachmentInfoKHR depthStencilAttachment{};
+        depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+        depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
+        depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depthStencilAttachment.clearValue.depthStencil = { 1.0f,  0 };
+
+        VkRenderingInfoKHR renderingInfo{};
+        renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+        renderingInfo.renderArea = { 0, 0, rs->width, rs->height };
+        renderingInfo.layerCount = 1;
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachments = &colorAttachment;
+        renderingInfo.pDepthAttachment = &depthStencilAttachment;
+        renderingInfo.pStencilAttachment = &depthStencilAttachment;
+
+        khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
+        }
+
+            auto viewport = gfx::vul::utl::viewport((f32)rs->width, (f32)rs->height, 0.0f, 1.0f);
+            auto scissor = gfx::vul::utl::rect2D(rs->width, rs->height, 0, 0);
+
+            ext.vkCmdSetViewportWithCountEXT(command_buffer, 1, &viewport);
+            ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
+            ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_BACK_BIT);
+            ext.vkCmdSetFrontFaceEXT(command_buffer, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+            ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_TRUE);
+            ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
+            ext.vkCmdSetDepthCompareOpEXT(command_buffer, VK_COMPARE_OP_LESS_OR_EQUAL);
+            ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+            {
+                struct pc_t {
+                    m44 vp;
+                    v4f cp;
+                } constants;
+                constants.vp = rs->vp;
+                constants.cp = v4f{rs->camera_pos, 0.0f};
+                                
+                vkCmdPushConstants(command_buffer, app->mesh_pipeline->pipeline_layout,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+                    0, sizeof(constants), &constants
+                );
+            }
+
+            {
+                VkVertexInputBindingDescription2EXT vertexInputBinding{};
+                vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+                vertexInputBinding.binding = 0;
+                vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+                vertexInputBinding.stride = sizeof(gfx::vertex_t);
+                vertexInputBinding.divisor = 1;
+
+                VkVertexInputAttributeDescription2EXT vertexAttributes[] = {
+                    { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(gfx::vertex_t, pos) },
+                    { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(gfx::vertex_t, nrm) },
+                    { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(gfx::vertex_t, col) },
+                    { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 3, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(gfx::vertex_t, tex) }
+                };
+
+                ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
+            }
+
+            VkBuffer buffers[1] = { app->render_system->vertices.buffer };
+            VkDeviceSize offsets[1] = { 0 };
+
+            vkCmdBindVertexBuffers(command_buffer, 0, 1, buffers, offsets);
+
+            vkCmdBindIndexBuffer(command_buffer,
+                app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+            );
+
+            vkCmdBindDescriptorSets(command_buffer, 
+                VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
+                4, 1, &app->brick_descriptor, 0, nullptr);
+
+            build_shader_commands(
+                rs, 
+                command_buffer, 
+                app->mesh_pipeline->pipeline_layout, 
+                app->mesh_pipeline->descriptor_sets, 
+                app->mesh_pipeline->descriptor_count - 1
+            );
+        khr.vkCmdEndRenderingKHR(command_buffer);
+    
+        
+        {
+        gfx::vul::utl::insert_image_memory_barrier(
+            command_buffer,
+            vk_gfx.swap_chain_images[imageIndex],
+            0,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+        
+        gfx::vul::utl::insert_image_memory_barrier(
+            command_buffer,
+            vk_gfx.depth_stencil_texture.image,
+            0,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
+
+        // New structures are used to define the attachments used in dynamic rendering
+        VkRenderingAttachmentInfoKHR colorAttachment{};
+        colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+        colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
+        colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
+
+        // A single depth stencil attachment info can be used, but they can also be specified separately.
+        // When both are specified separately, the only requirement is that the image view is identical.			
+        VkRenderingAttachmentInfoKHR depthStencilAttachment{};
+        depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+        depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
+        depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depthStencilAttachment.clearValue.depthStencil = { 1.0f,  0 };
+
+        VkRenderingInfoKHR renderingInfo{};
+        renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+        renderingInfo.renderArea = { 0, 0, rs->width, rs->height };
+        renderingInfo.layerCount = 1;
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachments = &colorAttachment;
+        renderingInfo.pDepthAttachment = &depthStencilAttachment;
+        renderingInfo.pStencilAttachment = &depthStencilAttachment;
+
+        khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
+        }
+            {
+                ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_NONE);
+                ext.vkCmdSetFrontFaceEXT(command_buffer, VK_FRONT_FACE_CLOCKWISE);
+
+                vkCmdBindDescriptorSets(command_buffer, 
+                    VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
+                    0, 1, &app->default_font_descriptor, 0, nullptr);
+
+                {
+                    VkVertexInputBindingDescription2EXT vertexInputBinding{};
+                    vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+                    vertexInputBinding.binding = 0;
+                    vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+                    vertexInputBinding.stride = sizeof(gfx::gui::vertex_t);
+                    vertexInputBinding.divisor = 1;
+    
+                    VkVertexInputAttributeDescription2EXT vertexAttributes[] = {
+                        { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(gfx::gui::vertex_t, pos) },
+                        { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(gfx::gui::vertex_t, tex) },
+                        { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 2, 0, VK_FORMAT_R32_UINT, offsetof(gfx::gui::vertex_t, img) },
+                        { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 3, 0, VK_FORMAT_R32_UINT, offsetof(gfx::gui::vertex_t, col) },
+                    };
+
+                    ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
+                }
+
+                vkCmdBindVertexBuffers(command_buffer,
+                    0, 1, &app->gui.vertices[frame_count&1].buffer, offsets);
+
+                vkCmdBindIndexBuffer(command_buffer,
+                    app->gui.indices[frame_count&1].buffer, 0, VK_INDEX_TYPE_UINT32);
+
+                VkShaderEXT gui_shaders[2] {
+                    rs->shader_cache.get("./assets/shaders/bin/gui.vert.spv"),
+                    rs->shader_cache.get("./assets/shaders/bin/gui.frag.spv"),
+                };
+                assert(gui_shaders[0] != VK_NULL_HANDLE);
+                assert(gui_shaders[1] != VK_NULL_HANDLE);
+
+                VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
+                ext.vkCmdBindShadersEXT(command_buffer, 2, stages, gui_shaders);
+
+                vkCmdDrawIndexed(command_buffer,
+                    (u32)app->gui.ctx.indices->count,
+                    1,
+                    0,
+                    0,
+                    0
+                );
+            }
+
+        khr.vkCmdEndRenderingKHR(command_buffer);
+
+        
+        gfx::vul::utl::insert_image_memory_barrier(
+            command_buffer,
+            vk_gfx.swap_chain_images[imageIndex],
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            0,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+        
+        VK_OK(vkEndCommandBuffer(command_buffer));
+        present_frame(app, command_buffer, imageIndex, frame_count);
+    }
+}
+
+void
+game_on_render2(app_memory_t* app_mem) { 
+    TIMED_FUNCTION;
+    
+    app_t* app = get_app(app_mem);
+
+    gfx::vul::state_t& vk_gfx = app->gfx;
+
+    // note(zack): print the first 3 frames, if 
+    // a bug shows up its helpful to know if 
+    // maybe it only happens on the second frame
+    local_persist u32 frame_count = 0;
+    if (frame_count++ < 3) {
         gen_info("game::on_render", "frame: {}", frame_count);
     }
 
@@ -1360,7 +1667,7 @@ game_on_render(app_memory_t* app_mem) {
 
     {
         app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
-        app->render_system->set_view(app->game_world->camera.to_matrix());
+        app->render_system->set_view(app->game_world->camera.to_matrix(), app->width(), app->height());
     }
 
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
@@ -1525,7 +1832,7 @@ void
 main_menu_on_update(app_memory_t* app_mem) {
 }
 
-global_variable u64 scene_state = 0;
+global_variable u64 scene_state = 1;
 
 #include "App/Game/GUI/entity_editor.hpp"
 

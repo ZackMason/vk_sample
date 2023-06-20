@@ -4,14 +4,6 @@
 
 #include "material.glsl"
 
-layout( std140, set = 0, binding = 0 ) uniform SporadicBuffer
-{
-	int		uMode;
-	int		uUseLighting;
-	int		uNumInstances;
-	int 	pad;
-} uSporadic;
-
 struct ObjectData {
 	mat4 model;
 

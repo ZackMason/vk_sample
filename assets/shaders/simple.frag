@@ -150,6 +150,6 @@ main( )
 	// rgb = albedo;
 	// rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
 	// rgb = pow(rgb, vec3(2.2));
-
+	// rgb = vec3(1,0,0);
 	fFragColor = vec4( rgb, 1. );
 }

@@ -1025,6 +1025,7 @@ void create_shader_objects(
     arena_t arena,
     state_t& state,
     VkDescriptorSetLayout* descriptor_set_layouts,
+    u32 descriptor_set_layout_count,
     const VkShaderStageFlagBits* const stages,
     const VkShaderStageFlagBits* const next_stages,
     const char** const code, 
@@ -1039,6 +1040,10 @@ void create_shader_objects(
 
     auto& device = state.device;
     VkShaderCreateInfoEXT* shader_create_info = arena_alloc_ctor<VkShaderCreateInfoEXT>(&arena, shader_count);
+    VkPushConstantRange vpcr{};
+        vpcr.offset = 0;
+	    vpcr.size = sizeof(m44) + sizeof(v4f);
+        vpcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     range_u64(i, 0, shader_count) {
         shader_create_info[i].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
@@ -1049,8 +1054,10 @@ void create_shader_objects(
         shader_create_info[i].pCode = code[i];
         shader_create_info[i].codeSize = code_size[i];
         shader_create_info[i].pName = "main";
-        shader_create_info[i].setLayoutCount = 1;
+        shader_create_info[i].setLayoutCount = descriptor_set_layout_count;
         shader_create_info[i].pSetLayouts = descriptor_set_layouts;
+        shader_create_info[i].pushConstantRangeCount = 1;
+        shader_create_info[i].pPushConstantRanges = &vpcr;
     }
 
     VK_OK(state.ext.vkCreateShadersEXT(device, shader_count, shader_create_info, nullptr, shaders));
@@ -1060,9 +1067,10 @@ void create_shader_objects_from_files(
     arena_t arena,
     state_t& state,
     VkDescriptorSetLayout* descriptor_set_layout,
+    u32 descriptor_set_layout_count,
     const VkShaderStageFlagBits* const stages,
     const VkShaderStageFlagBits* const next_stages,
-    const char** const filenames,
+    const char** filenames,
     const u32 shader_count,
     VkShaderEXT* const shaders /* out */
 ) {
@@ -1078,7 +1086,8 @@ void create_shader_objects_from_files(
     create_shader_objects(
         arena,
         state, 
-        descriptor_set_layout, 
+        descriptor_set_layout,
+        descriptor_set_layout_count,
         stages, 
         next_stages, 
         code, 

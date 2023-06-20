@@ -756,6 +756,7 @@ std::string error_string(VkResult errorCode);
 void create_shader_objects_from_files(
     arena_t arena, state_t& state,
     VkDescriptorSetLayout* descriptor_set_layout,
+    u32 descriptor_set_layout_count,
     const VkShaderStageFlagBits* const stages,
     const VkShaderStageFlagBits* const next_stages,
     const char** const filenames,
