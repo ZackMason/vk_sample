@@ -11,8 +11,9 @@
 #include "App/Game/Items/base_item.hpp"
 #include "App/Game/Weapons/base_weapon.hpp"
 
+#include "App/Game/Rendering/assets.hpp"
+
 global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
-// global_variable game::world_t gs_saved_world;
 
 void teapot_on_collision(
     physics::rigidbody_t* teapot,
@@ -20,9 +21,6 @@ void teapot_on_collision(
 ) {
     auto* teapot_entity = (game::entity_t*) teapot->user_data;
     gen_info(__FUNCTION__, "teapot hit: {} - id", teapot->id);
-    // auto* saved_entity = game::find_entity_by_id(&gs_saved_world, teapot_entity->id);
-    // teapot_entity->transform.origin = saved_entity->transform.origin;
-    // teapot->position = saved_entity->transform.origin;
     teapot->add_relative_force(axis::up);
     
     teapot->flags = physics::rigidbody_flags::SKIP_SYNC;
@@ -314,29 +312,27 @@ app_init_graphics(app_memory_t* app_mem) {
         &app->brick_texture, 1);
 
     { //@test loading shader objects
-        const char* files[2]{
-            "./assets/shaders/bin/simple.vert.spv",
-            "./assets/shaders/bin/simple.frag.spv",
-        };
-        VkShaderStageFlagBits stages[2]{
-            VK_SHADER_STAGE_VERTEX_BIT,
-            VK_SHADER_STAGE_FRAGMENT_BIT,
-        };
-        VkShaderStageFlagBits stages_next[2]{
-            VK_SHADER_STAGE_FRAGMENT_BIT, (VkShaderStageFlagBits)0
-        };
-        VkShaderEXT shaders[2];
-
-        create_shader_objects_from_files(
-            app->main_arena,
+        rs->shader_cache.load(
+            app->main_arena, 
             vk_gfx,
+            assets::shaders::simple_vert,
             app->mesh_pipeline->descriptor_set_layouts,
-            app->mesh_pipeline->descriptor_count,
-            stages, stages_next,
-            files,
-            array_count(stages),
-            shaders /* out */
+            app->mesh_pipeline->descriptor_count
         );
+        rs->shader_cache.load(
+            app->main_arena, 
+            vk_gfx,
+            assets::shaders::simple_frag,
+            app->mesh_pipeline->descriptor_set_layouts,
+            app->mesh_pipeline->descriptor_count
+        );
+        VkShaderEXT shaders[2]{
+            rs->shader_cache.get(assets::shaders::simple_vert.filename),
+            rs->shader_cache.get(assets::shaders::simple_frag.filename)
+        };
+
+        assert(shaders[0]!=VK_NULL_HANDLE);
+        assert(shaders[1]!=VK_NULL_HANDLE);
 
         const auto make_material = [&](std::string_view n, auto&& mat) {
             return game::rendering::create_material(
@@ -358,9 +354,7 @@ app_init_graphics(app_memory_t* app_mem) {
         rs->shader_cache.load(
             app->main_arena, 
             vk_gfx,
-            "./assets/shaders/bin/gui.vert.spv",
-            VK_SHADER_STAGE_VERTEX_BIT,
-            VK_SHADER_STAGE_FRAGMENT_BIT,
+            assets::shaders::gui_vert,
             app->gui_pipeline->descriptor_set_layouts,
             app->gui_pipeline->descriptor_count
         );
@@ -368,9 +362,7 @@ app_init_graphics(app_memory_t* app_mem) {
         rs->shader_cache.load(
             app->main_arena, 
             vk_gfx,
-            "./assets/shaders/bin/gui.frag.spv",
-            VK_SHADER_STAGE_FRAGMENT_BIT,
-            (VkShaderStageFlagBits)0,
+            assets::shaders::gui_frag,
             app->gui_pipeline->descriptor_set_layouts,
             app->gui_pipeline->descriptor_count
         );

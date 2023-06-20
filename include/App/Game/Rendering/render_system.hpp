@@ -61,11 +61,29 @@ namespace game::rendering {
             return add(shader[0], filename);
         }
 
+        u64 load(
+            arena_t arena,
+            gfx::vul::state_t vk_gfx,
+            const gfx::shader_description_t& shader_description,
+            VkDescriptorSetLayout* descriptor_set_layouts,
+            u32 descriptor_count
+        ) {
+            return load(
+                arena, vk_gfx, 
+                shader_description.filename.data(), 
+                (VkShaderStageFlagBits)shader_description.stage, 
+                (VkShaderStageFlagBits)shader_description.next_stages, 
+                descriptor_set_layouts, 
+                descriptor_count
+            );
+        }
+
         u64 add(VkShaderEXT shader, std::string_view name) {
             u64 hash = sid(name);
             u64 id = hash % array_count(shaders);
             // probe
             while(shaders[id].hash != 0 && shaders[id].hash != hash) {
+                gen_warn(__FUNCTION__, "probing for shader");
                 id = (id+1) % array_count(shaders);
             }
             shaders[id].hash = hash;
@@ -80,6 +98,7 @@ namespace game::rendering {
             u64 start = id;
             // probe
             while(shaders[id].hash != hash) {
+                gen_warn(__FUNCTION__, "probing for shader");
                 id = (id+1) % array_count(shaders);
                 if (id == start) return VK_NULL_HANDLE;
             }

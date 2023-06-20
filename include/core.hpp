@@ -1589,6 +1589,13 @@ struct material_t {
     }
 };
 
+struct shader_description_t {
+    std::string_view filename{};
+    u32                 stage{};
+    u32           next_stages{};
+    // Note(Zack): Add stuff for descriptor sets
+};
+
 namespace gui {
     struct vertex_t;
 };
