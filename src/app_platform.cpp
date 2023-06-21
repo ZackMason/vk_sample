@@ -281,7 +281,7 @@ load_dlls(app_dll_t* app_dlls) {
 
 #if _WIN32
     CopyFile(".\\build\\app_build.dll", ".\\build\\game.dll", 0);
-    app_dlls->dll = LoadLibraryA(".\\build\\game.dll");
+    app_dlls->dll = LoadLibrary(".\\build\\game.dll");
 #else
 
 #error "platform not imlemented"
@@ -295,7 +295,7 @@ load_dlls(app_dll_t* app_dlls) {
 
 void
 update_dlls(app_dll_t* app_dlls, app_memory_t* app_mem) {
-    bool need_reload = std::filesystem::exists("./build/lock.tmp");
+    bool need_reload = !std::filesystem::exists("./build/lock.tmp");
     if (need_reload) {
         utl::profile_t p{"dll reload time"};
         gen_warn("win32", "Game DLL Reload Detected");

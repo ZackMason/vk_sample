@@ -232,9 +232,9 @@ entity_editor_render(entity_editor_t* ee) {
 
         im::text(imgui, "============================");
         local_persist shader_1_t s1;
-        shader_2_t s2{.name="test"};
+        local_persist shader_2_t s2{.name="test"};
         object_gui(imgui, s1);
-        // object_gui(imgui, s2);
+        object_gui(imgui, s2);
 
 
         im::end_panel(imgui);
