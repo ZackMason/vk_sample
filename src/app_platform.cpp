@@ -28,6 +28,18 @@ T* win32_alloc(){
     return t;
 }
 
+FILETIME gs_game_dll_write_time;
+
+FILETIME win32_last_write_time(const char* path){
+	FILETIME time = {};
+	WIN32_FILE_ATTRIBUTE_DATA data;
+
+	if ( GetFileAttributesEx( path, GetFileExInfoStandard, &data ) )
+		time = data.ftLastWriteTime;
+
+	return time;
+}
+
 #endif
 
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -50,10 +62,6 @@ struct audio_cache_t {
     #endif
     u64 sound_count{0};
 };
-
-void __cdecl load_sound(const char* path) {
-
-}
 
 void 
 create_meta_data_dir() {
@@ -136,8 +144,6 @@ init_glfw(app_memory_t* app_mem) {
     app_mem->config.window_handle = glfwGetWin32Window(window);
 
     assert(window);
-
-    
 
     return window;
 }
@@ -237,7 +243,7 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
 }
 
 void 
-load_dlls(app_dll_t* app_dlls) {
+load_dll_functions(app_dll_t* app_dlls) {
     assert(app_dlls->dll);
 
     app_dlls->on_update = 
@@ -269,12 +275,13 @@ load_dlls(app_dll_t* app_dlls) {
 }
 
 void 
-reload_dlls(app_dll_t* app_dlls) {
+load_dlls(app_dll_t* app_dlls) {
 
     // std::filesystem::copy(".\\build\\app_build.dll", ".\\build\\app_build_temp.dll");
 
 #if _WIN32
-    app_dlls->dll = LoadLibraryA(".\\build\\app_build.dll");
+    CopyFile(".\\build\\app_build.dll", ".\\build\\game.dll", 0);
+    app_dlls->dll = LoadLibraryA(".\\build\\game.dll");
 #else
 
 #error "platform not imlemented"
@@ -283,7 +290,7 @@ reload_dlls(app_dll_t* app_dlls) {
     
     assert(app_dlls->dll);
 
-    load_dlls(app_dlls);
+    load_dll_functions(app_dlls);
 }
 
 void
@@ -291,24 +298,24 @@ update_dlls(app_dll_t* app_dlls, app_memory_t* app_mem) {
     bool need_reload = std::filesystem::exists("./build/lock.tmp");
     if (need_reload) {
         utl::profile_t p{"dll reload time"};
-
+        gen_warn("win32", "Game DLL Reload Detected");
         app_dlls->on_unload(app_mem);
 
-        while (std::filesystem::exists("./build/lock.tmp")) {
-            gen_warn("win32", "Game DLL Reload Detected");
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            need_reload = true;
-            
-            if (app_dlls->dll) {
-                while(FreeLibrary((HMODULE)app_dlls->dll)==0) {
-                    gen_error("dll", "Error Freeing Library: {}", GetLastError());
-                }
-                app_dlls->dll = nullptr;
-            }
+        FreeLibrary((HMODULE)app_dlls->dll);
+        *app_dlls={};
+
+        CopyFile(".\\build\\app_build.dll", ".\\build\\game.dll", 0);
+
+        load_dlls(app_dlls);
+
+        if (app_dlls->dll == 0) {
+            gen_error("win32", "Failed to load game");
         }
-        reload_dlls(app_dlls);
+
         gen_warn("win32", "Game DLL has reloaded");
         app_dlls->on_reload(app_mem);
+
+        gs_game_dll_write_time = win32_last_write_time(".\\build\\app_build.dll");
     }
 }
 
@@ -420,7 +427,7 @@ main(int argc, char* argv[]) {
     //play_sound_closure.dispatch(sound);
 
     app_dll_t app_dlls;
-    reload_dlls(&app_dlls);
+    load_dlls(&app_dlls);
 
     GLFWwindow* window = init_glfw(&app_mem);
 
@@ -442,7 +449,12 @@ main(int argc, char* argv[]) {
             p = new utl::profile_t{"win32::loop"};
         }
 
-        update_dlls(&app_dlls, &app_mem);
+        {
+            FILETIME game_time = win32_last_write_time(".\\build\\app_build.dll");
+            if (CompareFileTime(&game_time, &gs_game_dll_write_time)) {
+                update_dlls(&app_dlls, &app_mem);
+            }
+        }
         
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);

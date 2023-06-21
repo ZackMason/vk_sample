@@ -1074,16 +1074,21 @@ void create_shader_objects_from_files(
     const VkShaderStageFlagBits* const next_stages,
     const char** filenames,
     const u32 shader_count,
-    VkShaderEXT* const shaders /* out */
+    VkShaderEXT* const shaders /* out */,
+    SpvReflectShaderModule* const reflection /* out */
 ) {
     assert(shader_count <= 10);
-    std::vector<char> code_mem[10];
-    const char* code[10];
-    size_t code_size[10];
+    std::vector<char> code_mem[10]{};
+    const char* code[10]{};
+    size_t code_size[10]{};
     range_u64(i, 0, shader_count) {
         code_mem[i] = read_bin_file(filenames[i]);
         code[i] = code_mem[i].data();
         code_size[i] = code_mem[i].size();
+        if (reflection) {
+            SpvReflectResult result = spvReflectCreateShaderModule(code_size[i], code[i], reflection + i);
+            assert(result == SPV_REFLECT_RESULT_SUCCESS);
+        }
     }
     create_shader_objects(
         arena,

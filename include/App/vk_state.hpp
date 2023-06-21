@@ -762,7 +762,8 @@ void create_shader_objects_from_files(
     const VkShaderStageFlagBits* const next_stages,
     const char** const filenames,
     const u32 shader_count,
-    VkShaderEXT* const shaders /* out */
+    VkShaderEXT* const shaders /* out */,
+    SpvReflectShaderModule* const reflection = 0 /* out */
 );
 
 

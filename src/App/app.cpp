@@ -1154,6 +1154,7 @@ draw_gui(app_memory_t* app_mem) {
                             mat->albedo = gfx::color::to_color4(color);
 
                             app->render_system->material_storage_buffer.pool[i] = *mat;
+                            
                         }
                     }
                 }

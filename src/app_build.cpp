@@ -3,6 +3,9 @@
 
 #include "core.hpp"
 
+#include "khr/spirv_reflect.h"
+#include "khr/spirv_reflect.c"
+
 #include "App/app.cpp"
 #include "App/vk_state.cpp"
 

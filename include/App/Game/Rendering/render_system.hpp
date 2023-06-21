@@ -34,9 +34,18 @@ namespace game::rendering {
             std::string_view name;
             u64 hash{0};
             VkShaderEXT shader{VK_NULL_HANDLE};
+            SpvReflectShaderModule reflection;
+
+            // hash will probably never be 1, should probably check this
+            void kill() {
+                hash = 0x1;
+            }
+            bool is_dead() const {
+                return !hash||hash == 0x1;
+            }
         };
 
-        link_t shaders[512]{};
+        link_t shaders[64]{};
 
         u64 load(
             arena_t arena,
@@ -49,6 +58,7 @@ namespace game::rendering {
             u32 push_constant_size
         ) {
             VkShaderEXT shader[1];
+            SpvReflectShaderModule reflect[1];
             create_shader_objects_from_files(
                 arena,
                 vk_gfx,
@@ -58,9 +68,10 @@ namespace game::rendering {
                 &stage, &next_stage,
                 &filename,
                 1,
-                shader /* out */
+                shader /* out */,
+                reflect /* out */
             );
-            return add(shader[0], filename);
+            return add(shader[0], filename, reflect[0]);
         }
 
         u64 load(
@@ -81,31 +92,49 @@ namespace game::rendering {
             );
         }
 
-        u64 add(VkShaderEXT shader, std::string_view name) {
+        u64 add(VkShaderEXT shader, std::string_view name, std::optional<SpvReflectShaderModule> reflect = std::nullopt) {
             u64 hash = sid(name);
+            assert(hash!=1);
             u64 id = hash % array_count(shaders);
             // probe
             while(shaders[id].hash != 0 && shaders[id].hash != hash) {
-                gen_warn(__FUNCTION__, "probing for shader");
+                gen_warn(__FUNCTION__, "probing for shader, {} collided with {}", name, shaders[id].name);
                 id = (id+1) % array_count(shaders);
             }
             shaders[id].hash = hash;
             shaders[id].name = name;
             shaders[id].shader = shader;
+            if (reflect) {
+                shaders[id].reflection = *reflect;
+            }
             return id;
         }
 
-        VkShaderEXT get(std::string_view name) const {
+private:
+        const link_t& get_(std::string_view name) const {
             u64 hash = sid(name);
+            assert(hash!=1);
             u64 id = hash % array_count(shaders);
             u64 start = id;
             // probe
-            while(shaders[id].hash != hash) {
+            while(!shaders[id].hash && shaders[id].hash != hash) {
                 gen_warn(__FUNCTION__, "probing for shader");
                 id = (id+1) % array_count(shaders);
-                if (id == start) return VK_NULL_HANDLE;
+                if (id == start) {
+                    gen_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
+                    return shaders[0];
+                }
             }
-            return shaders[id].shader;
+            return shaders[id];
+        }
+
+public:
+        VkShaderEXT get(std::string_view name) const {
+            return get_(name).shader;
+        }
+
+        SpvReflectShaderModule reflect(std::string_view name) const {
+            return get_(name).reflection;
         }
 
         VkShaderEXT get(u64 id) const {
