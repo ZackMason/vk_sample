@@ -11,5 +11,8 @@ glslc %IncFlags% assets/shaders/skybox.frag -o assets/shaders/bin/skybox.frag.sp
 glslc %IncFlags% assets/shaders/gui.vert -o assets/shaders/bin/gui.vert.spv
 glslc %IncFlags% assets/shaders/gui.frag -o assets/shaders/bin/gui.frag.spv
 
+glslc %IncFlags% assets/shaders/trail.vert -o assets/shaders/bin/trail.vert.spv
+glslc %IncFlags% assets/shaders/trail.frag -o assets/shaders/bin/trail.frag.spv
+
 glslc %IncFlags% assets/shaders/debug_line.vert -o assets/shaders/bin/debug_line.vert.spv
 glslc %IncFlags% assets/shaders/debug_line.frag -o assets/shaders/bin/debug_line.frag.spv

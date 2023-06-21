@@ -1185,22 +1185,93 @@ namespace math {
         std::array<v3f,3> p;
 
         v3f normal() const {
-            return glm::normalize(glm::cross(p[1]-p[0], p[2]-p[0]));
+            return glm::normalize(glm::cross(e1(), e2()));
+        }
+
+        v3f e1() const {
+            return  p[1]-p[0];
+        }
+        v3f e2() const {
+            return  p[2]-p[0];
+        }
+
+        v3f bary(v2f uv) {
+            return p[0] + e1() * uv.x + e2() * uv.y;
         }
     };
 
     struct plane_t {
-        v3f n;
-        f32 d;
+        v3f n{};
+        f32 d{};
+
+        static plane_t 
+        from_triangle(const triangle_t& tri) {
+            plane_t p;
+            p.n = tri.normal();
+            p.d = glm::dot(tri.p[0], p.n);
+        }
+
+        f32 distance(v3f p) const {
+            return glm::dot(n, p) - d;
+        }
     };
 
     struct sphere_t {
         v3f origin;
         f32 radius;
     };
+
     struct circle_t {
         v2f origin;
         f32 radius;
+    };
+
+    
+    struct polygon_t {
+        v3f* points{};
+        size_t count{0}, capacity{0};
+
+        explicit polygon_t(v3f* memory, size_t capacity_)
+            : points{memory}, capacity{capacity_}
+        {}
+
+        v3f sample(f32 t) {
+            assert(count>2);
+            size_t index = size_t(t * f32(count));
+            f32 p1 = f32(index/(count));
+            f32 p2 = f32((index+1)/(count));
+            f32 d = p2-p1;
+            t = (t-p1)/d;
+            return points[index] + t * points[index+1];
+        }
+
+        polygon_t& add(v3f p) {
+            assert(count < capacity);
+            points[count++] = p;
+
+            return *this;
+        }
+
+        polygon_t& insert(size_t i, v3f p) {
+            assert(i<=count);
+            assert(i<capacity);
+            size_t r{count}, w{count+1};
+            while(i&&w!=i) { 
+                points[w--] = points[r--]; 
+            }
+            points[i] = p;
+            count++;
+            return *this;
+        }
+
+        polygon_t& remove(size_t i) {
+            assert(i<count);
+            assert(i<capacity);
+            size_t r{i+1}, w{i};
+            while(i&&i!=capacity&&w!=count) points[w++] = points[r++];
+            count--;
+            return *this;
+        }
     };
 
     bool intersect(circle_t c, v2f p) {
@@ -1209,6 +1280,18 @@ namespace math {
 
     bool intersect(sphere_t a, v3f b) {
         return glm::distance2(a.origin, b) < a.radius * a.radius;
+    }
+
+    f32 distance(circle_t c, v2f p) {
+        return glm::distance(c.origin, p) - c.radius;
+    }
+
+    f32 distance(sphere_t a, v3f p) {
+        return glm::distance(a.origin, p) - a.radius;
+    }
+
+    f32 distance(plane_t pl, v3f p) {
+        return pl.distance(p);
     }
 
     struct frustum_t {
@@ -1549,6 +1632,169 @@ namespace gfx {
 // note(zack): this is in core because it will probably be loaded 
 // in a work thread in platform layer, so that we dont have to worry
 // about halting the thread when we reload the dll
+struct vertex_t {
+    v3f pos;
+    v3f nrm;
+    v3f col;
+    v2f tex;
+};
+
+struct skinned_vertex_t {
+    v3f position;
+    v3f normal;
+    v2f tex_coord;
+    // v3f tangent;
+    // v3f bitangent;
+    u32 bone_id[4];
+    v4f weight{0.0f};
+};
+
+using index32_t = u32;
+
+struct mesh_t {
+    vertex_t*   vertices{nullptr};
+    u32         vertex_count{0};
+    index32_t*  indices{nullptr};
+    u32         index_count{0};
+};
+
+struct mesh_view_t {
+    u32 vertex_start{};
+    u32 vertex_count{};
+    u32 index_start{};
+    u32 index_count{};
+    u32 instance_start{};
+    u32 instance_count{1};
+
+    math::aabb_t<v3f> aabb{};
+};
+
+struct mesh_list_t {
+    gfx::mesh_view_t* meshes{nullptr};
+    size_t count{0};
+    math::aabb_t<v3f> aabb{};
+};
+
+// there should only be one running at a time
+struct mesh_builder_t {
+    utl::pool_t<gfx::vertex_t>& vertices;
+    utl::pool_t<u32>& indices;
+
+    mesh_builder_t(
+        utl::pool_t<gfx::vertex_t>& vertices_,
+        utl::pool_t<u32>& indices_
+    ) : vertices{vertices_}, indices{indices_} {
+        vertex_start = safe_truncate_u64(vertices_.count);
+        index_start = safe_truncate_u64(indices_.count);
+    }
+
+    u32 vertex_start{0};
+    u32 vertex_count{0};
+    u32 index_start{0};
+    u32 index_count{0};
+
+    gfx::mesh_list_t
+    build(arena_t* arena) {
+        gfx::mesh_list_t m;
+        m.count = 1;
+        m.meshes = arena_alloc_ctor<gfx::mesh_view_t>(arena, 1);
+        m.meshes[0].vertex_start = vertex_start;
+        m.meshes[0].vertex_count = vertex_count;
+        m.meshes[0].index_start = index_start;
+        m.meshes[0].index_count = index_count;
+        return m;
+    }
+
+    void rewrite() {
+        assert(vertex_count);
+        vertices.clear();
+        indices.clear();
+    }
+
+    mesh_builder_t& add_vertex(
+        v3f pos,
+        v2f uv = v2f{0.0f, 0.0f},
+        v3f nrm = axis::up,
+        v3f col = v3f{1.0f}
+    ) {
+        *vertices.allocate(1) = gfx::vertex_t{.pos = pos, .nrm = nrm, .col = col, .tex = uv};
+        vertex_count++;
+        return *this;
+    }
+
+    mesh_builder_t& add_vertex(gfx::vertex_t&& vertex) {
+        *vertices.allocate(1) = std::move(vertex);
+        vertex_count++;
+        return *this;
+    }
+    mesh_builder_t& add_index(u32 index) {
+        *indices.allocate(1) = index;
+        index_count++;
+        return *this;
+    }
+
+
+    mesh_builder_t& add_triangles(math::triangle_t* tris, u64 count) {
+        loop_iota_u64(i, count) {
+            auto* v = vertices.allocate(3);
+
+            const auto [t0, t1, t2] = tris[i].p;
+
+            const v3f norm = glm::normalize(glm::cross(t1-t0,t2-t0));
+
+            v[0].pos = t0;
+            v[1].pos = t1;
+            v[2].pos = t2;
+
+            loop_iota_u64(j, 3) {
+                v[j].nrm = norm;
+                v[j].col = norm;
+                v[j].tex = v2f{0.0};
+            }
+        }
+
+        vertex_count += safe_truncate_u64(count) * 3;
+        return *this;
+    }
+
+    mesh_builder_t& add_box(math::aabb_t<v3f> box) {
+        math::triangle_t tris[32];
+        const auto s = box.size();
+        const auto p = box.min;
+        const auto sx = s.x;
+        const auto sy = s.y;
+        const auto sz = s.z;
+        const auto sxv = v3f{s.x, 0.0f, 0.0f};
+        const auto syv = v3f{0.0f, s.y, 0.0f};
+        const auto szv = v3f{0.0f, 0.0f, s.z};
+        u64 i = 0;
+        tris[i++].p = {p, p + sxv, p + sxv + syv};
+        tris[i++].p = {p, p + syv + sxv, p + syv};
+
+        tris[i++].p = {p, p + szv + sxv, p + szv};
+        tris[i++].p = {p, p + szv + sxv, p + szv};
+        
+        tris[i++].p = {p, p + szv + syv, p + szv};
+        tris[i++].p = {p, p + szv + syv, p + szv};
+        
+        return add_triangles(tris, 6);
+    }
+    mesh_builder_t& add_quad(gfx::vertex_t vertex[4]) {
+        u32 v_start = safe_truncate_u64(vertices.count);
+        gfx::vertex_t* v = vertices.allocate(6);
+        v[0] = vertex[0];
+        v[1] = vertex[1];
+        v[2] = vertex[2];
+        
+        v[3] = vertex[2];
+        v[4] = vertex[1];
+        v[5] = vertex[3];
+
+        vertex_count += 6;
+
+        return *this;
+    }
+};
 
 
 using color4 = v4f;
@@ -1593,7 +1839,141 @@ struct shader_description_t {
     std::string_view filename{};
     u32                 stage{};
     u32           next_stages{};
+    u32    push_constant_size{};
     // Note(Zack): Add stuff for descriptor sets
+
+    struct uniform_t {
+        std::string_view name{};
+        std::string_view type{};
+        void*            data{};
+    };
+
+    uniform_t uniforms[32];
+    size_t    uniform_count{};
+
+    constexpr shader_description_t& set_stage(u32 s) {
+        stage = s;
+        return *this;
+    }
+
+    constexpr shader_description_t& add_next_stage(u32 s) {
+        next_stages |= s;
+        return *this;
+    }
+
+    template <typename T>
+    constexpr shader_description_t& add_push_constant() {
+        add_push_constant(sizeof(T));
+    }
+
+    constexpr shader_description_t& add_push_constant(u32 size) {
+        push_constant_size += size;
+        assert(push_constant_size < (sizeof(m44)<<1));
+        return *this;
+    }
+
+    constexpr shader_description_t& add_uniform(std::string_view name, std::string_view type) {
+        assert(uniform_count < array_count(uniforms));
+        uniforms[uniform_count++] = uniform_t{
+            .name = name,
+            .type = type
+        };
+        return *this;
+    }
+};
+
+struct trail_renderer_t {
+    inline static constexpr size_t MAX_POINTS = 32;
+
+    v3f points[MAX_POINTS]{};
+    f32 point_life[MAX_POINTS]{0.0f};
+    size_t point_head{0};
+
+    color4 start_color{1.0f};
+    color4 end_color{1.0f};
+
+    f32 min_distance{0.1f};
+    f32 life_time{1.0f};
+
+    bool emitting{true};
+    // bool billboard{true};
+
+private:
+    v3f _last_position;
+
+    void emit(v3f position) {
+        points[point_head] = position;
+        point_head = (point_head + 1) % MAX_POINTS;
+    }
+
+    size_t last_index(size_t i){
+        return i ? i-1 : MAX_POINTS-1;
+    }
+
+    v3f last_point(size_t i) {
+        return points[last_index(i)];
+    }
+    f32 last_life(size_t i) {
+        return point_life[last_index(i)];
+    }
+
+public:
+    void tick(f32 dt, v3f position) {
+        if (emitting) {
+            if (point_life[point_head] > 0.0f) {
+                _last_position = points[point_head];
+                while (glm::distance(_last_position, position) > min_distance) {
+                    v3f delta = glm::normalize(position - _last_position);
+                    emit(_last_position + delta * min_distance);
+                    _last_position = points[point_head];
+                }
+            }
+        }
+
+        range_u64(i, 0, MAX_POINTS) {
+            if ((point_life[i] -= dt) > 0.0f) {
+
+            }
+        }
+    }
+
+    void make_quad(
+        v3f a, v3f b, 
+        f32 height, 
+        std::span<v3f> vertices
+    ) {
+        const auto up = axis::up * height;
+
+        const auto p0 = a + up;
+        const auto p1 = a - up;
+        const auto p2 = b + up;
+        const auto p3 = b - up;
+
+        vertices[0] = p0;
+        vertices[1] = p1;
+        vertices[2] = p2;
+        vertices[3] = p0;
+        vertices[4] = p3;
+        vertices[5] = p2;
+    }
+
+    size_t write_vertices(std::span<v3f> vertices) {
+        size_t write_position = 0;
+        range_u64(_i, 0, MAX_POINTS-1) {
+            if (write_position > vertices.size()) {
+                gen_error(__FUNCTION__, "Not enough vertices supplied: {} were given", vertices.size());
+                return write_position > 5 ? write_position - 6 : 0;
+            }
+            u64 i = (point_head + _i) % MAX_POINTS;
+            if (point_life[i] > 0.0f && last_life(i) > 0.0f) {
+                // @hardcoded
+                make_quad(points[i], last_point(i), 0.2f, vertices.subspan(write_position, write_position + 6));
+                write_position += 6;
+            }
+        }
+
+        return write_position;
+    }
 };
 
 namespace gui {
@@ -2353,6 +2733,18 @@ namespace gui {
             const v3f spos = math::world_to_screen(vp, *pos);
             math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
 
+            const auto is_gizmo_id = [](u64 id){
+                switch(id) {
+                    case "gizmo_pos"_sid: 
+                    case "gizmo_right"_sid: 
+                    case "gizmo_up"_sid: 
+                    case "gizmo_forward"_sid:
+                        return true;
+                    default:
+                        return false;
+                }                        
+            };
+
             if (viewable.contains(spos)) {
                 // gizmo points in screen space
                 const auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::up)};
@@ -2372,25 +2764,18 @@ namespace gui {
                 const auto [mx,my] = imgui.ctx.input->mouse.pos;
                 const v2f mouse{mx,my};
                 const v2f mdelta{-(imgui.gizmo_mouse_start-mouse)};
-                u64 giz_id = 0;
 
-                const auto is_gizmo_id = [](u64 id){
-                    switch(id) {
-                        case "gizmo_pos"_sid: 
-                        case "gizmo_right"_sid: 
-                        case "gizmo_up"_sid: 
-                        case "gizmo_forward"_sid:
-                            return true;
-                        default:
-                            return false;
-                    }                        
-                };
 
-                if (math::intersect(pc, mouse)) {giz_id = "gizmo_pos"_sid;} else
+                u64 giz_id = is_gizmo_id(imgui.active.id) ? imgui.active.id : 0;
+
+                // if (math::intersect(pc, mouse)) {giz_id = "gizmo_pos"_sid;} else
+                if (is_gizmo_id(imgui.active.id) == false) {
+
                 if (math::intersect(rc, mouse)) {giz_id = "gizmo_right"_sid;} else
                 if (math::intersect(uc, mouse)) {giz_id = "gizmo_up"_sid;} else
                 if (math::intersect(fc, mouse)) {giz_id = "gizmo_forward"_sid;}
 
+                }
                 const bool clicked = imgui.ctx.input->mouse.buttons[0];
                 if (is_gizmo_id(imgui.active.id)) {
                     if (is_gizmo_id(imgui.hot.id)) {
@@ -2400,10 +2785,10 @@ namespace gui {
                             const f32 scale = imgui.gizmo_scale_start;
                             *pos = imgui.gizmo_world_start + imgui.gizmo_axis_wdir * glm::dot(mdelta, naxis/scale);
 
-                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 3.0f, color::rgba::light_gray);
-                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 5.0f, color::to_color32(imgui.gizmo_axis_wdir));
-                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 3.0f, color::rgba::light_gray);
-                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 5.0f, color::to_color32(imgui.gizmo_axis_wdir));
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 6.0f, color::rgba::light_gray);
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 8.0f, color::to_color32(imgui.gizmo_axis_wdir));
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 6.0f, color::rgba::light_gray);
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 8.0f, color::to_color32(imgui.gizmo_axis_wdir));
                             
                             draw_line(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, imgui.gizmo_mouse_start, 3.0f, color::to_color32(imgui.gizmo_axis_wdir * 0.7f));
                             draw_line(&imgui.ctx, v_pos - naxis * 10000.0f, v_pos + naxis * 10000.0f, 2.0f, color::rgba::light_gray);
@@ -2464,6 +2849,13 @@ namespace gui {
 
                 if (giz_id) {
                     imgui.hot = giz_id;
+                }
+            } else {
+                if (is_gizmo_id(imgui.hot.id) || is_gizmo_id(imgui.active.id)) {
+                    imgui.hot = imgui.active = 0;
+                    imgui.gizmo_mouse_start = v2f{0.0f};
+                    imgui.gizmo_axis_dir = v2f{0.0f};
+                    imgui.gizmo_axis_wdir = v3f{0.0f};
                 }
             }
         }
@@ -2752,18 +3144,17 @@ namespace gui {
             }
             const u64 hst_id = (uintptr_t)values;
 
-            const f32 start_x = imgui.panel->draw_cursor.x;
             math::aabb_t<v2f> bg_box;
-            bg_box.min = imgui.panel->draw_cursor;
-            bg_box.max = imgui.panel->draw_cursor + size;
+            const auto start = bg_box.min = imgui.panel->draw_cursor + imgui.theme.padding;
+            bg_box.max = start + size;
 
             const v2f box_size{size.x / (f32)value_count, size.y};
 
             range_u64(i, 0, value_count) {
                 f32 perc = f32(i)/f32(value_count);
                 math::aabb_t<v2f> box;
-                box.min = imgui.panel->draw_cursor + v2f{box_size.x*i, 0.0f};
-                box.max = imgui.panel->draw_cursor + v2f{box_size.x*(i+1), size.y*(1.0f-(values[i]/max))};
+                box.min = start + v2f{box_size.x*i, 0.0f};
+                box.max = start + v2f{box_size.x*(i+1), size.y*(1.0f-(values[i]/max))};
                 draw_rect(&imgui.ctx, box, imgui.theme.fg_color);
             }
             draw_rect(&imgui.ctx, bg_box, color);
@@ -3059,50 +3450,7 @@ font_render(
     cursor.x = start_x; 
 }
 
-struct vertex_t {
-    v3f pos;
-    v3f nrm;
-    color3 col;
-    v2f tex;
-};
 
-struct skinned_vertex_t {
-    v3f position;
-    v3f normal;
-    v2f tex_coord;
-    // v3f tangent;
-    // v3f bitangent;
-    u32 bone_id[4];
-    v4f weight{0.0f};
-};
-
-using index32_t = u32;
-
-struct mesh_t {
-    vertex_t*   vertices{nullptr};
-    u32         vertex_count{0};
-    index32_t*  indices{nullptr};
-    u32         index_count{0};
-};
-
-struct mesh_view_t {
-    u32 vertex_start{};
-    u32 vertex_count{};
-    u32 index_start{};
-    u32 index_count{};
-    u32 instance_start{};
-    u32 instance_count{1};
-
-    math::aabb_t<v3f> aabb{};
-};
-
-struct mesh_list_t {
-    gfx::mesh_view_t* meshes{nullptr};
-    size_t count{0};
-    math::aabb_t<v3f> aabb{};
-};
-
-// there should only be one running at a time
 
 }; // namespace gfx
 

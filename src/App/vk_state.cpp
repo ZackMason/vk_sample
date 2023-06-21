@@ -1026,6 +1026,7 @@ void create_shader_objects(
     state_t& state,
     VkDescriptorSetLayout* descriptor_set_layouts,
     u32 descriptor_set_layout_count,
+    u32 push_constant_size,
     const VkShaderStageFlagBits* const stages,
     const VkShaderStageFlagBits* const next_stages,
     const char** const code, 
@@ -1042,7 +1043,7 @@ void create_shader_objects(
     VkShaderCreateInfoEXT* shader_create_info = arena_alloc_ctor<VkShaderCreateInfoEXT>(&arena, shader_count);
     VkPushConstantRange vpcr{};
         vpcr.offset = 0;
-	    vpcr.size = sizeof(m44) + sizeof(v4f);
+	    vpcr.size = push_constant_size;
         vpcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     range_u64(i, 0, shader_count) {
@@ -1068,6 +1069,7 @@ void create_shader_objects_from_files(
     state_t& state,
     VkDescriptorSetLayout* descriptor_set_layout,
     u32 descriptor_set_layout_count,
+    u32 push_constant_size,
     const VkShaderStageFlagBits* const stages,
     const VkShaderStageFlagBits* const next_stages,
     const char** filenames,
@@ -1088,6 +1090,7 @@ void create_shader_objects_from_files(
         state, 
         descriptor_set_layout,
         descriptor_set_layout_count,
+        push_constant_size,
         stages, 
         next_stages, 
         code, 

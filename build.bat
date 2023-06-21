@@ -7,14 +7,19 @@ pushd build
 if not exist SDL2.dll echo "No SDL DLL"
 if not exist SDL2_mixer.dll echo "No SDL Mixer DLL"
 
-set OptLevel=slow
+set OptLevel=fast
 
-rem set PhysXSDK=C:\Users\crazy\Downloads\PhysX-brickadia-4.1.2\PhysX-brickadia-4.1.2\physx
-set PhysXSDK=C:\Users\zack\Documents\GitHub\PhysX5\PhysX\physx
-set PhysXInclude=/I %PhysXSDK%/include /I C:\Users\zack\Documents\GitHub\PhysX\pxshared\include\
+if exist C:\Users\zack (
+set PhysXSDK=C:\Users\zack\Documents\GitHub\Physx5\PhysX\physx
+set PhysXInclude=/I %PhysXSDK%/include /I C:\Users\zack\Documents\GitHub\Physx5\PhysX\pxshared\include
+)
+if exist C:\Users\crazy (
+set PhysXSDK=C:\Users\crazy\Documents\GitHub\Physx5\PhysX\physx
+set PhysXInclude=/I %PhysXSDK%\include
+)
 Set PhysXCompiler=%PhysXSDK%\bin\win.x86_64.vc142.md
 rem use physx checked or debug for development
-set PhysXOpt=checked
+set PhysXOpt=release
 set PhysXLinkLibs=PhysX_64.lib PhysXCommon_64.lib PhysXCooking_64.lib PhysXFoundation_64.lib PhysXExtensions_static_64.lib PhysXCharacterKinematic_static_64.lib PhysXPvdSDK_static_64.lib PhysXVehicle_static_64.lib
 
 if "%OptLevel%"=="slow" (

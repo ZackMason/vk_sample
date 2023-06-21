@@ -45,7 +45,8 @@ namespace game::rendering {
             VkShaderStageFlagBits stage,
             VkShaderStageFlagBits next_stage,
             VkDescriptorSetLayout* descriptor_set_layouts,
-            u32 descriptor_count
+            u32 descriptor_count,
+            u32 push_constant_size
         ) {
             VkShaderEXT shader[1];
             create_shader_objects_from_files(
@@ -53,6 +54,7 @@ namespace game::rendering {
                 vk_gfx,
                 descriptor_set_layouts,
                 descriptor_count,
+                push_constant_size,
                 &stage, &next_stage,
                 &filename,
                 1,
@@ -74,7 +76,8 @@ namespace game::rendering {
                 (VkShaderStageFlagBits)shader_description.stage, 
                 (VkShaderStageFlagBits)shader_description.next_stages, 
                 descriptor_set_layouts, 
-                descriptor_count
+                descriptor_count,
+                shader_description.push_constant_size
             );
         }
 

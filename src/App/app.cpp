@@ -541,7 +541,7 @@ app_on_init(app_memory_t* app_mem) {
 
     game::spawn(app->game_world, app->render_system,
         game::db::load_from_file(app->main_arena, "assets/entity/shaderball.entt"),
-        v3f{-10,1,-10});
+        v3f{-10,1,10});
 
 
     // game::spawn(app->game_world, app->render_system, game::db::rooms::room_01);
@@ -741,6 +741,13 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
     const f32 step = 1.0f/(60.0f*sub_steps);
 
     accum += f32(input->dt > 0.0f) * std::min(input->dt, 1.0f);
+
+    {
+        local_persist gfx::trail_renderer_t tr{};
+        v3f tr_pos = v3f{5.0f} + v3f{std::sinf(input->time), 0.0f, std::cosf(input->time)};
+        tr.tick(input->dt, tr_pos);
+    }
+
 
     for (size_t i{0}; i < app->game_world->entity_count; i++) {
         auto* e = app->game_world->entities + i;
@@ -972,10 +979,6 @@ draw_gui(app_memory_t* app_mem) {
                                 record->func_name ? record->func_name : "<Unknown>"), 
                             show_record + i
                         )) {
-                            im::text(state,
-                                fmt_sv(" {:.2f}ms", cycle/1e+6)
-                            );
-
                             f32 hist[4096/32];
                             math::statistic_t debug_stat;
                             math::begin_statistic(debug_stat);
@@ -984,10 +987,11 @@ draw_gui(app_memory_t* app_mem) {
                                 math::update_statistic(debug_stat, ms);
                                 hist[j] = (f32)ms;
                             }
+    
+                            im::text(state,
+                                fmt_sv(" {:.2f}ms - [{:.2f}, {:.2f}]", cycle/1e+6, debug_stat.range.min, debug_stat.range.max)
+                            );
                             math::end_statistic(debug_stat);
-
-                            im::same_line(state);
-                            im::text(state, "--- "sv);
 
                             im::histogram(state, hist, array_count(hist), (f32)debug_stat.range.max, v2f{4.0f*128.0f, 32.0f});
                         } else {
@@ -1201,20 +1205,13 @@ draw_gui(app_memory_t* app_mem) {
             bool is_selected = widget_pos == &e->transform.origin;
             bool not_player = e != app->game_world->player;
             bool opened = false;
-            if (show_entities || 
-                is_selected || 
-                (not_player && im::draw_hiding_circle_3d(state, vp, e->global_transform().origin, 0.1f, static_cast<u32>(utl::rng::fnv_hash_u64(e->id)), 2.0f, 4)))
-
-            if (im::begin_panel_3d(state, 
+            if ((show_entities || is_selected) && im::begin_panel_3d(state, 
                 e->name.c_data ? 
                 fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e) :
                 fmt_sv("Entity: {}", (void*)e),
                 vp, e->global_transform().origin
             )) {
                 opened = true;
-                if (state.ctx.input->mouse.buttons[0]) {
-                    widget_pos = &e->transform.origin;
-                }
                 im::text(state, 
                     e->name.c_data ? 
                     fmt_sv("Entity: {}", std::string_view{e->name}) :
@@ -1272,6 +1269,11 @@ draw_gui(app_memory_t* app_mem) {
                 }
 
                 im::end_panel(state);
+            }
+            if (!opened && (not_player && im::draw_hiding_circle_3d(
+                state, vp, e->global_transform().origin, 0.1f, 
+                static_cast<u32>(utl::rng::fnv_hash_u64(e->id)), 2.0f, 4)) && state.ctx.input->mouse.buttons[0]) {
+                widget_pos = &e->transform.origin;
             }
 
             const auto panel = im::get_last_panel(state);
