@@ -304,8 +304,6 @@ update_dlls(app_dll_t* app_dlls, app_memory_t* app_mem) {
         FreeLibrary((HMODULE)app_dlls->dll);
         *app_dlls={};
 
-        CopyFile(".\\build\\app_build.dll", ".\\build\\game.dll", 0);
-
         load_dlls(app_dlls);
 
         if (app_dlls->dll == 0) {

@@ -37,7 +37,7 @@ set PhysicsLinkFlags=-opt:ref user32.lib gdi32.lib shell32.lib /LIBPATH:%PhysXCo
 xcopy %PhysXCompiler%\%PhysXOpt%\*.dll . /yq
 
 if "%~2"=="game" (
-    del app_build.pdb > NUL 2> NUL
+    del *.pdb > NUL 2> NUL
     echo Build Lock > lock.tmp
     cl %OptimizationFlags% -DGEN_INTERNAL=1 %IncludeFlags% /I ..\src %CompilerFlags% ..\src\app_build.cpp -LD /link -PDB:game_%random%.pdb %LinkFlags%
     del lock.tmp

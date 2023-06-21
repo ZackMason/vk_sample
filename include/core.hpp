@@ -973,40 +973,86 @@ constexpr string_id_t operator"" _sid(const char* str, std::size_t size) {
     return sid(std::string_view(str));
 }
 
+enum struct type_tag {
+    UINT8,
+    UINT16,
+    UINT32,
+    UINT64,
+    INT8,
+    INT16,
+    INT32,
+    INT64,
+    FLOAT32,
+    FLOAT64,
+    STRING,
+    STRING_VIEW,
+    VOID_STAR,
+    ARRAY,
+    UNKNOWN,
+};
+
 namespace reflect {
     struct type_info_t {
         sid_t       type_id{};
         size_t      size{};
         const char* name{};
     };
+
+    struct type_t;
+    struct object_t {
+        const type_t* type{0};
+        std::byte*   data{0};
+        size_t       count{0};
+        type_tag     tag{type_tag::UNKNOWN};
+    };
+
+    
     struct property_t {
+        const type_t* type{0};
         std::string_view name{};
         std::size_t offset{0};
         std::size_t size{0};
 
         template<typename Obj, typename Value>
         void set_value(Obj& obj, Value v) const noexcept {
-            *(Value*)((std::byte*)&obj + offset) = v;
+            std::memcpy((std::byte*)&obj + offset, &v, sizeof(Value));
         }
-        template<typename Obj, typename Value>
-        Value& get_value(Obj& obj) const noexcept {
-            return *(Value*)((std::byte*)&obj + offset);
+        
+        template<typename Value>
+        void set_value_raw(std::byte* obj, Value v) const noexcept {
+            std::memcpy(obj + offset, &v, sizeof(Value));
+        }
+
+        
+        object_t get_value_raw(std::byte* obj, std::byte* memory) const noexcept {
+            object_t var{type, memory};
+            std::memcpy(var.data, obj + offset, size);
+            return var;
+        }
+
+        template<typename Obj>
+        object_t get_value(Obj& obj, std::byte* memory) const noexcept {
+            object_t var{type, memory};
+            std::memcpy(var.data, ((std::byte*)&obj + offset), size);
+            return var;
         }
     };
-    struct type_t;
     struct method_t {
         std::string_view name{};
         std::size_t offset{0};
     };
+
     struct type_t {
         std::string_view name;
         size_t size;
+        type_tag tags;
+
         size_t property_count{};
         property_t properties[32];
         size_t method_count{};
         method_t methods[32];
 
-        constexpr type_t& add_property(property_t prop) {
+        constexpr type_t& add_property(const property_t& prop) {
             assert(property_count < array_count(properties));
             properties[property_count++] = prop;
             return *this;
@@ -1033,19 +1079,81 @@ namespace reflect {
             }
             return {};
         }
+
+        constexpr bool operator==(const type_t& o) const {
+            return name == o.name;
+        }
+
+        template <typename T>
+        static constexpr type_tag get_tags() {
+            type_tag tag;
+            if constexpr (std::is_same_v<T, u8> ) {tag=type_tag::UINT8;} else
+            if constexpr (std::is_same_v<T, u16>) {tag=type_tag::UINT16;} else
+            if constexpr (std::is_same_v<T, u32>) {tag=type_tag::UINT32;} else
+            if constexpr (std::is_same_v<T, u64>) {tag=type_tag::UINT64;} else
+            if constexpr (std::is_same_v<T, i8>) {tag=type_tag::INT8;} else
+            if constexpr (std::is_same_v<T, i16>) {tag=type_tag::INT16;} else
+            if constexpr (std::is_same_v<T, i32>) {tag=type_tag::INT32;} else
+            if constexpr (std::is_same_v<T, i64>) {tag=type_tag::INT64;} else
+            if constexpr (std::is_same_v<T, f32>) {tag=type_tag::FLOAT32;} else
+            if constexpr (std::is_same_v<T, f64>) {tag=type_tag::FLOAT64;} else
+            if constexpr (std::is_same_v<T, std::string_view>) {tag=type_tag::STRING_VIEW;} else
+            if constexpr (std::is_same_v<T, std::string>) {tag=type_tag::STRING_VIEW;} else
+            if constexpr (std::is_same_v<T, char*>) {tag=type_tag::STRING;} else
+            if constexpr (std::is_same_v<T, const char*>) {tag=type_tag::STRING;} else
+            if constexpr (std::is_same_v<T, const char* const>) {tag=type_tag::STRING;} else
+            if constexpr (std::is_pointer_v<T>) {tag=type_tag::VOID_STAR;} else
+            if constexpr (std::is_array_v<T>) {tag=type_tag::ARRAY;} else
+            {tag=type_tag::UNKNOWN;} 
+            return tag;
+        }
     };
 
     template <typename T>
     struct type : std::false_type {
-        static constexpr type_t info;
+        using type_of = T;
+        static constexpr type_t info{};
     };
 
-#define REFLECT_TYPE_INFO(ttype) .name = #ttype, .size = sizeof(ttype)
+#define REFLECT_TYPE_INFO(ttype) .name = #ttype, .size = sizeof(ttype), .tags = type_t::get_tags<ttype>()
 #define REFLECT_TYPE(ttype) template<> struct reflect::type<ttype> : std::true_type { static constexpr reflect::type_t info = reflect::type_t
-#define REFLECT_PROP(ttype, prop) add_property({#prop, offsetof(ttype, prop), sizeof(ttype::prop)})
+#define REFLECT_PROP(ttype, prop) add_property(reflect::property_t{reflect::type<decltype(ttype::prop)>{}?&reflect::type<decltype(ttype::prop)>::info:nullptr, #prop, offsetof(ttype, prop), sizeof(ttype::prop)})
 
 };
 using reflect::type_info_t;
+template<>
+struct fmt::formatter<reflect::object_t> {
+    template<typename ParseContext>
+    constexpr auto parse(ParseContext& ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FormatContext>
+    auto format(reflect::object_t const& o, FormatContext& ctx) {
+        switch (o.type->tags) {
+            case type_tag::UINT8:         return fmt::format_to(ctx.out(), "{}", *(u8*)o.data);
+            case type_tag::UINT16:        return fmt::format_to(ctx.out(), "{}", *(u16*)o.data);
+            case type_tag::UINT32:        return fmt::format_to(ctx.out(), "{}", *(u32*)o.data);
+            case type_tag::UINT64:        return fmt::format_to(ctx.out(), "{}", *(u64*)o.data);
+            case type_tag::INT8:          return fmt::format_to(ctx.out(), "{}", *(i8*)o.data);
+            case type_tag::INT16:         return fmt::format_to(ctx.out(), "{}", *(i16*)o.data);
+            case type_tag::INT32:         return fmt::format_to(ctx.out(), "{}", *(i32*)o.data);
+            case type_tag::INT64:         return fmt::format_to(ctx.out(), "{}", *(i64*)o.data);
+            case type_tag::FLOAT32:       return fmt::format_to(ctx.out(), "{}", *(f32*)o.data);
+            case type_tag::FLOAT64:       return fmt::format_to(ctx.out(), "{}", *(f64*)o.data);
+            case type_tag::STRING:        return fmt::format_to(ctx.out(), "{}", std::string_view{(const char*)o.data, o.count});
+            case type_tag::STRING_VIEW:   return fmt::format_to(ctx.out(), "{}", *(std::string_view*)o.data);
+            case type_tag::VOID_STAR:     return fmt::format_to(ctx.out(), "obj: {}", (void*)o.data);
+            default:                      return fmt::format_to(ctx.out(), "<unknown>");
+        }
+    }
+};
+
+
+REFLECT_TYPE(f32) {
+    REFLECT_TYPE_INFO(f32)
+    };
+};
 
 REFLECT_TYPE(v3f) {
     REFLECT_TYPE_INFO(v3f)
@@ -1061,22 +1169,7 @@ REFLECT_TYPE(v3f) {
 #define GEN_REFLECT_INFO(type, var, ...) struct VAR_CAT_(type, VAR_CAT(var, _info)) { GEN_REFLECT_VAR(type, var) }
 
 struct any_t {
-    enum struct type_tag {
-        UINT8,
-        UINT16,
-        UINT32,
-        UINT64,
-        INT8,
-        INT16,
-        INT32,
-        INT64,
-        FLOAT32,
-        FLOAT64,
-        STRING,
-        VOID_STAR,
-        TYPED_PTR,
-        UNKNOWN,
-    };
+    
 
     type_tag tag{type_tag::UNKNOWN};
 
@@ -2609,6 +2702,11 @@ namespace gui {
             v2f saved_cursor;
         };
 
+        inline void
+        indent(state_t& imgui, v2f offset) {
+            imgui.draw_cursor += offset;
+        }
+
         inline bool
         want_mouse_capture(state_t& imgui) {
             return imgui.hot.id != 0;
@@ -3038,6 +3136,7 @@ namespace gui {
             const u64 sld_id = (u64)val;
 
             v2f tmp_cursor = imgui.panel->draw_cursor;
+            v2f save_draw = tmp_cursor;
             tmp_cursor.x += 8.0f;
             math::aabb_t<v2f> box;
             math::aabb_t<v2f> prc_box;
@@ -3056,8 +3155,6 @@ namespace gui {
             box.max += v2f{1.0f};
             box.min -= v2f{1.0f};
             draw_rect(&imgui.ctx, box, imgui.theme.fg_color);
-
-            imgui.panel->draw_cursor.y += box.size().y + imgui.theme.padding;
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
 
@@ -3083,6 +3180,14 @@ namespace gui {
                 imgui.hot = sld_id;
             } else if (imgui.hot.id == sld_id) {
                 imgui.hot.id = 0;
+            }
+
+            if (imgui.next_same_line) {
+                imgui.next_same_line = false;
+                imgui.panel->draw_cursor.x += box.size().x + imgui.theme.padding;
+            } else {
+                imgui.panel->draw_cursor.y += box.size().y + imgui.theme.padding;
+                imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
             }
         }
 
@@ -3137,7 +3242,7 @@ namespace gui {
                 imgui.panel->draw_cursor.x += font_size.x;
             } else {
                 imgui.panel->draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
-                imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
+                imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
             }
             return result;
         }

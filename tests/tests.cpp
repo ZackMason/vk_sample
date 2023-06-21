@@ -104,6 +104,45 @@ entity_t utl::memory_blob_t::deserialize<entity_t>() {
     return e;
 }
 
+struct transform {
+    v3f origin;
+    v3f rotation;
+    v3f scale;
+    math::aabb_t<v3f> aabb;
+};
+
+
+REFLECT_TYPE(math::aabb_t<v3f>) {
+    REFLECT_TYPE_INFO(math::aabb_t<v3f>)
+    }
+    .REFLECT_PROP(math::aabb_t<v3f>, min)
+    .REFLECT_PROP(math::aabb_t<v3f>, max);
+
+};
+
+REFLECT_TYPE(transform) {
+    REFLECT_TYPE_INFO(transform)
+    }
+    .REFLECT_PROP(transform, aabb)
+    .REFLECT_PROP(transform, origin)
+    .REFLECT_PROP(transform, scale)
+    .REFLECT_PROP(transform, rotation);
+};
+
+
+void print_properties(auto obj) {
+    const auto type = reflect::type<decltype(obj)>::info;
+    for(auto& p: std::span{type.properties, type.property_count}) {
+        std::byte* data = new std::byte[p.size];
+        if (p.type) {
+            gen_info("refl", "{}: {} = {} - ({} offset, {} bytes)", p.name.data(), p.type->name, p.get_value(obj, data), p.offset, p.size);
+            print_properties(*p.type);
+        } else {
+            gen_warn("refl", "Unregistered type");
+        }
+        delete [] data;
+    }
+}
 
 #define RUN_TEST(x) \
     run_test(x, [&] {\
@@ -261,6 +300,18 @@ int main(int argc, char** argv) {
         TEST_ASSERT(box.contains(box));
         TEST_ASSERT(math::intersect(ray, box).intersect);
         TEST_ASSERT(math::intersect(ray, box).distance == 4.0f);
+    });
+
+    struct foo_t {
+        float hp{100.0f};
+        transform t{};
+    };
+
+    RUN_TEST("reflection2")
+        static_assert(reflect::type<f32>::info.name == "f32");
+        print_properties(v3f{1,2,3});
+        print_properties(transform{});
+
     });
 
     RUN_TEST("reflection")

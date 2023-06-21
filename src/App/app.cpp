@@ -1154,7 +1154,7 @@ draw_gui(app_memory_t* app_mem) {
                             mat->albedo = gfx::color::to_color4(color);
 
                             app->render_system->material_storage_buffer.pool[i] = *mat;
-                            
+
                         }
                     }
                 }
@@ -1827,7 +1827,7 @@ void
 main_menu_on_update(app_memory_t* app_mem) {
 }
 
-global_variable u64 scene_state = 1;
+global_variable u64 scene_state = 0;
 
 #include "App/Game/GUI/entity_editor.hpp"
 
