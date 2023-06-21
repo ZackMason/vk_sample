@@ -265,10 +265,20 @@ int main(int argc, char** argv) {
 
     RUN_TEST("reflection")
         v3f test{0.0f};
-        TEST_ASSERT(sizeof(v3f) == vec3_type.size);
+        constexpr auto vec3_type = reflect::type<v3f>::info;
 
-        auto test_x = vec3_type.get_property("x");
-        test_x.set_value(test, 10.0f);
+        static_assert(reflect::type<v2f>{}==false);
+        static_assert(vec3_type.name == "v3f");
+        static_assert(vec3_type.size == sizeof(v3f));
+
+        for(auto& property : std::span{vec3_type.properties, vec3_type.property_count}) {
+            puts(property.name.data());
+        }
+            
+        constexpr auto x_prop = vec3_type.get_property("x");
+        static_assert(x_prop.size == sizeof(f32));
+
+        x_prop.set_value(test, 10.0f);
         TEST_ASSERT(test.x == 10.0f);
     });
 

@@ -985,11 +985,11 @@ namespace reflect {
         std::size_t size{0};
 
         template<typename Obj, typename Value>
-        void set_value(Obj& obj, Value v) {
+        void set_value(Obj& obj, Value v) const noexcept {
             *(Value*)((std::byte*)&obj + offset) = v;
         }
         template<typename Obj, typename Value>
-        Value& get_value(Obj& obj) {
+        Value& get_value(Obj& obj) const noexcept {
             return *(Value*)((std::byte*)&obj + offset);
         }
     };
@@ -1008,16 +1008,16 @@ namespace reflect {
 
         constexpr type_t& add_property(property_t prop) {
             assert(property_count < array_count(properties));
-            properties[property_count] = prop;
+            properties[property_count++] = prop;
             return *this;
         }
         constexpr type_t& add_method(method_t method) {
             assert(method_count < array_count(methods));
-            methods[method_count] = method;
+            methods[method_count++] = method;
             return *this;
         }
         
-        property_t get_property(std::string_view prop) const {
+        constexpr property_t get_property(std::string_view prop) const {
             range_u64(i, 0, property_count) {
                 if (prop == properties[i].name) {
                     return properties[i];
@@ -1025,7 +1025,7 @@ namespace reflect {
             }
             return {};
         }
-        method_t get_method(std::string_view method) const {
+        constexpr method_t get_method(std::string_view method) const {
             range_u64(i, 0, method_count) {
                 if (method == methods[i].name) {
                     return methods[i];
@@ -1035,22 +1035,24 @@ namespace reflect {
         }
     };
 
+    template <typename T>
+    struct type : std::false_type {
+        static constexpr type_t info;
+    };
 
-#define REFLECT_TYPE_INFO(type) .name = #type, .size = sizeof(type)
-#define REFLECT_PROP(type, prop) {#prop, offsetof(type, prop), sizeof(type::prop)}
+#define REFLECT_TYPE_INFO(ttype) .name = #ttype, .size = sizeof(ttype)
+#define REFLECT_TYPE(ttype) template<> struct reflect::type<ttype> : std::true_type { static constexpr reflect::type_t info = reflect::type_t
+#define REFLECT_PROP(ttype, prop) add_property({#prop, offsetof(ttype, prop), sizeof(ttype::prop)})
 
 };
 using reflect::type_info_t;
 
-auto vec3_type = reflect::type_t {
-    REFLECT_TYPE_INFO(v3f),
-    .properties = {
-        REFLECT_PROP(v3f, x),
-        REFLECT_PROP(v3f, y),
-        REFLECT_PROP(v3f, z),
-    },
-    .methods = {
-    },
+REFLECT_TYPE(v3f) {
+    REFLECT_TYPE_INFO(v3f)
+    }
+    .REFLECT_PROP(v3f, x)
+    .REFLECT_PROP(v3f, y)
+    .REFLECT_PROP(v3f, z);
 };
 
 #define GEN_TYPE_ID(type) (sid(#type))
