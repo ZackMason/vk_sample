@@ -263,6 +263,15 @@ int main(int argc, char** argv) {
         TEST_ASSERT(math::intersect(ray, box).distance == 4.0f);
     });
 
+    RUN_TEST("reflection")
+        v3f test{0.0f};
+        TEST_ASSERT(sizeof(v3f) == vec3_type.size);
+
+        auto test_x = vec3_type.get_property("x");
+        test_x.set_value(test, 10.0f);
+        TEST_ASSERT(test.x == 10.0f);
+    });
+
     RUN_TEST("serialize")
         constexpr size_t arena_size = megabytes(32);
         arena_t arena = arena_create(new u8[arena_size], arena_size);

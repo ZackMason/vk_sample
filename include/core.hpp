@@ -973,10 +973,84 @@ constexpr string_id_t operator"" _sid(const char* str, std::size_t size) {
     return sid(std::string_view(str));
 }
 
-struct type_info_t {
-    sid_t       type_id{};
-    size_t      size{};
-    const char* name{};
+namespace reflect {
+    struct type_info_t {
+        sid_t       type_id{};
+        size_t      size{};
+        const char* name{};
+    };
+    struct property_t {
+        std::string_view name{};
+        std::size_t offset{0};
+        std::size_t size{0};
+
+        template<typename Obj, typename Value>
+        void set_value(Obj& obj, Value v) {
+            *(Value*)((std::byte*)&obj + offset) = v;
+        }
+        template<typename Obj, typename Value>
+        Value& get_value(Obj& obj) {
+            return *(Value*)((std::byte*)&obj + offset);
+        }
+    };
+    struct type_t;
+    struct method_t {
+        std::string_view name{};
+        std::size_t offset{0};
+    };
+    struct type_t {
+        std::string_view name;
+        size_t size;
+        size_t property_count{};
+        property_t properties[32];
+        size_t method_count{};
+        method_t methods[32];
+
+        constexpr type_t& add_property(property_t prop) {
+            assert(property_count < array_count(properties));
+            properties[property_count] = prop;
+            return *this;
+        }
+        constexpr type_t& add_method(method_t method) {
+            assert(method_count < array_count(methods));
+            methods[method_count] = method;
+            return *this;
+        }
+        
+        property_t get_property(std::string_view prop) const {
+            range_u64(i, 0, property_count) {
+                if (prop == properties[i].name) {
+                    return properties[i];
+                }
+            }
+            return {};
+        }
+        method_t get_method(std::string_view method) const {
+            range_u64(i, 0, method_count) {
+                if (method == methods[i].name) {
+                    return methods[i];
+                }
+            }
+            return {};
+        }
+    };
+
+
+#define REFLECT_TYPE_INFO(type) .name = #type, .size = sizeof(type)
+#define REFLECT_PROP(type, prop) {#prop, offsetof(type, prop), sizeof(type::prop)}
+
+};
+using reflect::type_info_t;
+
+auto vec3_type = reflect::type_t {
+    REFLECT_TYPE_INFO(v3f),
+    .properties = {
+        REFLECT_PROP(v3f, x),
+        REFLECT_PROP(v3f, y),
+        REFLECT_PROP(v3f, z),
+    },
+    .methods = {
+    },
 };
 
 #define GEN_TYPE_ID(type) (sid(#type))

@@ -11,7 +11,7 @@ set OptLevel=slow
 
 if exist C:\Users\zack (
 set PhysXSDK=C:\Users\zack\Documents\GitHub\Physx5\PhysX\physx
-set PhysXInclude=/I %PhysXSDK%/include /I C:\Users\zack\Documents\GitHub\Physx5\PhysX\pxshared\include
+set PhysXInclude=/I %PhysXSDK%/include
 )
 if exist C:\Users\crazy (
 set PhysXSDK=C:\Users\crazy\Documents\GitHub\Physx5\PhysX\physx
