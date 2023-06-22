@@ -45,6 +45,7 @@ namespace game::rendering {
             }
         };
 
+        // @hash
         link_t shaders[64]{};
 
         u64 load(
@@ -122,6 +123,7 @@ private:
                 id = (id+1) % array_count(shaders);
                 if (id == start) {
                     gen_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
+                    assert(0);
                     return shaders[0];
                 }
             }

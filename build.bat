@@ -7,7 +7,7 @@ pushd build
 if not exist SDL2.dll echo "No SDL DLL"
 if not exist SDL2_mixer.dll echo "No SDL Mixer DLL"
 
-set OptLevel=slow
+set OptLevel=fast
 
 if exist C:\Users\zack (
 set PhysXSDK=C:\Users\zack\Documents\GitHub\Physx5\PhysX\physx

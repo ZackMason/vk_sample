@@ -40,6 +40,7 @@ struct collider_t {
     collider_id         id{uid::invalid_id};
     void*               shape;
 
+    // Todo(Zack)
     // v3f                 offset;
     // glm::quat           orientation;
 };
@@ -49,7 +50,7 @@ using rigidbody_on_collision_function = void(*)(rigidbody_t*, rigidbody_t*);
 
 struct rigidbody_flags {
     enum {
-        SKIP_SYNC = BIT(0),
+        SKIP_SYNC = BIT(0),     // todo(Zack): this can be removed
         IS_ON_GROUND = BIT(1), // note(zack): these are only set for character bodies
         IS_ON_WALL = BIT(2),
     };
@@ -67,7 +68,7 @@ struct rigidbody_t {
     f32 angular_dampening{0.5f};
 
     v3f             position{0.0f};
-    glm::quat       orientation{};
+    quat            orientation{};
 
     v3f             velocity{0.0f};
     v3f             angular_velocity{0.0f};
@@ -87,58 +88,59 @@ struct rigidbody_t {
     rigidbody_on_collision_function on_collision_end{0};
 
     // transform direction from body space to world space
-    inline glm::vec3 transform_direction(const glm::vec3& direction) const
+    inline v3f transform_direction(const v3f& direction) const
     { return orientation * direction; }
 
     // transform direction from world space to body space
-    inline glm::vec3 inverse_transform_direction(const glm::vec3& direction) const
+    inline v3f inverse_transform_direction(const v3f& direction) const
     { return glm::inverse(orientation) * direction; }
 
     // get velocity and angular velocity in body space
-    inline glm::vec3 get_point_velocity(const glm::vec3& point) const
+    inline v3f get_point_velocity(const v3f& point) const
     { return inverse_transform_direction(velocity) + glm::cross(angular_velocity, point); }
 
     // force and point vectors are in body space
-    inline void add_force_at_point(const glm::vec3& force_, const glm::vec3& point)
+    inline void add_force_at_point(const v3f& force_, const v3f& point)
     { force += transform_direction(force_), torque += glm::cross(point, force_); }
 
     // force vector in body space
-    inline void add_relative_force(const glm::vec3& force_)
+    inline void add_relative_force(const v3f& force_)
     { force += transform_direction(force_); }
 
-    // integrate using the euler method
+    // Note(Zack): position is integrated by the api not here
+    // Note(Zack): this should probably happen there instead of in game
+    // Todo(Zack): allow custom gravity;
     void integrate(float dt, bool apply_gravity = false) {
-        // integrate position
         v3f acceleration = force / mass;
 
         const bool is_on_ground = flags & rigidbody_flags::IS_ON_GROUND;
 
-        if (apply_gravity && !is_on_ground) { acceleration.y -= 9.81f * 0.15f; }
+        if (apply_gravity && !is_on_ground) { acceleration.y -= 9.81f * 0.15f; } //@hardcoded
         velocity += acceleration * dt;
         // position += velocity * dt;
-        
-        // integrate orientation
+
         angular_velocity += inverse_inertia *
             (torque - glm::cross(angular_velocity, inertia * angular_velocity)) * dt;
         // orientation += (orientation * glm::quat(0.0f, angular_velocity)) * (0.5f * dt);
         // orientation = glm::normalize(orientation);
 
-        // reset accumulators
         force = v3f{0.0f};
         torque = v3f{0.0f};
     }
 };
 
+// Todo(Zack): Change to hit result
 struct raycast_result_t {
     bool hit{false};
-    v3f point;
-    v3f normal;
-    f32 distance;
+    v3f point{};
+    v3f normal{};
+    f32 distance{};
     const void* user_data{0};
 };
 
 struct api_t;
 
+// Note(Zack): Functions for the api to
 using create_scene_function = void(*)(api_t*, const void* filter_fn);
 using destroy_scene_function = void(*)(api_t*);
 

@@ -34,3 +34,4 @@
 build/
 !build/SDL2.dll
 !build/SDL2_mixer.dll
+log.txt

@@ -991,6 +991,8 @@ draw_gui(app_memory_t* app_mem) {
                         auto* record = gs_debug_table.records + i;
                         const auto cycle = record->history[record->hist_id?record->hist_id-1:array_count(record->history)-1];
 
+                        if (record->func_name == nullptr) continue;
+
                         im::same_line(state);
                         if (im::text(state,
                             fmt_sv("--- {}:", 
