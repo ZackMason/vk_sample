@@ -1010,8 +1010,8 @@ namespace reflect {
     struct property_t {
         const type_t* type{0};
         std::string_view name{};
-        std::size_t offset{0};
         std::size_t size{0};
+        std::size_t offset{0};
 
         template<typename Obj, typename Value>
         void set_value(Obj& obj, Value v) const noexcept {
@@ -1038,8 +1038,19 @@ namespace reflect {
         }
     };
     struct method_t {
+        using function_ptr_t = void (*)(void);
+        
+        const type_t* function_type{0};
         std::string_view name{};
-        std::size_t offset{0};
+        std::size_t arg_count{0};
+        function_ptr_t method{0};
+
+        template <typename RT, typename O, typename ... Args>
+        RT invoke(object_t obj, Args&& ... args) {
+            using cast_fn_t = RT(*)(O, Args...);
+            cast_fn_t cast = reinterpret_cast<cast_fn_t>(method);
+            return cast((O*)obj.data, std::forward<Args>(args)...);
+        }
     };
 
     struct type_t {
@@ -1055,6 +1066,13 @@ namespace reflect {
         constexpr type_t& add_property(const property_t& prop) {
             assert(property_count < array_count(properties));
             properties[property_count++] = prop;
+            return *this;
+        }
+        constexpr type_t& add_dyn_property(const property_t& prop) {
+            assert(property_count < array_count(properties));
+            properties[property_count++] = prop;
+            properties[property_count++].offset = size;
+            size += prop.size;
             return *this;
         }
         constexpr type_t& add_method(method_t method) {
@@ -1117,7 +1135,10 @@ namespace reflect {
 
 #define REFLECT_TYPE_INFO(ttype) .name = #ttype, .size = sizeof(ttype), .tags = type_t::get_tags<ttype>()
 #define REFLECT_TYPE(ttype) template<> struct reflect::type<ttype> : std::true_type { static constexpr reflect::type_t info = reflect::type_t
-#define REFLECT_PROP(ttype, prop) add_property(reflect::property_t{reflect::type<decltype(ttype::prop)>{}?&reflect::type<decltype(ttype::prop)>::info:nullptr, #prop, offsetof(ttype, prop), sizeof(ttype::prop)})
+#define REFLECT_TRY_TYPE(ttype) reflect::type<ttype>{}?&reflect::type<ttype>::info:nullptr
+#define REFLECT_FUNC(ttype, func, args) add_method(reflect::method_t{REFLECT_TRY_TYPE(decltype(func)), #func, args, (void (*)(void))&func})
+#define REFLECT_PROP(ttype, prop) add_property(reflect::property_t{reflect::type<decltype(ttype::prop)>{}?&reflect::type<decltype(ttype::prop)>::info:nullptr, #prop, sizeof(ttype::prop), offsetof(ttype, prop)})
+#define REFLECT_DYN_PROP(ttype, prop, size, offset) add_dynamic_property(reflect::property_t{reflect::type<decltype(ttype::prop)>{}?&reflect::type<decltype(ttype::prop)>::info:nullptr, #prop, size})
 
 };
 using reflect::type_info_t;
@@ -4634,6 +4655,7 @@ struct memory_blob_t {
         advance(sizeof(T));
 
         return *(T*)(data + t_offset);
+        // return std::bit_cast<T>(*(T*)(data + t_offset));
     }   
     
     template<>

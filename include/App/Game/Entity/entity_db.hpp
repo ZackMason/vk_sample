@@ -7,7 +7,7 @@ namespace game::db {
 
 struct entity_def_t {
     entity_type type{entity_type::environment};
-    char type_name[128]{0};
+    char type_name[256]{0};
 
     struct gfx_t {
         // string_t mesh_name{};

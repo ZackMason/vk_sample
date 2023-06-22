@@ -315,7 +315,7 @@ int main(int argc, char** argv) {
     });
 
     RUN_TEST("reflection")
-        v3f test{0.0f};
+        v3f test{10.0f};
         constexpr auto vec3_type = reflect::type<v3f>::info;
 
         static_assert(reflect::type<v2f>{}==false);
@@ -329,8 +329,8 @@ int main(int argc, char** argv) {
         constexpr auto x_prop = vec3_type.get_property("x");
         static_assert(x_prop.size == sizeof(f32));
 
-        x_prop.set_value(test, 10.0f);
-        TEST_ASSERT(test.x == 10.0f);
+        x_prop.set_value(test, 0.0f);
+        TEST_ASSERT(test.x == 0.0f);
     });
 
     RUN_TEST("serialize")
