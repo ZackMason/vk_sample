@@ -7,11 +7,11 @@ namespace game::db {
 
 struct entity_def_t {
     entity_type type{entity_type::environment};
-    char type_name[256]{0};
+    char type_name[128]{};
 
     struct gfx_t {
         // string_t mesh_name{};
-        char mesh_name[512]{0};
+        char mesh_name[256]{};
         gfx::material_t material{};
         string_t albedo_tex{};
         string_t normal_tex{};
@@ -53,6 +53,14 @@ struct entity_def_t {
         v3f                 offset{0.0f};
     };
     child_t children[10]{};
+
+    entity_def_t& operator=(const entity_def_t& o) {
+        if (this != &o) {
+            puts("foo");
+            std::memcpy(this, &o, sizeof(*this));
+        }
+        return *this;
+    }
 };
 
 

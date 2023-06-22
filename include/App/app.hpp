@@ -168,10 +168,10 @@ struct app_t {
     f32 time_text_anim = 0.0f;
 
     i32 width() {
-        return app_mem->config.graphics_config.window_size.x;
+        return app_mem->config.window_size[0];
     }
     i32 height() {
-        return app_mem->config.graphics_config.window_size.y;
+        return app_mem->config.window_size[1];
     }
 };
 

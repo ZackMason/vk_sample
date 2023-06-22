@@ -433,12 +433,20 @@ main(int argc, char* argv[]) {
 
     app_dlls.on_init(&app_mem);
 
+    std::atomic_bool reload_flag = false;
+    auto render_thread = std::thread([&]{
+        while(app_mem.running && !glfwWindowShouldClose(window)) {
+            while(reload_flag);
+            if (app_dlls.on_render) {
+                f32 last_time = app_mem.input.render_time;
+                
+                app_mem.input.render_time = (f32)(glfwGetTime());
+                app_mem.input.render_dt = app_mem.input.render_time - last_time;
 
-    // auto render_thread = std::thread([&]{
-    //     while(app_mem.running && !glfwWindowShouldClose(window)) {
-    //         app_dlls.on_render(&app_mem);
-    //     }
-    // });
+                app_dlls.on_render(&app_mem);
+            }
+        }
+    });
     
     while(app_mem.running && !glfwWindowShouldClose(window)) {
         utl::profile_t* p = 0;
@@ -449,17 +457,25 @@ main(int argc, char* argv[]) {
 
         {
             FILETIME game_time = win32_last_write_time(".\\build\\app_build.dll");
-            if (CompareFileTime(&game_time, &gs_game_dll_write_time)) {
-                update_dlls(&app_dlls, &app_mem);
+            static bool first = true;
+            if (first) {
+                gs_game_dll_write_time = game_time;
             }
+            if (CompareFileTime(&game_time, &gs_game_dll_write_time)) {
+                reload_flag = true;
+                update_dlls(&app_dlls, &app_mem);
+                reload_flag = false;
+            }
+            first = false;
         }
         
+        while((f32)(glfwGetTime())-app_mem.input.time<1.0f/60.0f);
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);
         }
-        if (app_dlls.on_render) {
-            app_dlls.on_render(&app_mem);
-        }
+        // if (app_dlls.on_render) {
+        //     app_dlls.on_render(&app_mem);
+        // }
 
         glfwPollEvents();
         update_input(&app_mem, window);
@@ -471,10 +487,9 @@ main(int argc, char* argv[]) {
 
         delete p;
 
-        // std::this_thread::sleep_for(std::chrono::milliseconds(16));
     };
 
-    // render_thread.join();
+    render_thread.join();
 
     save_graphics_config(&app_mem);
 

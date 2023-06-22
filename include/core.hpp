@@ -437,6 +437,7 @@ struct app_input_t {
     f32 time;
     f32 dt;
 
+
     // keyboard
     u8 keys[512];
 
@@ -457,9 +458,14 @@ struct app_input_t {
     struct mouse_t {
         u8 buttons[12];
         f32 pos[2];
+
+        // preserved, everything above here is reset every frame    
         f32 delta[2];
         i32 scroll[2];
     } mouse;
+    
+    f32 render_time;
+    f32 render_dt;
 
     char keyboard_input() const noexcept {
         const bool shift = keys[key_id::LEFT_SHIFT] || keys[key_id::RIGHT_SHIFT];
@@ -480,7 +486,7 @@ struct app_input_t {
 
 inline void
 app_input_reset(app_input_t* input) {
-    std::memset(input, 0, sizeof(app_input_t) - 4 * sizeof(i32));
+    std::memset(input, 0, sizeof(app_input_t) - 6 * sizeof(i32));
 }
 
 struct app_config_t {
@@ -4654,7 +4660,10 @@ struct memory_blob_t {
         
         advance(sizeof(T));
 
-        return *(T*)(data + t_offset);
+        T t;
+        std::memcpy(&t, (T*)(data + t_offset), sizeof(T));
+
+        return t;
         // return std::bit_cast<T>(*(T*)(data + t_offset));
     }   
     

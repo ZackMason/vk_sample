@@ -539,9 +539,9 @@ app_on_init(app_memory_t* app_mem) {
         v3f{10,3,10});
 
 
-    game::spawn(app->game_world, app->render_system,
-        game::db::load_from_file(app->main_arena, "assets/entity/shaderball.entt"),
-        v3f{-10,1,10});
+    // game::spawn(app->game_world, app->render_system,
+    //     game::db::load_from_file(app->main_arena, "assets/entity/shaderball.entt"),
+    //     v3f{-10,1,10});
 
 
     // game::spawn(app->game_world, app->render_system, game::db::rooms::room_01);
@@ -612,11 +612,13 @@ app_on_deinit(app_memory_t* app_mem) {
 export_fn(void) 
 app_on_unload(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
+    app->render_system->ticket.lock();
 }
 
 export_fn(void)
 app_on_reload(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
+    app->render_system->ticket.unlock();
 }
 
 void 
@@ -725,7 +727,7 @@ app_on_input(app_t* app, app_input_t* input) {
 void game_on_gameplay(app_t* app, app_input_t* input) {
     TIMED_FUNCTION;
 
-    // std::lock_guard lock{app->render_system->ticket};
+    std::lock_guard lock{app->render_system->ticket};
 
     input->dt *= app->time_scale;
     app_on_input(app, input);
@@ -960,8 +962,24 @@ draw_gui(app_memory_t* app_mem) {
             }
             
             if (im::text(state, "Stats"sv, &show_stats)) {
-                im::text(state, fmt_sv("- FPS: {:.2f} - {:.2f} ms", 1.0f / app_mem->input.dt, app_mem->input.dt * 1000.0f));
+                local_persist f32 dt_accum{0};
+                local_persist f32 dt_count{0};
+                if (dt_count > 1000.0f) {
+                    dt_count=dt_accum=0.0f;
+                }
+                dt_accum += app_mem->input.dt;
+                dt_count += 1.0f;
 
+                local_persist f32 rdt_accum{0};
+                local_persist f32 rdt_count{0};
+                if (rdt_count > 1000.0f) {
+                    rdt_count=rdt_accum=0.0f;
+                }
+                rdt_accum += app_mem->input.render_dt;
+                rdt_count += 1.0f;
+                im::text(state, fmt_sv("- Gameplay FPS: {:.2f} - {:.2f} ms", 1.0f / (dt_accum/dt_count), (dt_accum/dt_count) * 1000.0f));
+                im::text(state, fmt_sv("- Graphics FPS: {:.2f} - {:.2f} ms", 1.0f / (rdt_accum/rdt_count), (rdt_accum/rdt_count) * 1000.0f));
+                
                 {
                     const auto [x,y] = app_mem->input.mouse.pos;
                     im::text(state, fmt_sv("- Mouse: [{:.2f}, {:.2f}]", x, y));
@@ -1370,11 +1388,13 @@ game_on_render(app_memory_t* app_mem) {
     }
 
     u32 imageIndex = wait_for_frame(app, frame_count);
-    //std::lock_guard lock{app->render_system->ticket};
+    std::lock_guard lock{app->render_system->ticket};
     {
         app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
         app->render_system->set_view(app->game_world->camera.to_matrix(), app->width(), app->height());
     }
+
+    draw_gui(app_mem);
 
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
     auto& command_buffer = vk_gfx.command_buffer[frame_count&1];
@@ -1658,7 +1678,7 @@ game_on_render2(app_memory_t* app_mem) {
     app->scene.sporadic_buffer.num_instances = 1;
 
     u32 imageIndex = wait_for_frame(app, frame_count);
-    //std::lock_guard lock{app->render_system->ticket};
+    std::lock_guard lock{app->render_system->ticket};
 
     {
         app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
@@ -1844,8 +1864,7 @@ app_on_render(app_memory_t* app_mem) {
             game_on_render(app_mem);
         }   break;
         case 1:{
-            // Game
-            draw_gui(app_mem);
+            // Game            
             game_on_render(app_mem);
         }   break;
         default:
