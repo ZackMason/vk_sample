@@ -470,6 +470,7 @@ main(int argc, char* argv[]) {
         }
         
         while((f32)(glfwGetTime())-app_mem.input.time<1.0f/60.0f);
+        update_input(&app_mem, window);
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);
         }
@@ -478,7 +479,6 @@ main(int argc, char* argv[]) {
         // }
 
         glfwPollEvents();
-        update_input(&app_mem, window);
 
         if (app_mem.input.keys[key_id::ESCAPE] || 
             app_mem.input.gamepads[0].buttons[button_id::options].is_held) {

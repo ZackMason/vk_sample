@@ -972,7 +972,7 @@ draw_gui(app_memory_t* app_mem) {
 
                 local_persist f32 rdt_accum{0};
                 local_persist f32 rdt_count{0};
-                if (rdt_count > 1000.0f) {
+                if (rdt_count > 10000.0f) {
                     rdt_count=rdt_accum=0.0f;
                 }
                 rdt_accum += app_mem->input.render_dt;
