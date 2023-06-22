@@ -57,6 +57,7 @@ namespace uid {
 			constexpr explicit name(uid::id_type id)	\
 				: id_base{ id } {}						\
 			constexpr name() : id_base{ 0 } {}			\
+			constexpr std::string_view to_str() const noexcept { return #name; }\
 		};
 	}
 #else
