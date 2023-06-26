@@ -314,16 +314,8 @@ int main(int argc, char** argv) {
 
         TEST_ASSERT(array.size() == 10);
 
-        for(const auto& str: array) {
-            fmt::print("{}", str);
-        }
-
         array.resize(15, "foo");
         TEST_ASSERT(array.size() == 15);
-
-        for(const auto& str: array) {
-            fmt::print("{}", str);
-        }
 
         array.remove(0);
         TEST_ASSERT(array.size() == 14);
@@ -331,21 +323,10 @@ int main(int argc, char** argv) {
 
     });
 
-
-
     struct foo_t {
         float hp{100.0f};
         transform t{};
     };
-
-    RUN_TEST("reflection2")
-        static_assert(reflect::type<f32>::info.name == "f32");
-        static_assert(reflect::type<glm::vec3>::info.name == "v3f");
-        static_assert(reflect::type<glm::vec3>::info == reflect::type<v3f>::info);
-        print_properties(v3f{1,2,3});
-        print_properties(transform{});
-
-    });
 
     RUN_TEST("reflection")
         v3f test{10.0f};
@@ -355,15 +336,23 @@ int main(int argc, char** argv) {
         static_assert(vec3_type.name == "v3f");
         static_assert(vec3_type.size == sizeof(v3f));
 
-        for(auto& property : std::span{vec3_type.properties, vec3_type.property_count}) {
-            puts(property.name.data());
-        }
+        // for(auto& property : std::span{vec3_type.properties, vec3_type.property_count}) {
+        //     puts(property.name.data());
+        // }
             
         constexpr auto x_prop = vec3_type.get_property("x");
         static_assert(x_prop.size == sizeof(f32));
 
         x_prop.set_value(test, 0.0f);
         TEST_ASSERT(test.x == 0.0f);
+    });
+
+    RUN_TEST("reflection2")
+        static_assert(reflect::type<f32>::info.name == "f32");
+        static_assert(reflect::type<glm::vec3>::info.name == "v3f");
+        static_assert(reflect::type<glm::vec3>::info == reflect::type<v3f>::info);
+        // print_properties(v3f{1,2,3});
+        // print_properties(transform{});
     });
 
     RUN_TEST("serialize")
@@ -424,6 +413,10 @@ int main(int argc, char** argv) {
         constexpr size_t arena_size = megabytes(32);
         arena_t arena = arena_create(new u8[arena_size], arena_size);
         arena_t scene_arena = arena_create(new u8[arena_size], arena_size);
+        defer {
+            delete [] arena.start;
+            delete [] scene_arena.start;
+        };
 
         scene_t scene;
 
@@ -463,8 +456,6 @@ int main(int argc, char** argv) {
         // TEST_ASSERT(loaded_scene.entities[0].item.get()->id == 4);
         // TEST_ASSERT(loaded_scene.entities[1].item.get()->id == 5);
         // TEST_ASSERT(loaded_scene.entities[2].item.is_null() == true);
-        delete [] arena.start;
-        delete [] scene_arena.start;
     });
 
     RUN_TEST("pack file")

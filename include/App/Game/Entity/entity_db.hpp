@@ -11,12 +11,12 @@ struct entity_def_t {
 
     struct gfx_t {
         // string_t mesh_name{};
-        char mesh_name[256]{0};
+        char mesh_name[128]{0};
         gfx::material_t material{};
-        string_t albedo_tex{};
-        string_t normal_tex{};
-
-        string_t animations{};
+        char albedo_texture[128]{0};
+        char normal_texture[128]{0};
+        
+        char animations[128]{0};
     } gfx;
 
     std::optional<character_stats_t> stats{};
@@ -134,6 +134,30 @@ door {
 };
 
 }; //namespace misc
+
+namespace environmental {
+
+DB_ENTRY
+rock_01 {
+    .type = entity_type::environment,
+    .type_name = "rock",
+    .gfx = {
+        .mesh_name = "assets/models/rocks/rock_01.obj",
+        .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+};
+
+DB_ENTRY
+tree_01 {
+    .type = entity_type::environment,
+    .type_name = "tree",
+    .gfx = {
+        .mesh_name = "assets/models/environment/tree_01.obj",
+        .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+};
+
+};
 
 namespace rooms {
 

@@ -4957,13 +4957,18 @@ load_pack_file(
         loader.advance(resource_size);
     }
 
-    gen_info("res", "Loaded Resource File: {}", path);
+    // gen_info("res", "Loaded Resource File: {}", path);
+
+    return packed_file;
+}
+
+void pack_file_print(
+    pack_file_t* packed_file
+) {
     gen_info("res", "Asset File contains: {} files", packed_file->file_count);
     for (size_t i = 0; i < packed_file->file_count; i++) {
         gen_info("res", "\tfile: {} - {}", packed_file->table[i].name.c_str(), packed_file->table[i].size);
     }
-
-    return packed_file;
 }
 
 size_t pack_file_find_file(

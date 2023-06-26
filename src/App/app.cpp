@@ -554,6 +554,8 @@ app_on_init(app_memory_t* app_mem) {
     // }
     game::spawn(app->game_world, app->render_system, game::db::rooms::room_0);
 
+    game::spawn(app->game_world, app->render_system, game::db::environmental::tree_01, v3f{20,0,20});
+
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
     loop_iota_u64(i, 20) {
         auto* e = game::spawn(
@@ -1405,8 +1407,6 @@ game_on_render(app_memory_t* app_mem) {
         app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
         app->render_system->set_view(app->game_world->camera.to_matrix(), app->width(), app->height());
     }
-            
-    draw_gui(app_mem);            
 
 
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
@@ -1877,6 +1877,10 @@ app_on_render(app_memory_t* app_mem) {
         }   break;
         case 1:{
             // Game            
+            {
+                // std::lock_guard lock{app->render_system->ticket};
+                draw_gui(app_mem);            
+            }                
             game_on_render(app_mem);
         }   break;
         default:

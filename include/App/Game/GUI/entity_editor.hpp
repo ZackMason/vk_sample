@@ -206,9 +206,9 @@ entity_editor_render(entity_editor_t* ee) {
             im::text(imgui, "-- Mesh Name: \t"sv);
             im::text_edit(imgui, std::string_view{ee->entity.gfx.mesh_name}, &mesh_pos, "mesh_name::edit"_sid);
             
-            im::text(imgui, fmt_sv("-- Albedo Name: {}"sv, ee->entity.gfx.albedo_tex.sv()));
-            im::text(imgui, fmt_sv("-- Normal Name: {}"sv, ee->entity.gfx.normal_tex.sv()));
-            im::text(imgui, fmt_sv("-- Anim Name: {}"sv, ee->entity.gfx.animations.sv()));
+            im::text(imgui, fmt_sv("-- Albedo Name: {}"sv, ee->entity.gfx.albedo_texture));
+            im::text(imgui, fmt_sv("-- Normal Name: {}"sv, ee->entity.gfx.normal_texture));
+            im::text(imgui, fmt_sv("-- Anim Name: {}"sv, ee->entity.gfx.animations));
         }
         
         if (im::text(imgui, "Physics"sv, &show_physics)) {
