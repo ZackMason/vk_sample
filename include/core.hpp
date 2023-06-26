@@ -660,6 +660,20 @@ struct app_dll_t {
     app_func_t on_reload{nullptr};
 };
 
+struct window_t {
+    u32 size[2];
+
+    void* native_handle{nullptr};
+    void* api_handle{nullptr};
+
+    app_func_t on_update{nullptr};
+    app_func_t on_render{nullptr};
+
+    v2f sizef() const {
+        return v2f{(f32)size[0],(f32)size[1]};
+    }
+};
+
 // nodes
 
 #define node_next(node) (node = node->next)
@@ -802,6 +816,159 @@ arena_create_frame_arena(
 }
 
 namespace utl {
+
+template <typename T>
+struct dynarray_t {
+    dynarray_t(const dynarray_t& o) = delete;
+    dynarray_t(dynarray_t&& o) = delete;
+    dynarray_t& operator=(const dynarray_t& o) = delete;
+    dynarray_t& operator=(dynarray_t&& o) = delete;
+    constexpr dynarray_t() = default;
+    constexpr dynarray_t(size_t size, const T& value = T()) {
+        resize(size, value);
+    }
+    constexpr dynarray_t(std::span<T> in) {
+        data = new T[in.size()];
+        count = capacity = in.size();
+        std::copy(data, in.data(), sizeof(T)*count);
+    }
+
+    T* begin() {
+        return data;
+    }
+
+    T* end() {
+        return data + capacity;
+    }
+
+    T* cbegin() const {
+        return data;
+    }
+
+    T* cend() const {
+        return data;
+    }
+
+    T& front() {
+        assert(data&&count);
+        return *data;
+    }
+
+    T& back() {
+        assert(data&&count);
+        return *(data+count-1);
+    }
+
+    bool is_empty() const {
+        return count==0;
+    }
+
+    void clear() {
+        for(size_t i = 0; i < count; i++) {
+            (data+i)->~T();
+        }
+        count = 0;
+    }
+
+    void reserve(size_t elements) {
+        if (data) {
+            T* t = new T[elements];
+            if (count) {
+                std::copy(data, data+count, t);
+            }
+            delete [] data;
+            data = t;
+            capacity = elements;
+        } else {
+            data = new T[elements];
+            capacity = elements;
+        }
+    }
+
+    void pop() {
+        assert(count);
+        back().~T();
+        count--;
+    }
+
+    T& push_back(const T& x) {
+        if (capacity==0) {
+            reserve(2);
+        } else if (count>=capacity) {
+            reserve(capacity<<1);
+        }
+
+        return data[count++] = x;
+    }
+
+    bool find(const T& o, size_t* index) const {
+        for (size_t i = 0; i < count; i++) {
+            if (data[i]==o) {
+                *index = i;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void remove(size_t index) {
+        assert(index < count);
+        (data+index)->~T();
+        data[index] = (data[count--]);
+    }
+
+    void resize(size_t size, const T& value = T()) {
+        if (size > capacity) {
+            reserve(size);
+        }
+        if (size < count) {
+            range_u64(i, size, count-1) {
+                data[i].~T();
+            }
+            count = size;
+        } else if (size > count) {
+            for (size_t i = count; i < size; i++) {
+                new (data+i) T(value);
+            }
+            count = size;
+        }
+    }
+
+    size_t size() const noexcept {
+        return count;
+    }
+
+    size_t buffer_size() const noexcept {
+        return capacity;
+    }
+
+    const T& operator[](size_t index) const {
+        return data[index];
+    }
+
+    T& operator[](size_t index) {
+        return data[index];
+    }
+
+    std::span<T> view() const noexcept {
+        return std::span<T>{data, count};
+    }
+
+    std::span<T> view_all() const noexcept {
+        return std::span<T>{data, capacity};
+    }
+
+    constexpr ~dynarray_t() noexcept {
+        delete [] data;
+    }
+
+private:
+    size_t count{0};
+    size_t capacity{0};
+    T* data{0};
+};
+
+
 
 struct closure_t {
     void (*func)(void*){0};
@@ -2972,12 +3139,13 @@ namespace gui {
                 // if (math::intersect(pc, mouse)) {giz_id = "gizmo_pos"_sid;} else
                 if (is_gizmo_id(imgui.active.id) == false) {
 
-                if (math::intersect(rc, mouse)) {giz_id = "gizmo_right"_sid;} else
-                if (math::intersect(uc, mouse)) {giz_id = "gizmo_up"_sid;} else
-                if (math::intersect(fc, mouse)) {giz_id = "gizmo_forward"_sid;}
+                    if (math::intersect(rc, mouse)) {giz_id = "gizmo_right"_sid;} else
+                    if (math::intersect(uc, mouse)) {giz_id = "gizmo_up"_sid;} else
+                    if (math::intersect(fc, mouse)) {giz_id = "gizmo_forward"_sid;}
 
                 }
-                const bool clicked = imgui.ctx.input->mouse.buttons[0];
+                const bool clicked = imgui.ctx.input->pressed.mouse_btns[0];
+                const bool released = imgui.ctx.input->released.mouse_btns[0];
                 if (is_gizmo_id(imgui.active.id)) {
                     if (is_gizmo_id(imgui.hot.id)) {
                         if (imgui.gizmo_mouse_start != v2f{0.0f}) {
@@ -3028,7 +3196,7 @@ namespace gui {
                             }
                         }
                     }
-                    if (!clicked) {
+                    if (released) {
                         imgui.active = 0;
                         imgui.gizmo_mouse_start = v2f{0.0f};
                         imgui.gizmo_axis_dir = v2f{0.0f};
@@ -3040,14 +3208,13 @@ namespace gui {
                         imgui.active = giz_id;
                     }
                 } else if (is_gizmo_id(imgui.hot.id)) {
-                    if (!clicked) {
+                    if (released) {
                         imgui.hot = 0;
                         imgui.gizmo_mouse_start = v2f{0.0f};
                         imgui.gizmo_axis_dir = v2f{0.0f};
                         imgui.gizmo_axis_wdir = v3f{0.0f};
                     }
                 }
-
                 if (giz_id) {
                     imgui.hot = giz_id;
                 }
@@ -4659,6 +4826,8 @@ struct memory_blob_t {
         const auto t_offset = read_offset;
         
         advance(sizeof(T));
+
+        // return *(T*)(data+t_offset);
 
         T t;
         std::memcpy(&t, (T*)(data + t_offset), sizeof(T));

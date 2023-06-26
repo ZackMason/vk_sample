@@ -57,13 +57,15 @@ keyboard_controller(app_input_t* input) {
         f32(input->keys['W']) - f32(input->keys['S'])
     };
 
-    pc.look_input = (f32(input->mouse.buttons[0]) * v2f{
+    const f32 CAMERA_TURN_SPEED = 0.1f;
+
+    pc.look_input = (CAMERA_TURN_SPEED * (f32(input->mouse.buttons[0]) * v2f{
         input->mouse.delta[0], 
         input->mouse.delta[1] 
     }) + v2f {
         f32(input->keys['L']) - f32(input->keys['J']),
         f32(input->keys['I']) - f32(input->keys['K'])
-    };
+    });
 
     pc.fire1 = input->keys['F'] || input->mouse.buttons[0];
     pc.iron_sight = input->mouse.buttons[1];
@@ -160,9 +162,7 @@ struct app_t {
         }
     } debug;
 
-        
     game::world_t* game_world{0};
-    // game::phys::physx_state_t* physics{0};
 
     f32 time_scale = 1.0f;
     f32 time_text_anim = 0.0f;

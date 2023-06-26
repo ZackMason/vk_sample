@@ -61,8 +61,8 @@ struct movement_t {
 };
 
 struct character_stats_t {
-    health_t health;
-    movement_t movement;
+    health_t health{};
+    movement_t movement{};
 };
 
 struct entity_coroutine_t {

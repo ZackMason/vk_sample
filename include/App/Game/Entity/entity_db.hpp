@@ -7,11 +7,11 @@ namespace game::db {
 
 struct entity_def_t {
     entity_type type{entity_type::environment};
-    char type_name[128]{};
+    char type_name[128]{0};
 
     struct gfx_t {
         // string_t mesh_name{};
-        char mesh_name[256]{};
+        char mesh_name[256]{0};
         gfx::material_t material{};
         string_t albedo_tex{};
         string_t normal_tex{};
@@ -56,13 +56,12 @@ struct entity_def_t {
 
     entity_def_t& operator=(const entity_def_t& o) {
         if (this != &o) {
-            puts("foo");
+            puts("Copy entity def");
             std::memcpy(this, &o, sizeof(*this));
         }
         return *this;
     }
 };
-
 
 inline static entity_def_t 
 load_from_file(arena_t temp_arena, std::string_view path) {
@@ -348,22 +347,5 @@ query(
 }
 
 }; // namespace db
-
-template<>
-void utl::memory_blob_t::serialize
-    <game::db::entity_def_t>
-    (arena_t* arena, const game::db::entity_def_t& def
-) {
-    serialize(arena, def.type);
-    serialize(arena, def.type_name);
-    serialize(arena, def.gfx.mesh_name);
-    serialize(arena, def.gfx.albedo_tex);
-    serialize(arena, def.gfx.normal_tex);
-    serialize(arena, def.gfx.animations);
-    serialize(arena, def.stats);
-    serialize(arena, def.weapon);
-    serialize(arena, def.physics);
-    serialize(arena, def.emitter);
-}
 
 #endif

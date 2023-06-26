@@ -434,6 +434,7 @@ main(int argc, char* argv[]) {
     app_dlls.on_init(&app_mem);
 
     std::atomic_bool reload_flag = false;
+    std::atomic_bool rendering_flag = false;
     auto render_thread = std::thread([&]{
         while(app_mem.running && !glfwWindowShouldClose(window)) {
             while(reload_flag);
@@ -443,7 +444,9 @@ main(int argc, char* argv[]) {
                 app_mem.input.render_time = (f32)(glfwGetTime());
                 app_mem.input.render_dt = app_mem.input.render_time - last_time;
 
+                rendering_flag = true;
                 app_dlls.on_render(&app_mem);
+                rendering_flag = false;
             }
         }
     });
@@ -457,19 +460,20 @@ main(int argc, char* argv[]) {
 
         {
             FILETIME game_time = win32_last_write_time(".\\build\\app_build.dll");
-            static bool first = true;
+            local_persist bool first = true;
             if (first) {
                 gs_game_dll_write_time = game_time;
             }
             if (CompareFileTime(&game_time, &gs_game_dll_write_time)) {
                 reload_flag = true;
+                while(rendering_flag);
                 update_dlls(&app_dlls, &app_mem);
                 reload_flag = false;
             }
             first = false;
         }
         
-        while((f32)(glfwGetTime())-app_mem.input.time<1.0f/60.0f);
+        while((f32)(glfwGetTime())-app_mem.input.time<1.0f/30.0f);
         update_input(&app_mem, window);
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);

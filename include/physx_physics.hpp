@@ -406,10 +406,10 @@ physx_simulate(api_t* api, f32 dt) {
 void
 physx_sync_rigidbody(api_t* api, rigidbody_t* rb) {
     assert(rb && rb->api_data);
-    if ((rb->flags & rigidbody_flags::SKIP_SYNC) == 0) {
-        rb->flags &= ~rigidbody_flags::SKIP_SYNC;
-        return;
-    }
+    // if ((rb->flags & rigidbody_flags::SKIP_SYNC) == 0) {
+    //     rb->flags &= ~rigidbody_flags::SKIP_SYNC;
+    //     return;
+    // }
 
     if (rb->type == rigidbody_type::DYNAMIC) {
         physx::PxTransform t = ((physx::PxRigidActor*)rb->api_data)->getGlobalPose();

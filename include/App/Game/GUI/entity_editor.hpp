@@ -127,6 +127,7 @@ entity_editor_update(entity_editor_t* ee) {
 
 inline static void
 entity_editor_render(entity_editor_t* ee) {
+    TIMED_FUNCTION;
     using namespace gfx::gui;
     using namespace std::string_view_literals;
 

@@ -612,12 +612,14 @@ app_on_deinit(app_memory_t* app_mem) {
 export_fn(void) 
 app_on_unload(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
+    
     app->render_system->ticket.lock();
 }
 
 export_fn(void)
 app_on_reload(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
+    
     app->render_system->ticket.unlock();
 }
 
@@ -642,13 +644,14 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
 
     const v3f forward = game::cam::get_direction(yaw, pitch);
     const v3f right   = glm::cross(forward, axis::up);
+    
 
     if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
         yaw += head_move.x * dt;
         pitch -= head_move.y * dt;
     }
 
-    const f32 move_speed = 120.0f * (pc.sprint ? 1.75f : 1.0f);
+    const f32 move_speed = 12.0f * (pc.sprint ? 1.75f : 1.0f);
 
     // rigidbody->velocity += (forward * move.z + right * move.x + axis::up * move.y) * dt;
     rigidbody->add_relative_force((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
@@ -727,8 +730,6 @@ app_on_input(app_t* app, app_input_t* input) {
 void game_on_gameplay(app_t* app, app_input_t* input) {
     TIMED_FUNCTION;
 
-    std::lock_guard lock{app->render_system->ticket};
-
     input->dt *= app->time_scale;
     app_on_input(app, input);
 
@@ -768,9 +769,6 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
             world->physics->simulate(world->physics, step);
         // }
     }
-
-    game::rendering::begin_frame(app->render_system);
-    app->debug.debug_vertices.pool.clear();
         
     for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
         auto* e = app->game_world->entities + i;
@@ -782,12 +780,12 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         const bool is_not_renderable = (e->flags & game::EntityFlags_Renderable) == 0;
 
         if (is_physics_object) {
-            const auto skip = (e->physics.rigidbody->flags & physics::rigidbody_flags::SKIP_SYNC);
+            // const auto skip = (e->physics.rigidbody->flags & physics::rigidbody_flags::SKIP_SYNC);
             app->game_world->physics->sync_rigidbody(0, e->physics.rigidbody);
-            if (!skip) {
-                e->transform.origin = e->physics.rigidbody->position;
-                e->transform.set_rotation(e->physics.rigidbody->orientation);
-            }
+            // if (!skip) {
+            e->transform.origin = e->physics.rigidbody->position;
+            e->transform.set_rotation(e->physics.rigidbody->orientation);
+            // }
         }
 
         if (is_pickupable) {
@@ -800,17 +798,29 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
             }
         }
 
-        if (is_not_renderable) {
-            gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
-            return;
-        }
-
         if (e == app->game_world->player) {
             e->camera_controller.transform = e->global_transform();
             e->camera_controller.translate(axis::up);
         }
 
-        app->debug.draw_aabb(e->global_transform().xform_aabb(e->aabb), gfx::color::v3::yellow);
+        // app->debug.draw_aabb(e->global_transform().xform_aabb(e->aabb), gfx::color::v3::yellow);
+    }
+
+    std::lock_guard lock{app->render_system->ticket};
+    game::rendering::begin_frame(app->render_system);
+    app->debug.debug_vertices.pool.clear();
+
+    for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
+        auto* e = app->game_world->entities + i;
+        const bool is_not_renderable = (e->flags & game::EntityFlags_Renderable) == 0;
+        if (e->is_alive() == false) {
+            continue;
+        }
+
+        if (is_not_renderable) {
+            gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
+            return;
+        }
 
         game::rendering::submit_job(
             app->render_system, 
@@ -972,7 +982,7 @@ draw_gui(app_memory_t* app_mem) {
 
                 local_persist f32 rdt_accum{0};
                 local_persist f32 rdt_count{0};
-                if (rdt_count > 10000.0f) {
+                if (rdt_count > 1000.0f) {
                     rdt_count=rdt_accum=0.0f;
                 }
                 rdt_accum += app_mem->input.render_dt;
@@ -1395,8 +1405,9 @@ game_on_render(app_memory_t* app_mem) {
         app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
         app->render_system->set_view(app->game_world->camera.to_matrix(), app->width(), app->height());
     }
+            
+    draw_gui(app_mem);            
 
-    draw_gui(app_mem);
 
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
     auto& command_buffer = vk_gfx.command_buffer[frame_count&1];
@@ -1433,36 +1444,35 @@ game_on_render(app_memory_t* app_mem) {
             VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
 
         {
+            // New structures are used to define the attachments used in dynamic rendering
+            VkRenderingAttachmentInfoKHR colorAttachment{};
+            colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+            colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
+            colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
 
-        // New structures are used to define the attachments used in dynamic rendering
-        VkRenderingAttachmentInfoKHR colorAttachment{};
-        colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-        colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
-        colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
+            // A single depth stencil attachment info can be used, but they can also be specified separately.
+            // When both are specified separately, the only requirement is that the image view is identical.			
+            VkRenderingAttachmentInfoKHR depthStencilAttachment{};
+            depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+            depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
+            depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            depthStencilAttachment.clearValue.depthStencil = { 1.0f,  0 };
 
-        // A single depth stencil attachment info can be used, but they can also be specified separately.
-        // When both are specified separately, the only requirement is that the image view is identical.			
-        VkRenderingAttachmentInfoKHR depthStencilAttachment{};
-        depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-        depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
-        depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        depthStencilAttachment.clearValue.depthStencil = { 1.0f,  0 };
+            VkRenderingInfoKHR renderingInfo{};
+            renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+            renderingInfo.renderArea = { 0, 0, rs->width, rs->height };
+            renderingInfo.layerCount = 1;
+            renderingInfo.colorAttachmentCount = 1;
+            renderingInfo.pColorAttachments = &colorAttachment;
+            renderingInfo.pDepthAttachment = &depthStencilAttachment;
+            renderingInfo.pStencilAttachment = &depthStencilAttachment;
 
-        VkRenderingInfoKHR renderingInfo{};
-        renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-        renderingInfo.renderArea = { 0, 0, rs->width, rs->height };
-        renderingInfo.layerCount = 1;
-        renderingInfo.colorAttachmentCount = 1;
-        renderingInfo.pColorAttachments = &colorAttachment;
-        renderingInfo.pDepthAttachment = &depthStencilAttachment;
-        renderingInfo.pStencilAttachment = &depthStencilAttachment;
-
-        khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
+            khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
         }
 
             auto viewport = gfx::vul::utl::viewport((f32)rs->width, (f32)rs->height, 0.0f, 1.0f);
@@ -1531,110 +1541,109 @@ game_on_render(app_memory_t* app_mem) {
             );
         khr.vkCmdEndRenderingKHR(command_buffer);
     
-        
         {
-        gfx::vul::utl::insert_image_memory_barrier(
-            command_buffer,
-            vk_gfx.swap_chain_images[imageIndex],
-            0,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-        
-        gfx::vul::utl::insert_image_memory_barrier(
-            command_buffer,
-            vk_gfx.depth_stencil_texture.image,
-            0,
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                vk_gfx.swap_chain_images[imageIndex],
+                0,
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+            
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                vk_gfx.depth_stencil_texture.image,
+                0,
+                VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
 
-        // New structures are used to define the attachments used in dynamic rendering
-        VkRenderingAttachmentInfoKHR colorAttachment{};
-        colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-        colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
-        colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
+            // New structures are used to define the attachments used in dynamic rendering
+            VkRenderingAttachmentInfoKHR colorAttachment{};
+            colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+            colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
+            colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+            colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
 
-        // A single depth stencil attachment info can be used, but they can also be specified separately.
-        // When both are specified separately, the only requirement is that the image view is identical.			
-        VkRenderingAttachmentInfoKHR depthStencilAttachment{};
-        depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-        depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
-        depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        depthStencilAttachment.clearValue.depthStencil = { 1.0f,  0 };
+            // A single depth stencil attachment info can be used, but they can also be specified separately.
+            // When both are specified separately, the only requirement is that the image view is identical.			
+            VkRenderingAttachmentInfoKHR depthStencilAttachment{};
+            depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+            depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
+            depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            depthStencilAttachment.clearValue.depthStencil = { 1.0f,  0 };
 
-        VkRenderingInfoKHR renderingInfo{};
-        renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-        renderingInfo.renderArea = { 0, 0, rs->width, rs->height };
-        renderingInfo.layerCount = 1;
-        renderingInfo.colorAttachmentCount = 1;
-        renderingInfo.pColorAttachments = &colorAttachment;
-        renderingInfo.pDepthAttachment = &depthStencilAttachment;
-        renderingInfo.pStencilAttachment = &depthStencilAttachment;
+            VkRenderingInfoKHR renderingInfo{};
+            renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+            renderingInfo.renderArea = { 0, 0, rs->width, rs->height };
+            renderingInfo.layerCount = 1;
+            renderingInfo.colorAttachmentCount = 1;
+            renderingInfo.pColorAttachments = &colorAttachment;
+            renderingInfo.pDepthAttachment = &depthStencilAttachment;
+            renderingInfo.pStencilAttachment = &depthStencilAttachment;
 
-        khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
+            khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
         }
+        {
+            ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_NONE);
+            ext.vkCmdSetFrontFaceEXT(command_buffer, VK_FRONT_FACE_CLOCKWISE);
+
+            vkCmdBindDescriptorSets(command_buffer, 
+                VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
+                0, 1, &app->default_font_descriptor, 0, nullptr);
+
             {
-                ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_NONE);
-                ext.vkCmdSetFrontFaceEXT(command_buffer, VK_FRONT_FACE_CLOCKWISE);
+                VkVertexInputBindingDescription2EXT vertexInputBinding{};
+                vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+                vertexInputBinding.binding = 0;
+                vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+                vertexInputBinding.stride = sizeof(gfx::gui::vertex_t);
+                vertexInputBinding.divisor = 1;
 
-                vkCmdBindDescriptorSets(command_buffer, 
-                    VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
-                    0, 1, &app->default_font_descriptor, 0, nullptr);
-
-                {
-                    VkVertexInputBindingDescription2EXT vertexInputBinding{};
-                    vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
-                    vertexInputBinding.binding = 0;
-                    vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-                    vertexInputBinding.stride = sizeof(gfx::gui::vertex_t);
-                    vertexInputBinding.divisor = 1;
-    
-                    VkVertexInputAttributeDescription2EXT vertexAttributes[] = {
-                        { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(gfx::gui::vertex_t, pos) },
-                        { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(gfx::gui::vertex_t, tex) },
-                        { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 2, 0, VK_FORMAT_R32_UINT, offsetof(gfx::gui::vertex_t, img) },
-                        { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 3, 0, VK_FORMAT_R32_UINT, offsetof(gfx::gui::vertex_t, col) },
-                    };
-
-                    ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
-                }
-
-                vkCmdBindVertexBuffers(command_buffer,
-                    0, 1, &app->gui.vertices[frame_count&1].buffer, offsets);
-
-                vkCmdBindIndexBuffer(command_buffer,
-                    app->gui.indices[frame_count&1].buffer, 0, VK_INDEX_TYPE_UINT32);
-
-                VkShaderEXT gui_shaders[2] {
-                    rs->shader_cache.get("./assets/shaders/bin/gui.vert.spv"),
-                    rs->shader_cache.get("./assets/shaders/bin/gui.frag.spv"),
+                VkVertexInputAttributeDescription2EXT vertexAttributes[] = {
+                    { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(gfx::gui::vertex_t, pos) },
+                    { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(gfx::gui::vertex_t, tex) },
+                    { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 2, 0, VK_FORMAT_R32_UINT, offsetof(gfx::gui::vertex_t, img) },
+                    { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 3, 0, VK_FORMAT_R32_UINT, offsetof(gfx::gui::vertex_t, col) },
                 };
-                assert(gui_shaders[0] != VK_NULL_HANDLE);
-                assert(gui_shaders[1] != VK_NULL_HANDLE);
 
-                VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
-                ext.vkCmdBindShadersEXT(command_buffer, 2, stages, gui_shaders);
-
-                vkCmdDrawIndexed(command_buffer,
-                    (u32)app->gui.ctx.indices->count,
-                    1,
-                    0,
-                    0,
-                    0
-                );
+                ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
+
+            vkCmdBindVertexBuffers(command_buffer,
+                0, 1, &app->gui.vertices[frame_count&1].buffer, offsets);
+
+            vkCmdBindIndexBuffer(command_buffer,
+                app->gui.indices[frame_count&1].buffer, 0, VK_INDEX_TYPE_UINT32);
+
+            VkShaderEXT gui_shaders[2] {
+                rs->shader_cache.get("./assets/shaders/bin/gui.vert.spv"),
+                rs->shader_cache.get("./assets/shaders/bin/gui.frag.spv"),
+            };
+            assert(gui_shaders[0] != VK_NULL_HANDLE);
+            assert(gui_shaders[1] != VK_NULL_HANDLE);
+
+            VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
+            ext.vkCmdBindShadersEXT(command_buffer, 2, stages, gui_shaders);
+
+            vkCmdDrawIndexed(command_buffer,
+                (u32)app->gui.ctx.indices->count,
+                1,
+                0,
+                0,
+                0
+            );
+        }
 
         khr.vkCmdEndRenderingKHR(command_buffer);
 
@@ -1860,6 +1869,7 @@ inline entity_editor_t* get_entity_editor(app_memory_t* app) {
 
 export_fn(void) 
 app_on_render(app_memory_t* app_mem) {
+    auto* app = get_app(app_mem);
     switch (scene_state) {
         case 0:{
             entity_editor_render(get_entity_editor(app_mem));

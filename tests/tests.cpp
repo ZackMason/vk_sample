@@ -134,13 +134,16 @@ void print_properties(auto obj) {
     const auto type = reflect::type<decltype(obj)>::info;
     for(auto& p: std::span{type.properties, type.property_count}) {
         std::byte* data = new std::byte[p.size];
+        defer {
+            delete [] data;
+        };
+        
         if (p.type) {
             gen_info("refl", "{}: {} = {} - ({} offset, {} bytes)", p.name.data(), p.type->name, p.get_value(obj, data), p.offset, p.size);
             print_properties(*p.type);
         } else {
             gen_warn("refl", "Unregistered type");
         }
-        delete [] data;
     }
 }
 
@@ -302,6 +305,34 @@ int main(int argc, char** argv) {
         TEST_ASSERT(math::intersect(ray, box).distance == 4.0f);
     });
 
+    RUN_TEST("dynarray")
+        utl::dynarray_t<std::string> array;
+
+        range_u64(i, 0, 10) {
+            array.push_back(fmt_str("helllllllllllllloooooooo: {}", i));
+        }
+
+        TEST_ASSERT(array.size() == 10);
+
+        for(const auto& str: array) {
+            fmt::print("{}", str);
+        }
+
+        array.resize(15, "foo");
+        TEST_ASSERT(array.size() == 15);
+
+        for(const auto& str: array) {
+            fmt::print("{}", str);
+        }
+
+        array.remove(0);
+        TEST_ASSERT(array.size() == 14);
+        TEST_ASSERT(array[11] == "foo");
+
+    });
+
+
+
     struct foo_t {
         float hp{100.0f};
         transform t{};
@@ -309,6 +340,8 @@ int main(int argc, char** argv) {
 
     RUN_TEST("reflection2")
         static_assert(reflect::type<f32>::info.name == "f32");
+        static_assert(reflect::type<glm::vec3>::info.name == "v3f");
+        static_assert(reflect::type<glm::vec3>::info == reflect::type<v3f>::info);
         print_properties(v3f{1,2,3});
         print_properties(transform{});
 
@@ -450,26 +483,61 @@ int main(int argc, char** argv) {
         delete [] arena.start;
     });
 
+    constexpr u64 test_size = 10000000;
     RUN_TEST("vector control")
-        std::vector<u64> vec;
+        std::vector<u64> vec(test_size);
 
-        TEST_ASSERT(vec.size() == 0);
-        TEST_ASSERT(vec.empty());
+        // TEST_ASSERT(vec.size() == 0);
+        // TEST_ASSERT(vec.empty());
 
-        constexpr u64 test_size = 1000;
 
         for (size_t i = 0; i < test_size; i++) {
-            vec.push_back(i);
+            // vec.push_back(i);
+            vec[i] = i;
         }
 
-        TEST_ASSERT(vec.size() == test_size);
         TEST_ASSERT(vec.size() == test_size);
         TEST_ASSERT(vec.front() == 0);
         TEST_ASSERT(vec.back() == test_size-1);
     });
+
+    RUN_TEST("c array")
+        u64* vec = (u64*)malloc(sizeof(u64)*test_size);
+
+        for (size_t i = 0; i < test_size; i++) {
+            vec[i]=i;
+        }
+
+        TEST_ASSERT(vec[0] == 0);
+        TEST_ASSERT(vec[test_size-1] == test_size-1);
+
+        free(vec);
+    });
+
+    RUN_TEST("dynarray perf")
+        utl::dynarray_t<u64> vec(test_size);
+
+        // TEST_ASSERT(vec.size() == 0);
+        // TEST_ASSERT(vec.is_empty());
+
+        // constexpr u64 test_size = 100000;
+
+        for (size_t i = 0; i < test_size; i++) {
+            // vec.push_back(i);
+            vec[i]=i;
+        }
+
+        TEST_ASSERT(vec.size() == test_size);
+        TEST_ASSERT(vec.front() == 0);
+        TEST_ASSERT(vec.back() == test_size-1);
+    });
+
     RUN_TEST("deque")
-        constexpr size_t arena_size = kilobytes(64);
+        constexpr size_t arena_size = megabytes(640);
         arena_t arena = arena_create(new u8[arena_size], arena_size);
+        defer {
+            delete [] arena.start;
+        };
 
         struct ent : public node_t<ent> {
             u64 id;
@@ -487,26 +555,26 @@ int main(int argc, char** argv) {
         TEST_ASSERT(deque.size() == 0);
         TEST_ASSERT(deque.is_empty());
 
-        constexpr u64 test_size = 1000;
+        // constexpr u64 test_size = 100000;
 
         for (size_t i = 0; i < test_size; i++) {
             deque.push_back(arena_alloc_ctor<ent>(&arena, 1, i));
         }
 
         TEST_ASSERT(deque.size() == test_size);
-        TEST_ASSERT(deque.size() == test_size);
         TEST_ASSERT(deque.front());
         TEST_ASSERT(deque.front()->id == 0);
         TEST_ASSERT(deque.back());
         TEST_ASSERT(deque.back()->id == test_size-1);
 
-        delete [] arena.start;
     });
 
     RUN_TEST("entity db")
         constexpr size_t arena_size = megabytes(1);
         arena_t arena = arena_create(new u8[arena_size], arena_size);
-
+        defer {
+            delete [] arena.start;
+        };
         
         u32 child_count = 0;
         for (size_t i = 0; i < array_count(game::db::characters::soldier.children); i++) {
@@ -527,7 +595,6 @@ int main(int argc, char** argv) {
 
         auto r0 = blob.deserialize<game::db::entity_def_t>();
         auto r1 = blob.deserialize<game::db::entity_def_t>();
-
         
         TEST_ASSERT(r0.stats->health.max == 120);
         TEST_ASSERT(r0.type_name == "soldier"sv);
@@ -537,6 +604,9 @@ int main(int argc, char** argv) {
     RUN_TEST("weapons")
         static constexpr size_t arena_size = kilobytes(4); // should use little memory
         arena_t arena = arena_create(new std::byte[arena_size], arena_size);
+        defer {
+            delete [] arena.start;
+        };
 
         using namespace game;
 
@@ -586,8 +656,6 @@ int main(int argc, char** argv) {
         for (size_t i = 0; i < shotgun_bullet_count; i++) {
             TEST_ASSERT(shotgun.stats.damage == shotgun_bullets[i].damage);
         }
-        delete [] arena.start;
-
     });
 
     RUN_TEST("script hashing")
@@ -596,6 +664,9 @@ int main(int argc, char** argv) {
         
         static constexpr size_t arena_size = kilobytes(4);
         arena_t arena = arena_create(new std::byte[arena_size], arena_size);
+        defer {
+            delete [] arena.start;
+        };
 
         struct player_t {
             USCRIPT(player_t);
@@ -609,6 +680,7 @@ int main(int argc, char** argv) {
                 score++;
             }
         };
+
         struct enemy_t {
             USCRIPT(enemy_t);
             u64 value{0};
@@ -677,7 +749,6 @@ int main(int argc, char** argv) {
                 *hash[hash_bucket] = script_hash;
             }
         }
-
     });
     
     
