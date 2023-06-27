@@ -1,0 +1,28 @@
+{
+	"sheets": [
+		{
+			"name": "weapon_part",
+			"columns": [
+				{
+					"typeStr": "1",
+					"name": "name"
+				},
+				{
+					"typeStr": "13",
+					"name": "model",
+					"display": null
+				}
+			],
+			"lines": [
+				{
+					"name": "handle",
+					"model": "models/guns/smg-mp5x.obj"
+				}
+			],
+			"separators": [],
+			"props": {}
+		}
+	],
+	"customTypes": [],
+	"compress": false
+}

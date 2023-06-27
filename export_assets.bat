@@ -1,1 +1,1 @@
-..\asset_exporter\build\bin\exporter.exe dir assets assets\res.pack 
+..\asset_exporter\build\bin\exporter.exe dir res res\res.pack 

@@ -183,7 +183,7 @@ raytrace_test(app_memory_t* app_mem) {
     scene->camera.origin = v3f{0.0f, 0.0f, 10.0f};
     scene->camera.direction = v3f{0.0, 0.0, -1.0f};
 
-    auto& teapot = get_mesh(app->render_system, "assets/models/utah-teapot.obj");
+    auto& teapot = get_mesh(app->render_system, "res/models/utah-teapot.obj");
     auto* teapot_vertices = &app->render_system->vertices.pool[teapot.meshes->vertex_start];
     auto* teapot_indices = &app->render_system->indices.pool[teapot.meshes->index_start];
     auto teapot_n_vertices = teapot.meshes->vertex_count;
@@ -258,7 +258,7 @@ app_init_graphics(app_memory_t* app_mem) {
         rs->render_targets[0].render_pass
     );
 
-    gfx::font_load(&app->texture_arena, &app->default_font, "./assets/fonts/Go-Mono-Bold.ttf", 18.0f);
+    gfx::font_load(&app->texture_arena, &app->default_font, "./res/fonts/Go-Mono-Bold.ttf", 18.0f);
     app->default_font_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
     {
         temp_arena_t ta = app->texture_arena;
@@ -304,7 +304,7 @@ app_init_graphics(app_memory_t* app_mem) {
     app->brick_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
     {
         temp_arena_t ta = app->texture_arena;
-        vk_gfx.load_texture_sampler(app->brick_texture, "./assets/textures/rock_01_a.png", &ta);
+        vk_gfx.load_texture_sampler(app->brick_texture, "./res/textures/rock_01_a.png", &ta);
     }
     app->brick_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
@@ -392,7 +392,7 @@ app_on_init(app_memory_t* app_mem) {
 
     app->temp_arena = arena_sub_arena(&app->main_arena, megabytes(4));
     app->string_arena = arena_sub_arena(&app->main_arena, megabytes(16));
-    app->mesh_arena = arena_sub_arena(&app->main_arena, megabytes(32));
+    app->mesh_arena = arena_sub_arena(&app->main_arena, megabytes(512));
     app->texture_arena = arena_sub_arena(&app->main_arena, megabytes(32));
     app->game_arena = arena_sub_arena(&app->main_arena, megabytes(512));
     app->gui.arena = arena_sub_arena(main_arena, megabytes(8));
@@ -419,7 +419,7 @@ app_on_init(app_memory_t* app_mem) {
     TIMED_FUNCTION;
     {
         temp_arena_t temp = *main_arena;
-        app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &temp, &app->string_arena, "./assets/res.pack");
+        app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &temp, &app->string_arena, "./res/res.pack");
     }
     
     physics::api_t* physics = app_mem->physics;
@@ -540,7 +540,7 @@ app_on_init(app_memory_t* app_mem) {
 
 
     // game::spawn(app->game_world, app->render_system,
-    //     game::db::load_from_file(app->main_arena, "assets/entity/shaderball.entt"),
+    //     game::db::load_from_file(app->main_arena, "res/entity/shaderball.entt"),
     //     v3f{-10,1,10});
 
 
@@ -1408,7 +1408,6 @@ game_on_render(app_memory_t* app_mem) {
         app->render_system->set_view(app->game_world->camera.to_matrix(), app->width(), app->height());
     }
 
-
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
     auto& command_buffer = vk_gfx.command_buffer[frame_count&1];
     vkResetCommandBuffer(command_buffer, 0);
@@ -1627,8 +1626,8 @@ game_on_render(app_memory_t* app_mem) {
                 app->gui.indices[frame_count&1].buffer, 0, VK_INDEX_TYPE_UINT32);
 
             VkShaderEXT gui_shaders[2] {
-                rs->shader_cache.get("./assets/shaders/bin/gui.vert.spv"),
-                rs->shader_cache.get("./assets/shaders/bin/gui.frag.spv"),
+                rs->shader_cache.get("./res/shaders/bin/gui.vert.spv"),
+                rs->shader_cache.get("./res/shaders/bin/gui.frag.spv"),
             };
             assert(gui_shaders[0] != VK_NULL_HANDLE);
             assert(gui_shaders[1] != VK_NULL_HANDLE);
@@ -1750,7 +1749,7 @@ game_on_render2(app_memory_t* app_mem) {
         );
 
         const auto& meshes = app->render_system->mesh_cache.get(
-            utl::str_hash_find(app->render_system->mesh_hash, "assets/models/sphere.obj")
+            utl::str_hash_find(app->render_system->mesh_hash, "res/models/sphere.obj")
         );
     
         for (size_t j = 0; j < meshes.count; j++) {
@@ -1893,7 +1892,7 @@ app_on_render(app_memory_t* app_mem) {
 export_fn(void) 
 app_on_update(app_memory_t* app_mem) {
     if (app_mem->input.pressed.keys[key_id::F3] || 
-        app_mem->input.gamepads->buttons[button_id::action_down].is_pressed) {
+        app_mem->input.gamepads->buttons[button_id::dpad_down].is_pressed) {
         scene_state = !scene_state;
     }
     switch (scene_state) {

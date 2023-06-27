@@ -1,0 +1,12 @@
+{
+	"type": "prefab",
+	"children": [
+		{
+			"type": "model",
+			"name": "shotgun",
+			"source": "models/shotgun.fbx",
+			"x": 7.74,
+			"y": -3.12
+		}
+	]
+}

@@ -17,7 +17,7 @@ struct entity_editor_t {
 
     v3f* selection{0};
 
-    game::db::entity_def_t entity;
+    game::db::prefab_t entity;
 
     entity_editor_t(app_t* app_)
     : app{app_}, imgui{
@@ -166,10 +166,10 @@ entity_editor_render(entity_editor_t* ee) {
             im::same_line(imgui);
             if (im::text(imgui, "Accept"sv)) {
                 if (show_load) {
-                    ee->entity = game::db::load_from_file(app->main_arena, fmt_sv("./assets/entity/{}", file_view));
+                    ee->entity = game::db::load_from_file(app->main_arena, fmt_sv("./res/entity/{}", file_view));
                 } else { // show_save
-                    std::ofstream file{fmt_str("./assets/entity/{}", file_view), std::ios::binary};
-                    file.write((const char*)&ee->entity, sizeof(game::db::entity_def_t));
+                    std::ofstream file{fmt_str("./res/entity/{}", file_view), std::ios::binary};
+                    file.write((const char*)&ee->entity, sizeof(game::db::prefab_t));
                 }
                 show_save = show_load = false;
             }
@@ -213,7 +213,7 @@ entity_editor_render(entity_editor_t* ee) {
         
         if (im::text(imgui, "Physics"sv, &show_physics)) {
             if (!ee->entity.physics) {
-                ee->entity.physics.emplace(game::db::entity_def_t::physics_t{});
+                ee->entity.physics.emplace(game::db::prefab_t::physics_t{});
             }
             if (im::text(imgui, "Clear"sv)) {
                 ee->entity.physics.reset();

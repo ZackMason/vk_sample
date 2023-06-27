@@ -464,7 +464,7 @@ int main(int argc, char** argv) {
         arena_t arena_temp = arena_create(new u8[arena_size], arena_size);
 
         utl::res::pack_file_t* file = utl::res::load_pack_file(
-            &arena, &arena_temp, &arena, "./assets/res.pack"
+            &arena, &arena_temp, &arena, "./res/res.pack"
         );
 
         TEST_ASSERT(file != nullptr);
@@ -584,8 +584,8 @@ int main(int argc, char** argv) {
         blob.serialize(&arena, p0);
         blob.serialize(&arena, p1);
 
-        auto r0 = blob.deserialize<game::db::entity_def_t>();
-        auto r1 = blob.deserialize<game::db::entity_def_t>();
+        auto r0 = blob.deserialize<game::db::prefab_t>();
+        auto r1 = blob.deserialize<game::db::prefab_t>();
         
         TEST_ASSERT(r0.stats->health.max == 120);
         TEST_ASSERT(r0.type_name == "soldier"sv);

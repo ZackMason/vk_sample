@@ -5,7 +5,7 @@
 
 namespace game::db {
 
-struct entity_def_t {
+struct prefab_t {
     entity_type type{entity_type::environment};
     char type_name[128]{0};
 
@@ -49,12 +49,12 @@ struct entity_def_t {
     std::optional<particle_emitter_t> emitter{};
 
     struct child_t {
-        const entity_def_t* entity{0};
+        const prefab_t* entity{0};
         v3f                 offset{0.0f};
     };
     child_t children[10]{};
 
-    entity_def_t& operator=(const entity_def_t& o) {
+    prefab_t& operator=(const prefab_t& o) {
         if (this != &o) {
             puts("Copy entity def");
             std::memcpy(this, &o, sizeof(*this));
@@ -63,9 +63,9 @@ struct entity_def_t {
     }
 };
 
-inline static entity_def_t 
+inline static prefab_t 
 load_from_file(arena_t temp_arena, std::string_view path) {
-    entity_def_t entity;
+    prefab_t entity;
 
     std::ifstream file{path.data(), std::ios::binary};
 
@@ -82,12 +82,12 @@ load_from_file(arena_t temp_arena, std::string_view path) {
     file.read((char*)data, size);
     utl::memory_blob_t loader{data};
 
-    entity = loader.deserialize<entity_def_t>();
+    entity = loader.deserialize<prefab_t>();
 
     return entity;
 }
 
-#define DB_ENTRY static constexpr entity_def_t
+#define DB_ENTRY static constexpr prefab_t
 
 namespace misc {
 
@@ -96,10 +96,10 @@ teapot {
     .type = entity_type::environment,
     .type_name = "Teapot",
     .gfx = {
-        .mesh_name = "assets/models/utah-teapot.obj",
+        .mesh_name = "res/models/utah-teapot.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = entity_def_t::physics_t {
+    .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Dynamic,
     #if 1 // use convex
         .shape = physics::collider_shape_type::CONVEX,
@@ -122,7 +122,7 @@ door {
         .mesh_name = "door",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = entity_def_t::physics_t {
+    .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Trigger,
         .shape = physics::collider_shape_type::BOX,
         .shape_def = {
@@ -142,7 +142,7 @@ rock_01 {
     .type = entity_type::environment,
     .type_name = "rock",
     .gfx = {
-        .mesh_name = "assets/models/rocks/rock_01.obj",
+        .mesh_name = "res/models/rocks/rock_01.obj",
         .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
     },
 };
@@ -152,7 +152,7 @@ tree_01 {
     .type = entity_type::environment,
     .type_name = "tree",
     .gfx = {
-        .mesh_name = "assets/models/environment/tree_01.obj",
+        .mesh_name = "res/models/environment/tree_01.obj",
         .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
     },
 };
@@ -166,10 +166,10 @@ tower_01 {
     .type = entity_type::environment,
     .type_name = "tower_01",
     .gfx = {
-        .mesh_name = "assets/models/rooms/tower_01.obj",
+        .mesh_name = "res/models/rooms/tower_01.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = entity_def_t::physics_t {
+    .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shape = physics::collider_shape_type::TRIMESH,
     },
@@ -180,10 +180,10 @@ room_01 {
     .type = entity_type::environment,
     .type_name = "room_01",
     .gfx = {
-        .mesh_name = "assets/models/rooms/room_01.obj",
+        .mesh_name = "res/models/rooms/room_01.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = entity_def_t::physics_t {
+    .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shape = physics::collider_shape_type::TRIMESH,
     },
@@ -194,10 +194,10 @@ room_0 {
     .type = entity_type::environment,
     .type_name = "room_0",
     .gfx = {
-        .mesh_name = "assets/models/rooms/room_0.obj",
+        .mesh_name = "res/models/rooms/room_0.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = entity_def_t::physics_t {
+    .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shape = physics::collider_shape_type::TRIMESH,
     },
@@ -208,10 +208,10 @@ map_01 {
     .type = entity_type::environment,
     .type_name = "map_01",
     .gfx = {
-        .mesh_name = "assets/models/map_01.obj",
+        .mesh_name = "res/models/map_01.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = entity_def_t::physics_t {
+    .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shape = physics::collider_shape_type::TRIMESH,
     },
@@ -230,7 +230,7 @@ shotgun {
     .type = entity_type::weapon,
     .type_name = "shotgun",
     .gfx = {
-        .mesh_name = "assets/models/rifle.obj",
+        .mesh_name = "res/models/rifle.obj",
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_shotgun(),
@@ -269,7 +269,7 @@ soldier {
     .type = entity_type::player,
     .type_name = "soldier",
     .gfx = {
-        .mesh_name = "assets/models/capsule.obj",
+        .mesh_name = "res/models/capsule.obj",
     },
     .stats = character_stats_t {
         .health = {
@@ -279,7 +279,7 @@ soldier {
             .move_speed = 1.0f,
         },
     },
-    .physics = entity_def_t::physics_t {
+    .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Character | PhysicsEntityFlags_Dynamic,
         .shape = physics::collider_shape_type::SPHERE,
         .shape_def = {
@@ -312,7 +312,7 @@ assassin {
     .type = entity_type::player,
     .type_name = "assassin",
     .gfx = {
-        .mesh_name = "assets/models/capsule.obj",
+        .mesh_name = "res/models/capsule.obj",
     },
     .stats = character_stats_t {
         .health = {
@@ -322,7 +322,7 @@ assassin {
             .move_speed = 1.3f,
         },
     },
-    .physics = entity_def_t::physics_t {
+    .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Character,
         .shape = physics::collider_shape_type::CAPSULE,
         .shape_def = {
@@ -349,7 +349,7 @@ assassin {
 using namespace std::string_view_literals;
 
 template <size_t N>
-using entity_lut_t = std::array<std::pair<std::string_view, const entity_def_t*>, N>;
+using entity_lut_t = std::array<std::pair<std::string_view, const prefab_t*>, N>;
 
 constexpr static entity_lut_t<2> gs_database{{
     {"pistol", &weapons::pistol},
@@ -357,7 +357,7 @@ constexpr static entity_lut_t<2> gs_database{{
 }};
 
 template <size_t N>
-constexpr const entity_def_t*
+constexpr const prefab_t*
 query(
     std::string_view name,
     const entity_lut_t<N>& database

@@ -172,6 +172,16 @@ public:
         m44                         transform{1.0f};
     };
 
+    struct render_pass_t {
+        VkImage     image;
+        VkImageView image_view;
+
+        u32 width{}, height{};
+
+        render_pass_t* sinks[32]{0};
+        render_pass_t* sources[32]{0};
+    };
+
     struct directional_light_t {
         v4f direction{};
         v4f color{};

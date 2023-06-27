@@ -426,7 +426,7 @@ void state_t::init(app_config_t* info, arena_t* temp_arena) {
 
     create_uniform_buffer(&sporadic_uniform_buffer);
 
-    load_texture_sampler(&null_texture, "./assets/textures/null.png", temp_arena);
+    load_texture_sampler(&null_texture, "./res/textures/null.png", temp_arena);
     
     create_image(info->window_size[0], info->window_size[1], 1, 
         msaa_samples, swap_chain_image_format, VK_IMAGE_TILING_OPTIMAL, 

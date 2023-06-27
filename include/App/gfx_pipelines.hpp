@@ -14,8 +14,8 @@ struct mesh_pipeline_info_t {
     VkBuffer material_buffer;
     VkBuffer env_buffer;
 
-    std::string_view fragment_shader = "./assets/shaders/bin/simple.frag.spv";
-    std::string_view vertex_shader = "./assets/shaders/bin/simple.vert.spv";
+    std::string_view fragment_shader = "./res/shaders/bin/simple.frag.spv";
+    std::string_view vertex_shader = "./res/shaders/bin/simple.vert.spv";
 };
 
 pipeline_state_t*
@@ -173,8 +173,8 @@ create_skybox_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass)
     create_info->cull_mode = VK_CULL_MODE_FRONT_BIT;
     create_info->write_depth = false;
 
-    create_info->vertex_shader = "./assets/shaders/bin/skybox.vert.spv";
-    create_info->fragment_shader = "./assets/shaders/bin/skybox.frag.spv";
+    create_info->vertex_shader = "./res/shaders/bin/skybox.vert.spv";
+    create_info->fragment_shader = "./res/shaders/bin/skybox.frag.spv";
 
     create_info->push_constant_size = sizeof(m44) + sizeof(v4f);
 
@@ -234,8 +234,8 @@ create_gui_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
     const auto stack_mark = arena_get_mark(arena); 
     pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
 
-    create_info->vertex_shader = "./assets/shaders/bin/gui.vert.spv";
-    create_info->fragment_shader = "./assets/shaders/bin/gui.frag.spv";
+    create_info->vertex_shader = "./res/shaders/bin/gui.vert.spv";
+    create_info->fragment_shader = "./res/shaders/bin/gui.frag.spv";
 
     // create_info->attachment_count = 2;
     // create_info->attachment_descriptions[0] = utl::attachment_description(
@@ -315,8 +315,8 @@ create_debug_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) 
     
     create_info->push_constant_size = sizeof(m44);
 
-    create_info->vertex_shader = "./assets/shaders/bin/debug_line.vert.spv";
-    create_info->fragment_shader = "./assets/shaders/bin/debug_line.frag.spv";
+    create_info->vertex_shader = "./res/shaders/bin/debug_line.vert.spv";
+    create_info->fragment_shader = "./res/shaders/bin/debug_line.frag.spv";
 
     create_info->vertex_input_binding_count = 1;
     

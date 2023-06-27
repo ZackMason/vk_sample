@@ -11,7 +11,7 @@
 
 namespace assets::shaders {
     #define ASSET_SHADER(name) ASSET_TYPE(name, gfx::shader_description_t)
-    #define SHADER_PATH_(name) "./assets/shaders/bin/" ## name ## ".spv"
+    #define SHADER_PATH_(name) "./res/shaders/bin/" ## name ## ".spv"
     #define SHADER_PATH(name) {SHADER_PATH_(name)}
 
     constexpr u32 CAMERA_CONSTANTS_SIZE = sizeof(m44) + sizeof(v4f);
@@ -78,7 +78,7 @@ struct sound_description_t {
 namespace assets::sounds {
     #define ASSET_SOUND(name) ASSET_TYPE(name, sound_description_t)
 
-    ASSET_SOUND(unlock){"./assets/audio/unlock.wav"};
+    ASSET_SOUND(unlock){"./res/audio/unlock.wav"};
 
     #undef ASSET_SOUND
 };

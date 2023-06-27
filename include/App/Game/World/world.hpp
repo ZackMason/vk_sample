@@ -179,7 +179,7 @@ inline entity_t*
 spawn(
     world_t* world,
     rendering::system_t* rs,
-    const db::entity_def_t& def,
+    const db::prefab_t& def,
     const v3f& pos = {}
 ) {
     TIMED_FUNCTION;

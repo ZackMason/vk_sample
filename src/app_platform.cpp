@@ -420,7 +420,7 @@ main(int argc, char* argv[]) {
     app_mem.audio.load_sound_closure = &load_sound_closure;
     app_mem.audio.play_sound_closure = &play_sound_closure;
 
-    u64 sound = load_sound_closure.dispatch_request<u64>("./assets/audio/unlock.wav");
+    u64 sound = load_sound_closure.dispatch_request<u64>("./res/audio/unlock.wav");
     gen_info("sdl_mixer::play_sound", "playing Sound: {}", sound);
     //play_sound_closure.dispatch(sound);
 

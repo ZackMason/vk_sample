@@ -1,18 +1,18 @@
 
-set IncFlags=-Iassets/shaders/utl
+set IncFlags=-Ires/shaders/utl
 
-glslc %IncFlags% assets/shaders/simple.vert -o assets/shaders/bin/simple.vert.spv
-glslc %IncFlags% assets/shaders/simple.frag -o assets/shaders/bin/simple.frag.spv
-glslc %IncFlags% assets/shaders/error_mesh.frag -o assets/shaders/bin/error_mesh.frag.spv
+glslc %IncFlags% res/shaders/simple.vert -o res/shaders/bin/simple.vert.spv
+glslc %IncFlags% res/shaders/simple.frag -o res/shaders/bin/simple.frag.spv
+glslc %IncFlags% res/shaders/error_mesh.frag -o res/shaders/bin/error_mesh.frag.spv
 
-glslc %IncFlags% assets/shaders/skybox.vert -o assets/shaders/bin/skybox.vert.spv
-glslc %IncFlags% assets/shaders/skybox.frag -o assets/shaders/bin/skybox.frag.spv
+glslc %IncFlags% res/shaders/skybox.vert -o res/shaders/bin/skybox.vert.spv
+glslc %IncFlags% res/shaders/skybox.frag -o res/shaders/bin/skybox.frag.spv
 
-glslc %IncFlags% assets/shaders/gui.vert -o assets/shaders/bin/gui.vert.spv
-glslc %IncFlags% assets/shaders/gui.frag -o assets/shaders/bin/gui.frag.spv
+glslc %IncFlags% res/shaders/gui.vert -o res/shaders/bin/gui.vert.spv
+glslc %IncFlags% res/shaders/gui.frag -o res/shaders/bin/gui.frag.spv
 
-glslc %IncFlags% assets/shaders/trail.vert -o assets/shaders/bin/trail.vert.spv
-glslc %IncFlags% assets/shaders/trail.frag -o assets/shaders/bin/trail.frag.spv
+glslc %IncFlags% res/shaders/trail.vert -o res/shaders/bin/trail.vert.spv
+glslc %IncFlags% res/shaders/trail.frag -o res/shaders/bin/trail.frag.spv
 
-glslc %IncFlags% assets/shaders/debug_line.vert -o assets/shaders/bin/debug_line.vert.spv
-glslc %IncFlags% assets/shaders/debug_line.frag -o assets/shaders/bin/debug_line.frag.spv
+glslc %IncFlags% res/shaders/debug_line.vert -o res/shaders/bin/debug_line.vert.spv
+glslc %IncFlags% res/shaders/debug_line.frag -o res/shaders/bin/debug_line.frag.spv
