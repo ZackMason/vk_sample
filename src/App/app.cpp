@@ -19,11 +19,11 @@ void teapot_on_collision(
     physics::rigidbody_t* teapot,
     physics::rigidbody_t* other
 ) {
-    auto* teapot_entity = (game::entity_t*) teapot->user_data;
     gen_info(__FUNCTION__, "teapot hit: {} - id", teapot->id);
-    teapot->add_relative_force(axis::up);
+    auto* teapot_entity = (game::entity_t*) teapot->user_data;
+    teapot->add_relative_force(axis::up * 100.0f);
     
-    teapot->flags = physics::rigidbody_flags::SKIP_SYNC;
+    // teapot->flags = physics::rigidbody_flags::SKIP_SYNC;
 }
 
 void player_on_collision(
@@ -557,7 +557,7 @@ app_on_init(app_memory_t* app_mem) {
     game::spawn(app->game_world, app->render_system, game::db::environmental::tree_01, v3f{20,0,20});
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
-    loop_iota_u64(i, 20) {
+    loop_iota_u64(i, 32) {
         auto* e = game::spawn(
             app->game_world, 
             app->render_system,
@@ -759,7 +759,8 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         if (e->physics.rigidbody) {
             e->physics.rigidbody->position = e->global_transform().origin;
             e->physics.rigidbody->orientation = e->global_transform().get_orientation();
-            e->physics.rigidbody->integrate(input->dt, e->physics.flags & game::PhysicsEntityFlags_Character);
+            float apply_gravity = f32(e->physics.flags & game::PhysicsEntityFlags_Character);
+            e->physics.rigidbody->integrate(input->dt, apply_gravity * 9.81f * 0.015f);
             app->game_world->physics->set_rigidbody(0, e->physics.rigidbody);
         }
     }

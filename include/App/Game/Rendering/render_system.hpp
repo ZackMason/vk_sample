@@ -414,15 +414,23 @@ public:
         auto& ext = rs->vk_gfx->ext;
         auto& khr = rs->vk_gfx->khr;
         
+        VkPipelineLayout last_layout = VK_NULL_HANDLE;
+        VkShaderEXT last_shader = VK_NULL_HANDLE;
         for (size_t i = 0; i < rs->render_job_count; i++) {
             render_job_t* job = rs->render_jobs + i;
 
             const auto* material = rs->materials[job->material];
 
-            vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material->pipeline_layout, 0, descriptor_count, descriptor_set, 0, nullptr);
+            if (material->pipeline_layout != last_layout) {
+                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material->pipeline_layout, 0, descriptor_count, descriptor_set, 0, nullptr);
+            }
+            last_layout = material->pipeline_layout;
 
-            VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
-            ext.vkCmdBindShadersEXT(command_buffer, material->shader_count, stages, material->shaders);
+            if (last_shader != material->shaders[1]) {
+                VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
+                ext.vkCmdBindShadersEXT(command_buffer, material->shader_count, stages, material->shaders);
+            }
+            last_shader = material->shaders[1];
 
             range_u64(j, 0, job->meshes->count) {
                 if (job->meshes->meshes[j].index_count) {

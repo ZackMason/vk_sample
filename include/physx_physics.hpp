@@ -416,8 +416,9 @@ physx_sync_rigidbody(api_t* api, rigidbody_t* rb) {
         rb->position = v3f{t.p.x, t.p.y, t.p.z};
         rb->orientation = glm::quat{t.q.w, t.q.x, t.q.y, t.q.z};
         if (rb->type == physics::rigidbody_type::DYNAMIC) {
-            const auto [vx,vy,vz] = ((physx::PxRigidBody*)rb->api_data)->getLinearVelocity();
-            const auto [ax,ay,az] = ((physx::PxRigidBody*)rb->api_data)->getAngularVelocity();
+            auto* rigid = (physx::PxRigidBody*)rb->api_data;
+            const auto [vx,vy,vz] = rigid->getLinearVelocity();
+            const auto [ax,ay,az] = rigid->getAngularVelocity();
             rb->velocity = v3f{vx,vy,vz};
             rb->angular_velocity = v3f{ax,ay,az};
         }

@@ -110,12 +110,12 @@ struct rigidbody_t {
     // Note(Zack): position is integrated by the api not here
     // Note(Zack): this should probably happen there instead of in game
     // Todo(Zack): allow custom gravity;
-    void integrate(float dt, bool apply_gravity = false) {
+    void integrate(float dt, float gravity = 0.0f, v3f gravity_direction = axis::down) {
         v3f acceleration = force / mass;
 
         const bool is_on_ground = flags & rigidbody_flags::IS_ON_GROUND;
 
-        if (apply_gravity && !is_on_ground) { acceleration.y -= 9.81f * 0.15f; } //@hardcoded
+        if (!is_on_ground) { acceleration += gravity_direction * gravity; }
         velocity += acceleration * dt;
         // position += velocity * dt;
 
