@@ -1,7 +1,7 @@
 [1m[38;2;255;255;255m[info][save]: Save File Path: C:\Users\crazy\AppData\Roaming/estella
 [0m[1m[38;2;255;255;255m[info][win32]: Loading Platform Layer
 [0m[1m[38;2;255;255;255m[info][win32]: Initializing Physics
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./assets/audio/unlock.wav
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/unlock.wav
 [0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 0
 [0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
 [0m
@@ -14,71 +14,12 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][console]: Hello world
 [0m[1m[38;2;255;255;255m[info][console]: Hello world
 [0m[1m[38;2;255;255;255m[info][console]: does this work?
-[0m[1m[38;2;255;255;255m[info][res]: Loaded Resource File: ./assets/res.pack
-[0m[1m[38;2;255;255;255m[info][res]: Asset File contains: 43 files
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/data/config.txt - 49
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/fonts/go/GO.txt - 1920
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/capsule.obj - 41306
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/cube.obj - 1260
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/entities/test_01.obj - 99411
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/evergreen_01.obj - 1133952
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/bullet-9mm.obj - 5855
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/bullet-shotgun.obj - 3363
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/bullet-sniper.obj - 5751
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/pistol-coonan.obj - 25831
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/revolver-python.obj - 19378
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/shotgun.obj - 19657
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/smg-mp5.obj - 34642
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/smg-mp5x.obj - 34590
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/sniper.obj - 32017
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/guns/uzi.obj - 29506
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/katana.obj - 13483
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/lucy.obj - 1243052
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/map_01.obj - 57936
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/map_01.obj.trimesh.physx - 33062
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rifle.obj - 78230
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/ring_ruin.obj - 133349
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/floor_10x10_01.obj - 124892
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/floor_10x10_01.obj.convex.physx - 1143
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/room_0.obj - 22172
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/room_0.obj.trimesh.physx - 7104
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/room_01.obj - 6477624
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/room_01.obj.trimesh.physx - 1007643
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/stairs_10x10x2_01.obj - 30064
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/stairs_10x10x2_01.obj.trimesh.physx - 6692
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/tower_01.obj - 228805
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/tower_01.obj.trimesh.physx - 100055
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/wall_10x10_01.obj - 7696
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/rooms/wall_10x10_01.obj.convex.physx - 498
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/shaderball.obj - 436974
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/shaderball.obj.trimesh.physx - 250053
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/ship_001.obj - 101927
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/shotgun.fbx - 123795
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/spaceship_02.obj - 62232
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/sphere.obj - 36178
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/utah-teapot.obj - 149129
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/models/utah-teapot.obj.convex.physx - 12772
-[0m[1m[38;2;255;255;255m[info][res]: 	file: assets/physx_defs.json - 453
 [0m[1m[38;2;255;255;255m[info][app_init]: Creating physics scene
 [0m[1m[38;2;255;255;255m[info][physics::physx_create_scene]: Creating scene
-[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x214f39b3380
+[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x2abcdabbd20
 [0m[1m[38;2;255;255;255m[info][app_init]: Created physics scene
 [0m[1m[38;2;255;255;255m[info][app]: typeof game::entity_t: 5044615056393235227 - 496 bytes
-[0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 14
-[0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_optimus
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OBS_HOOK
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_RENDERDOC_Capture
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_overlay
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_override
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_api_dump
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_gfxreconstruct
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_profiles
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_shader_object
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_synchronization2
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_validation
-[0m[1m[38;2;255;255;255m[info][vk::ext]: 16 Instance Extensions actually available:
+[0m[1m[38;2;255;255;255m[info][vk::ext]: 15 Instance Extensions actually available:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_device_group_creation'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_external_fence_capabilities'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_external_memory_capabilities'
@@ -94,21 +35,12 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_NV_external_memory_capabilities'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_portability_enumeration'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_LUNARG_direct_driver_loading'
-[0m[1m[38;2;255;255;255m[info][vk::ext]: 2  'VK_EXT_validation_features'
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_surface
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_win32_surface
-[0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_EXT_debug_utils
-[0mUNASSIGNED-CreateInstance-status-message(INFO / SPEC): msgNum: -2016116905 - Validation Information: [ UNASSIGNED-CreateInstance-status-message ] Object 0: handle = 0x214f354b260, type = VK_OBJECT_TYPE_INSTANCE; | MessageID = 0x87d47f57 | Khronos Validation Layer Active:
-    Settings File: Found at C:\Users\crazy\AppData\Local\LunarG\vkconfig\override\vk_layer_settings.txt specified by VkConfig application override.
-    Current Enables: None.
-    Current Disables: None.
-
-    Objects: 1
-        [0] 0x214f354b260, type: 1, name: NULL
-[1m[38;2;255;255;255m[info][vulkan]: 3 extensions loaded
+[0m[1m[38;2;255;255;255m[info][vulkan]: 2 extensions loaded
 [0m[1m[38;2;255;255;255m[info][vulkan]: instance created
 [0m[1m[38;2;255;255;255m[info][vulkan]: created surface.
-[0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 110
+[0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 109
 [0m	VK_EXT_full_screen_exclusive
 	VK_KHR_swapchain
 	VK_KHR_external_memory
@@ -218,8 +150,7 @@ Found 2 GLFW Required Instance Extensions:
 	VK_EXT_color_write_enable
 	VK_EXT_private_data
 	VK_EXT_image_2d_view_of_3d
-	VK_KHR_synchronization2
-[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 165
+[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 164
 [0m	VK_KHR_16bit_storage
 	VK_KHR_8bit_storage
 	VK_KHR_acceleration_structure
@@ -384,7 +315,6 @@ Found 2 GLFW Required Instance Extensions:
 	VK_NV_win32_keyed_mutex
 	VK_NVX_multiview_per_view_attributes
 	VK_AMD_buffer_marker
-	VK_KHR_synchronization2
 [1m[38;2;255;255;255m[info][vk::device]: Selecting device: NVIDIA GeForce GTX 1060
 [0m[1m[38;2;255;255;255m[info][vulkan]: created logical device
 [0m[1m[38;2;255;255;255m[info][vulkan]: created device.
@@ -392,22 +322,16 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (160): i = 7 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk::load_texture_sampler]: Loading Texture:
-	./assets/textures/null.png
+	./res/textures/null.png
 
 [0m[1m[38;2;255;255;255m[info][vk::load_texture_sampler]: Texture Info:
 	width: 128
 	height: 128
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 65536
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
@@ -422,63 +346,33 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (136): i = 7 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1280000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6400
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32864
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 440000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 120000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 2400000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 96000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 96000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
@@ -486,6 +380,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Suzanne
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube.004
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube.003
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube.001
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: bullet-9mm_Cube.003
@@ -538,6 +434,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cylinder.001_Cylinder.002
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Floor10x10.004
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Floor10x10.003
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Stairs10x10x2.002
@@ -564,24 +461,15 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Sphere
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Utah_Teapot_Quads
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (130): i = 7 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 65536
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
@@ -589,15 +477,12 @@ Found 2 GLFW Required Instance Extensions:
 ***** Found given memory flag (1) and type (130): i = 7 *****
 
 [0m[1m[38;2;255;255;255m[info][vk::load_texture_sampler]: Loading Texture:
-	./assets/textures/rock_01_a.png
+	./res/textures/rock_01_a.png
 
 [0m[1m[38;2;255;255;255m[info][vk::load_texture_sampler]: Texture Info:
 	width: 512
 	height: 512
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
@@ -610,7 +495,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: silver-metal
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: sand
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: dirt
-[0m[1m[38;2;255;255;255m[info][app]: player id: 1 - 0x213f77f0e50
+[0m[1m[38;2;255;255;255m[info][app]: player id: 1 - 0x2aaafba0e50
 [0m[1m[38;2;255;255;255m[info][PlayerScript]: Hello World: player_script_t - 1
 [0m[1m[38;2;255;255;255m[info][app]: world size: 31mb
 [0m[1m[38;2;255;255;255m[info][game_on_render]: frame: 1
@@ -627,70 +512,182 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
 [0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
 [0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
+[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
 [0m[1m[38;2;255;255;255m[info][win32]: Saved graphics config
-[0mVUID-vkDestroySemaphore-semaphore-01137(ERROR / SPEC): msgNum: -1588160456 - Validation Error: [ VUID-vkDestroySemaphore-semaphore-01137 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0xa1569838 | Cannot call vkDestroySemaphore on VkSemaphore 0x908683000000001d[] that is currently in use by a command buffer. The Vulkan spec states: All submitted batches that refer to semaphore must have completed execution (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroySemaphore-semaphore-01137)
-    Objects: 1
-        [0] 0x214f4608050, type: 3, name: NULL
-VUID-vkDestroySemaphore-semaphore-01137(ERROR / SPEC): msgNum: -1588160456 - Validation Error: [ VUID-vkDestroySemaphore-semaphore-01137 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0xa1569838 | Cannot call vkDestroySemaphore on VkSemaphore 0xcfcda0000000001e[] that is currently in use by a command buffer. The Vulkan spec states: All submitted batches that refer to semaphore must have completed execution (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroySemaphore-semaphore-01137)
-    Objects: 1
-        [0] 0x214f4608050, type: 3, name: NULL
-VUID-vkDestroySemaphore-semaphore-01137(ERROR / SPEC): msgNum: -1588160456 - Validation Error: [ VUID-vkDestroySemaphore-semaphore-01137 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0xa1569838 | Cannot call vkDestroySemaphore on VkSemaphore 0x2e2941000000001f[] that is currently in use by a command buffer. The Vulkan spec states: All submitted batches that refer to semaphore must have completed execution (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroySemaphore-semaphore-01137)
-    Objects: 1
-        [0] 0x214f4608050, type: 3, name: NULL
-VUID-vkDestroySemaphore-semaphore-01137(ERROR / SPEC): msgNum: -1588160456 - Validation Error: [ VUID-vkDestroySemaphore-semaphore-01137 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0xa1569838 | Cannot call vkDestroySemaphore on VkSemaphore 0xab64de0000000020[] that is currently in use by a command buffer. The Vulkan spec states: All submitted batches that refer to semaphore must have completed execution (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroySemaphore-semaphore-01137)
-    Objects: 1
-        [0] 0x214f4608050, type: 3, name: NULL
-VUID-vkDestroyFence-fence-01120(ERROR / SPEC): msgNum: 1562993224 - Validation Error: [ VUID-vkDestroyFence-fence-01120 ] Object 0: handle = 0xc4f3070000000021, type = VK_OBJECT_TYPE_FENCE; | MessageID = 0x5d296248 | VkFence 0xc4f3070000000021[] is in use. The Vulkan spec states: All queue submission commands that refer to fence must have completed execution (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyFence-fence-01120)
-    Objects: 1
-        [0] 0xc4f3070000000021, type: 7, name: NULL
-VUID-vkDestroyFence-fence-01120(ERROR / SPEC): msgNum: 1562993224 - Validation Error: [ VUID-vkDestroyFence-fence-01120 ] Object 0: handle = 0x301e6c0000000022, type = VK_OBJECT_TYPE_FENCE; | MessageID = 0x5d296248 | VkFence 0x301e6c0000000022[] is in use. The Vulkan spec states: All queue submission commands that refer to fence must have completed execution (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyFence-fence-01120)
-    Objects: 1
-        [0] 0x301e6c0000000022, type: 7, name: NULL
-VUID-vkDestroyCommandPool-commandPool-00041(ERROR / SPEC): msgNum: -1387836198 - Validation Error: [ VUID-vkDestroyCommandPool-commandPool-00041 ] Object 0: handle = 0x214f6fb6da0, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0xad474cda | Attempt to destroy command pool with VkCommandBuffer 0x214f6fb6da0[] which is in use. The Vulkan spec states: All VkCommandBuffer objects allocated from commandPool must not be in the pending state (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyCommandPool-commandPool-00041)
-    Objects: 1
-        [0] 0x214f6fb6da0, type: 6, name: NULL
-VUID-vkDestroyCommandPool-commandPool-00041(ERROR / SPEC): msgNum: -1387836198 - Validation Error: [ VUID-vkDestroyCommandPool-commandPool-00041 ] Object 0: handle = 0x214f703f000, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0xad474cda | Attempt to destroy command pool with VkCommandBuffer 0x214f703f000[] which is in use. The Vulkan spec states: All VkCommandBuffer objects allocated from commandPool must not be in the pending state (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyCommandPool-commandPool-00041)
-    Objects: 1
-        [0] 0x214f703f000, type: 6, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x214f7060fd0, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkCommandBuffer 0x214f7060fd0[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0x214f7060fd0, type: 6, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x214f70652d0, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkCommandBuffer 0x214f70652d0[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0x214f70652d0, type: 6, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x4fac1c0000000032, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkBuffer 0x4fac1c0000000032[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0x4fac1c0000000032, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x9f9b41000000003c, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkBuffer 0x9f9b41000000003c[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0x9f9b41000000003c, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x967dd1000000000e, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkBuffer 0x967dd1000000000e[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0x967dd1000000000e, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x59f7450000000038, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkBuffer 0x59f7450000000038[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0x59f7450000000038, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x5c5283000000003e, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkBuffer 0x5c5283000000003e[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0x5c5283000000003e, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x89e60f0000000042, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkBuffer 0x89e60f0000000042[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0x89e60f0000000042, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x96fbe2000000005e, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkBuffer 0x96fbe2000000005e[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0x96fbe2000000005e, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x214f4608050, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0xa21a4e0000000030, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x214f4608050[], VkBuffer 0xa21a4e0000000030[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x214f4608050, type: 3, name: NULL
-        [1] 0xa21a4e0000000030, type: 9, name: NULL
-[1m[38;2;255;255;255m[info][win32]: Closing Application
+[0m[1m[38;2;255;255;255m[info][win32]: Closing Application
 [0m

@@ -14,14 +14,15 @@
 #include "App/Game/Rendering/assets.hpp"
 
 global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
+global_variable f32 gs_dt;
 
 void teapot_on_collision(
     physics::rigidbody_t* teapot,
     physics::rigidbody_t* other
 ) {
-    gen_info(__FUNCTION__, "teapot hit: {} - id", teapot->id);
+    // gen_info(__FUNCTION__, "teapot hit: {} - id", teapot->id);
     auto* teapot_entity = (game::entity_t*) teapot->user_data;
-    teapot->add_relative_force(axis::up * 100.0f);
+    teapot->add_relative_impulse(teapot->inverse_transform_direction(axis::up) * 10.0f, gs_dt);
     
     // teapot->flags = physics::rigidbody_flags::SKIP_SYNC;
 }
@@ -380,6 +381,7 @@ app_init_graphics(app_memory_t* app_mem) {
 export_fn(void) 
 app_on_init(app_memory_t* app_mem) {
     // utl::profile_t p{"app init"};
+    TIMED_FUNCTION;
     app_t* app = get_app(app_mem);
     new (app) app_t;
 
@@ -416,11 +418,9 @@ app_on_init(app_memory_t* app_mem) {
     }, app);
 
 #endif
-    TIMED_FUNCTION;
-    {
-        temp_arena_t temp = *main_arena;
-        app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &temp, &app->string_arena, "./res/res.pack");
-    }
+
+    app->resource_file = utl::res::load_pack_file(&app->mesh_arena, &app->string_arena, "./res/res.pack");
+
     
     physics::api_t* physics = app_mem->physics;
     if (physics) {
@@ -431,15 +431,7 @@ app_on_init(app_memory_t* app_mem) {
     }
     app->game_world = game::world_init(&app->game_arena, app, physics);
 
-    // setup graphics
-
-    {
-        auto entity_info = GEN_TYPE_INFO(game::entity_t);
-        gen_info("app", "typeof {}: {} - {} bytes", entity_info.name, entity_info.type_id, entity_info.size);
-    }
-
     app_init_graphics(app_mem);
-
 
     using namespace gfx::color;
 
@@ -838,7 +830,7 @@ void
 game_on_update(app_memory_t* app_mem) {
     // utl::profile_t p{"on_update"};
     app_t* app = get_app(app_mem);
-
+    gs_dt = app_mem->input.dt;
     game_on_gameplay(app, &app_mem->input);
 }
 
@@ -1000,37 +992,48 @@ draw_gui(app_memory_t* app_mem) {
 #if GEN_INTERNAL
                 local_persist bool show_record[128];
                 if (im::text(state, "- Perf"sv, &show_perf)) {
-                    range_u64(i, 0, gs_main_debug_record_size) {
-                        auto* record = gs_debug_table.records + i;
-                        const auto cycle = record->history[record->hist_id?record->hist_id-1:array_count(record->history)-1];
+                    debug_table_t* tables[] {
+                        &gs_debug_table, app_mem->physics->get_debug_table()
+                    };
+                    size_t table_sizes[]{
+                        gs_main_debug_record_size, app_mem->physics->get_debug_table_size()
+                    };
 
-                        if (record->func_name == nullptr) continue;
+                    range_u64(t, 0, array_count(tables)) {
+                        size_t size = table_sizes[t];
+                        auto* table = tables[t];
+                        range_u64(i, 0, size) {
+                            auto* record = table->records + i;
+                            const auto cycle = record->history[record->hist_id?record->hist_id-1:array_count(record->history)-1];
 
-                        im::same_line(state);
-                        if (im::text(state,
-                            fmt_sv("--- {}:", 
-                                record->func_name ? record->func_name : "<Unknown>"), 
-                            show_record + i
-                        )) {
-                            f32 hist[4096/32];
-                            math::statistic_t debug_stat;
-                            math::begin_statistic(debug_stat);
-                            range_u64(j, 0, array_count(hist)) {
-                                const auto ms = f64(record->history[j*32])/f64(1e+6);
-                                math::update_statistic(debug_stat, ms);
-                                hist[j] = (f32)ms;
+                            if (record->func_name == nullptr) continue;
+
+                            im::same_line(state);
+                            if (im::text(state,
+                                fmt_sv("--- {}:", 
+                                    record->func_name ? record->func_name : "<Unknown>"), 
+                                show_record + i
+                            )) {
+                                f32 hist[4096/32];
+                                math::statistic_t debug_stat;
+                                math::begin_statistic(debug_stat);
+                                range_u64(j, 0, array_count(hist)) {
+                                    const auto ms = f64(record->history[j*32])/f64(1e+6);
+                                    math::update_statistic(debug_stat, ms);
+                                    hist[j] = (f32)ms;
+                                }
+        
+                                im::text(state,
+                                    fmt_sv(" {:.2f}ms - [{:.2f}, {:.2f}]", cycle/1e+6, debug_stat.range.min, debug_stat.range.max)
+                                );
+                                math::end_statistic(debug_stat);
+
+                                im::histogram(state, hist, array_count(hist), (f32)debug_stat.range.max, v2f{4.0f*128.0f, 32.0f});
+                            } else {
+                                im::text(state,
+                                    fmt_sv(" {:.2f}ms", cycle/1e+6)
+                                );
                             }
-    
-                            im::text(state,
-                                fmt_sv(" {:.2f}ms - [{:.2f}, {:.2f}]", cycle/1e+6, debug_stat.range.min, debug_stat.range.max)
-                            );
-                            math::end_statistic(debug_stat);
-
-                            im::histogram(state, hist, array_count(hist), (f32)debug_stat.range.max, v2f{4.0f*128.0f, 32.0f});
-                        } else {
-                            im::text(state,
-                                fmt_sv(" {:.2f}ms", cycle/1e+6)
-                            );
                         }
                     }
                 }

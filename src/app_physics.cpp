@@ -12,6 +12,27 @@
 #include "custom_physics.hpp"
 
 
+#if GEN_INTERNAL
+debug_table_t gs_debug_table;
+size_t gs_main_debug_record_size = __COUNTER__;
+#endif
+
+debug_table_t* get_debug_table() {
+#if GEN_INTERNAL
+    return &gs_debug_table;
+#else
+    return nullptr;
+#endif
+}
+
+size_t get_debug_table_size() {
+#if GEN_INTERNAL
+    return gs_main_debug_record_size;
+#else
+    return 0;
+#endif
+}
+
 namespace physics {
 
 #if GEN_LINK_PHYSICS_API_PHYSX
@@ -36,6 +57,10 @@ init_physx(api_t* api, arena_t* arena) {
 
     api->create_scene       = physx_create_scene;
     api->destroy_scene      = physx_destroy_scene;
+
+    api->
+        get_debug_table_size= get_debug_table_size;
+    api->get_debug_table    = get_debug_table;
 }
 #endif
 
@@ -56,8 +81,11 @@ init_custom(api_t* api, arena_t* arena) {
 
     api->create_scene       = custom_create_scene;
     api->destroy_scene      = custom_destroy_scene;
-}
 
+    api->
+        get_debug_table_size= get_debug_table_size;
+    api->get_debug_table    = get_debug_table;
+}
 };
 
 using namespace physics;

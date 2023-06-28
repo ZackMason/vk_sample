@@ -48,7 +48,7 @@ if "%~1"=="win32" (
 )
 
 if "%~1"=="physics" (
-    cl %OptimizationFlags% -DGEN_LINK_PHYSICS_API_PHYSX=1 -DGEN_INTERNAL=0 %IncludeFlags% %PhysXInclude% %CompilerFlags% ..\src\app_physics.cpp -LD /link %PhysicsLinkFlags%
+    cl %OptimizationFlags% -DGEN_LINK_PHYSICS_API_PHYSX=1 -DGEN_INTERNAL=1 %IncludeFlags% %PhysXInclude% %CompilerFlags% ..\src\app_physics.cpp -LD /link %PhysicsLinkFlags%
     rem cl %OptimizationFlags% -DGEN_LINK_PHYSICS_API_PHYSX=0 -DGEN_INTERNAL=0 %IncludeFlags% /I %PhysXInclude% %CompilerFlags% ..\src\app_physics.cpp -LD 
 )
 

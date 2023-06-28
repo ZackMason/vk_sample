@@ -4899,7 +4899,6 @@ struct pack_file_t {
 inline pack_file_t* 
 load_pack_file(
     arena_t* arena,
-    arena_t* temp_arena,
     arena_t* string_arena,
     std::string_view path
 ) {
@@ -4914,7 +4913,10 @@ load_pack_file(
     const size_t size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::byte* data = arena_alloc(temp_arena, size);
+    std::byte* data = new std::byte[size];
+    defer {
+        delete [] data;
+    };
     file.read((char*)data, size);
     memory_blob_t loader{data};
     
@@ -4930,11 +4932,8 @@ load_pack_file(
     packed_file->file_count = loader.deserialize<u64>();
     packed_file->resource_size = loader.deserialize<u64>();
 
-#if NDEBUG
-    loader.deserialize<u64>();
-#else
-    assert(loader.deserialize<u64>()== magic::table_start);
-#endif
+    const auto table_start = loader.deserialize<u64>();
+    assert(table_start == magic::table_start);
 
     // need to load strings into string_t
     packed_file->table = arena_alloc_ctor<resource_table_entry_t>(arena, packed_file->file_count);
@@ -4977,7 +4976,7 @@ size_t pack_file_find_file(
 ) {
     for (size_t i = 0; i < pack_file->file_count; i++) {
         if (pack_file->table[i].name.c_str() == file_name) {
-            return i;//pack_file->table[i].offset;
+            return i;
         }
     }
     gen_warn("pack_file", "Failed to find file: {}", file_name);

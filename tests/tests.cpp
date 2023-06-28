@@ -461,17 +461,16 @@ int main(int argc, char** argv) {
     RUN_TEST("pack file")
         constexpr size_t arena_size = megabytes(64);
         arena_t arena = arena_create(new u8[arena_size], arena_size);
-        arena_t arena_temp = arena_create(new u8[arena_size], arena_size);
+        defer {
+            delete [] arena.start;
+        };
 
         utl::res::pack_file_t* file = utl::res::load_pack_file(
-            &arena, &arena_temp, &arena, "./res/res.pack"
+            &arena, &arena, "./res/res.pack"
         );
 
         TEST_ASSERT(file != nullptr);
-
         TEST_ASSERT(file->file_count > 0);
-
-        delete [] arena.start;
     });
 
     constexpr u64 test_size = 10000000;

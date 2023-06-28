@@ -10,13 +10,12 @@
 				{
 					"typeStr": "13",
 					"name": "model",
-					"display": null
+					"opt": true
 				}
 			],
 			"lines": [
 				{
-					"name": "handle",
-					"model": "models/guns/smg-mp5x.obj"
+					"name": "handle"
 				}
 			],
 			"separators": [],

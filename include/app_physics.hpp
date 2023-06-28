@@ -107,6 +107,20 @@ struct rigidbody_t {
     inline void add_relative_force(const v3f& force_)
     { force += transform_direction(force_); }
 
+    // force vector in body space
+    inline void add_relative_impulse(const v3f& force_, float dt)
+    { force += transform_direction(force_) * mass / dt; }
+
+    // force vector in body space
+    inline void add_impulse(const v3f& force_, float dt)
+    { force += force_ * mass / dt; }
+
+    // force vector in body space
+    inline void add_force(const v3f& force_)
+    { force += force_; }
+
+    
+
     // Note(Zack): position is integrated by the api not here
     // Note(Zack): this should probably happen there instead of in game
     // Todo(Zack): allow custom gravity;
@@ -149,6 +163,12 @@ using create_collider_function = collider_t*(*)(api_t*, rigidbody_t*, collider_s
 using simulate_function = void(*)(api_t*, f32 dt);
 using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd);
 
+
+#if GEN_INTERNAL
+using get_debug_table_function = debug_table_t*(*)(void);
+using get_debug_table_size_function = size_t(*)(void);
+#endif
+
 // updates a rigidbody pos and orientation
 using update_rigidbody_function = void(*)(api_t*, rigidbody_t*);
 
@@ -180,6 +200,11 @@ struct export_dll api_t {
 
     rigidbody_t* characters[PHYSICS_MAX_CHARACTER_COUNT];
     size_t       character_count{0};
+
+#if GEN_INTERNAL
+    get_debug_table_function get_debug_table{0};
+    get_debug_table_size_function get_debug_table_size{0};
+#endif
 };
 
 using init_function = void(__cdecl *)(api_t* api, backend_type type, arena_t* arena);
