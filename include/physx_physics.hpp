@@ -42,7 +42,9 @@ class rigidbody_event_callback : public physx::PxSimulationEventCallback {
     virtual void onContact(const physx::PxContactPairHeader& pairHeader,
         const physx::PxContactPair* pairs, physx::PxU32 nbPairs
     ) override {
+        TIMED_FUNCTION;
         using namespace physx;
+        
         for(PxU32 i=0; i < nbPairs; i++) {
             const PxContactPair& cp = pairs[i];
             
@@ -75,6 +77,7 @@ public:
     void onObstacleHit(const physx::PxControllerObstacleHit& hit) override { }
     void onShapeHit(const physx::PxControllerShapeHit& hit) override
     {
+        TIMED_FUNCTION;
         physx::PxRigidActor* actor = hit.shape->getActor();
         auto* rb0 = (rigidbody_t*)hit.controller->getActor()->userData;
         auto* rb1 = (rigidbody_t*)actor->userData;
@@ -263,6 +266,7 @@ static PxFilterFlags filterShader(
 
 void
 physx_create_scene(api_t* api, const void* filter = 0) {
+    TIMED_FUNCTION;
     gen_info(__FUNCTION__, "Creating scene");
     auto* ps = get_physx(api);
     assert(ps->state);
@@ -287,18 +291,21 @@ physx_destroy_scene(api_t*) {
 
 rigidbody_t*
 physx_create_rigidbody(api_t* api, void* entity, rigidbody_type type) {
+    TIMED_FUNCTION;
     auto* ps = get_physx(api);
     return physx_create_rigidbody_impl(api, type, entity);
 }
 
 collider_t*
 physx_create_collider(api_t* api, rigidbody_t* rigidbody, collider_shape_type type, void* collider_info) {
+    TIMED_FUNCTION;
     physx_create_collider_impl(api, rigidbody, type, collider_info);
     return &rigidbody->colliders[rigidbody->collider_count-1];
 }
 
 raycast_result_t
 physx_raycast_world(const api_t* api, v3f ro, v3f rd) {
+    TIMED_FUNCTION;
     auto* ps = get_physx(api);
     rd = glm::normalize(rd);
     const physx::PxVec3 pro{ ro.x, ro.y, ro.z };
@@ -351,6 +358,7 @@ bool isOnGround(physx::PxController* controller) {
 
 void
 physx_simulate(api_t* api, f32 dt) {
+    TIMED_FUNCTION;
     const auto* ps = get_physx(api);
 
     range_u64(i, 0, api->character_count) {
@@ -405,6 +413,7 @@ physx_simulate(api_t* api, f32 dt) {
 
 void
 physx_sync_rigidbody(api_t* api, rigidbody_t* rb) {
+    TIMED_FUNCTION;
     assert(rb && rb->api_data);
     // if ((rb->flags & rigidbody_flags::SKIP_SYNC) == 0) {
     //     rb->flags &= ~rigidbody_flags::SKIP_SYNC;
@@ -434,6 +443,7 @@ physx_sync_rigidbody(api_t* api, rigidbody_t* rb) {
 // set -> sim -> sync
 void
 physx_set_rigidbody(api_t* api, rigidbody_t* rb) {
+    TIMED_FUNCTION;
     const auto& p = rb->position;
     const auto& q = rb->orientation;
     const auto& v = rb->velocity;

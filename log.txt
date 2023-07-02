@@ -16,9 +16,19 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][console]: does this work?
 [0m[1m[38;2;255;255;255m[info][app_init]: Creating physics scene
 [0m[1m[38;2;255;255;255m[info][physics::physx_create_scene]: Creating scene
-[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x2abcdabbd20
+[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x1bae1d8b3a0
 [0m[1m[38;2;255;255;255m[info][app_init]: Created physics scene
-[0m[1m[38;2;255;255;255m[info][app]: typeof game::entity_t: 5044615056393235227 - 496 bytes
+[0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 13
+[0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_optimus
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OBS_HOOK
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_RENDERDOC_Capture
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_overlay
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_api_dump
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_gfxreconstruct
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_synchronization2
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_validation
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 15 Instance Extensions actually available:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_device_group_creation'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_external_fence_capabilities'
@@ -37,7 +47,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_LUNARG_direct_driver_loading'
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_surface
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_win32_surface
-[0m[1m[38;2;255;255;255m[info][vulkan]: 2 extensions loaded
+[0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_EXT_debug_utils
+[0m[1m[38;2;255;255;255m[info][vulkan]: 3 extensions loaded
 [0m[1m[38;2;255;255;255m[info][vulkan]: instance created
 [0m[1m[38;2;255;255;255m[info][vulkan]: created surface.
 [0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 109
@@ -322,6 +333,9 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (160): i = 7 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
@@ -332,6 +346,9 @@ Found 2 GLFW Required Instance Extensions:
 	width: 128
 	height: 128
 	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 65536
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
@@ -346,33 +363,75 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (136): i = 7 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 8294400
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (1921): i = 8 *****
+***** Found given memory flag (1) and type (130): i = 7 *****
 
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (160): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1280000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6400
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32864
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 440000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 120000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 2400000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 96000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 96000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
@@ -432,8 +491,9 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: dark(Clone)
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: _defaultMat(Clone)
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cylinder.001_Cylinder.002
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: rock_01
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
-[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
+[0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube.001
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Floor10x10.004
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Floor10x10.003
@@ -461,15 +521,15 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Cube
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Sphere
 [0m[1m[38;2;255;255;255m[info][app::load_bin_mesh_data]: Mesh name: Utah_Teapot_Quads
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (1921): i = 8 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (130): i = 7 *****
-
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
@@ -483,6 +543,9 @@ Found 2 GLFW Required Instance Extensions:
 	width: 512
 	height: 512
 	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (1921): i = 8 *****
 
@@ -495,199 +558,11 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: silver-metal
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: sand
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: dirt
-[0m[1m[38;2;255;255;255m[info][app]: player id: 1 - 0x2aaafba0e50
-[0m[1m[38;2;255;255;255m[info][PlayerScript]: Hello World: player_script_t - 1
-[0m[1m[38;2;255;255;255m[info][app]: world size: 31mb
+[0m[1m[38;2;255;255;255m[info][app]: player id: 1 - 0x1b9c3e70e50
+[0m[1m[38;2;255;255;255m[info][app]: world size: 32mb
 [0m[1m[38;2;255;255;255m[info][game_on_render]: frame: 1
 [0m[1m[38;2;255;255;255m[info][game_on_render]: frame: 2
 [0m[1m[38;2;255;255;255m[info][game_on_render]: frame: 3
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
-[0m[1m[38;2;255;255;255m[info][teapot_on_collision]: teapot hit: 18446744073709551615 - id
 [0m[1m[38;2;255;255;255m[info][win32]: Saved graphics config
 [0m[1m[38;2;255;255;255m[info][win32]: Closing Application
 [0m

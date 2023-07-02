@@ -735,13 +735,13 @@ arena_get_top(arena_t* arena) {
 }
 
 #define arena_display_info(arena, name) \
-    (fmt_sv("{}: {} {} / {} {} - {:.2f}%", \
+    (fmt_sv("{}: {} {} / {} {} - {:.2}%", \
     (name), \
     (arena)->top > gigabytes(1) ? (arena)->top/gigabytes(1) : (arena)->top > megabytes(1) ? (arena)->top/megabytes(1) : (arena)->top > kilobytes(1) ? (arena)->top / kilobytes(1) : (arena)->top,\
     (arena)->top > gigabytes(1) ? "Gb" : (arena)->top > megabytes(1) ? "Mb" : (arena)->top > kilobytes(1) ? "Kb" : "B",\
     (arena)->size > gigabytes(1) ? (arena)->size/gigabytes(1) : (arena)->size > megabytes(1) ? (arena)->size/megabytes(1) : (arena)->size > kilobytes(1) ? (arena)->size / kilobytes(1) : (arena)->size,\
     (arena)->size > gigabytes(1) ? "Gb" : (arena)->size > megabytes(1) ? "Mb" : (arena)->size > kilobytes(1) ? "Kb" : "B",\
-    (f32((arena)->top) / f32((arena)->size) * 100.0f)))
+    ((f64((arena)->top) / f64((arena)->size)) * 100.0)))
     
 template <typename T>
 inline T*
@@ -1308,6 +1308,7 @@ namespace reflect {
 
 #define REFLECT_TYPE_INFO(ttype) .name = #ttype, .size = sizeof(ttype), .tags = type_t::get_tags<ttype>()
 #define REFLECT_TYPE(ttype) template<> struct reflect::type<ttype> : std::true_type { static constexpr reflect::type_t info = reflect::type_t
+#define REFLECT_TYPE_(ttype) REFLECT_TYPE(ttype) {REFLECT_TYPE_INFO(ttype)}
 #define REFLECT_TRY_TYPE(ttype) reflect::type<ttype>{}?&reflect::type<ttype>::info:nullptr
 #define REFLECT_FUNC(ttype, func, args) add_method(reflect::method_t{REFLECT_TRY_TYPE(decltype(func)), #func, args, (void (*)(void))&func})
 #define REFLECT_PROP(ttype, prop) add_property(reflect::property_t{reflect::type<decltype(ttype::prop)>{}?&reflect::type<decltype(ttype::prop)>::info:nullptr, #prop, sizeof(ttype::prop), offsetof(ttype, prop)})
@@ -1344,10 +1345,8 @@ struct fmt::formatter<reflect::object_t> {
 };
 
 
-REFLECT_TYPE(f32) {
-    REFLECT_TYPE_INFO(f32)
-    };
-};
+REFLECT_TYPE_(f32);};
+REFLECT_TYPE_(u64);};
 
 REFLECT_TYPE(v3f) {
     REFLECT_TYPE_INFO(v3f)
@@ -2121,7 +2120,7 @@ struct mesh_builder_t {
     }
 
     mesh_builder_t& add_box(math::aabb_t<v3f> box) {
-        math::triangle_t tris[32];
+        math::triangle_t tris[6];
         const auto s = box.size();
         const auto p = box.min;
         const auto sx = s.x;
@@ -2134,13 +2133,17 @@ struct mesh_builder_t {
         tris[i++].p = {p, p + sxv, p + sxv + syv};
         tris[i++].p = {p, p + syv + sxv, p + syv};
 
-        tris[i++].p = {p, p + szv + sxv, p + szv};
-        tris[i++].p = {p, p + szv + sxv, p + szv};
+        tris[i++].p = {p + szv + sxv, p + sxv + syv + szv, p + szv};
+        tris[i++].p = {p + syv + sxv, p + sxv + syv + szv, p + szv};
         
         tris[i++].p = {p, p + szv + syv, p + szv};
         tris[i++].p = {p, p + szv + syv, p + szv};
         
-        return add_triangles(tris, 6);
+        add_triangles(tris, 6);
+
+
+
+        return *this;
     }
     mesh_builder_t& add_quad(gfx::vertex_t vertex[4]) {
         u32 v_start = safe_truncate_u64(vertices.count);
@@ -2177,13 +2180,13 @@ struct material_t {
     u32 opt_flags{}; // for performance
     u32 padding[2+4];
 
-    static constexpr material_t plastic(const v4f& color) {
+    static constexpr material_t plastic(const v4f& color, f32 roughness = 0.8f) {
         return material_t {
             .albedo = color,
             .ao = 0.6f,
             .emission = 0.0f,
             .metallic = 0.0f,
-            .roughness = 0.3f,
+            .roughness = roughness,
         };
     }
 

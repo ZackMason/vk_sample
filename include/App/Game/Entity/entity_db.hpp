@@ -101,7 +101,7 @@ teapot {
     },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Dynamic,
-    #if 1 // use convex
+    #if 0 // use convex
         .shape = physics::collider_shape_type::CONVEX,
     #else 
         .shape = physics::collider_shape_type::SPHERE,
@@ -180,7 +180,8 @@ room_01 {
     .type = entity_type::environment,
     .type_name = "room_01",
     .gfx = {
-        .mesh_name = "res/models/rooms/room_01.obj",
+        // .mesh_name = "res/models/rooms/room_01.obj",
+        .mesh_name = "res/models/rooms/rock_room_test.fbx",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
     .physics = prefab_t::physics_t {

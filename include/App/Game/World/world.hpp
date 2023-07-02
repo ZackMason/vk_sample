@@ -17,10 +17,10 @@ namespace game {
         arena_t frame_arena[2];
         u64     frame_count{0};
 
-        size_t                  entity_count{0};
-        size_t                  entity_capacity{0};
+        size_t          entity_count{0};
+        size_t          entity_capacity{0};
         game::entity_id next_entity_id{1};
-        game::entity_t  entities[65535];
+        game::entity_t  entities[65535]; // entities from [0,cap]
         game::entity_t* entity_id_hash[BIT(12)];
         game::entity_t* free_entities{0};
 
@@ -146,12 +146,29 @@ namespace game {
         }
     }
 
-    // TODO(Zack): Change this so that it maintains pointer
+    inline void
+    world_update_physics(world_t* world) {
+        const auto* input = &world->app->app_mem->input;
+        for (size_t i{0}; i < world->entity_count; i++) {
+            auto* e = world->entities + i;
+            if (e->physics.rigidbody) {
+                e->physics.rigidbody->position = e->global_transform().origin;
+                e->physics.rigidbody->orientation = e->global_transform().get_orientation();
+                float apply_gravity = f32(e->physics.flags & game::PhysicsEntityFlags_Character);
+                e->physics.rigidbody->integrate(input->dt, apply_gravity * 9.81f * 0.015f);
+                world->physics->set_rigidbody(0, e->physics.rigidbody);
+            }
+        }
+    }
+
+    // Note(Zack): Has a flag so that it maintains pointers
     inline void
     world_destroy_entity(world_t* world, entity_t*& e) {
         TIMED_FUNCTION;
         assert(world->entity_count > 0);
         assert(e->id != uid::invalid_id);
+
+        e->flags = EntityFlags_Dead;
         remove_entity_from_id_hash(world, e);
 
         if (e->physics.rigidbody) {
@@ -171,6 +188,16 @@ namespace game {
     }
 
     inline void
+    world_kill_free_queue(world_t* world) {
+        for (size_t i{0}; i < world->entity_count; i++) {
+            auto* e = world->entities + i;
+            if (e->flags & EntityFlags_Dying) {
+                world_destroy_entity(world, e);
+            }
+        }
+    }
+
+    inline void
     world_update(world_t* world, f32 dt) {
 
     }
@@ -182,12 +209,16 @@ spawn(
     const db::prefab_t& def,
     const v3f& pos = {}
 ) {
+    using namespace std::string_view_literals;
     TIMED_FUNCTION;
     utl::res::pack_file_t* resource_file = world->app->resource_file;
 
     entity_t* entity = world_create_entity(world);
+
     entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name));
-    entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
+    if (def.gfx.mesh_name != ""sv) {
+        entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
+    }
     entity->name.own(&world->app->string_arena, def.type_name);
     entity->transform.origin = pos;
 
@@ -211,7 +242,7 @@ spawn(
         player_init(
             entity,
             &world->camera, 
-            rendering::get_mesh_id(rs, def.gfx.mesh_name)
+            def.gfx.mesh_name != ""sv ? rendering::get_mesh_id(rs, def.gfx.mesh_name) : 0
         );
         world->player = entity;
     } 

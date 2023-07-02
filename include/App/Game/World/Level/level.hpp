@@ -1,19 +1,19 @@
 #pragma once
 
 #include "core.hpp"
+#include "Room/room.hpp"
 
-namespace game::level {
+namespace game {
 
-#define GAME_MAX_LEVEL_DIM 16
-    
-    struct level_tile_t {
-        u64 id{};
+    struct room_t {
+        const room_prefab_t* prefab{0};
+        entity_t* entities{0};
     };
 
+    static constexpr size_t GAME_MAX_LEVEL_DIM = 16;
     struct level_t {
-        using tiles_t = level_tile_t[GAME_MAX_LEVEL_DIM][GAME_MAX_LEVEL_DIM];
-        tiles_t tiles;
-
+        using rooms_t = room_t[GAME_MAX_LEVEL_DIM][GAME_MAX_LEVEL_DIM];
+        rooms_t tiles;
     };
 
 };

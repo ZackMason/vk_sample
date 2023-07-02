@@ -15,8 +15,6 @@
 using VkDataBuffer = VkBuffer;
 
 
-struct GLFWwindow;
-
 namespace gfx::vul {
 
 struct gpu_buffer_t {
@@ -57,7 +55,8 @@ struct texture_2d_t {
     u8* pixels;
     VkImage image;
     VkImageView image_view;
-    VkImageLayout image_layout;
+    VkImageLayout image_layout{VK_IMAGE_LAYOUT_UNDEFINED};
+    VkFormat format{VK_FORMAT_R8G8B8A8_SRGB};
     VkSampler sampler;
     VkDeviceMemory vdm;
 };
@@ -342,6 +341,9 @@ struct state_t {
         size_t count
     );
 
+    void create_texture(texture_2d_t* texture, i32 w, i32 h, i32 c, arena_t* arena = 0, u8* data = 0);
+
+    void load_texture(texture_2d_t* texture, std::span<u8> data, arena_t* arena = 0);
     void load_texture(texture_2d_t* texture, std::string_view path, arena_t* arena);
     void load_texture_sampler(texture_2d_t* texture, arena_t* arena);
     void load_texture_sampler(texture_2d_t* texture, std::string_view path, arena_t* arena);
@@ -399,6 +401,21 @@ struct state_t {
         VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags props,
         texture_2d_t* texture
     );
+};
+
+struct quick_cmd_raii_t {
+    state_t* _s;
+    VkCommandBuffer command_buffer;
+
+    auto& c() { return command_buffer; }
+
+    quick_cmd_raii_t(state_t* gfx) 
+        : _s{gfx}, command_buffer{gfx->begin_single_time_commands()}
+    {
+    }
+    virtual ~quick_cmd_raii_t() {
+        _s->end_single_time_commands(command_buffer);
+    }
 };
 
 void 
@@ -750,6 +767,171 @@ std::string error_string(VkResult errorCode);
 
 
 
+void set_image_layout(
+    VkCommandBuffer command_buffer,
+    VkImage image,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    VkImageSubresourceRange subresourceRange,
+    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+) {
+    // Create an image barrier object
+    VkImageMemoryBarrier imageMemoryBarrier = image_memory_barrier();
+    imageMemoryBarrier.oldLayout = old_layout;
+    imageMemoryBarrier.newLayout = new_layout;
+    imageMemoryBarrier.image = image;
+    imageMemoryBarrier.subresourceRange = subresourceRange;
+
+    // Source layouts (old)
+    // Source access mask controls actions that have to be finished on the old layout
+    // before it will be transitioned to the new layout
+    switch (old_layout)
+    {
+    case VK_IMAGE_LAYOUT_UNDEFINED:
+        // Image layout is undefined (or does not matter)
+        // Only valid as initial layout
+        // No flags required, listed only for completeness
+        imageMemoryBarrier.srcAccessMask = 0;
+        break;
+
+    case VK_IMAGE_LAYOUT_PREINITIALIZED:
+        // Image is preinitialized
+        // Only valid as initial layout for linear images, preserves memory contents
+        // Make sure host writes have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        // Image is a color attachment
+        // Make sure any writes to the color buffer have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        // Image is a depth/stencil attachment
+        // Make sure any writes to the depth/stencil buffer have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        // Image is a transfer source
+        // Make sure any reads from the image have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        // Image is a transfer destination
+        // Make sure any writes to the image have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        // Image is read by a shader
+        // Make sure any shader reads from the image have been finished
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        break;
+    default:
+        // Other source layouts aren't handled (yet)
+        break;
+    }
+
+    // Target layouts (new)
+    // Destination access mask controls the dependency for the new image layout
+    switch (new_layout)
+    {
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        // Image will be used as a transfer destination
+        // Make sure any writes to the image have been finished
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        // Image will be used as a transfer source
+        // Make sure any reads from the image have been finished
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        // Image will be used as a color attachment
+        // Make sure any writes to the color buffer have been finished
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        // Image layout will be used as a depth/stencil attachment
+        // Make sure any writes to depth/stencil buffer have been finished
+        imageMemoryBarrier.dstAccessMask = imageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        // Image will be read in a shader (sampler, input attachment)
+        // Make sure any writes to the image have been finished
+        if (imageMemoryBarrier.srcAccessMask == 0)
+        {
+            imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+        }
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        break;
+    default:
+        // Other source layouts aren't handled (yet)
+        break;
+    }
+
+    // Put barrier inside setup command buffer
+    vkCmdPipelineBarrier(
+        command_buffer,
+        src_stage_mask,
+        dst_stage_mask,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imageMemoryBarrier);
+}
+
+void set_image_layout(
+    VkCommandBuffer command_buffer,
+     VkImage image,
+    VkImageAspectFlags aspect_mask,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+) {
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = aspect_mask;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.layerCount = 1;
+    set_image_layout(command_buffer, image, old_layout, new_layout, subresourceRange, src_stage_mask, dst_stage_mask);
+}
+
+void set_image_layout(
+    state_t* state,
+    VkImage image,
+    VkImageAspectFlags aspect_mask,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+) {
+    quick_cmd_raii_t c{state};
+    set_image_layout(c.command_buffer, image, aspect_mask, old_layout, new_layout, src_stage_mask, dst_stage_mask);
+}
+
+void set_image_layout(
+    state_t* state,
+    VkImage image,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    VkImageSubresourceRange subresourceRange,
+    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+) {
+    quick_cmd_raii_t c{state};
+    set_image_layout(c.command_buffer, image, old_layout, new_layout, subresourceRange, src_stage_mask, dst_stage_mask);
+}
+
 }; // namespace utl
 
 // extensions
@@ -767,4 +949,4 @@ void create_shader_objects_from_files(
 );
 
 
-}; // namespace gfx::vul
+}; // namespace gfx::vulen

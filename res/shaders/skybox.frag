@@ -39,8 +39,6 @@ main() {
 	color = pow(color, vec3(2.2));
 	color = pow(color, vec3(2.2));
 
-
-
 	// color = pow(color * 1.0, vec3(1.0/2.2));
 
 

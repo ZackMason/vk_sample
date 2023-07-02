@@ -329,13 +329,14 @@ main(int argc, char* argv[]) {
 
     app_memory_t app_mem{};
     app_mem.perm_memory_size = gigabytes(4);
-    app_mem.perm_memory = 
 
 #if _WIN32
+    app_mem.perm_memory = 
         VirtualAlloc(0, app_mem.perm_memory_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #else 
-        
+    #error "No memory"        
 #endif
+
     assert(app_mem.perm_memory);
 
     auto& config = app_mem.config;
@@ -473,7 +474,7 @@ main(int argc, char* argv[]) {
             first = false;
         }
         
-        while((f32)(glfwGetTime())-app_mem.input.time<1.0f/30.0f);
+        while((f32)(glfwGetTime())-app_mem.input.time<1.0f/60.0f);
         update_input(&app_mem, window);
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);

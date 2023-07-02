@@ -62,6 +62,7 @@ struct rigidbody_t {
     rigidbody_type  type;
     rigidbody_id    id{uid::invalid_id};
     u64             flags{0};
+    u64             layer{0};
 
     f32 mass{1.0f};
     f32 linear_dampening{0.5f};
@@ -200,6 +201,9 @@ struct export_dll api_t {
 
     rigidbody_t* characters[PHYSICS_MAX_CHARACTER_COUNT];
     size_t       character_count{0};
+
+    using layer_mask_t = std::array<std::array<u8, 64>, 64>;
+    layer_mask_t layer_mask{};
 
 #if GEN_INTERNAL
     get_debug_table_function get_debug_table{0};

@@ -15,6 +15,9 @@ enum EntityFlags {
     EntityFlags_Spatial = BIT(0),
     EntityFlags_Renderable = BIT(1),
     EntityFlags_Pickupable = BIT(2),
+    EntityFlags_Interactable = BIT(3),
+    EntityFlags_Dying = BIT(11),
+    EntityFlags_Dead = BIT(12),
 };
 
 enum PhysicsEntityFlags {
@@ -37,16 +40,10 @@ enum struct entity_type {
 
     trigger,
 
+    effect,
+
     SIZE
 };
-
-// type traits
-constexpr bool 
-is_pickupable(entity_type type) noexcept {
-    return 
-        type == entity_type::weapon || 
-        type == entity_type::weapon_part;
-}
 
 struct health_t {
     f32 max{100.0f};
@@ -257,6 +254,9 @@ struct player_script_t {
     }
 };
 
+using entity_update_function = void(*)(entity_t*, world_t*);
+using entity_interact_function = void(*)(entity_t*, world_t*);
+
 struct entity_t : node_t<entity_t> {
     entity_id   id{uid::invalid_id};
     entity_type type{entity_type::SIZE};
@@ -272,11 +272,6 @@ struct entity_t : node_t<entity_t> {
 
     math::transform_t global_transform() const {
         if (parent) {
-            m33 new_basis = parent->global_transform().basis;
-            range_u32(i, 0, 3) {
-                new_basis[i] = glm::normalize(new_basis[i]);
-            }
-            return math::transform_t{new_basis, parent->global_transform().xform(transform.origin)};
             return math::transform_t{parent->global_transform().to_matrix() * transform.to_matrix()};
         }
         return transform;
@@ -313,12 +308,23 @@ struct entity_t : node_t<entity_t> {
     entity_coroutine_t* coroutine{0};
 
     script_id script{uid::invalid_id};
+    entity_update_function on_update{nullptr};
+    entity_interact_function on_interact{nullptr};
 
     virtual ~entity_t() = default;
     constexpr entity_t() noexcept = default;
 
+    constexpr bool is_renderable() const noexcept {
+        return !((flags & EntityFlags_Renderable) == 0 || gfx.mesh_id == -1);
+    }
+
     constexpr bool is_alive() const noexcept {
-        return id != uid::invalid_id;
+        return id != uid::invalid_id &&
+            ((flags & (EntityFlags_Dying|EntityFlags_Dead)) == 0);
+    }
+
+    void queue_free() noexcept {
+        flags |= EntityFlags_Dying;
     }
 };
 
@@ -335,7 +341,6 @@ entity_init(entity_t* entity, u64 mesh_id = -1) {
     entity->flags |= mesh_id != -1 ? EntityFlags_Renderable : 0;
     entity->gfx.mesh_id = mesh_id;
 }
-
 
 inline void 
 player_init(

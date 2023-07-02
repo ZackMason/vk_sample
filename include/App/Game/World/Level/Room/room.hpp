@@ -2,9 +2,10 @@
 
 #include "core.hpp"
 
-namespace game::level::room {
+namespace game {
+    using game::db::prefab_t;
 
-    enum cardinal_t {
+    enum struct cardinal {
         North, South,
         East,  West,
         NorthEast, SouthEast,
@@ -12,29 +13,21 @@ namespace game::level::room {
         Size
     };
 
-    struct room_t : public node_t<room_t> {
-        string_t name;
+    struct room_prefab_t {
+        std::string_view name;
 
-        u64 mesh_id{};
+        const prefab_t* room_prefab;
+        const prefab_t* prefabs[128];
 
         math::aabb_t<v3f> aabb{v3f{0.0f}};
 
-        struct doorway_t {
-            v3f offset{};
-            cardinal_t direction = cardinal_t::Size;
-            room_t* room{0};
-        };
-        
-        doorway_t   doorways[4];
-        size_t      doorway_count{0};
+        virtual void init(world_t* world) = 0;
+        virtual void update(world_t* world, f32 dt) {}
     };
+};
 
-    inline void
-    connect_rooms(room_t* a, room_t* b) {
-        assert(a && "Room A is Null");
-        assert(b && "Room B is Null");
-
-        
-    }
-
+namespace game::room_prefabs {
+    struct room_01_p : room_prefab_t {
+        void init(world_t* world) override {};
+    } room_01;
 };

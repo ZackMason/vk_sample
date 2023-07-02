@@ -81,7 +81,7 @@ object_data_gui(gfx::gui::im::state_t& imgui, reflect::type_t type, std::byte* d
     using namespace gfx::gui;
     char depth_str[32];
     std::memset(depth_str, 0, 32);
-    std::memset(depth_str, '-', depth);
+    std::memset(depth_str, '-', depth?depth-1:0);
 
     // im::indent(imgui, v2f{depth*2.0f,0.0f});
     im::text(imgui, fmt_sv("{} {}: {}", depth_str, type.name, prop_name?prop_name:""));
@@ -89,22 +89,33 @@ object_data_gui(gfx::gui::im::state_t& imgui, reflect::type_t type, std::byte* d
     if (type == reflect::type<f32>::info) {
         im::indent(imgui, v2f{depth*28.0f,0.0f});
         im::float_slider(imgui, (f32*)data);
+    } else if (type == reflect::type<u64>::info) {
+        im::text(imgui, fmt_sv("{}", *(u64*)data));
     } else if (type == reflect::type<v3f>::info) {
+        const auto theme = imgui.theme;
+
+        imgui.theme.fg_color = gfx::color::rgba::red;
         im::same_line(imgui);
         im::indent(imgui, v2f{depth*28.0f,0.0f});
         im::float_slider(imgui, (f32*)data);
+
+        imgui.theme.fg_color = gfx::color::rgba::green;
         im::same_line(imgui);
         im::indent(imgui, v2f{depth*28.0f,0.0f});
         im::indent(imgui, v2f{depth*28.0f,0.0f});
         im::float_slider(imgui, (f32*)data+1);
+
+        imgui.theme.fg_color = gfx::color::rgba::blue;
         im::indent(imgui, v2f{depth*28.0f,0.0f});
         im::indent(imgui, v2f{depth*28.0f,0.0f});
         im::indent(imgui, v2f{depth*28.0f,0.0f});
         im::float_slider(imgui, (f32*)data+2);
+
+        imgui.theme = theme;
     } else 
     for(auto& p: std::span{type.properties, type.property_count}) {
         if (p.type) {
-            object_data_gui(imgui, *p.type, data + p.offset, p.name.data(), depth + 4);
+            object_data_gui(imgui, *p.type, data + p.offset, p.name.data(), depth + 2);
         } else {
             im::text(imgui, "Unregistered type");
         }
@@ -115,7 +126,7 @@ inline static void
 object_gui(gfx::gui::im::state_t& imgui, auto& value, size_t depth = 0) {
     const auto type = reflect::type<std::remove_reference<decltype(value)>::type>::info;
             
-    object_data_gui(imgui, type, (std::byte*)&value, 0, depth);
+    object_data_gui(imgui, type, (std::byte*)&value, 0, depth+2);
 }
 
 inline static void

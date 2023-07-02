@@ -67,10 +67,9 @@ apply_environment(
 void
 main( )
 {
-	vec3 rgb;
-	bool toon = false;
-	uint mat_id = vMatId;
-	Material material = uMaterialBuffer.materials[mat_id];
+	vec3 rgb = vec3(0.0);
+	Material material = uMaterialBuffer.materials[vMatId];
+
 	switch( Sporadic.uMode )
 	{
 		case 0:
@@ -80,16 +79,12 @@ main( )
 		case 1:
 			rgb = texture( uSampler, vTexCoord ).rgb;
 			rgb = pow(rgb, vec3(2.2));
-			toon = true;
 			break;
 
 		case 2:
 			rgb = material.albedo.rgb;
 			
 			// rgb = ObjectConstants.albedo.rgb;
-			break;
-		case 3:
-			toon = true;
 			break;
 
 		default:
@@ -98,55 +93,57 @@ main( )
 
 	float depth = length(PushConstants.uCamPos.xyz - vWorldPos);
 	vec3 V = normalize(PushConstants.uCamPos.xyz - vWorldPos);
-	// if( Sporadic.uUseLighting != 0 )
+	
 	vec3 albedo = rgb;
-	{
-		float metallic = material.metallic;
-		float roughness = material.roughness * material.roughness;
-		
-		vec3 F0 = vec3(0.04); 
-    	F0 = mix(F0, albedo, metallic);
 
-		vec3 Lv = (vec3(0.0, 100.0, 0.0) - vWorldPos);
-		vec3 Lc = vec3(0.9686, 0.9765, 0.902);
+	float metallic = material.metallic;
+	float roughness = material.roughness * material.roughness;
+	
+	vec3 F0 = vec3(0.04); 
+	F0 = mix(F0, albedo, metallic);
 
-		vec3 N = normalize(vN);
-		vec3 L = normalize(Lv);
-		vec3 H = normalize(L+V);
+	vec3 Lv = (vec3(0.0, 100.0, 0.0) - vWorldPos);
+	vec3 Lc = vec3(0.9686, 0.9765, 0.902);
 
-		float NoH = saturate(dot(N, H));
-		float LoH = saturate(dot(L, H));
-		float NoL = (dot(N, L));
-		float NoV = saturate(dot(N, V));
-		float HoV = saturate(dot(V, H));
+	vec3 N = normalize(vN);
+	vec3 L = normalize(Lv);
+	vec3 H = normalize(L+V);
 
-		vec3 spec = vec3(0.9);
-		float gloss = 32.0;// * material.roughness;
+	float NoH = saturate(dot(N, H));
+	float LoH = saturate(dot(L, H));
+	float NoL = (dot(N, L));
+	float NoV = saturate(dot(N, V));
+	float HoV = saturate(dot(V, H));
 
-		// float D = filament_DGGX2(NoH, roughness);
-		// vec3  F = filament_Schlick(LoH, F0);
-		// float S = filament_SmithGGXCorrelated(NoV, NoL, roughness);
+	vec3 spec = vec3(0.9);
+	float gloss = 32.0;// * material.roughness;
 
-		// vec3 Fr = D * S * F;// (D*V) * F;
-		// vec3 fD = albedo * filament_DLambert();
+	// rgb = NoL * rgb;
 
-		// fD *= 1.0 - metallic;
+	float D = filament_DGGX2(NoH, roughness);
+	vec3  F = filament_Schlick(LoH, F0);
+	float S = filament_SmithGGXCorrelated(NoV, NoL, roughness);
 
-		// rgb = fD + Fr;
+	vec3 Fr = D * S * F;
+	vec3 fD = albedo * filament_DLambert();
 
-		vec3 la = vec3(0.4863, 0.6235, 0.8824) * 0.1;
-		float li = smoothstep(0.0, 0.01, NoL);
-		vec3 light = Lc * li;
-		float kR = pow(NoH * li, gloss * gloss);
-		float skR = smoothstep(0.005, 0.01, kR);
+	fD *= 1.0 - metallic;
 
-		float rim_amount = 0.37151;
-		float rim = (1.0 - dot(V, N)) * NoL;
-		float rim_intensity = smoothstep(rim_amount - 0.01, rim_amount + 0.01, rim);
-		vec3 rim_color = vec3(0.7451, 0.8392, 0.8471);
+	rgb = fD + Fr;
 
-		rgb = (albedo) * (light + la + skR + rim_intensity * rim_color);
-	}
+	// vec3 la = vec3(0.4863, 0.6235, 0.8824) * 0.1;
+	// float li = smoothstep(0.0, 0.01, NoL);
+	// vec3 light = Lc * li;
+	// float kR = pow(NoH * li, gloss * gloss);
+	// float skR = smoothstep(0.005, 0.01, kR);
+
+	// float rim_amount = 0.37151;
+	// float rim = (1.0 - dot(V, N)) * NoL;
+	// float rim_intensity = smoothstep(rim_amount - 0.01, rim_amount + 0.01, rim);
+	// vec3 rim_color = vec3(0.7451, 0.8392, 0.8471);
+
+	// rgb = (albedo) * (light + la + skR + rim_intensity * rim_color);
+
 	// rgb = albedo;
 	// rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
 	// rgb = pow(rgb, vec3(2.2));

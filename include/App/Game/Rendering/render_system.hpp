@@ -6,6 +6,22 @@
 #include "App/vk_state.hpp"
 
 #include "lighting.hpp"
+#include "assets.hpp"
+
+
+struct RenderingStats {
+    u64 triangle_count{0};
+    u64 vertex_count{0};
+    u64 shader_count{0};
+    u64 texture_count{0};
+};
+
+REFLECT_TYPE(RenderingStats) {REFLECT_TYPE_INFO(RenderingStats)}
+    .REFLECT_PROP(RenderingStats, triangle_count)
+    .REFLECT_PROP(RenderingStats, vertex_count)
+    .REFLECT_PROP(RenderingStats, shader_count)
+    .REFLECT_PROP(RenderingStats, texture_count);
+};
 
 
 namespace game::rendering {
@@ -131,6 +147,10 @@ private:
         }
 
 public:
+        VkShaderEXT operator[](std::string_view name) const {
+            return get(name);
+        }
+
         VkShaderEXT get(std::string_view name) const {
             return get_(name).shader;
         }
@@ -227,6 +247,19 @@ public:
         u32 padding[3+4*3];
     };
 
+    struct frame_image_t {
+        gfx::vul::texture_2d_t texture;
+
+        u32 width() const {
+            return (u32)texture.size[0];
+        }
+
+        u32 height() const {
+            return (u32)texture.size[1];
+        }
+    };
+
+
     struct system_t {
         inline static constexpr size_t  frame_arena_size = megabytes(64);
         inline static constexpr u32     frame_overlap = 2;
@@ -277,6 +310,10 @@ public:
 
         lighting::probe_box_t light_probes{v3f{-30.0f, -6.0f, -30.0f}, v3f{40.0f}};
 
+        frame_image_t frame_images[8]{};
+
+        RenderingStats stats{};
+
         void set_view(const m44& view, u32 w, u32 h) {
             vp = projection * view;
             width = w;
@@ -297,6 +334,7 @@ public:
         VkDevice device, 
         VkFormat format
     );
+
     inline void 
     create_framebuffers(
         system_t* rs,
@@ -323,10 +361,10 @@ public:
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
         rs->render_jobs = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
 
+        const i32 w = state.swap_chain_extent.width;
+        const i32 h = state.swap_chain_extent.height;
         {
-            const f32 w = (f32)state.swap_chain_extent.width;
-            const f32 h = (f32)state.swap_chain_extent.height;
-            const f32 aspect = w / h;
+            const f32 aspect = (f32)w / (f32)h;
 
             rs->projection = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
             rs->projection[1][1] *= -1.0f;
@@ -338,6 +376,12 @@ public:
             state.swap_chain_image_views.data(), state.swap_chain_image_views.size(),
             state.depth_stencil_texture.image_view, state.swap_chain_extent.width, state.swap_chain_extent.height
         );
+
+        state.create_texture(&rs->frame_images[0].texture, w, h, 4, &rs->arena);
+        // rs->frame_images[0].texture.image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        state.load_texture_sampler(&rs->frame_images[0].texture, &rs->arena);
+        state.create_depth_stencil_image(&rs->frame_images[1].texture, w, h);
+
 
         state.create_storage_buffer(&rs->job_storage_buffer);
         state.create_storage_buffer(&rs->material_storage_buffer);
@@ -375,6 +419,7 @@ public:
 
     inline void
     begin_frame(system_t* rs) {
+        rs->stats = {};
         rs->render_job_count = 0;
         // rs->render_jobs.clear();
         rs->job_storage_buffer.pool.clear();
@@ -389,7 +434,7 @@ public:
         u32 mat_id, // todo(zack): remove this
         m44 transform
     ) {
-        TIMED_FUNCTION;
+        TIMED_FUNCTION;        
         // auto* job = arena_alloc_ctor<render_job_t>(&rs->frame_arena);
         auto* job = rs->render_jobs + rs->render_job_count++;
         job->meshes = &rs->mesh_cache.get(mesh_id);
@@ -401,6 +446,62 @@ public:
         gpu_job->mat_id = mat_id;
 
         // rs->render_jobs.push_back(job);
+    }
+
+    inline void 
+    draw_mesh(
+        system_t* rs, 
+        VkCommandBuffer command_buffer,
+        const gfx::mesh_list_t* meshes
+    ) {
+        range_u64(j, 0, meshes->count) {
+            if (meshes->meshes[j].index_count) {
+                rs->stats.triangle_count += meshes->meshes[j].index_count/3;
+                vkCmdDrawIndexed(command_buffer,
+                    meshes->meshes[j].index_count,
+                    1, 
+                    meshes->meshes[j].index_start,
+                    meshes->meshes[j].vertex_start,
+                    0           
+                );
+            } else {
+                rs->stats.triangle_count += meshes->meshes[j].vertex_count/3;
+                vkCmdDraw(command_buffer,
+                    meshes->meshes[j].vertex_count,
+                    meshes->meshes[j].instance_count,
+                    meshes->meshes[j].vertex_start,
+                    0
+                );
+            }
+        }
+    }
+
+    inline void
+    draw_mesh_indirect(
+        system_t* rs, 
+        VkCommandBuffer command_buffer,
+        const gfx::mesh_list_t* meshes, u64 i
+    ) {
+        range_u64(j, 0, meshes->count) {
+            if (meshes->meshes[j].index_count) {
+                rs->stats.triangle_count += meshes->meshes[j].index_count/3;
+                vkCmdDrawIndexed(command_buffer,
+                    meshes->meshes[j].index_count,
+                    1, 
+                    meshes->meshes[j].index_start,
+                    meshes->meshes[j].vertex_start,
+                    safe_truncate_u64(i)
+                );
+            } else {
+                rs->stats.triangle_count += meshes->meshes[j].vertex_count/3;
+                vkCmdDraw(command_buffer,
+                    meshes->meshes[j].vertex_count,
+                    meshes->meshes[j].instance_count,
+                    meshes->meshes[j].vertex_start,
+                    safe_truncate_u64(i)
+                );
+            }
+        }
     }
 
     inline void build_shader_commands(
@@ -429,27 +530,11 @@ public:
             if (last_shader != material->shaders[1]) {
                 VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
                 ext.vkCmdBindShadersEXT(command_buffer, material->shader_count, stages, material->shaders);
+                rs->stats.shader_count++;
             }
             last_shader = material->shaders[1];
 
-            range_u64(j, 0, job->meshes->count) {
-                if (job->meshes->meshes[j].index_count) {
-                    vkCmdDrawIndexed(command_buffer,
-                        job->meshes->meshes[j].index_count,
-                        1, 
-                        job->meshes->meshes[j].index_start,
-                        job->meshes->meshes[j].vertex_start,
-                        safe_truncate_u64(i)
-                    );
-                } else {
-                    vkCmdDraw(command_buffer,
-                        job->meshes->meshes[j].vertex_count,
-                        job->meshes->meshes[j].instance_count,
-                        job->meshes->meshes[j].vertex_start,
-                        safe_truncate_u64(i)
-                    );
-                }
-            }
+            draw_mesh_indirect(rs, command_buffer, job->meshes, i);
         }
     }
 
@@ -534,6 +619,7 @@ public:
         system_t* rs,
         std::string_view name
     ) {
+        if (name.empty()) return std::numeric_limits<u64>::max();
         return utl::str_hash_find(rs->mesh_hash, name);
     }
 
@@ -724,6 +810,71 @@ public:
             }
         }
     }
+
+    inline void
+    draw_skybox(
+        system_t* rs, 
+        VkCommandBuffer command_buffer,
+        std::string_view name,
+        VkPipelineLayout layout,
+        v3f view, v4f light_direction
+    ) {
+        TIMED_FUNCTION;
+        auto& ext = rs->vk_gfx->ext;
+        auto& khr = rs->vk_gfx->khr;
+
+        local_persist const auto& sky_mesh = get_mesh(rs, "res/models/sphere.obj");
+
+        auto viewport = gfx::vul::utl::viewport((f32)rs->width, (f32)rs->height, 0.0f, 1.0f);
+        auto scissor = gfx::vul::utl::rect2D(rs->width, rs->height, 0, 0);
+
+        ext.vkCmdSetViewportWithCountEXT(command_buffer, 1, &viewport);
+        ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
+        ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_NONE);
+        ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+        struct sky_push_constant_t {
+            m44 vp;
+            v4f directional_light;
+        } sky_constants;
+
+        sky_constants.vp = rs->projection * glm::lookAt(v3f{0.0f}, view, axis::up);
+        sky_constants.directional_light = light_direction;
+
+        vkCmdPushConstants(command_buffer, layout,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+            0, sizeof(sky_push_constant_t), &sky_constants
+        );
+
+        {
+            local_persist VkVertexInputBindingDescription2EXT vertexInputBinding{};
+            vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+            vertexInputBinding.binding = 0;
+            vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+            vertexInputBinding.stride = sizeof(gfx::vertex_t);
+            vertexInputBinding.divisor = 1;
+
+            local_persist VkVertexInputAttributeDescription2EXT vertexAttributes[] = {
+                { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(gfx::vertex_t, pos) },
+                { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(gfx::vertex_t, nrm) },
+                { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(gfx::vertex_t, col) },
+                { VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr, 3, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(gfx::vertex_t, tex) }
+            };
+
+            ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
+        }
+
+        local_persist VkShaderEXT shaders[] = {
+            rs->shader_cache[assets::shaders::skybox_vert.filename],
+            rs->shader_cache[name]
+        };
+        
+        VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
+        ext.vkCmdBindShadersEXT(command_buffer, 2, stages, shaders);
+
+        draw_mesh(rs, command_buffer, &sky_mesh);
+
+    };
 };
 
 

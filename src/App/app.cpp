@@ -2,7 +2,7 @@
 
 #include "App/app.hpp"
 
-#include "ProcGen/map_gen.hpp"
+#include "ProcGen/terrain.hpp"
 #include "ProcGen/mesh_builder.hpp"
 #include "App/Game/World/world.hpp"
 
@@ -13,8 +13,16 @@
 
 #include "App/Game/Rendering/assets.hpp"
 
+#include "App/Game/GUI/entity_editor.hpp"
+
 global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
 global_variable f32 gs_dt;
+
+global_variable VkCullModeFlagBits gs_cull_modes[] = {
+    VK_CULL_MODE_BACK_BIT,
+    VK_CULL_MODE_FRONT_BIT,
+};
+global_variable u32 gs_cull_mode;
 
 void teapot_on_collision(
     physics::rigidbody_t* teapot,
@@ -58,7 +66,6 @@ T in_out_expo(T b, T c, f32 t) {
 }
 
 };
-
 
 inline gfx::mesh_list_t
 load_bin_mesh_data(
@@ -147,12 +154,35 @@ load_bin_mesh(
 }
 
 inline static gfx::vul::texture_2d_t*
-make_noise_texture(arena_t* arena, u32 size) {
+make_error_texture(arena_t* arena, u32 size) {
     auto* tex = arena_alloc<gfx::vul::texture_2d_t>(arena);
 
     tex->size[0] = tex->size[1] = size;
     tex->channels = 4;
     tex->pixels = arena_alloc_ctor<u8>(arena, size*size*4);
+    u64 i = 0;
+    range_u64(x, 0, size) {
+        range_u64(y, 0, size) {
+            auto n = std::sinf((f32)x/(f32)size*math::constants::pi32*10.0f) * std::cosf((f32)y/(f32)size*math::constants::pi32*10.0f);
+            n = glm::step(n, 0.0f);
+            tex->pixels[i++] = u8(n*255.0f);
+            tex->pixels[i++] = 0;
+            tex->pixels[i++] = u8(n*255.0f);
+            tex->pixels[i++] = 255ui8;
+        }
+    }
+
+    return tex;
+}
+
+inline static gfx::vul::texture_2d_t*
+make_noise_texture(arena_t* arena, u32 size) {
+    auto* tex = arena_alloc_ctor<gfx::vul::texture_2d_t>(arena);
+
+    tex->size[0] = tex->size[1] = size;
+    tex->channels = 4;
+    tex->pixels = arena_alloc_ctor<u8>(arena, size*size*4);
+    // tex->format = VK_FORMAT_R8G8B8A8_SRGB;
     u64 i = 0;
     range_u64(x, 0, size) {
         range_u64(y, 0, size) {
@@ -271,20 +301,12 @@ app_init_graphics(app_memory_t* app_mem) {
 
     gfx::vul::texture_2d_t* ui_textures[4096];
     for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = app->default_font_texture; }
-    gfx::vul::texture_2d_t scene_c_fb;
-    gfx::vul::texture_2d_t scene_d_fb;
-    scene_c_fb.sampler = rs->render_targets->sampler;
-    scene_c_fb.image_view = rs->render_targets->attachments->next->view;
-    scene_c_fb.image_layout = rs->render_targets->attachments->next->description.finalLayout;
-    ui_textures[1] = &scene_c_fb;
-    
-    scene_d_fb.sampler = rs->render_targets->sampler;
-    scene_d_fb.image_view = rs->render_targets->attachments->view;
-    scene_d_fb.image_layout = rs->render_targets->attachments->description.finalLayout;
-    ui_textures[2] = &scene_d_fb;
 
-    ui_textures[3] = make_noise_texture(&app->texture_arena, 128);
-    vk_gfx.load_texture_sampler(ui_textures[3], &app->texture_arena);
+    ui_textures[1] = &rs->frame_images[0].texture;
+    // ui_textures[2] = &rs->frame_images[1].texture;
+    
+    // ui_textures[3] = make_noise_texture(&app->texture_arena, 128);
+    // vk_gfx.load_texture_sampler(ui_textures[3], &app->texture_arena);
 
     // gfx::vul::texture_2d_t rt_tex;
     
@@ -307,6 +329,8 @@ app_init_graphics(app_memory_t* app_mem) {
         temp_arena_t ta = app->texture_arena;
         vk_gfx.load_texture_sampler(app->brick_texture, "./res/textures/rock_01_a.png", &ta);
     }
+    // app->brick_texture = make_error_texture(&app->texture_arena, 256);
+    // vk_gfx.load_texture_sampler(app->brick_texture, &app->texture_arena);
     app->brick_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
         app->mesh_pipeline->descriptor_set_layouts[4],
@@ -347,13 +371,13 @@ app_init_graphics(app_memory_t* app_mem) {
 
         make_material("red-plastic", gfx::material_t::plastic(gfx::color::v4::red));
         make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
-        make_material("gold-metal", gfx::material_t::metal(gfx::color::v4::yellow));
-        make_material("silver-metal", gfx::material_t::metal(gfx::color::v4::white));
+        make_material("gold-metal", gfx::material_t::plastic(gfx::color::v4::yellow));
+        make_material("silver-metal", gfx::material_t::plastic(gfx::color::v4::white));
         make_material("sand", gfx::material_t::plastic(gfx::color::v4::sand));
         make_material("dirt", gfx::material_t::plastic(gfx::color::v4::dirt));
 
         rs->shader_cache.load(
-            app->main_arena, 
+            rs->arena, 
             vk_gfx,
             assets::shaders::gui_vert,
             app->gui_pipeline->descriptor_set_layouts,
@@ -361,11 +385,27 @@ app_init_graphics(app_memory_t* app_mem) {
         );
 
         rs->shader_cache.load(
-            app->main_arena, 
+            rs->arena, 
             vk_gfx,
             assets::shaders::gui_frag,
             app->gui_pipeline->descriptor_set_layouts,
             app->gui_pipeline->descriptor_count
+        );
+
+        rs->shader_cache.load(
+            rs->arena, 
+            vk_gfx,
+            assets::shaders::skybox_vert,
+            app->sky_pipeline->descriptor_set_layouts,
+            app->sky_pipeline->descriptor_count
+        );
+
+        rs->shader_cache.load(
+            rs->arena, 
+            vk_gfx,
+            assets::shaders::skybox_frag,
+            app->sky_pipeline->descriptor_set_layouts,
+            app->sky_pipeline->descriptor_count
         );
     }
   
@@ -433,102 +473,28 @@ app_on_init(app_memory_t* app_mem) {
 
     app_init_graphics(app_mem);
 
+    {
+        auto& rs = app->render_system;
+        auto& vertices = rs->vertices.pool;
+        auto& indices = rs->indices.pool;
+        prcgen::mesh_builder_t builder{vertices, indices};
+
+        builder.add_box({v3f{-1.0f}, v3f{1.0f}});
+        game::rendering::add_mesh(rs, "unit_cube", builder.build(&app->mesh_arena));
+    }
+
     using namespace gfx::color;
 
     app->scene.sporadic_buffer.mode = 1;
     app->scene.sporadic_buffer.use_lighting = 1;
 
-    if (0)
-    {
-        prcgen::mesh_builder_t mesh_builder{
-            app->render_system->vertices.pool,
-            app->render_system->indices.pool
-        };
-
-        prcgen::map::room_volume_t vol;
-        prcgen::map::room_volume_init(&vol);
-
-        range_u64(x, 0, 63) {
-            range_u64(y, 0, 63) {
-                range_u64(z, 0, 63) {
-                    prcgen::marching_cubes::grid_cell_t g;
-                    prcgen::marching_cubes::make_unit_cell(&g, (v3f{x,y,z}-v3f{32.0f})*10.0f, 10.0f);
-                    
-                    range_u64(i, 0, 8) {
-                        const auto d0 = prcgen::map::box_sdf_t{.origin = v3f{0.0}, .size = v3f{64.0f, 2.0f, 64.0f}}.distance(g.p[i]);
-                        const auto d1 = prcgen::map::box_sdf_t{.origin = v3f{0.0}, .size = v3f{8.0f, 64.0f, 8.0f}}.distance(g.p[i]);
-                        const auto d2 = prcgen::map::sphere_sdf_t{.origin = v3f{20.0f, 0.0f, 0.0f}, .radius = 14.0f}.distance(g.p[i]);
-                        const auto w0 = prcgen::map::box_sdf_t{.origin = v3f{32.0, 10.f, 0.0f}, .size = v3f{2.0f, 40.0f, 64.0f}}.distance(g.p[i]);
-                        const auto w1 = prcgen::map::box_sdf_t{.origin = v3f{-32.0, 10.f, 0.0f}, .size = v3f{2.0f, 40.0f, 64.0f}}.distance(g.p[i]);
-                        const auto w2 = prcgen::map::box_sdf_t{.origin = v3f{0.0, 10.f, -32.0f}, .size = v3f{64.0f, 40.0f, 2.0f}}.distance(g.p[i]);
-                        const auto w3 = prcgen::map::box_sdf_t{.origin = v3f{0.0, 10.f, 32.0f}, .size = v3f{64.0f, 40.0f, 2.0f}}.distance(g.p[i]);
-                        
-                        g.v[i] = std::min({d0, d1, d2, w0, w1, w2, w3});
-                        
-                    }
-
-                    math::triangle_t triangles[32];
-                    u64 triangle_count = prcgen::marching_cubes::to_polygon(g, 0.0f, triangles);
-
-                    if (triangle_count) {
-                        mesh_builder.add_triangles(triangles, triangle_count);
-                    }
-                }
-            }
-        }
-
-        auto mesh_id = game::rendering::add_mesh(app->render_system, "ground", mesh_builder.build(&app->mesh_arena));
-
-        // auto* e0 = game::world_create_entity(app->game_world, 0);
-        // game::entity_init(e0, mesh_id);
-    }
-    #if 0
-    
-    // static constexpr f32 terrain_dim = 100.0f;
-    // static constexpr f32 terrain_grid_size = 1.0f;
-
-    // for (f32 x = -terrain_dim; x < terrain_dim; x += terrain_grid_size) {
-    //     for (f32 y = -terrain_dim; y < terrain_dim; y += terrain_grid_size) {
-    //         gfx::vertex_t v[4];
-    //         v[0].pos = v3f{x                    , 0.0f, y};
-    //         v[1].pos = v3f{x                    , 0.0f, y + terrain_grid_size};
-    //         v[2].pos = v3f{x + terrain_grid_size, 0.0f, y};
-    //         v[3].pos = v3f{x + terrain_grid_size, 0.0f, y + terrain_grid_size};
-
-    //         constexpr f32 noise_scale = 0.2f;
-    //         for (size_t i = 0; i < 4; i++) {
-    //             v[i].pos.y -= utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) * 4.0f;
-    //             v[i].col = gfx::color::v3::dirt * 
-    //                 (utl::noise::noise21(v2f{v[i].pos.x, v[i].pos.z} * noise_scale) 
-    //                 * 0.5f + 0.5f);
-    //         }
-
-    //         const v3f n = glm::normalize(glm::cross(v[1].pos - v[0].pos, v[2].pos - v[0].pos));
-    //         for (size_t i = 0; i < 4; i++) {
-    //             v[i].nrm = n;
-    //         }
-            
-    //         mesh_builder.add_quad(v);
-    //     }
-    // }
-
-    // app->mesh_cache.add(
-    //     &app->mesh_arena,
-    //     mesh_builder.build(&app->mesh_arena)
-    // );
-    // utl::str_hash_create(app->mesh_hash);
-    // utl::str_hash_create(app->mesh_hash_meta);
-
-    // utl::str_hash_add(app->mesh_hash, "ground", 0);    
-    // game::rendering::add_mesh(app->render_system, "ground", app->mesh_cache.get(0));
-    #endif
 
     auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::assassin, v3f{3.0f, 5.0f, 0.0f});
     player->physics.rigidbody->on_collision = player_on_collision;
 
     game::spawn(app->game_world, app->render_system,
         game::db::weapons::shotgun,
-        v3f{10,3,10});
+        v3f{-20,2,-10});
 
 
     // game::spawn(app->game_world, app->render_system,
@@ -544,12 +510,12 @@ app_on_init(app_memory_t* app_mem) {
     //     auto* r = game::spawn(app->game_world, app->render_system, game::db::rooms::tower_01, pos);
     //     r->transform.set_rotation(axis::up * math::constants::pi32 * f32(i));
     // }
-    game::spawn(app->game_world, app->render_system, game::db::rooms::room_0);
+    game::spawn(app->game_world, app->render_system, game::db::rooms::room_01);
 
     game::spawn(app->game_world, app->render_system, game::db::environmental::tree_01, v3f{20,0,20});
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
-    loop_iota_u64(i, 32) {
+    loop_iota_u64(i, 320) {
         auto* e = game::spawn(
             app->game_world, 
             app->render_system,
@@ -567,29 +533,12 @@ app_on_init(app_memory_t* app_mem) {
         (void*)game::find_entity_by_id(app->game_world, app->game_world->player->id)
     );
 
-    
     app->game_world->player->transform.origin.y = 5.0f;
     app->game_world->player->transform.origin.z = -5.0f;
 
-    game::script_manager_t<game::player_script_t> scripts{app->game_world};
-
-    game::player_script_t plr{};
-    static_assert(game::CScript<game::player_script_t>);
-    assert(scripts.get_type_index<decltype(plr)>() == 0);
     
 
-    scripts.add_script(&plr);
-    assert(scripts.get_script<decltype(plr)>(0, 1) != nullptr);
-
-    scripts.begin_play();
-    scripts.update(0);
-    assert(plr.score == 1);
-
-    assert(plr.id != uid::invalid_id);
-    scripts.remove_script(&plr);
-    assert(plr.id == uid::invalid_id);
-
-    // std::memcpy(&gs_saved_world, app->game_world, sizeof(game::world_t));
+        
     gen_info("app", "world size: {}mb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
 }
 
@@ -649,10 +598,11 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
 
     // rigidbody->velocity += (forward * move.z + right * move.x + axis::up * move.y) * dt;
     rigidbody->add_relative_force((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
-    // rigidbody->orientation = glm::quat{yaw * axis::up};
+    // player->transform.set_rotation(rigidbody->orientation = glm::quatLookAt(forward, axis::up));
     
+
     if(player->primary_weapon.entity) {
-        player->primary_weapon.entity->transform.set_rotation(v3f{yaw * axis::up});
+        player->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
     }
     rigidbody->angular_velocity = v3f{0.0f};
 
@@ -664,8 +614,8 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
 
     
     if (pc.fire1 && player->primary_weapon.entity) {
-        auto ro = player->primary_weapon.entity->global_transform().origin + forward*3.0f;
         auto rd = forward;
+        auto ro = player->primary_weapon.entity->global_transform().origin + rd * 0.7f;
 
         temp_arena_t fire_arena = world->frame_arena[world->frame_count&1];
         u64 fired{0};
@@ -680,7 +630,7 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
                 }
                 if (rb->type == physics::rigidbody_type::DYNAMIC) {
                     auto hp = ray.point - rb->position;
-                    auto f = rb->transform_direction(rd);
+                    auto f = rb->inverse_transform_direction(rd);
                     rb->add_force_at_point(f*100.0f, hp);
                 }
             }
@@ -745,17 +695,7 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         tr.tick(input->dt, tr_pos);
     }
 
-
-    for (size_t i{0}; i < app->game_world->entity_count; i++) {
-        auto* e = app->game_world->entities + i;
-        if (e->physics.rigidbody) {
-            e->physics.rigidbody->position = e->global_transform().origin;
-            e->physics.rigidbody->orientation = e->global_transform().get_orientation();
-            float apply_gravity = f32(e->physics.flags & game::PhysicsEntityFlags_Character);
-            e->physics.rigidbody->integrate(input->dt, apply_gravity * 9.81f * 0.015f);
-            app->game_world->physics->set_rigidbody(0, e->physics.rigidbody);
-        }
-    }
+    game::world_update_physics(app->game_world);
 
     while (accum >= step) {
         TIMED_BLOCK(PhysicsStep);
@@ -772,15 +712,12 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         }
         const bool is_physics_object = e->physics.flags != game::PhysicsEntityFlags_None && e->physics.rigidbody;
         const bool is_pickupable = (e->flags & game::EntityFlags_Pickupable);
-        const bool is_not_renderable = (e->flags & game::EntityFlags_Renderable) == 0;
+        const bool is_not_renderable = !e->is_renderable();
 
         if (is_physics_object) {
-            // const auto skip = (e->physics.rigidbody->flags & physics::rigidbody_flags::SKIP_SYNC);
             app->game_world->physics->sync_rigidbody(0, e->physics.rigidbody);
-            // if (!skip) {
             e->transform.origin = e->physics.rigidbody->position;
             e->transform.set_rotation(e->physics.rigidbody->orientation);
-            // }
         }
 
         if (is_pickupable) {
@@ -801,13 +738,20 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         // app->debug.draw_aabb(e->global_transform().xform_aabb(e->aabb), gfx::color::v3::yellow);
     }
 
-    std::lock_guard lock{app->render_system->ticket};
+    game::world_kill_free_queue(app->game_world);
+
+    {
+        TIMED_BLOCK(GameplayLock);
+        app->render_system->ticket.lock();
+    }
+
     game::rendering::begin_frame(app->render_system);
     app->debug.debug_vertices.pool.clear();
 
     for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
         auto* e = app->game_world->entities + i;
-        const bool is_not_renderable = (e->flags & game::EntityFlags_Renderable) == 0;
+        const bool is_not_renderable = !e->is_renderable();
+
         if (e->is_alive() == false) {
             continue;
         }
@@ -824,6 +768,8 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
             e->global_transform().to_matrix()
         );
     }
+
+    app->render_system->ticket.unlock();
 }
 
 void
@@ -894,6 +840,8 @@ draw_gui(app_memory_t* app_mem) {
         "- 2D Vertex",
         "- 2D Index",
     };
+
+    std::lock_guard lock{app->render_system->ticket};
     gfx::gui::ctx_clear(&app->gui.ctx, &app->gui.vertices[frame&1].pool, &app->gui.indices[frame&1].pool);
     
     app->time_text_anim -= app_mem->input.dt;
@@ -939,8 +887,6 @@ draw_gui(app_memory_t* app_mem) {
 
         im::clear(state);
 
-        im::gizmo(state, widget_pos, vp);
-
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
             local_persist bool show_player = !false;
@@ -984,6 +930,8 @@ draw_gui(app_memory_t* app_mem) {
                 rdt_count += 1.0f;
                 im::text(state, fmt_sv("- Gameplay FPS: {:.2f} - {:.2f} ms", 1.0f / (dt_accum/dt_count), (dt_accum/dt_count) * 1000.0f));
                 im::text(state, fmt_sv("- Graphics FPS: {:.2f} - {:.2f} ms", 1.0f / (rdt_accum/rdt_count), (rdt_accum/rdt_count) * 1000.0f));
+
+                object_gui(state, app->render_system->stats);
                 
                 {
                     const auto [x,y] = app_mem->input.mouse.pos;
@@ -1074,6 +1022,9 @@ draw_gui(app_memory_t* app_mem) {
                     
                     if (im::text(state, fmt_sv("--- Fullscreen: {}", config.fullscreen))) {
                         config.fullscreen = !config.fullscreen;
+                    }
+                    if (im::text(state, fmt_sv("--- Cull Mode: {}", gs_cull_mode))) {
+                        gs_cull_mode = (gs_cull_mode + 1) % array_count(gs_cull_modes);
                     }
                 }
 
@@ -1188,6 +1139,13 @@ draw_gui(app_memory_t* app_mem) {
                             gfx::color32 color = gfx::color::to_color32(mat->albedo);
                             im::color_edit(state, &color);
                             mat->albedo = gfx::color::to_color4(color);
+                            im::same_line(state);
+                            im::text(state, "Metallic: ");
+                            im::float_slider(state, &mat->metallic);
+
+                            im::same_line(state);
+                            im::text(state, "Roughness: ");
+                            im::float_slider(state, &mat->roughness);
 
                             app->render_system->material_storage_buffer.pool[i] = *mat;
 
@@ -1298,7 +1256,8 @@ draw_gui(app_memory_t* app_mem) {
                 if (im::text(state, fmt_sv("kill\0: {}"sv, (void*)e))) {
                     auto* te = e->next;
                     gen_info("gui", "Killing entity: {}", (void*)e);
-                    game::world_destroy_entity(app->game_world, e);
+                    e->queue_free();
+                    // game::world_destroy_entity(app->game_world, e);
                     if (!te) {
                         break;
                     }
@@ -1319,15 +1278,17 @@ draw_gui(app_memory_t* app_mem) {
             }
         }
 
+        im::gizmo(state, widget_pos, vp);
+
         draw_game_gui(app_mem);
 
-        // local_persist viewport_t viewport{};
-        // viewport.images[0] = 1;
-        // viewport.images[1] = 2;
-        // viewport.images[2] = 1;
-        // viewport.images[3] = 2;
+        local_persist viewport_t viewport{};
+        viewport.images[0] = 1;
+        viewport.images[1] = 2;
+        viewport.images[2] = 1;
+        viewport.images[3] = 2;
 
-        // draw_viewport(state, &viewport);
+        draw_viewport(state, &viewport);
 
         // const math::aabb_t<v2f> screen{v2f{0.0f}, state.ctx.screen_size};
         // im::image(state, 2, math::aabb_t<v2f>{v2f{state.ctx.screen_size.x - 400, 0.0f}, v2f{state.ctx.screen_size.x, 400.0f}});
@@ -1423,10 +1384,21 @@ game_on_render(app_memory_t* app_mem) {
 
         auto command_buffer_begin_info = gfx::vul::utl::command_buffer_begin_info();
         VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
+    
+        VkBuffer buffers[1] = { app->render_system->vertices.buffer };
+        VkDeviceSize offsets[1] = { 0 };
+
+        vkCmdBindVertexBuffers(command_buffer, 0, 1, buffers, offsets);
+
+        vkCmdBindIndexBuffer(command_buffer,
+            app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+        );
+
 
         gfx::vul::utl::insert_image_memory_barrier(
             command_buffer,
-            vk_gfx.swap_chain_images[imageIndex],
+            rs->frame_images[0].texture.image,
+            // vk_gfx.swap_chain_images[imageIndex],
             0,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1437,7 +1409,8 @@ game_on_render(app_memory_t* app_mem) {
         
         gfx::vul::utl::insert_image_memory_barrier(
             command_buffer,
-            vk_gfx.depth_stencil_texture.image,
+            rs->frame_images[1].texture.image,
+            // vk_gfx.depth_stencil_texture.image,
             0,
             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1450,9 +1423,10 @@ game_on_render(app_memory_t* app_mem) {
             // New structures are used to define the attachments used in dynamic rendering
             VkRenderingAttachmentInfoKHR colorAttachment{};
             colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-            colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
+            // colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
+            colorAttachment.imageView = rs->frame_images[0].texture.image_view;
             colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
             colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
             colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
 
@@ -1460,7 +1434,8 @@ game_on_render(app_memory_t* app_mem) {
             // When both are specified separately, the only requirement is that the image view is identical.			
             VkRenderingAttachmentInfoKHR depthStencilAttachment{};
             depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-            depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
+            depthStencilAttachment.imageView = rs->frame_images[1].texture.image_view;
+            // depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
             depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
             depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1468,7 +1443,7 @@ game_on_render(app_memory_t* app_mem) {
 
             VkRenderingInfoKHR renderingInfo{};
             renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-            renderingInfo.renderArea = { 0, 0, rs->width, rs->height };
+            renderingInfo.renderArea = { 0, 0, rs->frame_images[0].width(), rs->frame_images[0].height() };
             renderingInfo.layerCount = 1;
             renderingInfo.colorAttachmentCount = 1;
             renderingInfo.pColorAttachments = &colorAttachment;
@@ -1478,12 +1453,22 @@ game_on_render(app_memory_t* app_mem) {
             khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
         }
 
+            game::rendering::draw_skybox(
+                rs, command_buffer, 
+                assets::shaders::skybox_frag.filename,
+                app->sky_pipeline->pipeline_layout,
+                game::cam::get_direction(
+                    app->game_world->player->camera_controller.yaw,
+                    app->game_world->player->camera_controller.pitch
+                ), app->scene.lighting.directional_light
+            );
+
             auto viewport = gfx::vul::utl::viewport((f32)rs->width, (f32)rs->height, 0.0f, 1.0f);
             auto scissor = gfx::vul::utl::rect2D(rs->width, rs->height, 0, 0);
 
             ext.vkCmdSetViewportWithCountEXT(command_buffer, 1, &viewport);
             ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
-            ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_BACK_BIT);
+            ext.vkCmdSetCullModeEXT(command_buffer, gs_cull_modes[gs_cull_mode]);
             ext.vkCmdSetFrontFaceEXT(command_buffer, VK_FRONT_FACE_COUNTER_CLOCKWISE);
             ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_TRUE);
             ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
@@ -1522,15 +1507,6 @@ game_on_render(app_memory_t* app_mem) {
                 ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
 
-            VkBuffer buffers[1] = { app->render_system->vertices.buffer };
-            VkDeviceSize offsets[1] = { 0 };
-
-            vkCmdBindVertexBuffers(command_buffer, 0, 1, buffers, offsets);
-
-            vkCmdBindIndexBuffer(command_buffer,
-                app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
-            );
-
             vkCmdBindDescriptorSets(command_buffer, 
                 VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
                 4, 1, &app->brick_descriptor, 0, nullptr);
@@ -1550,7 +1526,7 @@ game_on_render(app_memory_t* app_mem) {
                 vk_gfx.swap_chain_images[imageIndex],
                 0,
                 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_LAYOUT_UNDEFINED,
                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                 VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -1561,7 +1537,8 @@ game_on_render(app_memory_t* app_mem) {
                 vk_gfx.depth_stencil_texture.image,
                 0,
                 VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                // VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
                 VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
@@ -1861,9 +1838,9 @@ void
 main_menu_on_update(app_memory_t* app_mem) {
 }
 
-global_variable u64 scene_state = 0;
+global_variable u64 scene_state = 1;
 
-#include "App/Game/GUI/entity_editor.hpp"
+
 
 inline entity_editor_t* get_entity_editor(app_memory_t* app) {
     local_persist entity_editor_t ee{get_app(app)};
@@ -1880,10 +1857,7 @@ app_on_render(app_memory_t* app_mem) {
         }   break;
         case 1:{
             // Game            
-            {
-                // std::lock_guard lock{app->render_system->ticket};
-                draw_gui(app_mem);            
-            }                
+            draw_gui(app_mem);            
             game_on_render(app_mem);
         }   break;
         default:

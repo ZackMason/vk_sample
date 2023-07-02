@@ -419,10 +419,10 @@ void state_t::init(app_config_t* info, arena_t* temp_arena) {
     create_swap_chain(info->window_size[0], info->window_size[1], info->graphics_config.vsync);
     gen_info("vulkan", "created swap chain.");
 
-    create_depth_stencil_image(&depth_stencil_texture, info->window_size[0], info->window_size[1]);
-
-    create_image_views();
     create_command_pool();
+
+    create_depth_stencil_image(&depth_stencil_texture, info->window_size[0], info->window_size[1]);
+    create_image_views();
 
     create_uniform_buffer(&sporadic_uniform_buffer);
 
@@ -503,20 +503,6 @@ state_t::end_single_time_commands(VkCommandBuffer cmd_buffer) {
     vkFreeCommandBuffers(device, command_pool, 1, &cmd_buffer);
 }
 
-struct quick_cmd_raii_t {
-    state_t* _s;
-    VkCommandBuffer command_buffer;
-
-    auto& c() { return command_buffer; }
-
-    quick_cmd_raii_t(state_t* gfx) 
-        : _s{gfx}, command_buffer{gfx->begin_single_time_commands()}
-    {
-    }
-    virtual ~quick_cmd_raii_t() {
-        _s->end_single_time_commands(command_buffer);
-    }
-};
 
 
 void 
@@ -1178,13 +1164,13 @@ state_t::create_depth_stencil_image(
 		vici.pNext = nullptr;
 		vici.flags = 0;
 		vici.imageType = VK_IMAGE_TYPE_2D;
-		vici.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+		texture->format = vici.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
 		vici.extent = ve3d;
 		vici.mipLevels = 1;
 		vici.arrayLayers = 1;
 		vici.samples = VK_SAMPLE_COUNT_1_BIT;
 		vici.tiling = VK_IMAGE_TILING_OPTIMAL;
-		vici.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		vici.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		vici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		vici.queueFamilyIndexCount = 0;
 		vici.pQueueFamilyIndices = (const uint32_t *)nullptr;
@@ -1206,6 +1192,17 @@ state_t::create_depth_stencil_image(
 	
 	vkBindImageMemory( device, texture->image, imageMemory, 0 );	// 0 is the offset
 
+    texture->size[0] = width;
+    texture->size[1] = height;
+
+    utl::set_image_layout(
+        this, 
+        texture->image,
+        VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+        texture->image_layout,
+        VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL
+    );
+    
 	VkImageViewCreateInfo			vivci;
 		vivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		vivci.pNext = nullptr;
@@ -1217,7 +1214,7 @@ state_t::create_depth_stencil_image(
 		vivci.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 		vivci.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
 		vivci.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		vivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		vivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 		vivci.subresourceRange.baseMipLevel = 0;
 		vivci.subresourceRange.levelCount = 1;
 		vivci.subresourceRange.baseArrayLayer = 0;
@@ -1225,8 +1222,30 @@ state_t::create_depth_stencil_image(
 
     VK_OK(vkCreateImageView( device, &vivci, 0, &texture->image_view));
 
-    texture->size[0] = width;
-    texture->size[1] = height;
+
+    VkSamplerCreateInfo vsci;
+        vsci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        vsci.pNext = nullptr;
+        vsci.flags = 0;
+        vsci.magFilter = VK_FILTER_LINEAR;
+        vsci.minFilter = VK_FILTER_LINEAR;
+        vsci.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        vsci.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        vsci.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        vsci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        vsci.mipLodBias = 0;
+        vsci.anisotropyEnable = VK_FALSE;
+        vsci.maxAnisotropy = 1;
+        vsci.compareEnable = VK_FALSE;
+        vsci.compareOp = VK_COMPARE_OP_NEVER;
+        vsci.minLod = 0.;
+        vsci.maxLod = 0.;
+        vsci.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK; 
+        vsci.unnormalizedCoordinates = VK_FALSE;
+
+    VK_OK(vkCreateSampler(device, &vsci, 0, &texture->sampler));
+
+
 }
 
 void 
@@ -1690,8 +1709,13 @@ state_t::transistion_image_layout(
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     } else {
-        gen_error("vk::image_layout_transistion", "unsupported layout transition!");
-        std::terminate();
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        // gen_error("vk::image_layout_transistion", "unsupported layout transition!");
+        // std::terminate();
     }
 
     vkCmdPipelineBarrier(
@@ -1933,8 +1957,43 @@ state_t::create_image(
     }
 
     vkBindImageMemory(device, texture->image, texture->vdm, 0);
+}
 
-    
+void 
+state_t::create_texture(
+    texture_2d_t* texture,
+    i32 w, i32 h, i32 c,
+    arena_t* arena, u8* data
+) {
+    assert(texture&&w&&h);
+
+    texture->size[0] = w;
+    texture->size[1] = h;
+    texture->channels= c;
+    texture->pixels = arena? (u8*)arena_alloc(arena, w*h*c) : nullptr;
+    if (arena && data) {
+        std::memcpy(texture->pixels, data, w*h*c);
+    } else if (data) {
+        texture->pixels = data;
+    }
+}
+
+void 
+state_t::load_texture(
+    texture_2d_t* texture, 
+    std::span<u8> data, 
+    arena_t* arena
+) {
+    const auto image_size = texture->size[0] * texture->size[1] * texture->channels;
+    if (arena) {
+        if (texture->pixels) {
+            gen_warn(__FUNCTION__, "Leaking texture pixels");
+        }
+        texture->pixels = (u8*)arena_alloc(arena, image_size);
+        std::memcpy(texture->pixels, data.data(), image_size);
+    } else {
+        texture->pixels = data.data();
+    }
 }
 
 void 
@@ -1950,14 +2009,15 @@ state_t::load_texture(
     u8* data = stbi_load(path.data(), texture->size + 0, texture->size + 1, &texture->channels, 0);
     assert(data);
     const auto image_size = texture->size[0] * texture->size[1] * texture->channels;
-    texture->pixels = (u8*)arena_alloc(arena, image_size);
-    std::memcpy(texture->pixels, data, image_size);
+    load_texture(texture, std::span{data, (size_t)image_size}, arena);
+    
     stbi_image_free(data);
     gen_info("vk::load_texture_sampler", 
         "Texture Info:\n\twidth: {}\n\theight: {}\n\tchannels: {}", 
         texture->size[0], texture->size[1], texture->channels
     );
 }
+
 void 
 state_t::load_texture_sampler(
     texture_2d_t* texture, 
@@ -2015,11 +2075,11 @@ state_t::load_texture_sampler(
         image_info.mipLevels = 1;
         image_info.arrayLayers = 1;
 
-        image_info.format = VK_FORMAT_R8G8B8A8_SRGB;
+        image_info.format = texture->format;
         image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-        image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        image_info.initialLayout = texture->image_layout;
 
-        image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
         image_info.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -2052,7 +2112,7 @@ state_t::load_texture_sampler(
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = texture->image;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+        viewInfo.format = texture->format;
         viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = 1;
