@@ -150,9 +150,10 @@ entity_editor_render(entity_editor_t* ee) {
 
     auto* app = ee->app;
     auto& imgui = ee->imgui;
+    const auto width = app->gui.ctx.screen_size.x;
     gfx::gui::ctx_clear(&app->gui.ctx, &app->gui.vertices[frame&1].pool, &app->gui.indices[frame&1].pool);
 
-    if (im::begin_panel(imgui, "EE")) {
+    if (im::begin_panel(imgui, "EE", v2f{width/3.0f,0.0f} )) {
         im::text(imgui, "Entity Editor"sv);
         im::text(imgui, "============================="sv);
         im::same_line(imgui);

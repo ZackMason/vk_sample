@@ -1249,6 +1249,40 @@ state_t::create_depth_stencil_image(
 }
 
 void 
+state_t::create_descriptors(
+    descriptor_create_info_t* create_info,
+    VkDescriptorSet* descriptor_sets,
+    VkDescriptorSetLayout* descriptor_set_layouts
+) {
+    VkDescriptorPoolSize				vdps[8];
+		for (u32 i = 0; i < create_info->descriptor_count; i++) {
+            vdps[i].type = (VkDescriptorType)create_info->descriptor_flags[i];            
+            vdps[i].descriptorCount = 1; // note(zack): not sure what this is for tbh
+        }
+
+    VkDescriptorSetLayoutCreateInfo			vdslc[8];
+		for (u32 i = 0; i < create_info->descriptor_count; i++) {
+            vdslc[i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            vdslc[i].pNext = nullptr;
+            vdslc[i].flags = 0;
+            vdslc[i].bindingCount = 1;
+            vdslc[i].pBindings = create_info->descriptor_set_layout_bindings + i;
+        }
+    
+    for (u32 i = 0; i < create_info->descriptor_count; i++) {
+        VK_OK(vkCreateDescriptorSetLayout(device, vdslc + i, 0, descriptor_set_layouts + i));
+    }
+    VkDescriptorSetAllocateInfo vdsai;
+        vdsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        vdsai.pNext = nullptr;
+        vdsai.descriptorPool = descriptor_pool;
+        vdsai.descriptorSetCount = create_info->descriptor_count;
+        vdsai.pSetLayouts = descriptor_set_layouts;
+
+    VK_OK(vkAllocateDescriptorSets(device, &vdsai, descriptor_sets));
+}
+
+void 
 state_t::create_pipeline_state_descriptors(
     pipeline_state_t* pipeline, 
     pipeline_state_t::create_info_t* create_info
@@ -1279,7 +1313,7 @@ state_t::create_pipeline_state_descriptors(
         vdsai.descriptorSetCount = create_info->descriptor_count;
         vdsai.pSetLayouts = pipeline->descriptor_set_layouts;
 
-    VK_OK(vkAllocateDescriptorSets(device, &vdsai,  pipeline->descriptor_sets));
+    VK_OK(vkAllocateDescriptorSets(device, &vdsai, pipeline->descriptor_sets));
 }
 
 void 
@@ -1288,10 +1322,10 @@ state_t::create_pipeline_state(
     pipeline_state_t::create_info_t* create_info,
     VkRenderPass render_pass
 ) {
-    u32 copy_count = 0;
-    for (size_t i = 0; i < create_info->descriptor_count; i++) {
-        vkUpdateDescriptorSets(device, 1, create_info->write_descriptor_sets + i, copy_count, nullptr);
-    }
+    // u32 copy_count = 0;
+    // for (size_t i = 0; i < create_info->descriptor_count; i++) {
+    //     vkUpdateDescriptorSets(device, 1, create_info->write_descriptor_sets + i, copy_count, nullptr);
+    // }
 
     auto vertShaderCode = read_bin_file(create_info->vertex_shader);
     auto fragShaderCode = read_bin_file(create_info->fragment_shader);

@@ -186,8 +186,7 @@ struct pipeline_state_t {
         VkPrimitiveTopology     topology{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
         VkPolygonMode           fill_mode{VK_POLYGON_MODE_FILL};
         VkCullModeFlagBits      cull_mode{VK_CULL_MODE_NONE};
-        // VkAttachmentDescription attachment_descriptions[6];
-        // u32                     attachment_count{2};
+
         bool                        write_depth{true};
         bool                        test_depth{true};
 
@@ -212,15 +211,25 @@ struct pipeline_state_t {
 
     VkPipeline          pipeline;
     VkPipelineLayout    pipeline_layout;
-    // VkRenderPass        render_passes[8];
-    // u32                 render_pass_count{1};
-    // VkFramebuffer*      framebuffers{0};
-    // u32                 framebuffer_count{0};
 
     // descriptors
     u32                     descriptor_count{0};
     VkDescriptorSetLayout   descriptor_set_layouts[5];
     VkDescriptorSet         descriptor_sets[5];
+};
+
+struct descriptor_create_info_t {
+    enum DescriptorFlag {
+        DescriptorFlag_Uniform          = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        DescriptorFlag_Storage          = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        DescriptorFlag_Sampler          = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        DescriptorFlag_Invalid,
+    };
+
+    u32                                 descriptor_count{0};
+    DescriptorFlag                      descriptor_flags[8];
+    VkDescriptorSetLayoutBinding        descriptor_set_layout_bindings[8];
+    VkWriteDescriptorSet                write_descriptor_sets[8];
 };
 
 inline void
@@ -392,6 +401,9 @@ struct state_t {
 
     void create_pipeline_state(pipeline_state_t* pipeline, pipeline_state_t::create_info_t* create_info, VkRenderPass render_pass);
     void create_pipeline_state_descriptors(pipeline_state_t* pipeline, pipeline_state_t::create_info_t* create_info);
+    void create_descriptors(descriptor_create_info_t* create_info, VkDescriptorSet* descriptor_sets, VkDescriptorSetLayout* descriptor_set_layouts);
+
+    VkPipelineLayout create_pipeline_layout(VkDescriptorSetLayout* descriptor_set_layouts, size_t descriptor_set_count = 1, size_t push_constant_size = 0);
 
     void destroy_instance();
 
@@ -426,7 +438,36 @@ begin_render_pass(
     VkCommandBuffer command_buffer
 );
 
+VkPipelineLayout
+create_pipeline_layout(
+    VkDevice device,
+    VkDescriptorSetLayout* descriptor_set_layouts,
+    u32 descriptor_set_count = 1,
+    u32 push_constant_size = 0
+) {
+    VkPushConstantRange vpcr{};
+        vpcr.offset = 0;
+	    vpcr.size = push_constant_size;
+        vpcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutInfo.setLayoutCount = descriptor_set_count;
+        pipelineLayoutInfo.pSetLayouts = descriptor_set_layouts;
+        pipelineLayoutInfo.pushConstantRangeCount = !!push_constant_size;
+        pipelineLayoutInfo.pPushConstantRanges = push_constant_size ? &vpcr : 0;
+
+    VkPipelineLayout pipeline_layout;
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipeline_layout) != VK_SUCCESS) {
+        gen_error("vulkan", "failed to create pipeline layout!");
+        std::terminate();
+    }
+
+    return pipeline_layout;
+}
+
 namespace utl {
+
 
 inline VkCommandPoolCreateInfo 
 command_pool_create_info() {

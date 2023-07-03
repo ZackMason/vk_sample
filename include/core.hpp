@@ -1872,15 +1872,14 @@ struct transform_t {
 	transform_t inverse() const {
         transform_t transform;
         transform.basis = glm::transpose(basis);
-        transform.origin = basis * -origin;
+        transform.origin = transform.basis * -origin;
         return transform;
     }
 
-	void look_at(const v3f& target, const v3f& up = { 0,1,0 }) {
-        auto mat = glm::lookAt(origin, target, up);
-        basis = mat;
-        origin = mat[3];
+	void look_at(const v3f& target, const v3f& up = axis::up) {
+        set_rotation(glm::quatLookAt(target-origin, up));
     }
+
     constexpr void set_scale(const v3f& scale) {
         for (int i = 0; i < 3; i++) {
             basis[i] = glm::normalize(basis[i]) * scale[i];
@@ -2633,7 +2632,7 @@ namespace gui {
         center->img = ~(0ui32);
 
         vertex_t* lv{0};
-        range_u32(i, 0, res) {
+        range_u32(i, 0, res+1) {
             const auto a = start * math::constants::tau32 + perc * math::constants::tau32 * f32(i)/f32(res);
             vertex_t* v = ctx->vertices->allocate(1);
 
@@ -2644,15 +2643,15 @@ namespace gui {
             if (lv) {
                 u32* tris = ctx->indices->allocate(3);
                 *tris++ = v_start;
+                *tris++ = v_start + i - 1;
                 *tris++ = v_start + i;
-                *tris++ = v_start + i + 1;
             }
             lv = v;
         }
         u32* tris = ctx->indices->allocate(3);
         *tris++ = v_start;
-        *tris++ = v_start + 1;
         *tris++ = v_start + res;
+        *tris++ = v_start + 1;
     }
 
     inline void
@@ -3099,6 +3098,7 @@ namespace gui {
             v3f* pos,
             const m44& vp
         ) {
+            return;
             draw_gizmo(imgui, pos, vp);
 
             const v3f spos = math::world_to_screen(vp, *pos);

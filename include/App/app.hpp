@@ -112,7 +112,7 @@ struct app_t {
     
     gfx::vul::pipeline_state_t* gui_pipeline{0};
     gfx::vul::pipeline_state_t* debug_pipeline{0};
-    gfx::vul::pipeline_state_t* mesh_pipeline{0};
+    // gfx::vul::pipeline_state_t* mesh_pipeline{0};
     gfx::vul::pipeline_state_t* sky_pipeline{0};
 
     struct gui_state_t {

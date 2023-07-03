@@ -29,8 +29,8 @@ void teapot_on_collision(
     physics::rigidbody_t* other
 ) {
     // gen_info(__FUNCTION__, "teapot hit: {} - id", teapot->id);
-    auto* teapot_entity = (game::entity_t*) teapot->user_data;
-    teapot->add_relative_impulse(teapot->inverse_transform_direction(axis::up) * 10.0f, gs_dt);
+    // auto* teapot_entity = (game::entity_t*) teapot->user_data;
+    // teapot->add_relative_impulse(teapot->inverse_transform_direction(axis::up) * 10.0f, gs_dt);
     
     // teapot->flags = physics::rigidbody_flags::SKIP_SYNC;
 }
@@ -269,17 +269,19 @@ app_init_graphics(app_memory_t* app_mem) {
         game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
     }
 
+    
+
     app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
     app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass);
-    app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass,
-        gfx::vul::mesh_pipeline_info_t{
-            vk_gfx.sporadic_uniform_buffer.buffer,
-            app->render_system->job_storage_buffer.buffer,
-            app->render_system->material_storage_buffer.buffer,
-            app->render_system->environment_storage_buffer.buffer
-        }
-    );
-    assert(app->mesh_pipeline);
+    // app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass,
+    //     gfx::vul::mesh_pipeline_info_t{
+    //         vk_gfx.sporadic_uniform_buffer.buffer,
+    //         app->render_system->job_storage_buffer().buffer,
+    //         app->render_system->material_storage_buffer.buffer,
+    //         app->render_system->environment_storage_buffer.buffer
+    //     }
+    // );
+    // assert(app->mesh_pipeline);
 
     vk_gfx.create_uniform_buffer(&app->scene.debug_scene_uniform_buffer);
 
@@ -324,32 +326,35 @@ app_init_graphics(app_memory_t* app_mem) {
         app->gui_pipeline->descriptor_set_layouts[0],
         ui_textures, array_count(ui_textures));
 
-    app->brick_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
-    {
-        temp_arena_t ta = app->texture_arena;
-        vk_gfx.load_texture_sampler(app->brick_texture, "./res/textures/rock_01_a.png", &ta);
-    }
+    // app->brick_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
+    // {
+    //     temp_arena_t ta = app->texture_arena;
+    //     vk_gfx.load_texture_sampler(app->brick_texture, "./res/textures/rock_01_a.png", &ta);
+    // }
     // app->brick_texture = make_error_texture(&app->texture_arena, 256);
     // vk_gfx.load_texture_sampler(app->brick_texture, &app->texture_arena);
-    app->brick_descriptor = vk_gfx.create_image_descriptor_set(
-        vk_gfx.descriptor_pool,
-        app->mesh_pipeline->descriptor_set_layouts[4],
-        &app->brick_texture, 1);
+
+    // app->brick_descriptor = vk_gfx.create_image_descriptor_set(
+    //     vk_gfx.descriptor_pool,
+    //     app->mesh_pipeline->descriptor_set_layouts[4],
+    //     &app->brick_texture, 1);
 
     { //@test loading shader objects
+        auto& mesh_pass = rs->frames[0].mesh_pass;
+
         rs->shader_cache.load(
             app->main_arena, 
             vk_gfx,
             assets::shaders::simple_vert,
-            app->mesh_pipeline->descriptor_set_layouts,
-            app->mesh_pipeline->descriptor_count
+            mesh_pass.descriptor_layouts,
+            mesh_pass.descriptor_count
         );
         rs->shader_cache.load(
             app->main_arena, 
             vk_gfx,
             assets::shaders::simple_frag,
-            app->mesh_pipeline->descriptor_set_layouts,
-            app->mesh_pipeline->descriptor_count
+            mesh_pass.descriptor_layouts,
+            mesh_pass.descriptor_count
         );
         VkShaderEXT shaders[2]{
             rs->shader_cache.get(assets::shaders::simple_vert.filename),
@@ -363,8 +368,8 @@ app_init_graphics(app_memory_t* app_mem) {
             return game::rendering::create_material(
                 app->render_system, 
                 n, std::move(mat), 
-                app->mesh_pipeline->pipeline, 
-                app->mesh_pipeline->pipeline_layout,
+                VK_NULL_HANDLE, 
+                mesh_pass.pipeline_layout,
                 shaders, array_count(shaders)
             );
         };
@@ -485,7 +490,7 @@ app_on_init(app_memory_t* app_mem) {
 
     using namespace gfx::color;
 
-    app->scene.sporadic_buffer.mode = 1;
+    app->scene.sporadic_buffer.mode = 2;
     app->scene.sporadic_buffer.use_lighting = 1;
 
 
@@ -535,9 +540,6 @@ app_on_init(app_memory_t* app_mem) {
 
     app->game_world->player->transform.origin.y = 5.0f;
     app->game_world->player->transform.origin.z = -5.0f;
-
-    
-
         
     gen_info("app", "world size: {}mb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
 }
@@ -546,8 +548,11 @@ export_fn(void)
 app_on_deinit(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
 
+    game::rendering::cleanup(app->render_system);
+
     gfx::vul::state_t& vk_gfx = app->gfx;
     vk_gfx.cleanup();
+
 
     app->~app_t();
 }
@@ -575,8 +580,7 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
     const bool is_on_ground = rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
     const bool is_on_wall = rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
 
-    app->game_world->player->camera_controller.transform = 
-        // app->game_world->player->physics.rigidbody->position;
+    player->camera_controller.transform = 
         app->game_world->player->transform;
     
     const v3f move = pc.move_input;
@@ -615,7 +619,8 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
     
     if (pc.fire1 && player->primary_weapon.entity) {
         auto rd = forward;
-        auto ro = player->primary_weapon.entity->global_transform().origin + rd * 0.7f;
+        // auto ro = player->camera_controller.transform.origin;
+        auto ro = player->global_transform().origin + rd * 1.7f;
 
         temp_arena_t fire_arena = world->frame_arena[world->frame_count&1];
         u64 fired{0};
@@ -629,7 +634,8 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
                     gen_warn(__FUNCTION__, "player shot them self");
                 }
                 if (rb->type == physics::rigidbody_type::DYNAMIC) {
-                    auto hp = ray.point - rb->position;
+                    //rb->inverse_transform_direction
+                    auto hp = (ray.point - rb->position);
                     auto f = rb->inverse_transform_direction(rd);
                     rb->add_force_at_point(f*100.0f, hp);
                 }
@@ -730,10 +736,7 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
             }
         }
 
-        if (e == app->game_world->player) {
-            e->camera_controller.transform = e->global_transform();
-            e->camera_controller.translate(axis::up);
-        }
+        
 
         // app->debug.draw_aabb(e->global_transform().xform_aabb(e->aabb), gfx::color::v3::yellow);
     }
@@ -747,6 +750,8 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
     game::rendering::begin_frame(app->render_system);
     app->debug.debug_vertices.pool.clear();
+    app->game_world->player->camera_controller.translate(axis::up);
+
 
     for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
         auto* e = app->game_world->entities + i;
@@ -947,6 +952,7 @@ draw_gui(app_memory_t* app_mem) {
                         gs_main_debug_record_size, app_mem->physics->get_debug_table_size()
                     };
 
+                    size_t record_count = 0;
                     range_u64(t, 0, array_count(tables)) {
                         size_t size = table_sizes[t];
                         auto* table = tables[t];
@@ -960,7 +966,7 @@ draw_gui(app_memory_t* app_mem) {
                             if (im::text(state,
                                 fmt_sv("--- {}:", 
                                     record->func_name ? record->func_name : "<Unknown>"), 
-                                show_record + i
+                                show_record + record_count++
                             )) {
                                 f32 hist[4096/32];
                                 math::statistic_t debug_stat;
@@ -1369,8 +1375,8 @@ game_on_render(app_memory_t* app_mem) {
     u32 imageIndex = wait_for_frame(app, frame_count);
     std::lock_guard lock{app->render_system->ticket};
     {
-        app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
-        app->render_system->set_view(app->game_world->camera.to_matrix(), app->width(), app->height());
+        app->render_system->camera_pos = app->game_world->camera.origin;
+        app->render_system->set_view(app->game_world->camera.inverse().to_matrix(), app->width(), app->height());
     }
 
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
@@ -1483,7 +1489,7 @@ game_on_render(app_memory_t* app_mem) {
                 constants.vp = rs->vp;
                 constants.cp = v4f{rs->camera_pos, 0.0f};
                                 
-                vkCmdPushConstants(command_buffer, app->mesh_pipeline->pipeline_layout,
+                vkCmdPushConstants(command_buffer, app->render_system->frames[0].mesh_pass.pipeline_layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
                     0, sizeof(constants), &constants
                 );
@@ -1507,16 +1513,16 @@ game_on_render(app_memory_t* app_mem) {
                 ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
 
-            vkCmdBindDescriptorSets(command_buffer, 
-                VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
-                4, 1, &app->brick_descriptor, 0, nullptr);
+            // vkCmdBindDescriptorSets(command_buffer, 
+            //     VK_PIPELINE_BIND_POINT_GRAPHICS, app->render_system->frames[0].mesh_pass.pipeline_layout,
+            //     4, 1, &app->brick_descriptor, 0, nullptr);
 
             build_shader_commands(
                 rs, 
-                command_buffer, 
-                app->mesh_pipeline->pipeline_layout, 
-                app->mesh_pipeline->descriptor_sets, 
-                app->mesh_pipeline->descriptor_count - 1
+                command_buffer 
+                // app->mesh_pipeline->pipeline_layout, 
+                // app->mesh_pipeline->descriptor_sets, 
+                // app->mesh_pipeline->descriptor_count - 1
             );
         khr.vkCmdEndRenderingKHR(command_buffer);
     
@@ -1672,8 +1678,8 @@ game_on_render2(app_memory_t* app_mem) {
     std::lock_guard lock{app->render_system->ticket};
 
     {
-        app->render_system->camera_pos = app->game_world->camera.affine_invert().origin;
-        app->render_system->set_view(app->game_world->camera.to_matrix(), app->width(), app->height());
+        app->render_system->camera_pos = app->game_world->camera.origin;
+        app->render_system->set_view(app->game_world->camera.inverse().to_matrix(), app->width(), app->height());
     }
 
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;
@@ -1745,26 +1751,26 @@ game_on_render2(app_memory_t* app_mem) {
     }
 
 
-    {
-        vkCmdBindDescriptorSets(command_buffer, 
-            VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
-            0, 4, app->mesh_pipeline->descriptor_sets, 0, nullptr);
+    // {
+    //     vkCmdBindDescriptorSets(command_buffer, 
+    //         VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
+    //         0, 4, app->mesh_pipeline->descriptor_sets, 0, nullptr);
 
-        vkCmdBindDescriptorSets(command_buffer, 
-            VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
-            4, 1, &app->brick_descriptor, 0, nullptr);
+    //     vkCmdBindDescriptorSets(command_buffer, 
+    //         VK_PIPELINE_BIND_POINT_GRAPHICS, app->mesh_pipeline->pipeline_layout,
+    //         4, 1, &app->brick_descriptor, 0, nullptr);
 
-        VkBuffer buffers[1] = { app->render_system->vertices.buffer };
-        VkDeviceSize offsets[1] = { 0 };
+    //     VkBuffer buffers[1] = { app->render_system->vertices.buffer };
+    //     VkDeviceSize offsets[1] = { 0 };
 
-        vkCmdBindVertexBuffers(command_buffer,
-            0, 1, buffers, offsets);
+    //     vkCmdBindVertexBuffers(command_buffer,
+    //         0, 1, buffers, offsets);
 
-        vkCmdBindIndexBuffer(command_buffer,
-            app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
-        );
-        game::rendering::build_commands(app->render_system, command_buffer);
-    }
+    //     vkCmdBindIndexBuffer(command_buffer,
+    //         app->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+    //     );
+    //     game::rendering::build_commands(app->render_system, command_buffer);
+    // }
 
 
     // if (app->debug.show) 

@@ -50,10 +50,9 @@ struct first_person_controller_t {
     f32 pitch{0};
 
     void translate(const v3f& d) {
-        // transform.origin += d;
-
-        camera->set_position(transform.origin + d);
-        camera->look_at(transform.origin + d + get_direction(yaw, pitch));
+        transform.origin += d;
+        camera->set_position(transform.origin);
+        camera->look_at(transform.origin + get_direction(yaw, pitch));
     }
 };
 

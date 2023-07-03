@@ -7,7 +7,7 @@
 
 #include "lighting.hpp"
 #include "assets.hpp"
-
+#include "descriptor_allocator.hpp"
 
 struct RenderingStats {
     u64 triangle_count{0};
@@ -22,7 +22,6 @@ REFLECT_TYPE(RenderingStats) {REFLECT_TYPE_INFO(RenderingStats)}
     .REFLECT_PROP(RenderingStats, shader_count)
     .REFLECT_PROP(RenderingStats, texture_count);
 };
-
 
 namespace game::rendering {
     struct mesh_cache_t {
@@ -231,6 +230,67 @@ public:
         point_light_t point_lights[512];
     };
 
+    struct mesh_pass_t {
+        VkPipelineLayout pipeline_layout{};
+        VkDescriptorSet sporadic_descriptors{};
+        VkDescriptorSet object_descriptors{};
+        VkDescriptorSet material_descriptor{};
+        VkDescriptorSet enviornment_descriptor{};
+        VkDescriptorSet texture_descriptor{};
+        VkDescriptorSetLayout descriptor_layouts[5];
+        u32 descriptor_count{5};
+        VkDevice device;
+
+        void build_layout(VkDevice device_) {
+            device = device_;
+            pipeline_layout = gfx::vul::create_pipeline_layout(device, descriptor_layouts, 5, sizeof(m44) + sizeof(v4f));
+        }
+
+        void build_buffer_sets(gfx::vul::descriptor_builder_t& builder, VkBuffer* buffers) {
+            VkDescriptorBufferInfo buffer_info[4];
+            buffer_info[0].buffer = buffers[0];
+            buffer_info[0].offset = 0; 
+            buffer_info[0].range = sizeof(gfx::vul::sporadic_buffer_t);
+
+            buffer_info[1].buffer = buffers[1];
+            buffer_info[1].offset = 0; 
+            buffer_info[1].range = (sizeof(m44) + sizeof(u32) * 4 * 4) * 10'000; // hardcoded
+            
+            buffer_info[2].buffer = buffers[2];
+            buffer_info[2].offset = 0; 
+            buffer_info[2].range = sizeof(gfx::material_t) * 100; // hardcoded
+
+            buffer_info[3].buffer = buffers[3];
+            buffer_info[3].offset = 0; 
+            buffer_info[3].range = sizeof(game::rendering::environment_t);
+
+            using namespace gfx::vul;
+            builder
+                .bind_buffer(0, buffer_info + 0, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Uniform, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(sporadic_descriptors, descriptor_layouts[0]);
+            builder
+                .bind_buffer(0, buffer_info + 1, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(object_descriptors, descriptor_layouts[1]);
+            builder
+                .bind_buffer(0, buffer_info + 2, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(material_descriptor, descriptor_layouts[2]);
+            builder
+                .bind_buffer(0, buffer_info + 3, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(enviornment_descriptor, descriptor_layouts[3]);
+        }
+
+        void bind_images(gfx::vul::descriptor_builder_t& builder, gfx::vul::texture_2d_t* texture) {
+            using namespace gfx::vul;
+            VkDescriptorImageInfo vdii[1];
+            vdii[0].imageLayout = texture->image_layout;
+            vdii[0].imageView = texture->image_view;
+            vdii[0].sampler = texture->sampler;
+            builder
+                .bind_image(4, vdii, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .build(texture_descriptor, descriptor_layouts[4]);
+        }
+    };
+
 
     // for double buffering
     struct frame_data_t {
@@ -239,6 +299,10 @@ public:
 
         VkCommandPool command_pool;
         VkCommandBuffer main_command_buffer;
+
+        mesh_pass_t mesh_pass{};
+
+        gfx::vul::descriptor_allocator_t* dynamic_descriptor_allocator{nullptr};
     };
 
     struct render_data_t {
@@ -259,7 +323,7 @@ public:
         }
     };
 
-
+    
     struct system_t {
         inline static constexpr size_t  frame_arena_size = megabytes(64);
         inline static constexpr u32     frame_overlap = 2;
@@ -289,6 +353,9 @@ public:
         u64             frame_count{0};
         frame_data_t    frames[frame_overlap];
 
+        gfx::vul::descriptor_allocator_t* permanent_descriptor_allocator{nullptr};
+        gfx::vul::descriptor_layout_cache_t* descriptor_layout_cache{nullptr};
+
         VkRenderPass        render_passes[8];
         u32                 render_pass_count{1};
         VkFramebuffer*      framebuffers{0};
@@ -299,7 +366,10 @@ public:
         gfx::vul::vertex_buffer_t<gfx::vertex_t, max_scene_vertex_count> vertices;
         gfx::vul::index_buffer_t<max_scene_index_count> indices;
 
-        gfx::vul::storage_buffer_t<render_data_t, 10'000>   job_storage_buffer;
+        gfx::vul::storage_buffer_t<render_data_t, 10'000>   job_storage_buffers[2];
+        gfx::vul::storage_buffer_t<render_data_t, 10'000>&  job_storage_buffer() {
+            return job_storage_buffers[frame_count&1];
+        }
         gfx::vul::storage_buffer_t<gfx::material_t, 100>    material_storage_buffer;
         gfx::vul::storage_buffer_t<environment_t, 1>    environment_storage_buffer;
 
@@ -346,6 +416,17 @@ public:
         u32 w, u32 h
     );
 
+    static inline void
+    cleanup(
+        system_t* rs
+    ) {
+        rs->descriptor_layout_cache->cleanup();
+        range_u64(i, 0, system_t::frame_overlap) {
+            rs->frames[i].dynamic_descriptor_allocator->cleanup();
+        }
+        rs->permanent_descriptor_allocator->cleanup();
+    }
+
     template <size_t Size = gigabytes(1)>
     inline system_t*
     init(
@@ -360,6 +441,12 @@ public:
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
         rs->render_jobs = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
+
+        rs->permanent_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device); 
+        range_u64(i, 0, array_count(rs->frames)) {
+            rs->frames[i].dynamic_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device);
+        }
+        rs->descriptor_layout_cache = arena_alloc_ctor<gfx::vul::descriptor_layout_cache_t>(&rs->arena, 1, state.device); 
 
         const i32 w = state.swap_chain_extent.width;
         const i32 h = state.swap_chain_extent.height;
@@ -382,12 +469,26 @@ public:
         state.load_texture_sampler(&rs->frame_images[0].texture, &rs->arena);
         state.create_depth_stencil_image(&rs->frame_images[1].texture, w, h);
 
-
-        state.create_storage_buffer(&rs->job_storage_buffer);
+        state.create_storage_buffer(&rs->job_storage_buffers[0]);
+        state.create_storage_buffer(&rs->job_storage_buffers[1]);
         state.create_storage_buffer(&rs->material_storage_buffer);
         state.create_storage_buffer(&rs->environment_storage_buffer);
 
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
+
+        VkBuffer buffers[]{
+            state.sporadic_uniform_buffer.buffer,
+            rs->job_storage_buffer().buffer,
+            rs->material_storage_buffer.buffer,
+            rs->environment_storage_buffer.buffer
+        };
+
+        range_u64(i, 0, array_count(rs->frames)) {
+            auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
+            rs->frames[i].mesh_pass.build_buffer_sets(builder, buffers);
+            rs->frames[i].mesh_pass.bind_images(builder, &state.null_texture);
+            rs->frames[i].mesh_pass.build_layout(state.device);
+        }
 
         VkCommandPoolCreateInfo command_pool_info = gfx::vul::utl::command_pool_create_info();
         command_pool_info.queueFamilyIndex = state.graphics_index;
@@ -407,22 +508,12 @@ public:
     }
 
     inline void
-    clear(system_t* rs) {
-        // rs->render_jobs.clear();
-        rs->render_job_count = 0;
-        rs->materials.clear();
-        rs->mesh_cache.meshes.clear();
-        utl::str_hash_create(rs->mesh_hash);
-
-        arena_clear(&rs->arena);
-    }
-
-    inline void
     begin_frame(system_t* rs) {
         rs->stats = {};
         rs->render_job_count = 0;
-        // rs->render_jobs.clear();
-        rs->job_storage_buffer.pool.clear();
+        rs->frame_count++;
+        rs->get_frame_data().dynamic_descriptor_allocator->reset_pools();
+        rs->job_storage_buffer().pool.clear();
 
         arena_clear(&rs->frame_arena);
     }
@@ -441,7 +532,7 @@ public:
         job->material = mat_id;
         job->transform = transform;
 
-        auto* gpu_job = rs->job_storage_buffer.pool.allocate(1);
+        auto* gpu_job = rs->job_storage_buffer().pool.allocate(1);
         gpu_job->model = transform;
         gpu_job->mat_id = mat_id;
 
@@ -506,10 +597,7 @@ public:
 
     inline void build_shader_commands(
         system_t* rs,
-        VkCommandBuffer command_buffer,
-        VkPipelineLayout pipeline_layout, // ??? needed for push constants ???
-        VkDescriptorSet* descriptor_set,
-        u32 descriptor_count
+        VkCommandBuffer command_buffer
     ) {
         TIMED_FUNCTION;
         auto& ext = rs->vk_gfx->ext;
@@ -517,13 +605,30 @@ public:
         
         VkPipelineLayout last_layout = VK_NULL_HANDLE;
         VkShaderEXT last_shader = VK_NULL_HANDLE;
+
         for (size_t i = 0; i < rs->render_job_count; i++) {
             render_job_t* job = rs->render_jobs + i;
 
             const auto* material = rs->materials[job->material];
 
             if (material->pipeline_layout != last_layout) {
-                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material->pipeline_layout, 0, descriptor_count, descriptor_set, 0, nullptr);
+                using namespace gfx::vul;
+                
+                mesh_pass_t& mesh_pass = rs->get_frame_data().mesh_pass;
+                auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
+                VkBuffer buffers[]{
+                    rs->vk_gfx->sporadic_uniform_buffer.buffer,
+                    rs->job_storage_buffer().buffer,
+                    rs->material_storage_buffer.buffer,
+                    rs->environment_storage_buffer.buffer
+                };
+                mesh_pass.build_buffer_sets(builder, buffers);
+
+                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 0, 1, &mesh_pass.sporadic_descriptors, 0, nullptr);
+                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 1, 1, &mesh_pass.object_descriptors, 0, nullptr);
+                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 2, 1, &mesh_pass.material_descriptor, 0, nullptr);
+                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 3, 1, &mesh_pass.enviornment_descriptor, 0, nullptr);
+                // vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 4, 1, &mesh_pass.texture_descriptor, 0, nullptr);
             }
             last_layout = material->pipeline_layout;
 

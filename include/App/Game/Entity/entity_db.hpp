@@ -101,7 +101,7 @@ teapot {
     },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Dynamic,
-    #if 0 // use convex
+    #if 1 // use convex
         .shape = physics::collider_shape_type::CONVEX,
     #else 
         .shape = physics::collider_shape_type::SPHERE,

@@ -118,18 +118,18 @@ main( )
 	vec3 spec = vec3(0.9);
 	float gloss = 32.0;// * material.roughness;
 
-	// rgb = NoL * rgb;
+	rgb = max(NoL, 0.3) * rgb;
 
-	float D = filament_DGGX2(NoH, roughness);
-	vec3  F = filament_Schlick(LoH, F0);
-	float S = filament_SmithGGXCorrelated(NoV, NoL, roughness);
+	// float D = filament_DGGX2(NoH, roughness);
+	// vec3  F = filament_Schlick(LoH, F0);
+	// float S = filament_SmithGGXCorrelated(NoV, NoL, roughness);
 
-	vec3 Fr = D * S * F;
-	vec3 fD = albedo * filament_DLambert();
+	// vec3 Fr = D * S * F;
+	// vec3 fD = albedo * filament_DLambert();
 
-	fD *= 1.0 - metallic;
+	// fD *= 1.0 - metallic;
 
-	rgb = fD + Fr;
+	// rgb = fD + Fr;
 
 	// vec3 la = vec3(0.4863, 0.6235, 0.8824) * 0.1;
 	// float li = smoothstep(0.0, 0.01, NoL);
