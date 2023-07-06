@@ -20,6 +20,7 @@ struct descriptor_allocator_t {
 
     void reset_pools();
     void cleanup() {
+        ::utl::profile_t p{__FUNCTION__};
         range_u64(i, 0, array_count(used_pools)) {
             if (used_pools[i] != VK_NULL_HANDLE) {
                 vkDestroyDescriptorPool(device, used_pools[i], nullptr);
@@ -85,7 +86,9 @@ create_pool(
 VkDescriptorPool 
 descriptor_allocator_t::get_pool() {
     if (free_pool_count > 0) {
-        return free_pools[--free_pool_count];
+        auto pool = free_pools[--free_pool_count];
+        free_pools[free_pool_count] = VK_NULL_HANDLE;
+        return pool;
     } else {
         return create_pool(device, descriptor_sizes, array_count(descriptor_sizes), 1000, 0);
     }
@@ -167,6 +170,7 @@ struct descriptor_layout_cache_t {
     }
 
     void cleanup() {
+        ::utl::profile_t p{__FUNCTION__};
         range_u64(i, 0, MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE) {
             if (cache[i] != VK_NULL_HANDLE) {
                 vkDestroyDescriptorSetLayout(device, cache[i], nullptr);

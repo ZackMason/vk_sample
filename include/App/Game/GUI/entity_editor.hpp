@@ -83,9 +83,20 @@ object_data_gui(gfx::gui::im::state_t& imgui, reflect::type_t type, std::byte* d
     std::memset(depth_str, 0, 32);
     std::memset(depth_str, '-', depth?depth-1:0);
 
-    // im::indent(imgui, v2f{depth*2.0f,0.0f});
-    im::text(imgui, fmt_sv("{} {}: {}", depth_str, type.name, prop_name?prop_name:""));
-    
+    auto show_property = type.get_property("show");
+    bool show = true;
+
+    if (show_property.valid()) {
+        show_property.get_value_raw(data, (std::byte*)&show);
+        if (im::text(imgui, fmt_sv("{} {}: {}", depth_str, type.name, prop_name?prop_name:""))) {
+            show = !show;
+            show_property.set_value_raw(data, show);
+        }
+    } else {
+        im::text(imgui, fmt_sv("{} {}: {}", depth_str, type.name, prop_name?prop_name:""));
+    }
+
+    if (!show) return;
     if (type == reflect::type<f32>::info) {
         im::indent(imgui, v2f{depth*28.0f,0.0f});
         im::float_slider(imgui, (f32*)data);

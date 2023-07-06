@@ -157,6 +157,24 @@ tree_01 {
     },
 };
 
+DB_ENTRY
+tree_group {
+    .children = {
+        {
+            .entity = &tree_01,
+            .offset = v3f{0.0f}
+        },
+        {
+            .entity = &tree_01,
+            .offset = v3f{2.0f,0.0f, 0.5f}
+        },
+        {
+            .entity = &tree_01,
+            .offset = v3f{1.0f,0.0f, -0.25f}
+        },
+    },
+};
+
 };
 
 namespace rooms {
@@ -182,6 +200,7 @@ room_01 {
     .gfx = {
         // .mesh_name = "res/models/rooms/room_01.obj",
         .mesh_name = "res/models/rooms/rock_room_test.fbx",
+        // .mesh_name = "res/models/rooms/rock_room_test.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
     .physics = prefab_t::physics_t {
@@ -297,13 +316,13 @@ soldier {
         // },
     },
     .children = {
-        {
-            .entity = &weapons::rifle,
-            .offset = v3f{0.0f},
-        },
+        // {
+        //     .entity = &weapons::rifle,
+        //     .offset = v3f{0.0f},
+        // },
         {
             .entity = &weapons::shotgun,
-            .offset = v3f{0.0f},
+            .offset = v3f{1.0f, 1.0f, 0.50f},
         },
     },
 };
@@ -335,13 +354,13 @@ assassin {
     },
     .children = {
         {
-            .entity = &weapons::rifle,
+            .entity = &weapons::shotgun,
             .offset = v3f{0.0f},
         },
-        {
-            .entity = &weapons::pistol,
-            .offset = v3f{0.0f},
-        },
+        // {
+        //     .entity = &weapons::pistol,
+        //     .offset = v3f{0.0f},
+        // },
     },
 };
 

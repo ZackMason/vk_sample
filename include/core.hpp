@@ -642,6 +642,9 @@ struct app_memory_t {
     } audio;
 
     physics::api_t* physics{nullptr};
+
+    using message_box_function = i32(*)(const char*);
+    message_box_function message_box{0};
 };
 
 using app_func_t = void(__cdecl *)(app_memory_t*);
@@ -1186,6 +1189,10 @@ namespace reflect {
         std::size_t size{0};
         std::size_t offset{0};
 
+        constexpr bool valid() {
+            return name.empty() == false;
+        }
+
         template<typename Obj, typename Value>
         void set_value(Obj& obj, Value v) const noexcept {
             std::memcpy((std::byte*)&obj + offset, &v, sizeof(Value));
@@ -1197,6 +1204,7 @@ namespace reflect {
         }
 
         
+        // read value from obj into memory
         object_t get_value_raw(std::byte* obj, std::byte* memory) const noexcept {
             object_t var{type, memory};
             std::memcpy(var.data, obj + offset, size);
@@ -1345,6 +1353,7 @@ struct fmt::formatter<reflect::object_t> {
 };
 
 
+REFLECT_TYPE_(bool);};
 REFLECT_TYPE_(f32);};
 REFLECT_TYPE_(u64);};
 
@@ -2001,9 +2010,9 @@ struct vertex_t {
 };
 
 struct skinned_vertex_t {
-    v3f position;
-    v3f normal;
-    v2f tex_coord;
+    v3f pos;
+    v3f nrm;
+    v2f tex;
     // v3f tangent;
     // v3f bitangent;
     u32 bone_id[4];
@@ -2935,7 +2944,7 @@ namespace gui {
             const sid_t pnl_id = sid(name.sv());
 
             imgui.panel++;
-            assert((void*)imgui.panel != (void*)&imgui.panel);
+            assert((void*)imgui.panel != (void*)&imgui.panel && "End of nested panels");
 
             if (pos.x >= 0.0f && pos.y >= 0.0f) { 
                 imgui.panel->draw_cursor = pos+1.0f;
@@ -3098,7 +3107,7 @@ namespace gui {
             v3f* pos,
             const m44& vp
         ) {
-            return;
+            
             draw_gizmo(imgui, pos, vp);
 
             const v3f spos = math::world_to_screen(vp, *pos);
@@ -4489,88 +4498,6 @@ make_v3f(const auto& v) -> v3f {
     return {v.X, v.Y, v.Z};
 }
 
-namespace anim {
-
-using bone_id_t = u32;
-
-template <typename T>
-struct keyframe {
-    f32 time;
-    T value;
-};
-
-template <typename T>
-using anim_pool_t = pool_t<keyframe<T>>;
-
-struct xform_t {
-    v3f         position;
-    glm::quat   orientation;
-    v3f         scale;
-};
-
-struct bone_t {
-    const char* name;
-    u64 parent_index;
-    xform_t*    xforms;
-    u64     xform_count;
-};
-
-#define MAX_ANIMATION_BONES 128
-
-struct animation_t {
-    f32 duration{0.0f};
-    i32 ticks_per_second{24};
-
-    bone_t bones[MAX_ANIMATION_BONES];
-    m44     matrices[MAX_ANIMATION_BONES];
-};
-
-
-template <typename T>
-inline void
-anim_pool_add_time_value(anim_pool_t<T>* pool, f32 time, T val) {
-    auto* time_value = pool->allocate(1);
-    *time_value = keyframe<T>{
-        .time = time,
-        .value = val
-    };
-}
-
-template <typename T>
-inline T
-anim_pool_get_time_value(anim_pool_t<T>* pool, f32 time) {
-    if (pool->count == 0) {
-        return T{0.0f};
-    }
-
-    if (time <= 0.0f) {
-        return (*pool)[0].value;
-    } else if (time >= (*pool)[pool->count-1].time) {
-        return (*pool)[pool->count-1].value;
-    }
-
-    for (size_t i = 0; i < pool->count - 1; i++) {
-        if (pool->data()[i].time <= time && time <= pool->data()[i+1].time) {
-            const auto d = (pool->data()[i+1].time - pool->data()[i].time);
-            const auto p = time - pool->data()[i].time;
-            if constexpr (std::is_same_v<T, glm::quat>) {
-                return glm::slerp(pool[0][i], pool[0][i+1], p/d);
-            } else {
-                return glm::mix(
-                    pool->data()[i].value,
-                    pool->data()[i+1].value,
-                    p/d
-                );
-            }
-        }
-    }
-
-    return T{};
-}
-
-
-}; // namespace anim
-
 
 template <typename T>
 struct offset_pointer_t {
@@ -4871,6 +4798,8 @@ namespace magic {
     constexpr u64 vers = 0x2;
     constexpr u64 mesh = 0x1212121212121212;
     constexpr u64 text = 0x1212121212121213;
+    constexpr u64 skel = 0x1212691212121241;
+    constexpr u64 anim = 0x1212691212121269;
     constexpr u64 table_start = 0x7abe17abe1;
 };
 

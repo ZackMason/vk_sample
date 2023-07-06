@@ -2,6 +2,8 @@
 
 #include "App/app.hpp"
 
+#include "skeleton.hpp"
+
 #include "ProcGen/terrain.hpp"
 #include "ProcGen/mesh_builder.hpp"
 #include "App/Game/World/world.hpp"
@@ -23,6 +25,13 @@ global_variable VkCullModeFlagBits gs_cull_modes[] = {
     VK_CULL_MODE_FRONT_BIT,
 };
 global_variable u32 gs_cull_mode;
+
+global_variable VkPolygonMode gs_poly_modes[] = {
+    VK_POLYGON_MODE_FILL,
+    VK_POLYGON_MODE_LINE,
+    VK_POLYGON_MODE_POINT,
+};
+global_variable u32 gs_poly_mode;
 
 void teapot_on_collision(
     physics::rigidbody_t* teapot,
@@ -268,6 +277,115 @@ app_init_graphics(app_memory_t* app_mem) {
 
         game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
     }
+    
+    range_u64(i, 0, app->resource_file->file_count) {
+        arena_t* arena = &app->mesh_arena;
+        if (app->resource_file->table[i].file_type != utl::res::magic::skel) { 
+            continue; 
+        }
+
+        const char* file_name = app->resource_file->table[i].name.c_data;
+        std::byte*  file_data = utl::res::pack_file_get_file(app->resource_file, i);
+
+        gfx::mesh_list_t results;
+        utl::memory_blob_t blob{file_data};
+
+        // read file meta data
+        const auto meta = blob.deserialize<u64>();
+        const auto vers = blob.deserialize<u64>();
+        const auto mesh = blob.deserialize<u64>();
+
+        assert(meta == utl::res::magic::meta);
+        assert(vers == utl::res::magic::vers);
+        assert(mesh == utl::res::magic::skel);
+
+        results.count = blob.deserialize<u64>();
+        gen_warn("app::load_bin_mesh_data", "Loading {} meshes", results.count);
+        results.meshes  = arena_alloc_ctor<gfx::mesh_view_t>(arena, results.count);
+
+        u64 total_vertex_count = 0;
+        auto* vertices_ = new gfx::skinned_vertex_t[4'00'000];
+        utl::pool_t<gfx::skinned_vertex_t> vertices{vertices_, 4'00'000};
+
+        for (size_t j = 0; j < results.count; j++) {
+            std::string name = blob.deserialize<std::string>();
+            gen_info("app::load_bin_mesh_data", "Mesh name: {}", name);
+            const size_t vertex_count = blob.deserialize<u64>();
+            const size_t vertex_bytes = sizeof(gfx::skinned_vertex_t) * vertex_count;
+
+            total_vertex_count += vertex_count;
+
+            const u32 vertex_start = safe_truncate_u64(vertices.count);
+            const u32 index_start = 0;
+
+            results.meshes[j].vertex_count = safe_truncate_u64(vertex_count);
+            results.meshes[j].vertex_start = vertex_start;
+            results.meshes[j].index_start = index_start;
+
+            gfx::skinned_vertex_t* v = vertices.allocate(vertex_count);
+
+            std::memcpy(v, blob.read_data(), vertex_bytes);
+            blob.advance(vertex_bytes);
+
+            // no indices for skeletal meshes atm
+            // const size_t index_count = blob.deserialize<u64>();
+            // const size_t index_bytes = sizeof(u32) * index_count;
+            // results.meshes[j].index_count = safe_truncate_u64(index_count);
+
+            // u32* tris = indices->allocate(index_count);
+            // std::memcpy(tris, blob.read_data(), index_bytes);
+            // blob.advance(index_bytes);
+
+            results.meshes[j].aabb = {};
+            range_u64(k, 0, vertex_count) {
+                results.meshes[j].aabb.expand(v[k].pos);
+            }
+        }
+
+        results.aabb = {};
+        range_u64(m, 0, results.count) {
+            results.aabb.expand(results.meshes[m].aabb);
+        }
+    
+        const auto anim = blob.deserialize<u64>();
+        assert(anim == utl::res::magic::anim);    
+
+        const auto anim_count = blob.deserialize<u64>();
+        const auto total_anim_size = blob.deserialize<u64>();
+        // const auto total_anim_size2 = blob.deserialize<u64>();
+        // const auto anim_count = total_anim_size / sizeof(gfx::anim::animation_t);
+
+        auto* animations = (gfx::anim::animation_t*) blob.read_data();
+        blob.advance(total_anim_size);
+
+
+        const auto skeleton_size = blob.deserialize<u64>();
+        assert(skeleton_size == sizeof(gfx::anim::skeleton_t));
+        auto* skeleton = (gfx::anim::skeleton_t*)blob.read_data();
+        blob.advance(skeleton_size);
+
+        app_mem->message_box(
+            fmt_sv("Asset {} has skeleton, {} vertices, {} animations\n{} - {}s {} ticks\nSkeleton: {} bones", 
+            file_name, total_vertex_count, anim_count, 
+            animations[0].name, animations[0].duration, animations[0].ticks_per_second,
+            skeleton->bone_count).data());
+
+        range_u64(a, 0, anim_count) {
+            auto& animation = animations[a];
+            gen_info(__FUNCTION__, "Animation: {}, size: {}", animation.name, sizeof(gfx::anim::animation_t));
+            range_u64(n, 0, animation.node_count) {
+                auto& node = animation.nodes[n];
+                auto& timeline = node.bone;
+                if (timeline) {
+                    gen_info(__FUNCTION__, "Bone: {}, id: {}", timeline->name, timeline->id);
+                }
+            }
+        }
+        range_u64(b, 0, skeleton->bone_count) {
+            auto& bone = skeleton->bones[b];
+            gen_info(__FUNCTION__, "Bone: {}, parent: {}", bone.name_hash, bone.parent);
+        }
+    }
 
     
 
@@ -341,6 +459,7 @@ app_init_graphics(app_memory_t* app_mem) {
 
     { //@test loading shader objects
         auto& mesh_pass = rs->frames[0].mesh_pass;
+        auto& anim_pass = rs->frames[0].anim_pass;
 
         rs->shader_cache.load(
             app->main_arena, 
@@ -352,11 +471,19 @@ app_init_graphics(app_memory_t* app_mem) {
         rs->shader_cache.load(
             app->main_arena, 
             vk_gfx,
+            assets::shaders::skinned_vert,
+            anim_pass.descriptor_layouts,
+            anim_pass.descriptor_count
+        );
+        rs->shader_cache.load(
+            app->main_arena, 
+            vk_gfx,
             assets::shaders::simple_frag,
             mesh_pass.descriptor_layouts,
             mesh_pass.descriptor_count
         );
-        VkShaderEXT shaders[2]{
+        using const_shader_ptr_t = const VkShaderEXT*;
+        const_shader_ptr_t shaders[2]{
             rs->shader_cache.get(assets::shaders::simple_vert.filename),
             rs->shader_cache.get(assets::shaders::simple_frag.filename)
         };
@@ -517,7 +644,7 @@ app_on_init(app_memory_t* app_mem) {
     // }
     game::spawn(app->game_world, app->render_system, game::db::rooms::room_01);
 
-    game::spawn(app->game_world, app->render_system, game::db::environmental::tree_01, v3f{20,0,20});
+    game::spawn(app->game_world, app->render_system, game::db::environmental::tree_group, v3f{20,0,20});
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
     loop_iota_u64(i, 320) {
@@ -549,10 +676,11 @@ app_on_deinit(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
 
     game::rendering::cleanup(app->render_system);
+    gen_info(__FUNCTION__, "Render System cleaned up");
 
     gfx::vul::state_t& vk_gfx = app->gfx;
     vk_gfx.cleanup();
-
+    gen_info(__FUNCTION__, "Graphics API cleaned up");
 
     app->~app_t();
 }
@@ -750,8 +878,9 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
     game::rendering::begin_frame(app->render_system);
     app->debug.debug_vertices.pool.clear();
-    app->game_world->player->camera_controller.translate(axis::up);
 
+    app->game_world->player->camera_controller.transform = app->game_world->player->transform;
+    app->game_world->player->camera_controller.translate(axis::up);
 
     for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
         auto* e = app->game_world->entities + i;
@@ -762,8 +891,8 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         }
 
         if (is_not_renderable) {
-            gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
-            return;
+            // gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
+            continue;
         }
 
         game::rendering::submit_job(
@@ -894,30 +1023,20 @@ draw_gui(app_memory_t* app_mem) {
 
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
-            local_persist bool show_player = !false;
-            local_persist bool show_stats = !false;
+            local_persist bool show_player = false;
+            local_persist bool show_stats = false;
             local_persist bool show_resources = false;
             local_persist bool show_window = false;
             local_persist bool show_gfx_cfg = false;
-            local_persist bool show_perf = true;
+            local_persist bool show_perf = !true;
             local_persist bool show_gui = false;
             local_persist bool show_theme = false;
             local_persist bool show_colors= false;
             local_persist bool show_files[0xff];
 
-            if (im::text(state, "Player"sv, &show_player)) {
-                auto* player = app->game_world->player;
-                const bool on_ground = app->game_world->player->physics.rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
-                const bool on_wall = app->game_world->player->physics.rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
-                im::text(state, fmt_sv("- On Ground: {}", on_ground?"true":"false"));
-                im::text(state, fmt_sv("- On Wall: {}", on_wall?"true":"false"));
-                const auto v = player->physics.rigidbody->velocity;
-                const auto p = player->global_transform().origin;
-                im::text(state, fmt_sv("- Position: {}", p));
-                im::text(state, fmt_sv("- Velocity: {}", v));
-            }
             
-            if (im::text(state, "Stats"sv, &show_stats)) {
+
+            {
                 local_persist f32 dt_accum{0};
                 local_persist f32 dt_count{0};
                 if (dt_count > 1000.0f) {
@@ -933,8 +1052,62 @@ draw_gui(app_memory_t* app_mem) {
                 }
                 rdt_accum += app_mem->input.render_dt;
                 rdt_count += 1.0f;
-                im::text(state, fmt_sv("- Gameplay FPS: {:.2f} - {:.2f} ms", 1.0f / (dt_accum/dt_count), (dt_accum/dt_count) * 1000.0f));
-                im::text(state, fmt_sv("- Graphics FPS: {:.2f} - {:.2f} ms", 1.0f / (rdt_accum/rdt_count), (rdt_accum/rdt_count) * 1000.0f));
+                im::text(state, fmt_sv("Gameplay FPS: {:.2f} - {:.2f} ms", 1.0f / (dt_accum/dt_count), (dt_accum/dt_count) * 1000.0f));
+                im::text(state, fmt_sv("Graphics FPS: {:.2f} - {:.2f} ms", 1.0f / (rdt_accum/rdt_count), (rdt_accum/rdt_count) * 1000.0f));
+            }
+
+#if GEN_INTERNAL
+            local_persist bool show_record[128];
+            if (im::text(state, "Profiling"sv, &show_perf)) {
+                debug_table_t* tables[] {
+                    &gs_debug_table, app_mem->physics->get_debug_table()
+                };
+                size_t table_sizes[]{
+                    gs_main_debug_record_size, app_mem->physics->get_debug_table_size()
+                };
+
+                size_t record_count = 0;
+                range_u64(t, 0, array_count(tables)) {
+                    size_t size = table_sizes[t];
+                    auto* table = tables[t];
+                    range_u64(i, 0, size) {
+                        auto* record = table->records + i;
+                        const auto cycle = record->history[record->hist_id?record->hist_id-1:array_count(record->history)-1];
+
+                        if (record->func_name == nullptr) continue;
+
+                        im::same_line(state);
+                        if (im::text(state,
+                            fmt_sv("- {}:", 
+                                record->func_name ? record->func_name : "<Unknown>"), 
+                            show_record + record_count++
+                        )) {
+                            f32 hist[4096/32];
+                            math::statistic_t debug_stat;
+                            math::begin_statistic(debug_stat);
+                            range_u64(j, 0, array_count(hist)) {
+                                const auto ms = f64(record->history[j*32])/f64(1e+6);
+                                math::update_statistic(debug_stat, ms);
+                                hist[j] = (f32)ms;
+                            }
+    
+                            im::text(state,
+                                fmt_sv(" {:.2f}ms - [{:.2f}, {:.2f}]", cycle/1e+6, debug_stat.range.min, debug_stat.range.max)
+                            );
+                            math::end_statistic(debug_stat);
+
+                            im::histogram(state, hist, array_count(hist), (f32)debug_stat.range.max, v2f{4.0f*128.0f, 32.0f});
+                        } else {
+                            im::text(state,
+                                fmt_sv(" {:.2f}ms", cycle/1e+6)
+                            );
+                        }
+                    }
+                }
+            }
+#endif
+            
+            if (im::text(state, "Stats"sv, &show_stats)) {
 
                 object_gui(state, app->render_system->stats);
                 
@@ -942,56 +1115,6 @@ draw_gui(app_memory_t* app_mem) {
                     const auto [x,y] = app_mem->input.mouse.pos;
                     im::text(state, fmt_sv("- Mouse: [{:.2f}, {:.2f}]", x, y));
                 }
-#if GEN_INTERNAL
-                local_persist bool show_record[128];
-                if (im::text(state, "- Perf"sv, &show_perf)) {
-                    debug_table_t* tables[] {
-                        &gs_debug_table, app_mem->physics->get_debug_table()
-                    };
-                    size_t table_sizes[]{
-                        gs_main_debug_record_size, app_mem->physics->get_debug_table_size()
-                    };
-
-                    size_t record_count = 0;
-                    range_u64(t, 0, array_count(tables)) {
-                        size_t size = table_sizes[t];
-                        auto* table = tables[t];
-                        range_u64(i, 0, size) {
-                            auto* record = table->records + i;
-                            const auto cycle = record->history[record->hist_id?record->hist_id-1:array_count(record->history)-1];
-
-                            if (record->func_name == nullptr) continue;
-
-                            im::same_line(state);
-                            if (im::text(state,
-                                fmt_sv("--- {}:", 
-                                    record->func_name ? record->func_name : "<Unknown>"), 
-                                show_record + record_count++
-                            )) {
-                                f32 hist[4096/32];
-                                math::statistic_t debug_stat;
-                                math::begin_statistic(debug_stat);
-                                range_u64(j, 0, array_count(hist)) {
-                                    const auto ms = f64(record->history[j*32])/f64(1e+6);
-                                    math::update_statistic(debug_stat, ms);
-                                    hist[j] = (f32)ms;
-                                }
-        
-                                im::text(state,
-                                    fmt_sv(" {:.2f}ms - [{:.2f}, {:.2f}]", cycle/1e+6, debug_stat.range.min, debug_stat.range.max)
-                                );
-                                math::end_statistic(debug_stat);
-
-                                im::histogram(state, hist, array_count(hist), (f32)debug_stat.range.max, v2f{4.0f*128.0f, 32.0f});
-                            } else {
-                                im::text(state,
-                                    fmt_sv(" {:.2f}ms", cycle/1e+6)
-                                );
-                            }
-                        }
-                    }
-                }
-#endif
                 if (im::text(state, "- GFX Config"sv, &show_gfx_cfg)) {
                     auto& config = app_mem->config.graphics_config;
 
@@ -1031,6 +1154,9 @@ draw_gui(app_memory_t* app_mem) {
                     }
                     if (im::text(state, fmt_sv("--- Cull Mode: {}", gs_cull_mode))) {
                         gs_cull_mode = (gs_cull_mode + 1) % array_count(gs_cull_modes);
+                    }
+                    if (im::text(state, fmt_sv("--- Polygon Mode: {}", gs_poly_mode))) {
+                        gs_poly_mode = (gs_poly_mode + 1) % array_count(gs_poly_modes);
                     }
                 }
 
@@ -1106,10 +1232,17 @@ draw_gui(app_memory_t* app_mem) {
             local_persist bool show_gfx = false;
             local_persist bool show_mats = false;
             local_persist bool show_probes = false;
-            local_persist bool show_env = !false;
+            local_persist bool show_env = false;
             local_persist bool show_mat_id[8] = {};
             if (im::text(state, "Graphics"sv, &show_gfx)) { 
                 local_persist bool show_sky = false;
+                if (im::text(state, "- Reload Shaders")) {
+                    std::system("compile_shaders");
+                    app->render_system->shader_cache.reload_all(
+                        app->render_system->arena,
+                        app->gfx
+                    );
+                }
                 if (im::text(state, "- Probes"sv, &show_probes)) { 
                     auto& probes = app->render_system->light_probes;
                     range_u64(i, 0, probes.probe_count) {
@@ -1173,7 +1306,7 @@ draw_gui(app_memory_t* app_mem) {
                 }
             }
 
-            local_persist bool show_arenas = !false;
+            local_persist bool show_arenas = false;
             if (im::text(state, "Memory"sv, &show_arenas)) {
                 for (size_t i = 0; i < array_count(display_arenas); i++) {
                     im::text(state, arena_display_info(display_arenas[i], display_arena_names[i]));
@@ -1186,12 +1319,27 @@ draw_gui(app_memory_t* app_mem) {
                 im::text(state, fmt_sv("- Count: {}", entity_count));
 
                 if (im::text(state, "- Kill All"sv)) {
+                    range_u64(ei, 1, app->game_world->entity_count) {
+                        app->game_world->entities[ei].queue_free();
+                    }
 
                     // app->game_world->entities.clear();
                     // app->game_world->entity_count = 1;
                 }
             }
-            
+
+            if (im::text(state, "Player"sv, &show_player)) {
+                auto* player = app->game_world->player;
+                const bool on_ground = app->game_world->player->physics.rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
+                const bool on_wall = app->game_world->player->physics.rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
+                im::text(state, fmt_sv("- On Ground: {}", on_ground?"true":"false"));
+                im::text(state, fmt_sv("- On Wall: {}", on_wall?"true":"false"));
+                const auto v = player->physics.rigidbody->velocity;
+                const auto p = player->global_transform().origin;
+                im::text(state, fmt_sv("- Position: {}", p));
+                im::text(state, fmt_sv("- Velocity: {}", v));
+            }
+
             im::end_panel(state);
         }
 
@@ -1265,6 +1413,7 @@ draw_gui(app_memory_t* app_mem) {
                     e->queue_free();
                     // game::world_destroy_entity(app->game_world, e);
                     if (!te) {
+                        im::end_panel(state);
                         break;
                     }
                     e = te;
@@ -1301,12 +1450,12 @@ draw_gui(app_memory_t* app_mem) {
         // im::image(state, 1, screen);
     }
 
-
     arena_set_mark(&app->string_arena, string_mark);
 }
 
 inline static u32
 wait_for_frame(app_t* app, u64 frame_count) {
+    TIMED_FUNCTION;
     gfx::vul::state_t& vk_gfx = app->gfx;
     vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count&1], VK_TRUE, UINT64_MAX);
     vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count&1]);
@@ -1475,12 +1624,13 @@ game_on_render(app_memory_t* app_mem) {
             ext.vkCmdSetViewportWithCountEXT(command_buffer, 1, &viewport);
             ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
             ext.vkCmdSetCullModeEXT(command_buffer, gs_cull_modes[gs_cull_mode]);
+            ext.vkCmdSetPolygonModeEXT(command_buffer, gs_poly_modes[gs_poly_mode]);
             ext.vkCmdSetFrontFaceEXT(command_buffer, VK_FRONT_FACE_COUNTER_CLOCKWISE);
             ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_TRUE);
             ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
             ext.vkCmdSetDepthCompareOpEXT(command_buffer, VK_COMPARE_OP_LESS_OR_EQUAL);
             ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-
+            
             {
                 struct pc_t {
                     m44 vp;
@@ -1583,6 +1733,7 @@ game_on_render(app_memory_t* app_mem) {
         {
             ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_NONE);
             ext.vkCmdSetFrontFaceEXT(command_buffer, VK_FRONT_FACE_CLOCKWISE);
+            ext.vkCmdSetPolygonModeEXT(command_buffer, gs_poly_modes[0]);
 
             vkCmdBindDescriptorSets(command_buffer, 
                 VK_PIPELINE_BIND_POINT_GRAPHICS, app->gui_pipeline->pipeline_layout,
@@ -1613,8 +1764,8 @@ game_on_render(app_memory_t* app_mem) {
                 app->gui.indices[frame_count&1].buffer, 0, VK_INDEX_TYPE_UINT32);
 
             VkShaderEXT gui_shaders[2] {
-                rs->shader_cache.get("./res/shaders/bin/gui.vert.spv"),
-                rs->shader_cache.get("./res/shaders/bin/gui.frag.spv"),
+                *rs->shader_cache.get("./res/shaders/bin/gui.vert.spv"),
+                *rs->shader_cache.get("./res/shaders/bin/gui.frag.spv"),
             };
             assert(gui_shaders[0] != VK_NULL_HANDLE);
             assert(gui_shaders[1] != VK_NULL_HANDLE);

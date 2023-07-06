@@ -50,6 +50,7 @@ std::string error_string(VkResult errorCode) {
 void load_extension_functions(state_t& state) {
     auto& device = state.device;
     state.ext.vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
+    state.ext.vkDestroyShaderEXT = reinterpret_cast<PFN_vkDestroyShaderEXT>(vkGetDeviceProcAddr(device, "vkDestroyShaderEXT"));
     state.ext.vkCmdBindShadersEXT = reinterpret_cast<PFN_vkCmdBindShadersEXT>(vkGetDeviceProcAddr(device, "vkCmdBindShadersEXT"));
     state.ext.vkGetShaderBinaryDataEXT = reinterpret_cast<PFN_vkGetShaderBinaryDataEXT>(vkGetDeviceProcAddr(device, "vkGetShaderBinaryDataEXT"));
 
@@ -58,11 +59,12 @@ void load_extension_functions(state_t& state) {
 
     state.ext.vkCmdSetViewportWithCountEXT = reinterpret_cast<PFN_vkCmdSetViewportWithCountEXT>(vkGetDeviceProcAddr(device, "vkCmdSetViewportWithCountEXT"));;
     state.ext.vkCmdSetScissorWithCountEXT = reinterpret_cast<PFN_vkCmdSetScissorWithCountEXT>(vkGetDeviceProcAddr(device, "vkCmdSetScissorWithCountEXT"));
-    state.ext.vkCmdSetDepthCompareOpEXT = reinterpret_cast<PFN_vkCmdSetDepthCompareOpEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthCompareOpEXT"));
     state.ext.vkCmdSetCullModeEXT = reinterpret_cast<PFN_vkCmdSetCullModeEXT>(vkGetDeviceProcAddr(device, "vkCmdSetCullModeEXT"));
+    state.ext.vkCmdSetDepthCompareOpEXT = reinterpret_cast<PFN_vkCmdSetDepthCompareOpEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthCompareOpEXT"));
     state.ext.vkCmdSetDepthTestEnableEXT = reinterpret_cast<PFN_vkCmdSetDepthTestEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthTestEnableEXT"));
     state.ext.vkCmdSetDepthWriteEnableEXT = reinterpret_cast<PFN_vkCmdSetDepthWriteEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthWriteEnableEXT"));
     state.ext.vkCmdSetFrontFaceEXT = reinterpret_cast<PFN_vkCmdSetFrontFaceEXT>(vkGetDeviceProcAddr(device, "vkCmdSetFrontFaceEXT"));
+    state.ext.vkCmdSetPolygonModeEXT = reinterpret_cast<PFN_vkCmdSetPolygonModeEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPolygonModeEXT"));
     state.ext.vkCmdSetPrimitiveTopologyEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveTopologyEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPrimitiveTopologyEXT"));
     state.ext.vkCmdSetVertexInputEXT = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(vkGetDeviceProcAddr(device, "vkCmdSetVertexInputEXT"));
 }
@@ -840,7 +842,7 @@ bool check_device_extension_support(VkPhysicalDevice device) {
 bool is_device_poggers(VkPhysicalDevice device, VkSurfaceKHR surface) {
     VkPhysicalDeviceProperties deviceProperties;
     VkPhysicalDeviceFeatures deviceFeatures;
-    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);    
     vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
     auto indices = find_queue_families(device, surface);
@@ -851,7 +853,6 @@ bool is_device_poggers(VkPhysicalDevice device, VkSurfaceKHR surface) {
         auto swapChainSupport = querySwapChainSupport(device, surface);
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.present_modes.empty();
     }
-
     
 
     return  swapChainAdequate && extensionsSupported && indices.is_complete() &&
@@ -903,6 +904,8 @@ void state_t::create_logical_device() {
         queueCreateInfo.pQueuePriorities = &queuePriority;
         queueCreateInfos.push_back(queueCreateInfo);
     }
+
+    vkGetPhysicalDeviceFeatures(gpu_device, &device_features);
 
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1997,7 +2000,8 @@ void
 state_t::create_texture(
     texture_2d_t* texture,
     i32 w, i32 h, i32 c,
-    arena_t* arena, u8* data
+    arena_t* arena, u8* data,
+    size_t pixel_size
 ) {
     assert(texture&&w&&h);
 
@@ -2006,7 +2010,7 @@ state_t::create_texture(
     texture->channels= c;
     texture->pixels = arena? (u8*)arena_alloc(arena, w*h*c) : nullptr;
     if (arena && data) {
-        std::memcpy(texture->pixels, data, w*h*c);
+        std::memcpy(texture->pixels, data, w*h*c*pixel_size);
     } else if (data) {
         texture->pixels = data;
     }
@@ -2036,7 +2040,7 @@ state_t::load_texture(
     std::string_view path, 
     arena_t* arena
 ) {
-    gen_info("vk::load_texture_sampler", "Loading Texture:\n\t{}\n", path);
+    gen_info("vk::load_texture", "Loading Texture:\n\t{}\n", path);
 
     stbi_set_flip_vertically_on_load(true);
     texture->channels = 0;
@@ -2046,7 +2050,7 @@ state_t::load_texture(
     load_texture(texture, std::span{data, (size_t)image_size}, arena);
     
     stbi_image_free(data);
-    gen_info("vk::load_texture_sampler", 
+    gen_info("vk::load_texture", 
         "Texture Info:\n\twidth: {}\n\theight: {}\n\tchannels: {}", 
         texture->size[0], texture->size[1], texture->channels
     );
@@ -2059,15 +2063,17 @@ state_t::load_texture_sampler(
     arena_t* arena
 ) {
     load_texture(texture, path, arena);
-    load_texture_sampler(texture, arena);
+    load_texture_sampler(texture);
 }
 
 void 
 state_t::load_texture_sampler(
-    texture_2d_t* texture, 
-    arena_t* arena
+    texture_2d_t* texture
 ) {
-    const auto image_size = texture->size[0] * texture->size[1] * texture->channels;
+    auto image_size = texture->size[0] * texture->size[1] * texture->channels;
+    if (texture->format == VK_FORMAT_R16G16B16A16_SFLOAT) {
+        image_size *= 2;
+    }
     VkSamplerCreateInfo vsci;
         vsci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         vsci.pNext = nullptr;
@@ -2095,10 +2101,12 @@ state_t::load_texture_sampler(
     
     create_data_buffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &staging_buffer);
 
-    void* gpu_ptr;
-    vkMapMemory(device, staging_buffer.vdm, 0, image_size, 0, &gpu_ptr);
-    std::memcpy(gpu_ptr, texture->pixels, image_size);
-    vkUnmapMemory(device, staging_buffer.vdm);
+    if (texture->pixels) {
+        void* gpu_ptr;
+        vkMapMemory(device, staging_buffer.vdm, 0, image_size, 0, &gpu_ptr);
+        std::memcpy(gpu_ptr, texture->pixels, image_size);
+        vkUnmapMemory(device, staging_buffer.vdm);
+    }
 
     VkImageCreateInfo image_info{};
         image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;

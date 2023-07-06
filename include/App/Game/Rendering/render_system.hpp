@@ -10,13 +10,22 @@
 #include "descriptor_allocator.hpp"
 
 struct RenderingStats {
+    bool show{false};
     u64 triangle_count{0};
     u64 vertex_count{0};
     u64 shader_count{0};
     u64 texture_count{0};
+
+    void reset() {
+        triangle_count = 0;
+        vertex_count = 0;
+        shader_count = 0;
+        texture_count = 0;
+    }
 };
 
 REFLECT_TYPE(RenderingStats) {REFLECT_TYPE_INFO(RenderingStats)}
+    .REFLECT_PROP(RenderingStats, show)
     .REFLECT_PROP(RenderingStats, triangle_count)
     .REFLECT_PROP(RenderingStats, vertex_count)
     .REFLECT_PROP(RenderingStats, shader_count)
@@ -45,10 +54,15 @@ namespace game::rendering {
     };
     
     struct shader_cache_t {
-        struct link_t : node_t<link_t> {
+        struct link_t {
             std::string_view name;
             u64 hash{0};
             VkShaderEXT shader{VK_NULL_HANDLE};
+            VkDescriptorSetLayout* descriptor_layout{0};
+            VkShaderStageFlagBits stage{};
+            VkShaderStageFlagBits next_stage{};
+            u32 descriptor_count{0};
+            u32 push_constant_size{0};
             SpvReflectShaderModule reflection;
 
             // hash will probably never be 1, should probably check this
@@ -62,6 +76,28 @@ namespace game::rendering {
 
         // @hash
         link_t shaders[64]{};
+
+        void reload_all(
+            arena_t arena,
+            gfx::vul::state_t vk_gfx
+        ) {
+            range_u64(i, 0, array_count(shaders)) {
+                if (shaders[i].hash) {
+                    shaders[i].hash = 0;
+                    vk_gfx.ext.vkDestroyShaderEXT(vk_gfx.device, shaders[i].shader, nullptr);                    
+                    load(
+                        arena, 
+                        vk_gfx,
+                        shaders[i].name.data(),
+                        shaders[i].stage,
+                        shaders[i].next_stage,
+                        shaders[i].descriptor_layout,
+                        shaders[i].descriptor_count,
+                        shaders[i].push_constant_size
+                    );
+                }
+            }
+        }
 
         u64 load(
             arena_t arena,
@@ -87,7 +123,15 @@ namespace game::rendering {
                 shader /* out */,
                 reflect /* out */
             );
-            return add(shader[0], filename, reflect[0]);
+            return add(
+                shader[0], 
+                filename, 
+                stage, next_stage,
+                descriptor_set_layouts, 
+                descriptor_count, 
+                push_constant_size, 
+                reflect[0]
+            );
         }
 
         u64 load(
@@ -108,7 +152,16 @@ namespace game::rendering {
             );
         }
 
-        u64 add(VkShaderEXT shader, std::string_view name, std::optional<SpvReflectShaderModule> reflect = std::nullopt) {
+        u64 add(
+            VkShaderEXT shader, 
+            std::string_view name, 
+            VkShaderStageFlagBits stage,
+            VkShaderStageFlagBits next_stage,
+            VkDescriptorSetLayout* descriptor_layout, 
+            u32 descriptor_count,
+            u32 push_constant_size,
+            std::optional<SpvReflectShaderModule> reflect = std::nullopt
+        ) {
             u64 hash = sid(name);
             assert(hash!=1);
             u64 id = hash % array_count(shaders);
@@ -117,9 +170,16 @@ namespace game::rendering {
                 gen_warn(__FUNCTION__, "probing for shader, {} collided with {}", name, shaders[id].name);
                 id = (id+1) % array_count(shaders);
             }
+
+            gen_info(__FUNCTION__, "Adding shader: {}", name);
             shaders[id].hash = hash;
             shaders[id].name = name;
+            shaders[id].stage = stage;
+            shaders[id].next_stage = next_stage;
             shaders[id].shader = shader;
+            shaders[id].descriptor_layout = descriptor_layout;
+            shaders[id].descriptor_count = descriptor_count;
+            shaders[id].push_constant_size = push_constant_size;
             if (reflect) {
                 shaders[id].reflection = *reflect;
             }
@@ -146,12 +206,12 @@ private:
         }
 
 public:
-        VkShaderEXT operator[](std::string_view name) const {
+        const VkShaderEXT* operator[](std::string_view name) const {
             return get(name);
         }
 
-        VkShaderEXT get(std::string_view name) const {
-            return get_(name).shader;
+        const VkShaderEXT* get(std::string_view name) const {
+            return &get_(name).shader;
         }
 
         SpvReflectShaderModule reflect(std::string_view name) const {
@@ -170,17 +230,17 @@ public:
 
         material_node_t(
             gfx::material_t&& mat,
-            VkShaderEXT* shaders_,
+            const VkShaderEXT** shaders_,
             u32 shader_count_
         ) : gfx::material_t{std::move(mat)}, shader_count{shader_count_}
         {
-            std::memcpy(shaders, shaders_, sizeof(VkShaderEXT) * shader_count_);
+            std::memcpy(shaders, shaders_, sizeof(const VkShaderEXT*) * shader_count_);
         }
 
         string_t name{};
         VkPipeline pipeline;
         VkPipelineLayout pipeline_layout;
-        VkShaderEXT shaders[10];
+        const VkShaderEXT* shaders[10];
         u32 shader_count=0;
     };
 
@@ -291,6 +351,75 @@ public:
         }
     };
 
+    struct anim_pass_t {
+        VkPipelineLayout pipeline_layout{};
+        VkDescriptorSet sporadic_descriptors{};
+        VkDescriptorSet object_descriptors{};
+        VkDescriptorSet material_descriptor{};
+        VkDescriptorSet enviornment_descriptor{};
+        VkDescriptorSet texture_descriptor{};
+        VkDescriptorSet animation_descriptor{};
+        VkDescriptorSetLayout descriptor_layouts[6];
+        u32 descriptor_count{6};
+        VkDevice device;
+
+        void build_layout(VkDevice device_) {
+            device = device_;
+            pipeline_layout = gfx::vul::create_pipeline_layout(device, descriptor_layouts, 6, sizeof(m44) + sizeof(v4f));
+        }
+
+        void build_buffer_sets(gfx::vul::descriptor_builder_t& builder, VkBuffer* buffers) {
+            VkDescriptorBufferInfo buffer_info[5];
+            buffer_info[0].buffer = buffers[0];
+            buffer_info[0].offset = 0; 
+            buffer_info[0].range = sizeof(gfx::vul::sporadic_buffer_t);
+
+            buffer_info[1].buffer = buffers[1];
+            buffer_info[1].offset = 0; 
+            buffer_info[1].range = (sizeof(m44) + sizeof(u32) * 4 * 4) * 10'000; // hardcoded
+            
+            buffer_info[2].buffer = buffers[2];
+            buffer_info[2].offset = 0; 
+            buffer_info[2].range = sizeof(gfx::material_t) * 100; // hardcoded
+
+            buffer_info[3].buffer = buffers[3];
+            buffer_info[3].offset = 0; 
+            buffer_info[3].range = sizeof(game::rendering::environment_t);
+
+            buffer_info[4].buffer = buffers[4];
+            buffer_info[4].offset = 0; 
+            buffer_info[4].range = sizeof(m44) * 256;
+
+            using namespace gfx::vul;
+            builder
+                .bind_buffer(0, buffer_info + 0, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Uniform, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(sporadic_descriptors, descriptor_layouts[0]);
+            builder
+                .bind_buffer(0, buffer_info + 1, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(object_descriptors, descriptor_layouts[1]);
+            builder
+                .bind_buffer(0, buffer_info + 2, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(material_descriptor, descriptor_layouts[2]);
+            builder
+                .bind_buffer(0, buffer_info + 3, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(enviornment_descriptor, descriptor_layouts[3]);
+            builder
+                .bind_buffer(0, buffer_info + 4, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_VERTEX_BIT)
+                .build(animation_descriptor, descriptor_layouts[4]);
+        }
+
+        void bind_images(gfx::vul::descriptor_builder_t& builder, gfx::vul::texture_2d_t* texture) {
+            using namespace gfx::vul;
+            VkDescriptorImageInfo vdii[1];
+            vdii[0].imageLayout = texture->image_layout;
+            vdii[0].imageView = texture->image_view;
+            vdii[0].sampler = texture->sampler;
+            builder
+                .bind_image(4, vdii, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .build(texture_descriptor, descriptor_layouts[4]);
+        }
+    };
+
 
     // for double buffering
     struct frame_data_t {
@@ -301,6 +430,7 @@ public:
         VkCommandBuffer main_command_buffer;
 
         mesh_pass_t mesh_pass{};
+        anim_pass_t anim_pass{};
 
         gfx::vul::descriptor_allocator_t* dynamic_descriptor_allocator{nullptr};
     };
@@ -337,7 +467,7 @@ public:
 
         gfx::vul::state_t* vk_gfx{0};
 
-        std::mutex ticket;
+        std::mutex ticket{};
 
         // utl::deque<render_job_t> render_jobs{};
         render_job_t* render_jobs{};
@@ -371,7 +501,8 @@ public:
             return job_storage_buffers[frame_count&1];
         }
         gfx::vul::storage_buffer_t<gfx::material_t, 100>    material_storage_buffer;
-        gfx::vul::storage_buffer_t<environment_t, 1>    environment_storage_buffer;
+        gfx::vul::storage_buffer_t<environment_t, 1>        environment_storage_buffer;
+        gfx::vul::storage_buffer_t<m44, 256>                animation_storage_buffer;
 
         m44 vp{1.0f};
         m44 projection{1.0f};
@@ -420,6 +551,7 @@ public:
     cleanup(
         system_t* rs
     ) {
+        utl::profile_t p{__FUNCTION__};
         rs->descriptor_layout_cache->cleanup();
         range_u64(i, 0, system_t::frame_overlap) {
             rs->frames[i].dynamic_descriptor_allocator->cleanup();
@@ -464,30 +596,46 @@ public:
             state.depth_stencil_texture.image_view, state.swap_chain_extent.width, state.swap_chain_extent.height
         );
 
-        state.create_texture(&rs->frame_images[0].texture, w, h, 4, &rs->arena);
+        state.create_texture(&rs->frame_images[0].texture, w, h, 4, 0, 0, sizeof(float)*4);
+
+        rs->frame_images[0].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         // rs->frame_images[0].texture.image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        state.load_texture_sampler(&rs->frame_images[0].texture, &rs->arena);
+        state.load_texture_sampler(&rs->frame_images[0].texture);
         state.create_depth_stencil_image(&rs->frame_images[1].texture, w, h);
 
         state.create_storage_buffer(&rs->job_storage_buffers[0]);
         state.create_storage_buffer(&rs->job_storage_buffers[1]);
         state.create_storage_buffer(&rs->material_storage_buffer);
         state.create_storage_buffer(&rs->environment_storage_buffer);
+        state.create_storage_buffer(&rs->animation_storage_buffer);
 
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
 
-        VkBuffer buffers[]{
-            state.sporadic_uniform_buffer.buffer,
-            rs->job_storage_buffer().buffer,
-            rs->material_storage_buffer.buffer,
-            rs->environment_storage_buffer.buffer
-        };
-
         range_u64(i, 0, array_count(rs->frames)) {
+            VkBuffer buffers[]{
+                state.sporadic_uniform_buffer.buffer,
+                rs->job_storage_buffer().buffer,
+                rs->material_storage_buffer.buffer,
+                rs->environment_storage_buffer.buffer
+            };
             auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
             rs->frames[i].mesh_pass.build_buffer_sets(builder, buffers);
             rs->frames[i].mesh_pass.bind_images(builder, &state.null_texture);
             rs->frames[i].mesh_pass.build_layout(state.device);
+        }
+
+        range_u64(i, 0, array_count(rs->frames)) {
+            VkBuffer buffers[]{
+                state.sporadic_uniform_buffer.buffer,
+                rs->job_storage_buffer().buffer,
+                rs->material_storage_buffer.buffer,
+                rs->environment_storage_buffer.buffer,
+                rs->animation_storage_buffer.buffer
+            };
+            auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
+            rs->frames[i].anim_pass.build_buffer_sets(builder, buffers);
+            rs->frames[i].anim_pass.bind_images(builder, &state.null_texture);
+            rs->frames[i].anim_pass.build_layout(state.device);
         }
 
         VkCommandPoolCreateInfo command_pool_info = gfx::vul::utl::command_pool_create_info();
@@ -509,7 +657,7 @@ public:
 
     inline void
     begin_frame(system_t* rs) {
-        rs->stats = {};
+        rs->stats.reset();
         rs->render_job_count = 0;
         rs->frame_count++;
         rs->get_frame_data().dynamic_descriptor_allocator->reset_pools();
@@ -604,7 +752,7 @@ public:
         auto& khr = rs->vk_gfx->khr;
         
         VkPipelineLayout last_layout = VK_NULL_HANDLE;
-        VkShaderEXT last_shader = VK_NULL_HANDLE;
+        const VkShaderEXT* last_shader = VK_NULL_HANDLE;
 
         for (size_t i = 0; i < rs->render_job_count; i++) {
             render_job_t* job = rs->render_jobs + i;
@@ -634,7 +782,11 @@ public:
 
             if (last_shader != material->shaders[1]) {
                 VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
-                ext.vkCmdBindShadersEXT(command_buffer, material->shader_count, stages, material->shaders);
+                VkShaderEXT shaders[10];
+                range_u64(j, 0, material->shader_count) {
+                    shaders[j] = material->shaders[j] ? *material->shaders[j] : VK_NULL_HANDLE;
+                }
+                ext.vkCmdBindShadersEXT(command_buffer, material->shader_count, stages, shaders);
                 rs->stats.shader_count++;
             }
             last_shader = material->shaders[1];
@@ -752,7 +904,7 @@ public:
         gfx::material_t&& p_material,
         VkPipeline pipeline,
         VkPipelineLayout pipeline_layout,
-        VkShaderEXT* shaders,
+        const VkShaderEXT** shaders,
         u32 shader_count
     ) {
         material_node_t* material{0};
@@ -969,9 +1121,9 @@ public:
             ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
         }
 
-        local_persist VkShaderEXT shaders[] = {
-            rs->shader_cache[assets::shaders::skybox_vert.filename],
-            rs->shader_cache[name]
+        VkShaderEXT shaders[] = {
+            *rs->shader_cache[assets::shaders::skybox_vert.filename],
+            *rs->shader_cache[name]
         };
         
         VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };

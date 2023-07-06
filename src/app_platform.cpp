@@ -12,6 +12,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include "Windows.h"
+#include "commdlg.h"
 // #include "combaseapi.h"
 // #include <Psapi.h>
 // #include <winternl.h>
@@ -317,9 +318,84 @@ update_dlls(app_dll_t* app_dlls, app_memory_t* app_mem) {
     }
 }
 
+LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
+    auto [
+        code,
+        flags,
+        record,
+        address,
+        param_count,
+        info
+    ] = *exception_info->ExceptionRecord;
+
+    std::string msg;
+    switch(code) {
+        case EXCEPTION_ACCESS_VIOLATION: msg = "Access Violation.\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+        case EXCEPTION_ARRAY_BOUNDS_EXCEEDED: msg = "The thread tried to access an array element that is out of bounds and the underlying hardware supports bounds checking."; break;
+        case EXCEPTION_BREAKPOINT: msg = "A breakpoint was encountered."; break;
+        case EXCEPTION_DATATYPE_MISALIGNMENT: msg = "The thread tried to read or write data that is misaligned on hardware that does not provide alignment. For example, 16-bit values must be aligned on 2-byte boundaries; 32-bit values on 4-byte boundaries, and so on."; break;
+        case EXCEPTION_FLT_DENORMAL_OPERAND: msg = "One of the operands in a floating-point operation is denormal. A denormal value is one that is too small to represent as a standard floating-point value."; break;
+        case EXCEPTION_FLT_DIVIDE_BY_ZERO: msg = "The thread tried to divide a floating-point value by a floating-point divisor of zero."; break;
+        case EXCEPTION_FLT_INEXACT_RESULT: msg = "The result of a floating-point operation cannot be represented exactly as a decimal fraction."; break;
+        case EXCEPTION_FLT_INVALID_OPERATION: msg = "This exception represents any floating-point exception not included in this list."; break;
+        case EXCEPTION_FLT_OVERFLOW: msg = "The exponent of a floating-point operation is greater than the magnitude allowed by the corresponding type."; break;
+        case EXCEPTION_FLT_STACK_CHECK: msg = "The stack overflowed or underflowed as the result of a floating-point operation."; break;
+        case EXCEPTION_FLT_UNDERFLOW: msg = "The exponent of a floating-point operation is less than the magnitude allowed by the corresponding type."; break;
+        case EXCEPTION_ILLEGAL_INSTRUCTION: msg = "The thread tried to execute an invalid instruction."; break;
+        case EXCEPTION_IN_PAGE_ERROR: msg = "The thread tried to access a page that was not present, and the system was unable to load the page. For example, this exception might occur if a network connection is lost while running a program over the network."; break;
+        case EXCEPTION_INT_DIVIDE_BY_ZERO: msg = "The thread tried to divide an integer value by an integer divisor of zero."; break;
+        case EXCEPTION_INT_OVERFLOW: msg = "The result of an integer operation caused a carry out of the most significant bit of the result."; break;
+        case EXCEPTION_INVALID_DISPOSITION: msg = "An exception handler returned an invalid disposition to the exception dispatcher. Programmers using a high-level language such as C should never encounter this exception."; break;
+        case EXCEPTION_NONCONTINUABLE_EXCEPTION: msg = "The thread tried to continue execution after a noncontinuable exception occurred."; break;
+        case EXCEPTION_PRIV_INSTRUCTION: msg = "The thread tried to execute an instruction whose operation is not allowed in the current machine mode."; break;
+        case EXCEPTION_SINGLE_STEP: msg = "A trace trap or other single-instruction mechanism signaled that one instruction has been executed."; break;
+        case EXCEPTION_STACK_OVERFLOW: msg = "The thread used up its stack."; break;
+    }
+
+    if (code == EXCEPTION_ACCESS_VIOLATION) {
+        switch(info[0]) {
+            case 0: msg = "Access Violation (read).\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+            case 1: msg = "Access Violation (write).\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+            case 8: msg = "Access Violation (dep).\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+        }
+
+        msg += fmt::format("\nAttempted to access virtual address {}", (void*)info[1]);
+    }
+    if (code == EXCEPTION_IN_PAGE_ERROR) {
+        switch(info[0]) {
+            case 0: msg = "Page Violation (read).\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+            case 1: msg = "Page Violation (write).\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+            case 8: msg = "Page Violation (dep).\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+        }
+
+        msg += fmt::format("\nAttempted to access virtual address {}", (void*)info[1]);
+    }
+
+    MessageBox(0, fmt::format("Exception at address {}\nCode: {}\nFlag: {}", address, msg!=""?msg:fmt::format("{}", code), flags).c_str(), 0, MB_ABORTRETRYIGNORE);
+
+    gen_error(__FUNCTION__, "Exception at {} Code: {} Flag: {}", address, msg!=""?msg:fmt::format("{}", code), flags);
+
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+#define MULTITHREAD_ENGINE
+
+i32 message_box_proc(const char* text) {
+    return MessageBox(0, text, 0, MB_OKCANCEL);
+}
+
+bool open_file_dialog(char* filename, size_t max_file_size) {
+    OPENFILENAME open_file_name{};
+    open_file_name.lStructSize = sizeof(OPENFILENAME);
+    open_file_name.hwndOwner = 0;
+    return false;
+}
+
+
 int 
 main(int argc, char* argv[]) {
     _set_error_mode(_OUT_TO_MSGBOX);
+    SetUnhandledExceptionFilter(exception_filter);
     create_meta_data_dir();
 
     gen_info("win32", "Loading Platform Layer");
@@ -328,6 +404,7 @@ main(int argc, char* argv[]) {
     };
 
     app_memory_t app_mem{};
+    app_mem.message_box = message_box_proc;
     app_mem.perm_memory_size = gigabytes(4);
 
 #if _WIN32
@@ -434,6 +511,7 @@ main(int argc, char* argv[]) {
 
     app_dlls.on_init(&app_mem);
 
+#ifdef MULTITHREAD_ENGINE
     std::atomic_bool reload_flag = false;
     std::atomic_bool rendering_flag = false;
     auto render_thread = std::thread([&]{
@@ -451,6 +529,7 @@ main(int argc, char* argv[]) {
             }
         }
     });
+#endif
     
     while(app_mem.running && !glfwWindowShouldClose(window)) {
         utl::profile_t* p = 0;
@@ -466,10 +545,14 @@ main(int argc, char* argv[]) {
                 gs_game_dll_write_time = game_time;
             }
             if (CompareFileTime(&game_time, &gs_game_dll_write_time)) {
+#ifdef MULTITHREAD_ENGINE
                 reload_flag = true;
                 while(rendering_flag);
+#endif 
                 update_dlls(&app_dlls, &app_mem);
+#ifdef MULTITHREAD_ENGINE
                 reload_flag = false;
+#endif 
             }
             first = false;
         }
@@ -479,9 +562,11 @@ main(int argc, char* argv[]) {
         if (app_dlls.on_update) {
             app_dlls.on_update(&app_mem);
         }
-        // if (app_dlls.on_render) {
-        //     app_dlls.on_render(&app_mem);
-        // }
+#ifndef MULTITHREAD_ENGINE
+        if (app_dlls.on_render) {
+            app_dlls.on_render(&app_mem);
+        }
+#endif 
 
         glfwPollEvents();
 
@@ -494,12 +579,13 @@ main(int argc, char* argv[]) {
 
     };
 
+#ifdef MULTITHREAD_ENGINE
     render_thread.join();
+#endif 
 
     save_graphics_config(&app_mem);
 
     app_dlls.on_deinit(&app_mem);
 
-    // gen_info("win32", "Closing Application");
     return 0;
 }

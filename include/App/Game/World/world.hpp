@@ -219,7 +219,9 @@ spawn(
     if (def.gfx.mesh_name != ""sv) {
         entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
     }
-    entity->name.own(&world->app->string_arena, def.type_name);
+    if (def.type_name != ""sv) {
+        entity->name.own(&world->app->string_arena, def.type_name);
+    }
     entity->transform.origin = pos;
 
     entity->type = def.type;
@@ -292,6 +294,15 @@ spawn(
         }
         world->physics->set_rigidbody(0, rb);
     }
+
+    range_u64(i, 0, array_count(def.children)) {
+        if (def.children[i].entity) {
+            auto child = spawn(world, rs, *def.children[i].entity);
+            entity->add_child(child);
+            child->transform.origin = def.children[i].offset;
+        }
+    }
+
     return entity;
 }
 

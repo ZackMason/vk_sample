@@ -1,1 +1,1 @@
-build\game.exe > log.txt 2> errors.txt
+build\game.exe 1> log.txt 2> errors.txt

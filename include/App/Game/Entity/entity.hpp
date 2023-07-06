@@ -326,6 +326,12 @@ struct entity_t : node_t<entity_t> {
     void queue_free() noexcept {
         flags |= EntityFlags_Dying;
     }
+
+    void add_child(entity_t* child, bool maintain_world_pos = false) {
+        assert(maintain_world_pos == false);
+        child->parent = this;
+        child->transform = math::transform_t{};
+    }
 };
 
 static_assert(CEntity<entity_t>);

@@ -1,6 +1,7 @@
 
 set IncFlags=-Ires/shaders/utl
 
+glslc %IncFlags% res/shaders/skeletal.vert -o res/shaders/bin/skeletal.vert.spv
 glslc %IncFlags% res/shaders/simple.vert -o res/shaders/bin/simple.vert.spv
 glslc %IncFlags% res/shaders/simple.frag -o res/shaders/bin/simple.frag.spv
 glslc %IncFlags% res/shaders/error_mesh.frag -o res/shaders/bin/error_mesh.frag.spv

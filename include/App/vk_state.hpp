@@ -289,19 +289,30 @@ struct state_t {
     } khr;
 
     struct ext_functions_t {
+        // VK_EXT_shader_objects
         PFN_vkCreateShadersEXT vkCreateShadersEXT;
+        PFN_vkDestroyShaderEXT vkDestroyShaderEXT;
         PFN_vkCmdBindShadersEXT vkCmdBindShadersEXT;
         PFN_vkGetShaderBinaryDataEXT vkGetShaderBinaryDataEXT;
         // With VK_EXT_shader_object pipeline state must be set at command buffer creation using these functions
         // VK_EXT_dynamic_state
-        PFN_vkCmdSetViewportWithCountEXT vkCmdSetViewportWithCountEXT;
-        PFN_vkCmdSetScissorWithCountEXT vkCmdSetScissorWithCountEXT;
-        PFN_vkCmdSetDepthCompareOpEXT vkCmdSetDepthCompareOpEXT;
-        PFN_vkCmdSetCullModeEXT vkCmdSetCullModeEXT;
-        PFN_vkCmdSetDepthTestEnableEXT vkCmdSetDepthTestEnableEXT;
-        PFN_vkCmdSetDepthWriteEnableEXT vkCmdSetDepthWriteEnableEXT;
-        PFN_vkCmdSetFrontFaceEXT vkCmdSetFrontFaceEXT;
-        PFN_vkCmdSetPrimitiveTopologyEXT vkCmdSetPrimitiveTopologyEXT;
+        PFN_vkCmdSetViewportWithCountEXT        vkCmdSetViewportWithCountEXT;
+        PFN_vkCmdSetScissorWithCountEXT         vkCmdSetScissorWithCountEXT;
+        PFN_vkCmdSetCullModeEXT                 vkCmdSetCullModeEXT;
+        PFN_vkCmdSetDepthBiasEnableEXT          vkCmdSetDepthBiasEnableEXT;
+        PFN_vkCmdSetDepthCompareOpEXT           vkCmdSetDepthCompareOpEXT;
+        PFN_vkCmdSetDepthTestEnableEXT          vkCmdSetDepthTestEnableEXT;
+        PFN_vkCmdSetDepthWriteEnableEXT         vkCmdSetDepthWriteEnableEXT;
+        PFN_vkCmdSetFrontFaceEXT                vkCmdSetFrontFaceEXT;
+        PFN_vkCmdSetPrimitiveTopologyEXT        vkCmdSetPrimitiveTopologyEXT;
+        PFN_vkCmdSetLineRasterizationModeEXT    vkCmdSetLineRasterizationModeEXT;
+        PFN_vkCmdSetPolygonModeEXT              vkCmdSetPolygonModeEXT;
+        PFN_vkCmdSetColorBlendEnableEXT         vkCmdSetColorBlendEnableEXT;
+        PFN_vkCmdSetColorBlendAdvancedEXT       vkCmdSetColorBlendAdvancedEXT;
+        PFN_vkCmdSetColorBlendEquationEXT       vkCmdSetColorBlendEquationEXT;
+        PFN_vkCmdSetAlphaToOneEnableEXT         vkCmdSetAlphaToOneEnableEXT;
+        PFN_vkCmdSetAlphaToCoverageEnableEXT    vkCmdSetAlphaToCoverageEnableEXT;
+
         // VK_EXT_vertex_input_dynamic_state
         PFN_vkCmdSetVertexInputEXT vkCmdSetVertexInputEXT;
     } ext;
@@ -350,11 +361,11 @@ struct state_t {
         size_t count
     );
 
-    void create_texture(texture_2d_t* texture, i32 w, i32 h, i32 c, arena_t* arena = 0, u8* data = 0);
+    void create_texture(texture_2d_t* texture, i32 w, i32 h, i32 c, arena_t* arena = 0, u8* data = 0, size_t pixel_size = sizeof(u32));
 
     void load_texture(texture_2d_t* texture, std::span<u8> data, arena_t* arena = 0);
     void load_texture(texture_2d_t* texture, std::string_view path, arena_t* arena);
-    void load_texture_sampler(texture_2d_t* texture, arena_t* arena);
+    void load_texture_sampler(texture_2d_t* texture);
     void load_texture_sampler(texture_2d_t* texture, std::string_view path, arena_t* arena);
     void load_font_sampler(arena_t* arena, texture_2d_t* texture, font_t* font);
 

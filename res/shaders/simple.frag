@@ -78,7 +78,6 @@ main( )
 
 		case 1:
 			rgb = texture( uSampler, vTexCoord ).rgb;
-			rgb = pow(rgb, vec3(2.2));
 			break;
 
 		case 2:
@@ -118,7 +117,7 @@ main( )
 	vec3 spec = vec3(0.9);
 	float gloss = 32.0;// * material.roughness;
 
-	rgb = max(NoL, 0.3) * rgb;
+	rgb = max(NoL, 0.3) * rgb * 1.0;
 
 	// float D = filament_DGGX2(NoH, roughness);
 	// vec3  F = filament_Schlick(LoH, F0);
@@ -147,6 +146,8 @@ main( )
 	// rgb = albedo;
 	// rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
 	// rgb = pow(rgb, vec3(2.2));
-	// rgb = vec3(1,0,0);
+	// rgb = vec3(1,0,1);
+	
+	rgb = pow(rgb, vec3(2.2));
 	fFragColor = vec4( rgb, 1. );
 }

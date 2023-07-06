@@ -43,6 +43,13 @@ namespace assets::shaders {
         .add_uniform("uMaterial.uMetallic", "float")
         .add_uniform("uMaterial.uColor", "vec4");
 
+    ASSET_SHADER(skinned_vert)
+        SHADER_PATH("skeletal.vert")
+        .set_stage(VERT)
+        .add_next_stage(FRAG)
+        .add_next_stage(GEOM)
+        .add_push_constant(CAMERA_CONSTANTS_SIZE);
+
     ASSET_SHADER(trail_vert)
         SHADER_PATH("trail.vert")
         .set_stage(VERT)
