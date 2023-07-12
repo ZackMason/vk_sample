@@ -19,6 +19,8 @@ layout( push_constant ) uniform constants
 {
 	mat4		uVP;
 	vec4		uCamPos;
+	uint 		uAlbedoId;
+	uint 		uNormalId;
 } PushConstants;
 
 layout( location = 0 ) in vec3 aVertex;
@@ -31,12 +33,16 @@ layout ( location = 1 ) out vec2 vTexCoord;
 layout ( location = 2 ) out vec3 vN;
 layout ( location = 3 ) out vec3 vWorldPos;
 
+
 void
 main() {
 	mat4   M = uObjectBuffer.objects[gl_BaseInstance].model;
 	mat4 PVM = PushConstants.uVP * M;
 
 	vMatId = uObjectBuffer.objects[gl_BaseInstance].material_id;
+	// vAlbedoId = uObjectBuffer.objects[gl_BaseInstance].padding[0];
+	// vNormalId = uObjectBuffer.objects[gl_BaseInstance].padding[1];
+
 	vTexCoord = aTexCoord;
 	
 	vWorldPos = (M * vec4(aVertex, 1.0)).xyz;

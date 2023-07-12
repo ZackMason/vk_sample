@@ -148,6 +148,7 @@ namespace game {
 
     inline void
     world_update_physics(world_t* world) {
+        TIMED_FUNCTION;
         const auto* input = &world->app->app_mem->input;
         for (size_t i{0}; i < world->entity_count; i++) {
             auto* e = world->entities + i;
@@ -189,7 +190,7 @@ namespace game {
 
     inline void
     world_kill_free_queue(world_t* world) {
-        for (size_t i{0}; i < world->entity_count; i++) {
+        for (size_t i{0}; i < world->entity_capacity; i++) {
             auto* e = world->entities + i;
             if (e->flags & EntityFlags_Dying) {
                 world_destroy_entity(world, e);
@@ -251,11 +252,11 @@ spawn(
     if (def.physics) {
         physics::rigidbody_t* rb{0};
         if (def.physics->flags & PhysicsEntityFlags_Character) {
-            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::CHARACTER);
+            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::CHARACTER, entity->transform.origin, entity->transform.get_orientation());
         } else if (def.physics->flags & PhysicsEntityFlags_Static) {
-            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::STATIC);
+            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::STATIC, entity->transform.origin, entity->transform.get_orientation());
         } else if (def.physics->flags & PhysicsEntityFlags_Dynamic) {
-            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::DYNAMIC);
+            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::DYNAMIC, entity->transform.origin, entity->transform.get_orientation());
         }
         assert(rb);
         entity->physics.rigidbody = rb;

@@ -21,6 +21,11 @@ namespace assets::shaders {
     constexpr u32 GEOM = VK_SHADER_STAGE_GEOMETRY_BIT;
     constexpr u32 COMP = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    ASSET_SHADER(screen_vert)
+        SHADER_PATH("screen.vert")
+        .set_stage(VERT)
+        .add_next_stage(FRAG);
+
     ASSET_SHADER(gui_vert)
         SHADER_PATH("gui.vert")
         .set_stage(VERT)
@@ -34,7 +39,7 @@ namespace assets::shaders {
         .set_stage(VERT)
         .add_next_stage(FRAG)
         .add_next_stage(GEOM)
-        .add_push_constant(CAMERA_CONSTANTS_SIZE);
+        .add_push_constant(CAMERA_CONSTANTS_SIZE + sizeof(u32) * 2);
     ASSET_SHADER(simple_frag)
         SHADER_PATH("simple.frag")
         .set_stage(FRAG)

@@ -28,13 +28,15 @@ layout(std430, set = 1, binding = 0) readonly buffer ObjectBuffer {
 	ObjectData objects[];
 } uObjectBuffer;
 
-layout( set = 4, binding = 0 ) uniform sampler2D uSampler;
+layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 
 
 layout( push_constant ) uniform constants
 {
 	mat4		uVP;
 	vec4		uCamPos;
+	uint 		uAlbedoId;
+	uint 		uNormalId;
 } PushConstants;
 
 
@@ -77,11 +79,15 @@ main( )
 			break;
 
 		case 1:
-			rgb = texture( uSampler, vTexCoord ).rgb;
+			// rgb = texture( uSampler[1797], vTexCoord ).rgb;
+			vec4 albedo = texture( uSampler[PushConstants.uAlbedoId], vTexCoord ).rgba;
+			if (albedo.a < 0.5) { discard; }
+			rgb = albedo.rgb;
 			break;
 
 		case 2:
 			rgb = material.albedo.rgb;
+			// rgb = PushConstants.uCol.rgb;
 			
 			// rgb = ObjectConstants.albedo.rgb;
 			break;

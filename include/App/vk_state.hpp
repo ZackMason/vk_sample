@@ -50,8 +50,9 @@ struct storage_buffer_t : public gpu_buffer_t {
 };
 
 struct texture_2d_t {
-    i32 size[2];
+    v2i size;
     i32 channels{3};
+    u32 mip_levels{1};
     u8* pixels;
     VkImage image;
     VkImageView image_view;
@@ -340,7 +341,7 @@ struct state_t {
     
     void create_descriptor_set_pool();
 
-    void transistion_image_layout(texture_2d_t* texture, VkImageLayout new_layout);
+    void transition_image_layout(texture_2d_t* texture, VkImageLayout new_layout);
 
     void copy_buffer_to_image(gpu_buffer_t* buffer, texture_2d_t* texture);
     void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);

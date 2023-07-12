@@ -154,13 +154,15 @@ static rigidbody_t*
 physx_create_rigidbody_impl(
     api_t* api,
     rigidbody_type type,
-    void* data
+    void* data,
+    v3f position,
+    quat orientation
 ) {
     const auto* ps = get_physx(api);
     assert(api->rigidbody_count < PHYSICS_MAX_RIGIDBODY_COUNT);
     rigidbody_t* rb = &api->rigidbodies[api->rigidbody_count++];
     *rb = {};
-    const auto t = cast_transform(math::transform_t{});
+    const auto t = cast_transform(math::transform_t{position, orientation});
     switch (rb->type = type) {
         case rigidbody_type::DYNAMIC: {
             rb->api_data = ps->state->physics->createRigidDynamic(t);
@@ -175,7 +177,7 @@ physx_create_rigidbody_impl(
             desc.radius = .5f;
             desc.climbingMode = PxCapsuleClimbingMode::eEASY;
             desc.behaviorCallback = nullptr;
-            desc.reportCallback = new character_hit_report;
+            desc.reportCallback = arena_alloc<character_hit_report>(api->arena);
             desc.material = ps->state->physics->createMaterial(0.5f, 0.5f, 0.1f);
             auto* controller = ps->world->controller_manager->createController(desc);
             // controller->setSlopeLimit(3.14159f*0.25f);
@@ -271,12 +273,12 @@ physx_create_scene(api_t* api, const void* filter = 0) {
     auto* ps = get_physx(api);
     assert(ps->state);
     // bug with arena
-    ps->world = new physics::physics_world_t{};
+    ps->world = arena_alloc<physics::physics_world_t>(api->arena);
     // ps->world = arena_alloc<physics::physics_world_t>(api->arena);
     if (filter) {
-        physics::physics_world_init(ps->state, ps->world, new rigidbody_event_callback{}, (physx::PxSimulationFilterShader)filterShader);
+        physics::physics_world_init(ps->state, ps->world, arena_alloc<rigidbody_event_callback>(api->arena), (physx::PxSimulationFilterShader)filterShader);
     } else {
-        physics::physics_world_init(ps->state, ps->world, new rigidbody_event_callback{}, filterShader);
+        physics::physics_world_init(ps->state, ps->world, arena_alloc<rigidbody_event_callback>(api->arena), filterShader);
     }
 
     // ps->world->scene->setSimulationEventCallback(new rigidbody_event_callback);
@@ -290,10 +292,10 @@ physx_destroy_scene(api_t*) {
 
 
 rigidbody_t*
-physx_create_rigidbody(api_t* api, void* entity, rigidbody_type type) {
+physx_create_rigidbody(api_t* api, void* entity, rigidbody_type type, const v3f& pos, const quat& orientation) {
     TIMED_FUNCTION;
     auto* ps = get_physx(api);
-    return physx_create_rigidbody_impl(api, type, entity);
+    return physx_create_rigidbody_impl(api, type, entity, pos, orientation);
 }
 
 collider_t*
@@ -398,9 +400,9 @@ physx_simulate(api_t* api, f32 dt) {
         }
     }
 
-    temp_arena_t scratch = *api->arena;
-    scratch.top = align16(scratch.top);
-    scratch.size = (scratch.size / kilobytes(16)) * kilobytes(16);
+    // temp_arena_t scratch = *api->arena;
+    // scratch.top = align16(scratch.top);
+    // scratch.size = (scratch.size / kilobytes(16)) * kilobytes(16);
 
     ps->world->scene->simulate(
         dt,
@@ -451,7 +453,7 @@ physx_set_rigidbody(api_t* api, rigidbody_t* rb) {
     
     if (rb->type == rigidbody_type::CHARACTER) {
         auto* controller = (physx::PxController*)rb->api_data;
-        // controller->setPosition({p.x,p.y,p.z});
+        controller->setPosition({p.x,p.y,p.z});
     } else {
         physx::PxTransform t;
         t.p = {p.x, p.y, p.z};

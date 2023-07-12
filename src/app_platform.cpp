@@ -19,6 +19,25 @@
 #undef near
 #undef far
 
+struct access_violation_exception : public std::exception {
+    access_violation_exception(ULONG_PTR code_, void* address_) : code{code_}, address{address_} {}
+    ULONG_PTR code;
+    void* address;
+    mutable std::string error;
+    char const* what() const override final {
+        error = "LOL YOU FUCKED UP.\n\n";
+        switch(code) {
+            case 0: error += "Access Violation (read).\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+            case 1: error += "Access Violation (write).\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+            case 8: error += "Access Violation (dep).\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
+        }
+        error += fmt_str("\nTried to access virtual address {}", address);
+        error += "\n\nPress retry to try to return to a previous save state\n\nGood luck";
+
+        return error.c_str();
+    }
+};
+
 void* win32_alloc(size_t size){
     return VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 }
@@ -29,13 +48,18 @@ T* win32_alloc(){
     return t;
 }
 
+app_memory_t* gs_app{0};
+app_memory_t* gs_app_restore{0};
+arena_t* gs_physics_arena;
+arena_t* gs_physics_restore_arena;
+
 FILETIME gs_game_dll_write_time;
 
 FILETIME win32_last_write_time(const char* path){
 	FILETIME time = {};
 	WIN32_FILE_ATTRIBUTE_DATA data;
 
-	if ( GetFileAttributesEx( path, GetFileExInfoStandard, &data ) )
+	if (GetFileAttributesEx(path, GetFileExInfoStandard, &data))
 		time = data.ftLastWriteTime;
 
 	return time;
@@ -56,6 +80,8 @@ FILETIME win32_last_write_time(const char* path){
 #include "SDL.h"
 #include "SDL_mixer.h"
 #endif
+
+#define MULTITHREAD_ENGINE
 
 struct audio_cache_t {
     #if USE_SDL
@@ -328,6 +354,10 @@ LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
         info
     ] = *exception_info->ExceptionRecord;
 
+    if (code == EXCEPTION_BREAKPOINT) {
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+
     std::string msg;
     switch(code) {
         case EXCEPTION_ACCESS_VIOLATION: msg = "Access Violation.\nThe thread tried to read from or write to a virtual address for which it does not have the appropriate access."; break;
@@ -360,6 +390,9 @@ LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
         }
 
         msg += fmt::format("\nAttempted to access virtual address {}", (void*)info[1]);
+
+
+
     }
     if (code == EXCEPTION_IN_PAGE_ERROR) {
         switch(info[0]) {
@@ -369,6 +402,18 @@ LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
         }
 
         msg += fmt::format("\nAttempted to access virtual address {}", (void*)info[1]);
+        auto pressed = MessageBox(0, fmt::format("Exception at address {}\nCode: {}\nFlag: {}", address, msg!=""?msg:fmt::format("{}", code), flags).c_str(), 0, MB_ABORTRETRYIGNORE);
+        if (pressed == IDRETRY) {
+            // std::memcpy(gs_physics_arena->start, gs_physics_restore_arena->start, gs_physics_restore_arena->top);
+            // *gs_app->physics = *gs_app_restore->physics;
+            // gs_physics_arena->top = gs_physics_restore_arena->top;
+
+            // std::memcpy(gs_app->arena.start, gs_app_restore->arena.start, gs_app_restore->arena.top);
+            // gs_app->arena.top = gs_app_restore->arena.top;
+            // std::memcpy(&gs_app->input, &gs_app_restore->input, sizeof(app_input_t));
+
+            throw std::exception(msg.c_str());
+        }
     }
 
     MessageBox(0, fmt::format("Exception at address {}\nCode: {}\nFlag: {}", address, msg!=""?msg:fmt::format("{}", code), flags).c_str(), 0, MB_ABORTRETRYIGNORE);
@@ -378,7 +423,6 @@ LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
-#define MULTITHREAD_ENGINE
 
 i32 message_box_proc(const char* text) {
     return MessageBox(0, text, 0, MB_OKCANCEL);
@@ -390,7 +434,6 @@ bool open_file_dialog(char* filename, size_t max_file_size) {
     open_file_name.hwndOwner = 0;
     return false;
 }
-
 
 int 
 main(int argc, char* argv[]) {
@@ -405,16 +448,16 @@ main(int argc, char* argv[]) {
 
     app_memory_t app_mem{};
     app_mem.message_box = message_box_proc;
-    app_mem.perm_memory_size = gigabytes(4);
+    constexpr size_t application_memory_size = gigabytes(4);
+    app_mem.arena = arena_create(VirtualAlloc(0, application_memory_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), application_memory_size);
 
-#if _WIN32
-    app_mem.perm_memory = 
-        VirtualAlloc(0, app_mem.perm_memory_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-#else 
-    #error "No memory"        
-#endif
+    app_memory_t restore_point;
+    restore_point.arena.start = 0;
 
-    assert(app_mem.perm_memory);
+    gs_app = &app_mem;
+    gs_app_restore = &restore_point;
+ 
+    assert(app_mem.arena.start);
 
     auto& config = app_mem.config;
     load_graphics_config(&app_mem);
@@ -436,11 +479,16 @@ main(int argc, char* argv[]) {
     };
 
     void* physics_dll = LoadLibraryA(".\\build\\app_physics.dll");
+    arena_t physics_arena = arena_create(win32_alloc(gigabytes(2)), gigabytes(2));
+    arena_t restore_physics_arena = arena_create(win32_alloc(gigabytes(2)), gigabytes(2));
+    gs_physics_arena = &physics_arena;
+    gs_physics_restore_arena = &restore_physics_arena;
     if (physics_dll)
     {
         gen_info("win32", "Initializing Physics");
-        arena_t physics_arena = arena_create(win32_alloc(megabytes(1024)), megabytes(1024));
         app_mem.physics = win32_alloc<physics::api_t>();
+        restore_point.physics = win32_alloc<physics::api_t>();
+        restore_point.physics->arena = &restore_physics_arena;
 
         app_mem.physics->collider_count =
         app_mem.physics->character_count =
@@ -531,9 +579,81 @@ main(int argc, char* argv[]) {
     });
 #endif
     
+    app_mem.input.pressed.keys[key_id::F9] = 1;
+
+    _set_se_translator([](unsigned int u, EXCEPTION_POINTERS *pExp) {
+        std::string error = "SE Exception: ";
+        bool want_to_throw = true;
+        
+        switch (u) {
+        case EXCEPTION_BREAKPOINT: want_to_throw = false; break;
+        case 0xC0000005: 
+            // error += fmt_str("Access Violation at {}", pExp->ExceptionRecord->ExceptionInformation[1]);
+          
+            throw access_violation_exception{ pExp->ExceptionRecord->ExceptionInformation[0], (void*)pExp->ExceptionRecord->ExceptionInformation[1]};
+
+        default:
+            char result[11];
+            sprintf_s(result, 11, "0x%08X", u);
+            error += result;
+        };
+        if (want_to_throw) throw std::exception(error.c_str());
+    });
+
     while(app_mem.running && !glfwWindowShouldClose(window)) {
         utl::profile_t* p = 0;
 
+        if (app_mem.input.pressed.keys[key_id::F7]) {
+            try {
+                int* crash{0}; *crash = 0xf;
+            } catch (std::exception & e) {
+                puts(e.what());
+            };
+        }
+        if (app_mem.input.pressed.keys[key_id::F8]) {
+            const auto dif = utl::memdif((const u8*)physics_arena.start, (const u8*)restore_physics_arena.start, restore_physics_arena.top);
+            const auto undif = restore_physics_arena.top - dif;
+            gen_info("memdif", "dif {} bytes, undif {} megabytes", dif, undif/megabytes(1));
+        }
+
+        if (app_mem.input.pressed.keys[key_id::F9]) {
+#ifdef MULTITHREAD_ENGINE
+            reload_flag = true;
+            while(rendering_flag);
+#endif 
+            std::memcpy(restore_physics_arena.start, physics_arena.start, physics_arena.top);
+            *restore_point.physics = *app_mem.physics;
+            restore_physics_arena.top = physics_arena.top;
+
+            if (restore_point.arena.start) {
+                VirtualFree(restore_point.arena.start, 0, MEM_RELEASE);
+                restore_point.arena.start = 0;
+            }
+            size_t copy_size = app_mem.arena.top;
+            restore_point.arena = arena_create(VirtualAlloc(0, copy_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), copy_size);
+            std::memcpy(restore_point.arena.start, app_mem.arena.start, copy_size);
+            restore_point.arena.top = app_mem.arena.top;
+            std::memcpy(&restore_point.input, &app_mem.input, sizeof(app_input_t));
+#ifdef MULTITHREAD_ENGINE
+                reload_flag = false;
+#endif 
+        }
+        if (app_mem.input.pressed.keys[key_id::F10]) {
+#ifdef MULTITHREAD_ENGINE
+            reload_flag = true;
+            while(rendering_flag);
+#endif 
+            std::memcpy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
+            *app_mem.physics = *restore_point.physics;
+            physics_arena.top = restore_physics_arena.top;
+
+            std::memcpy(app_mem.arena.start, restore_point.arena.start, restore_point.arena.top);
+            app_mem.arena.top = restore_point.arena.top;
+            std::memcpy(&app_mem.input, &restore_point.input, sizeof(app_input_t));
+#ifdef MULTITHREAD_ENGINE
+                reload_flag = false;
+#endif 
+        }
         if (app_mem.input.pressed.keys[key_id::P]) {
             p = new utl::profile_t{"win32::loop"};
         }
@@ -560,7 +680,31 @@ main(int argc, char* argv[]) {
         while((f32)(glfwGetTime())-app_mem.input.time<1.0f/60.0f);
         update_input(&app_mem, window);
         if (app_dlls.on_update) {
-            app_dlls.on_update(&app_mem);
+            try {
+                app_dlls.on_update(&app_mem);
+
+            } catch (access_violation_exception& e) {
+                auto pressed = MessageBox(0, e.what(), 0, MB_ABORTRETRYIGNORE);
+                if (pressed == IDRETRY) {
+         #ifdef MULTITHREAD_ENGINE
+            reload_flag = true;
+            while(rendering_flag);
+#endif 
+            std::memcpy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
+            *app_mem.physics = *restore_point.physics;
+            physics_arena.top = restore_physics_arena.top;
+
+            std::memcpy(app_mem.arena.start, restore_point.arena.start, restore_point.arena.top);
+            app_mem.arena.top = restore_point.arena.top;
+            std::memcpy(&app_mem.input, &restore_point.input, sizeof(app_input_t));
+#ifdef MULTITHREAD_ENGINE
+                reload_flag = false;
+#endif 
+         
+                }
+            } catch (std::exception & e) {
+                gen_error("exception", "{}", e.what());
+            }
         }
 #ifndef MULTITHREAD_ENGINE
         if (app_dlls.on_render) {

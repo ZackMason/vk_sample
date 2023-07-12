@@ -67,6 +67,8 @@ void load_extension_functions(state_t& state) {
     state.ext.vkCmdSetPolygonModeEXT = reinterpret_cast<PFN_vkCmdSetPolygonModeEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPolygonModeEXT"));
     state.ext.vkCmdSetPrimitiveTopologyEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveTopologyEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPrimitiveTopologyEXT"));
     state.ext.vkCmdSetVertexInputEXT = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(vkGetDeviceProcAddr(device, "vkCmdSetVertexInputEXT"));
+
+    state.ext.vkCmdSetColorBlendEnableEXT = reinterpret_cast<PFN_vkCmdSetColorBlendEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetColorBlendEnableEXT"));
 }
 
 VkSampleCountFlagBits get_max_usable_sample_count(VkPhysicalDevice gpu_device) {
@@ -428,7 +430,7 @@ void state_t::init(app_config_t* info, arena_t* temp_arena) {
 
     create_uniform_buffer(&sporadic_uniform_buffer);
 
-    load_texture_sampler(&null_texture, "./res/textures/null.png", temp_arena);
+    load_texture_sampler(&null_texture, "./res/textures/null", temp_arena);
     
     create_image(info->window_size[0], info->window_size[1], 1, 
         msaa_samples, swap_chain_image_format, VK_IMAGE_TILING_OPTIMAL, 
@@ -1701,7 +1703,7 @@ void set_image_layout(
 }
 
 void 
-state_t::transistion_image_layout(
+state_t::transition_image_layout(
     texture_2d_t* texture, 
     VkImageLayout new_layout
 ) {
@@ -1721,7 +1723,7 @@ state_t::transistion_image_layout(
 
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.levelCount = texture->mip_levels;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
         
@@ -1852,9 +1854,9 @@ state_t::load_font_sampler(
 
     texture->image_layout = image_info.initialLayout;
 
-    transistion_image_layout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transition_image_layout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copy_buffer_to_image(&staging_buffer, texture);
-    transistion_image_layout(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    transition_image_layout(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     vkDestroyBuffer(device, staging_buffer.buffer, nullptr);
     vkFreeMemory(device, staging_buffer.vdm, nullptr);
@@ -1926,6 +1928,7 @@ void state_t::create_cube_map(cube_map_t* cube_map, VkFormat format) {
     sampler.addressModeV = sampler.addressModeU;
     sampler.addressModeW = sampler.addressModeU;
     sampler.mipLodBias = 0.0f;
+    sampler.anisotropyEnable = VK_TRUE;
     sampler.maxAnisotropy = 1.0f;
     sampler.compareOp = VK_COMPARE_OP_NEVER;
     sampler.minLod = 0.0f;
@@ -2044,7 +2047,13 @@ state_t::load_texture(
 
     stbi_set_flip_vertically_on_load(true);
     texture->channels = 0;
-    u8* data = stbi_load(path.data(), texture->size + 0, texture->size + 1, &texture->channels, 0);
+    u8* data = stbi_load(fmt_sv("{}.png", path).data(), &texture->size.x, &texture->size.y, &texture->channels, 0);
+    if (!data) {
+        data = stbi_load(fmt_sv("{}.jpg", path).data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
+        texture->channels = 4;
+    }
+    texture->mip_levels = static_cast<u32>(std::floor(std::log2(std::max(texture->size.x, texture->size.y)))) + 1;
+
     assert(data);
     const auto image_size = texture->size[0] * texture->size[1] * texture->channels;
     load_texture(texture, std::span{data, (size_t)image_size}, arena);
@@ -2054,6 +2063,87 @@ state_t::load_texture(
         "Texture Info:\n\twidth: {}\n\theight: {}\n\tchannels: {}", 
         texture->size[0], texture->size[1], texture->channels
     );
+}
+
+void generate_mipmaps(state_t* state, texture_2d_t* texture) {
+    VkFormatProperties formatProperties;
+    vkGetPhysicalDeviceFormatProperties(state->gpu_device, texture->format, &formatProperties);
+    assert((formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT));
+
+    quick_cmd_raii_t c{state};
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.image = texture->image;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.levelCount = 1;
+
+    i32 mip_width = texture->size.x;
+    i32 mip_height = texture->size.y;
+
+    range_u32(i, 1, texture->mip_levels) {
+        barrier.subresourceRange.baseMipLevel = i - 1;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+        vkCmdPipelineBarrier(c.c(),
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier);
+
+        VkImageBlit blit{};
+            blit.srcOffsets[0] = {0, 0, 0};
+            blit.srcOffsets[1] = {mip_width, mip_height, 1};
+            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.srcSubresource.mipLevel = i - 1;
+            blit.srcSubresource.baseArrayLayer = 0;
+            blit.srcSubresource.layerCount = 1;
+            blit.dstOffsets[0] = {0, 0, 0};
+            blit.dstOffsets[1] = { mip_width > 1 ? mip_width / 2 : 1, mip_height > 1 ? mip_height / 2 : 1, 1 };
+            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.mipLevel = i;
+            blit.dstSubresource.baseArrayLayer = 0;
+            blit.dstSubresource.layerCount = 1;
+
+            vkCmdBlitImage(c.c(),
+                texture->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1, &blit,
+                VK_FILTER_LINEAR);
+
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            vkCmdPipelineBarrier(c.c(),
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
+
+            if (mip_width > 1) mip_width /= 2;
+            if (mip_height > 1) mip_height /= 2;
+    }
+    barrier.subresourceRange.baseMipLevel = texture->mip_levels - 1;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(c.c(),
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier);
+
 }
 
 void 
@@ -2070,10 +2160,16 @@ void
 state_t::load_texture_sampler(
     texture_2d_t* texture
 ) {
-    auto image_size = texture->size[0] * texture->size[1] * texture->channels;
+    auto image_size = texture->size[0] * texture->size[1] * texture->channels; // @hardcoded 4 channels
+    if (texture->format == VK_FORMAT_R32G32B32A32_SFLOAT) {
+        image_size *= 4;
+    }
     if (texture->format == VK_FORMAT_R16G16B16A16_SFLOAT) {
         image_size *= 2;
     }
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(gpu_device, &properties);
+
     VkSamplerCreateInfo vsci;
         vsci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         vsci.pNext = nullptr;
@@ -2085,12 +2181,12 @@ state_t::load_texture_sampler(
         vsci.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         vsci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
         vsci.mipLodBias = 0;
-        vsci.anisotropyEnable = VK_FALSE;
-        vsci.maxAnisotropy = 1;
+        vsci.anisotropyEnable = VK_TRUE;
+        vsci.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
         vsci.compareEnable = VK_FALSE;
         vsci.compareOp = VK_COMPARE_OP_NEVER;
         vsci.minLod = 0.;
-        vsci.maxLod = 0.;
+        vsci.maxLod = static_cast<f32>(texture->mip_levels);
         vsci.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK; 
         vsci.unnormalizedCoordinates = VK_FALSE;
 
@@ -2114,14 +2210,18 @@ state_t::load_texture_sampler(
         image_info.extent.width = static_cast<uint32_t>(texture->size[0]);
         image_info.extent.height = static_cast<uint32_t>(texture->size[1]);
         image_info.extent.depth = 1;
-        image_info.mipLevels = 1;
+        image_info.mipLevels = texture->mip_levels;
         image_info.arrayLayers = 1;
 
         image_info.format = texture->format;
         image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
         image_info.initialLayout = texture->image_layout;
 
-        image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        image_info.usage = 
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | 
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT | 
+            VK_IMAGE_USAGE_SAMPLED_BIT | 
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
         image_info.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -2141,11 +2241,12 @@ state_t::load_texture_sampler(
 
     vkBindImageMemory(device, texture->image, texture->vdm, 0);
 
-    texture->image_layout = image_info.initialLayout;
+    // texture->image_layout = image_info.initialLayout;
 
-    transistion_image_layout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transition_image_layout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copy_buffer_to_image(&staging_buffer, texture);
-    transistion_image_layout(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    generate_mipmaps(this, texture);
+    transition_image_layout(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     vkDestroyBuffer(device, staging_buffer.buffer, nullptr);
     vkFreeMemory(device, staging_buffer.vdm, nullptr);
@@ -2157,7 +2258,7 @@ state_t::load_texture_sampler(
         viewInfo.format = texture->format;
         viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.levelCount = texture->mip_levels;
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 

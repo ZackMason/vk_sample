@@ -26,6 +26,28 @@
 
 #elif defined(_WIN64) || defined(_WIN32)
     #include <process.h>
+
+
+#if GEN_INTERNAL
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include "Windows.h"
+    
+
+bool check_for_debugger()
+{
+    return IsDebuggerPresent();
+}
+
+#else
+
+bool check_for_debugger()
+{
+    return false;
+}
+
+#endif
     
     #define RAND_GETPID _getpid()
     
@@ -34,7 +56,7 @@
     #undef max
     #undef near
     #undef far
-    
+
 
 
 #elif defined(__unix__) || defined(__unix) \
@@ -250,9 +272,9 @@ safe_truncate_u64(u64 value) {
     return result;
 }
 
-constexpr int 
-BIT(int x) {
-	return 1 << x;
+constexpr u64 
+BIT(u64 x) {
+	return 1ui64 << x;
 }
 
 namespace mouse_button_id {
@@ -526,6 +548,7 @@ namespace utl {
 
 #if GEN_INTERNAL
 
+
 inline u64
 get_nano_time() {
     std::chrono::time_point<std::chrono::high_resolution_clock> time_stamp = std::chrono::high_resolution_clock::now();
@@ -542,6 +565,8 @@ struct debug_record_t {
 
     u16         hist_id{0};
     u64         history[4096];
+
+    u16         set_breakpoint{0};
 };
 
 enum debug_event_type {
@@ -556,10 +581,13 @@ struct debug_event_t {
     u16         core_index{0};
     u16         record_index{0};
     u32         type{0};
+    void*       user_data{0};
+    const char* fmt_str{"{}"};
 };
 
 #define MAX_DEBUG_EVENT_COUNT (16*65536)
 #define MAX_DEBUG_RECORD_COUNT (256)
+#define MAX_USER_DATA_SIZE (megabytes(64))
 
 #include <atomic>
 struct debug_table_t {
@@ -568,6 +596,10 @@ struct debug_table_t {
 
     u64             record_count{0};
     debug_record_t  records[MAX_DEBUG_RECORD_COUNT];
+
+    // std::atomic<u64> user_top{0};
+    // std::byte        user_data[MAX_USER_DATA_SIZE];
+
 };
 
 extern debug_table_t gs_debug_table;
@@ -575,11 +607,12 @@ extern debug_table_t gs_debug_table;
 inline void
 record_debug_event(int record_index, debug_event_type event_type) {
     u64 index = gs_debug_table.event_index;
+    gs_debug_table.event_index = (gs_debug_table.event_index + 1) % MAX_DEBUG_EVENT_COUNT;
     assert(index < MAX_DEBUG_EVENT_COUNT);
     debug_event_t* event = gs_debug_table.events + index;
     event->clock_count = get_nano_time();
-    event->core_index = 0;
-    event->thread_id = 0;
+    event->core_index = 0; // todo
+    event->thread_id = 0; // todo
     event->type = event_type;
     event->record_index = (u16)record_index;
 }
@@ -603,13 +636,17 @@ struct timed_block_t {
 
         record->cycle_count = get_nano_time();
         record->hit_count++;
+
+        if (record->set_breakpoint && check_for_debugger()) {
+            __debugbreak();
+        }
     }
 
     ~timed_block_t() {
         record->history[record->hist_id] = record->cycle_count = get_nano_time() - record->cycle_count;
         record->hist_id = (record->hist_id + 1) % array_count(record->history);
 
-        record_debug_event(counter, DebugEventType_BeginBlock);
+        record_debug_event(counter, DebugEventType_EndBlock);
     }
 };
 
@@ -623,8 +660,9 @@ struct timed_block_t {
 #include "app_physics.hpp"
 
 struct app_memory_t {
-    void* perm_memory{nullptr};
-    size_t perm_memory_size{};
+    arena_t arena;
+    // void* perm_memory{nullptr};
+    // size_t perm_memory_size{};
 
     app_config_t config;
     app_input_t input;
@@ -703,6 +741,59 @@ struct node_t {
 
 // allocators
 
+namespace utl {
+
+std::string_view get_extension(std::string_view str) {
+    return str.substr(str.find_last_of('.') + 1);
+}
+
+bool has_extension(std::string_view str, std::string_view ext) {
+    return get_extension(str) == ext;
+}
+
+struct spinlock_t {
+  std::atomic<bool> lock_ = {0};
+
+  void lock() noexcept {
+    for (;;) {
+      // Optimistically assume the lock is free on the first try
+      if (!lock_.exchange(true, std::memory_order_acquire)) {
+        return;
+      }
+      // Wait for lock to be released without generating cache misses
+      while (lock_.load(std::memory_order_relaxed)) {
+        // Issue X86 PAUSE or ARM YIELD instruction to reduce contention between
+        // hyper-threads
+        _mm_pause();
+      }
+    }
+  }
+
+  bool try_lock() noexcept {
+    // First do a relaxed load to check if lock is free in order to prevent
+    // unnecessary cache misses if someone does while(!try_lock())
+    return !lock_.load(std::memory_order_relaxed) &&
+           !lock_.exchange(true, std::memory_order_acquire);
+  }
+
+  void unlock() noexcept {
+    lock_.store(false, std::memory_order_release);
+  }
+};
+
+inline constexpr u64
+memdif(const u8* dst, const u8* src, size_t size) {
+    // return std::memcmp(dst, src, size); // not constexpr
+    u64 dif = 0;
+    for (size_t i = 0; i < size; i++) {
+        dif += dst[i] != src[i];
+    }
+    return dif;
+}
+
+
+}; // namespace utl
+
 
 inline arena_t
 arena_create(void* p, size_t bytes) noexcept {
@@ -751,6 +842,8 @@ inline T*
 arena_alloc(arena_t* arena) {
     std::byte* p_start = arena->start + arena->top;
     arena->top += sizeof(T);
+
+    new (p_start) T();
 
     assert(arena->top <= arena->size && "Arena overflow");
 
@@ -1832,6 +1925,10 @@ intersect(const ray_t& ray, const aabb_t<v3f>& aabb) {
 }
 
 struct transform_t {
+	
+	transform_t(const v3f& position, const quat& rotation) : origin{position} {
+        set_rotation(rotation);
+    }
 	constexpr transform_t(const m44& mat = m44{1.0f}) : basis(mat), origin(mat[3]) {};
 	constexpr transform_t(const m33& _basis, const v3f& _origin) : basis(_basis), origin(_origin) {};
 	constexpr transform_t(const v3f& position, const v3f& scale = {1,1,1}, const v3f& rotation = {0,0,0})
@@ -2028,6 +2125,27 @@ struct mesh_t {
     u32         index_count{0};
 };
 
+struct material_info_t {
+    char name[64]{};
+    v4f color;
+    f32 roughness{0.5f};
+    f32 metallic{0.0f};
+    f32 emission{0.0f};
+
+    u64 albedo_id{};
+    u64 normal_id{};
+    char albedo[128]{};
+    char normal[128]{};
+
+    material_info_t& operator=(const material_info_t& o) {
+        if (this == &o) { return *this; }
+        
+        std::memcpy(this, &o, sizeof(material_info_t));
+
+        return *this;
+    }
+};
+
 struct mesh_view_t {
     u32 vertex_start{};
     u32 vertex_count{};
@@ -2035,6 +2153,8 @@ struct mesh_view_t {
     u32 index_count{};
     u32 instance_start{};
     u32 instance_count{1};
+
+    material_info_t material{};
 
     math::aabb_t<v3f> aabb{};
 };
@@ -3808,10 +3928,10 @@ font_render(
             const v2f c2 = v2f{glyph.texture.max.x, glyph.texture.min.y};
             const v2f c3 = v2f{glyph.texture.max.x, glyph.texture.max.y};
 
-            v[0] = gui::vertex_t{ .pos = p0, .tex = c0, .img = 0|BIT(30), .col = text_color};
-            v[1] = gui::vertex_t{ .pos = p1, .tex = c1, .img = 0|BIT(30), .col = text_color};
-            v[2] = gui::vertex_t{ .pos = p2, .tex = c2, .img = 0|BIT(30), .col = text_color};
-            v[3] = gui::vertex_t{ .pos = p3, .tex = c3, .img = 0|BIT(30), .col = text_color};
+            v[0] = gui::vertex_t{ .pos = p0, .tex = c0, .img = 0|(u32)BIT(30), .col = text_color};
+            v[1] = gui::vertex_t{ .pos = p1, .tex = c1, .img = 0|(u32)BIT(30), .col = text_color};
+            v[2] = gui::vertex_t{ .pos = p2, .tex = c2, .img = 0|(u32)BIT(30), .col = text_color};
+            v[3] = gui::vertex_t{ .pos = p3, .tex = c3, .img = 0|(u32)BIT(30), .col = text_color};
 
             i[0] = v_start + 0;
             i[1] = v_start + 2;
@@ -4115,6 +4235,9 @@ struct random_s {
         state.randomize();
     }
     //random float
+    static v3f randv() {
+        return {randf(), randf(), randf()};
+    }
     static float randf() {
         return state.randf();
     }
@@ -4794,12 +4917,19 @@ struct memory_blob_t {
 namespace res {
 
 namespace magic {
+
+constexpr auto make_magic(const char key[8]) {
+    u64 res=0;
+    for(size_t i=0;i<4;i++) { res = (res<<8) | key[i];}
+    return res;
+}
     constexpr u64 meta = 0xfeedbeeff04edead;
     constexpr u64 vers = 0x2;
     constexpr u64 mesh = 0x1212121212121212;
     constexpr u64 text = 0x1212121212121213;
     constexpr u64 skel = 0x1212691212121241;
     constexpr u64 anim = 0x1212691212121269;
+    constexpr u64 mate = make_magic("MATERIAL");
     constexpr u64 table_start = 0x7abe17abe1;
 };
 

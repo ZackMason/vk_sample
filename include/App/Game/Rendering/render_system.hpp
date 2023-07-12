@@ -53,6 +53,164 @@ namespace game::rendering {
         }
     };
     
+    struct texture_cache_t {
+        static inline constexpr u64 invalid = std::numeric_limits<u64>::max();
+        struct link_t {
+            std::string_view name;
+            u64 hash{0};
+            gfx::vul::texture_2d_t texture;        
+
+            // hash will probably never be 1, should probably check this
+            void kill() {
+                hash = 0x1;
+            }
+            bool is_dead() const {
+                return hash==0||hash==0x1;
+            }
+        };
+
+        // @hash
+        link_t textures[4096]{};
+
+        void insert(std::string_view name, gfx::vul::texture_2d_t texture) {
+            u64 hash = sid(name);
+            u64 index = hash % array_count(textures);
+            assert(textures[index].is_dead());
+            textures[index].name = name;
+            textures[index].hash = hash;
+            textures[index].texture = texture;
+        }
+
+        void reload_all(
+            arena_t arena,
+            gfx::vul::state_t vk_gfx
+        ) {
+            range_u64(i, 0, array_count(textures)) {
+                if (textures[i].hash) {
+                    textures[i].hash = 0;
+
+#if !GEN_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
+                    // Todo(Zack): destroy texture
+#endif
+                    load(
+                        arena, 
+                        vk_gfx,
+                        textures[i].name.data()
+                    );
+                }
+            }
+        }
+
+        u64 load(
+            arena_t arena,
+            gfx::vul::state_t vk_gfx,
+            const char* filename
+        ) {
+            gfx::vul::texture_2d_t texture{};
+            if (utl::has_extension(filename, "png")) {
+                assert(0); // need to remove extension
+                vk_gfx.load_texture_sampler(&texture, filename, &arena);
+            } else {
+                vk_gfx.load_texture_sampler(&texture, fmt_sv("res/textures/{}", filename), &arena);
+            }
+            return add(
+                texture, 
+                filename
+            );
+        }
+
+        // returns a bitmask of which textures were loaded
+        u32 load_material(
+            arena_t arena,
+            gfx::vul::state_t vk_gfx,
+            gfx::material_info_t& material_info,
+            u64 ids[2]
+        ) {
+            u32 count;
+            if (material_info.albedo[0]) { ids[0] = load(arena, vk_gfx, material_info.albedo); count |= 0x1; }
+            if (material_info.normal[0]) { ids[1] = load(arena, vk_gfx, material_info.normal); count |= 0x2; }
+            return count;
+        }
+
+        u64 add(
+            const gfx::vul::texture_2d_t& texture,
+            std::string_view name            
+        ) {
+            u64 hash = sid(name);
+            assert(hash!=1);
+            u64 id = hash % array_count(textures);
+            // probe
+            while(textures[id].is_dead() == false && textures[id].hash != hash) {
+                gen_warn(__FUNCTION__, "probing for texture, {} collided with {}", name, textures[id].name);
+                id = (id+1) % array_count(textures);
+            }
+
+            gen_info(__FUNCTION__, "Adding texture: {}", name);
+            textures[id].hash = hash;
+            textures[id].name = name;
+            textures[id].texture = texture;
+            
+            return id;
+        }
+
+private:
+        const link_t& get_(std::string_view name) const {
+            u64 hash = sid(name);
+            assert(hash!=1);
+            u64 id = hash % array_count(textures);
+            u64 start = id;
+            // probe
+            while(textures[id].hash && textures[id].hash != hash) {
+                gen_warn(__FUNCTION__, "probing for texture");
+                id = (id+1) % array_count(textures);
+                if (id == start) {
+                    gen_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
+                    assert(0);
+                    return textures[0];
+                }
+            }
+            return textures[id];
+        }
+
+public:
+        inline static constexpr u64 npos = invalid;
+
+        u64 first(u64 i = 0) const {
+            range_u64(j, i, array_count(textures)) {
+                if (textures[j].hash != 0) {
+                    return j;
+                }
+            }
+            return npos;
+        }
+
+        u64 next(u64 i) const {
+            return first(i+1);
+        }
+
+        u64 end() const {
+            return npos;
+        }
+
+        const gfx::vul::texture_2d_t* operator[](u64 id) const {
+            return &textures[id].texture;
+        }
+        const gfx::vul::texture_2d_t* operator[](std::string_view name) const {
+            return get(name);
+        }
+
+        const gfx::vul::texture_2d_t* get(std::string_view name) const {
+            return &get_(name).texture;
+        }
+
+
+        const gfx::vul::texture_2d_t* get(u64 id) const {
+            assert(textures[id].hash);
+            assert(textures[id].texture.image != VK_NULL_HANDLE);
+            return &textures[id].texture;
+        }
+    };
+
     struct shader_cache_t {
         struct link_t {
             std::string_view name;
@@ -84,7 +242,9 @@ namespace game::rendering {
             range_u64(i, 0, array_count(shaders)) {
                 if (shaders[i].hash) {
                     shaders[i].hash = 0;
-                    vk_gfx.ext.vkDestroyShaderEXT(vk_gfx.device, shaders[i].shader, nullptr);                    
+#if !GEN_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
+                    vk_gfx.ext.vkDestroyShaderEXT(vk_gfx.device, shaders[i].shader, nullptr);
+#endif
                     load(
                         arena, 
                         vk_gfx,
@@ -303,7 +463,7 @@ public:
 
         void build_layout(VkDevice device_) {
             device = device_;
-            pipeline_layout = gfx::vul::create_pipeline_layout(device, descriptor_layouts, 5, sizeof(m44) + sizeof(v4f));
+            pipeline_layout = gfx::vul::create_pipeline_layout(device, descriptor_layouts, 5, sizeof(m44) + sizeof(v4f) + sizeof(u32) * 2);
         }
 
         void build_buffer_sets(gfx::vul::descriptor_builder_t& builder, VkBuffer* buffers) {
@@ -339,14 +499,29 @@ public:
                 .build(enviornment_descriptor, descriptor_layouts[3]);
         }
 
-        void bind_images(gfx::vul::descriptor_builder_t& builder, gfx::vul::texture_2d_t* texture) {
+        void bind_images(gfx::vul::descriptor_builder_t& builder, texture_cache_t& texture_cache) {
             using namespace gfx::vul;
-            VkDescriptorImageInfo vdii[1];
-            vdii[0].imageLayout = texture->image_layout;
-            vdii[0].imageView = texture->image_view;
-            vdii[0].sampler = texture->sampler;
+            VkDescriptorImageInfo vdii[4096];
+
+            auto* null_texture = texture_cache["null"];
+            range_u64(i, 0, array_count(texture_cache.textures)) {
+                vdii[i].imageLayout = null_texture->image_layout;
+                vdii[i].imageView = null_texture->image_view;
+                vdii[i].sampler = null_texture->sampler;
+            }
+
+            u64 w{0};
+            for(u64 i = texture_cache.first(); 
+                i != texture_cache.end(); 
+                i = texture_cache.next(i)
+            ) {
+                vdii[i].imageLayout = texture_cache[i]->image_layout;
+                vdii[i].imageView = texture_cache[i]->image_view;
+                vdii[i].sampler = texture_cache[i]->sampler;
+            }
+    
             builder
-                .bind_image(4, vdii, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .bind_image(0, vdii, array_count(vdii), (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
                 .build(texture_descriptor, descriptor_layouts[4]);
         }
     };
@@ -415,7 +590,7 @@ public:
             vdii[0].imageView = texture->image_view;
             vdii[0].sampler = texture->sampler;
             builder
-                .bind_image(4, vdii, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .bind_image(4, vdii, 1, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
                 .build(texture_descriptor, descriptor_layouts[4]);
         }
     };
@@ -477,6 +652,7 @@ public:
         utl::str_hash_t mesh_hash{};
 
         shader_cache_t  shader_cache{};
+        texture_cache_t texture_cache{};
 
         utl::deque<material_node_t> materials{};
 
@@ -580,6 +756,8 @@ public:
         }
         rs->descriptor_layout_cache = arena_alloc_ctor<gfx::vul::descriptor_layout_cache_t>(&rs->arena, 1, state.device); 
 
+        rs->texture_cache.add(state.null_texture, "null");
+
         const i32 w = state.swap_chain_extent.width;
         const i32 h = state.swap_chain_extent.height;
         {
@@ -620,7 +798,7 @@ public:
             };
             auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
             rs->frames[i].mesh_pass.build_buffer_sets(builder, buffers);
-            rs->frames[i].mesh_pass.bind_images(builder, &state.null_texture);
+            rs->frames[i].mesh_pass.bind_images(builder, rs->texture_cache);
             rs->frames[i].mesh_pass.build_layout(state.device);
         }
 
@@ -634,6 +812,8 @@ public:
             };
             auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
             rs->frames[i].anim_pass.build_buffer_sets(builder, buffers);
+
+            // rs->frames[i].anim_pass.bind_images(builder, rs->texture_cache);
             rs->frames[i].anim_pass.bind_images(builder, &state.null_texture);
             rs->frames[i].anim_pass.build_layout(state.device);
         }
@@ -661,6 +841,7 @@ public:
         rs->render_job_count = 0;
         rs->frame_count++;
         rs->get_frame_data().dynamic_descriptor_allocator->reset_pools();
+        rs->get_frame_data().mesh_pass.object_descriptors = VK_NULL_HANDLE;
         rs->job_storage_buffer().pool.clear();
 
         arena_clear(&rs->frame_arena);
@@ -671,20 +852,22 @@ public:
         system_t* rs,
         u64 mesh_id,
         u32 mat_id, // todo(zack): remove this
+        // u32 albedo_id,
+        // u32 normal_id,
         m44 transform
     ) {
         TIMED_FUNCTION;        
-        // auto* job = arena_alloc_ctor<render_job_t>(&rs->frame_arena);
         auto* job = rs->render_jobs + rs->render_job_count++;
         job->meshes = &rs->mesh_cache.get(mesh_id);
         job->material = mat_id;
-        job->transform = transform;
 
+        const auto* mat = rs->materials[mat_id];
+        
         auto* gpu_job = rs->job_storage_buffer().pool.allocate(1);
         gpu_job->model = transform;
         gpu_job->mat_id = mat_id;
-
-        // rs->render_jobs.push_back(job);
+        gpu_job->padding[0] = mat->padding[0];
+        gpu_job->padding[1] = mat->padding[1];
     }
 
     inline void 
@@ -763,20 +946,24 @@ public:
                 using namespace gfx::vul;
                 
                 mesh_pass_t& mesh_pass = rs->get_frame_data().mesh_pass;
-                auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
-                VkBuffer buffers[]{
-                    rs->vk_gfx->sporadic_uniform_buffer.buffer,
-                    rs->job_storage_buffer().buffer,
-                    rs->material_storage_buffer.buffer,
-                    rs->environment_storage_buffer.buffer
-                };
-                mesh_pass.build_buffer_sets(builder, buffers);
+
+                if (mesh_pass.object_descriptors == VK_NULL_HANDLE) {
+                    auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
+                    VkBuffer buffers[]{
+                        rs->vk_gfx->sporadic_uniform_buffer.buffer,
+                        rs->job_storage_buffer().buffer,
+                        rs->material_storage_buffer.buffer,
+                        rs->environment_storage_buffer.buffer
+                    };
+                    mesh_pass.build_buffer_sets(builder, buffers);
+                    mesh_pass.bind_images(builder, rs->texture_cache);
+                }
 
                 vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 0, 1, &mesh_pass.sporadic_descriptors, 0, nullptr);
                 vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 1, 1, &mesh_pass.object_descriptors, 0, nullptr);
                 vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 2, 1, &mesh_pass.material_descriptor, 0, nullptr);
                 vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 3, 1, &mesh_pass.enviornment_descriptor, 0, nullptr);
-                // vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 4, 1, &mesh_pass.texture_descriptor, 0, nullptr);
+                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 4, 1, &mesh_pass.texture_descriptor, 0, nullptr);
             }
             last_layout = material->pipeline_layout;
 
@@ -791,7 +978,43 @@ public:
             }
             last_shader = material->shaders[1];
 
-            draw_mesh_indirect(rs, command_buffer, job->meshes, i);
+            auto* meshes = job->meshes;
+            struct pc_t {
+                m44 vp;
+                v4f cp;
+                u32 albedo;
+                u32 normal;
+            } constants;
+            constants.vp = rs->vp;
+            constants.cp = v4f{rs->camera_pos, 0.0f};
+
+            range_u64(j, 0, meshes->count) {
+                constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.albedo_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.albedo_id : 0);
+                constants.normal = safe_truncate_u64(job->meshes->meshes[j].material.normal_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.normal_id : 0);
+                vkCmdPushConstants(command_buffer, material->pipeline_layout,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+                    0, sizeof(constants), &constants
+                );
+                
+                if (meshes->meshes[j].index_count) {
+                    rs->stats.triangle_count += meshes->meshes[j].index_count/3;
+                    vkCmdDrawIndexed(command_buffer,
+                        meshes->meshes[j].index_count,
+                        1, 
+                        meshes->meshes[j].index_start,
+                        meshes->meshes[j].vertex_start,
+                        safe_truncate_u64(i)
+                    );
+                } else {
+                    rs->stats.triangle_count += meshes->meshes[j].vertex_count/3;
+                    vkCmdDraw(command_buffer,
+                        meshes->meshes[j].vertex_count,
+                        meshes->meshes[j].instance_count,
+                        meshes->meshes[j].vertex_start,
+                        safe_truncate_u64(i)
+                    );
+                }
+            }
         }
     }
 
@@ -815,20 +1038,18 @@ public:
 
                 assert(mat->pipeline_layout != VK_NULL_HANDLE);
 
-                struct pc_t {
-                    m44 vp;
-                    v4f cp;
-                } constants;
-                constants.vp = rs->vp;
-                constants.cp = v4f{rs->camera_pos, 0.0f};
-                                
-                vkCmdPushConstants(command_buffer, mat->pipeline_layout,
-                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
-                    0, sizeof(constants), &constants
-                );
                 last_material = mat;
             }
 
+            struct pc_t {
+                m44 vp;
+                v4f cp;
+                u32 albedo;
+                u32 normal;
+            } constants;
+            constants.vp = rs->vp;
+            constants.cp = v4f{rs->camera_pos, 0.0f};
+                            
             // gfx::vul::object_push_constants_t push_constants;
             // push_constants.material = *job->material;
             // push_constants.model    = job->transform;
@@ -837,6 +1058,12 @@ public:
 
             loop_iota_u64(j, job->meshes->count) {
                 if (job->meshes->meshes[j].index_count) {
+                    constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.albedo_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.albedo_id : 0);
+                    constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.normal_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.normal_id : 0);
+                    vkCmdPushConstants(command_buffer, mat->pipeline_layout,
+                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+                        0, sizeof(constants), &constants
+                    );
                     vkCmdDrawIndexed(command_buffer,
                         job->meshes->meshes[j].index_count,
                         1, 
@@ -845,6 +1072,12 @@ public:
                         safe_truncate_u64(i)
                     );
                 } else {
+                    constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.albedo_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.albedo_id : 0);
+                    constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.normal_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.normal_id : 0);
+                    vkCmdPushConstants(command_buffer, mat->pipeline_layout,
+                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+                        0, sizeof(constants), &constants
+                    );
                     vkCmdDraw(command_buffer,
                         job->meshes->meshes[j].vertex_count,
                         job->meshes->meshes[j].instance_count,
@@ -1130,6 +1363,40 @@ public:
         ext.vkCmdBindShadersEXT(command_buffer, 2, stages, shaders);
 
         draw_mesh(rs, command_buffer, &sky_mesh);
+
+    };
+
+    inline void
+    draw_postprocess(
+        system_t* rs, 
+        VkCommandBuffer command_buffer,
+        std::string_view shader_name,
+        VkPipelineLayout layout
+        
+    ) {
+        TIMED_FUNCTION;
+        auto& ext = rs->vk_gfx->ext;
+        auto& khr = rs->vk_gfx->khr;
+
+        auto viewport = gfx::vul::utl::viewport((f32)rs->width, (f32)rs->height, 0.0f, 1.0f);
+        auto scissor = gfx::vul::utl::rect2D(rs->width, rs->height, 0, 0);
+
+        ext.vkCmdSetViewportWithCountEXT(command_buffer, 1, &viewport);
+        ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
+        ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_NONE);
+        ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+        // todo bind texture
+
+        VkShaderEXT shaders[] = {
+            *rs->shader_cache[assets::shaders::screen_vert.filename],
+            *rs->shader_cache[shader_name]
+        };
+        
+        VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
+        ext.vkCmdBindShadersEXT(command_buffer, 2, stages, shaders);
+
+        vkCmdDraw(command_buffer, 3, 1, 0, 0);
 
     };
 };

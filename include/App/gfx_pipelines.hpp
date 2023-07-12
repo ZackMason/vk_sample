@@ -121,7 +121,7 @@ create_mesh_pipeline(
     create_info->vertex_shader = pipeline_desc.vertex_shader;
     create_info->fragment_shader = pipeline_desc.fragment_shader;
 
-    create_info->push_constant_size = sizeof(m44) + sizeof(v4f);
+    create_info->push_constant_size = sizeof(m44) + sizeof(v4f) + sizeof(u32) * 2;
     create_info->vertex_input_binding_count = 1;
     create_info->vertex_input_binding_descriptions[0] = utl::vertex_input_binding_description(
         0, sizeof(vertex_t), VK_VERTEX_INPUT_RATE_VERTEX
@@ -149,7 +149,7 @@ create_mesh_pipeline(
         pipeline_desc.material_buffer,
         pipeline_desc.env_buffer,
     };
-    create_mesh_descriptor_set(state, buffers, array_count(buffers), 1, pipeline->descriptor_sets, pipeline->descriptor_set_layouts);
+    create_mesh_descriptor_set(state, buffers, array_count(buffers), 4096, pipeline->descriptor_sets, pipeline->descriptor_set_layouts);
 
     state->create_pipeline_state(pipeline, create_info, render_pass);
     arena_set_mark(arena, stack_mark); 

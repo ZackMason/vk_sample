@@ -56,7 +56,7 @@ custom_destroy_scene(api_t*) {
 }
 
 rigidbody_t*
-custom_create_rigidbody(api_t* api, void* entity, rigidbody_type type) {
+custom_create_rigidbody(api_t* api, void* entity, rigidbody_type type, const v3f& p, const quat& q) {
     return custom_create_rigidbody_impl(api, type, entity);
 }
 

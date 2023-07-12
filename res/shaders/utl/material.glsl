@@ -8,7 +8,10 @@ struct Material {
 
     uint flags;     // for material effects
     uint opt_flags; // for performance
-    uint padding[2 + 4];
+    
+    uint albedo_texture_id;
+    uint normal_texture_id;
+    uint padding[4];
 };
 
 layout(std430, set = 2, binding = 0) readonly buffer MaterialBuffer {

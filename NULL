@@ -1,0 +1,386 @@
+
+C:\Users\zack\Documents\GitHub\vk_sample>..\asset_exporter\build\bin\exporter.exe dir res res\res.pack  
+[1m[38;2;255;255;255m[info][phyx::config]: Trimesh: res/models/rooms/room_0.obj
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Trimesh: res/models/rooms/room_01.obj
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Trimesh: res/models/rooms/tower_01.obj
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Trimesh: res/models/rooms/stairs_10x10x2_01.obj
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Trimesh: res/models/map_01.obj
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Trimesh: res/models/Sponza.gltf
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Trimesh: res/models/shaderball.obj
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Trimesh: res/models/rooms/rock_room_test.fbx
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Trimesh: res/models/rooms/rock_room_test.gltf
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Convex: res/models/rooms/wall_10x10_01.obj
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Convex: res/models/rooms/floor_10x10_01.obj
+[0m[1m[38;2;255;255;255m[info][phyx::config]: Convex: res/models/utah-teapot.obj
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/.tmp
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/.tmp/cache.dat
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/.tmp/models
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/.tmp/models/shotgun.hmd
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/audio
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/audio/unlock.wav
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/data
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/data/config.txt, offset: 0, size: 49
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/data.cdb
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/entity
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/entity/SHADERBALL.ENTT
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/entity/TEST
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Bold-Italic.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Bold.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Italic.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Medium-Italic.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Medium.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Mono-Bold-Italic.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Mono-Italic.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Regular.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Smallcaps-Italic.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go/Go-Smallcaps.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/fonts/go/GO.txt, offset: 49, size: 1920
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/Go-Mono-Bold.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/Go-Mono.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/go.zip
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/fonts/open_sans.ttf
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/animations
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 65 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh has 65 bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export_mesh]: loaded 1 animations
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/animations/Dying.fbx, offset: 1969, size: 12705132
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/capsule.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Sphere.001 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/capsule.obj, offset: 12707101, size: 41662
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/collade
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/collade/rock_01.dae
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/collade/rock_02.dae
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/collade/teapot.dae
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/collade/tree_01.dae
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/collade/~teapot.png
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/cube.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/cube.obj, offset: 12748763, size: 1616
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/entities
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/entities/test_01.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Suzanne has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/entities/test_01.obj, offset: 12750379, size: 100115
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/environment
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.004 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.003 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/environment/doorway_01.glb, offset: 12850494, size: 12960
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.002 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/environment/pillar_01_1x12x1.glb, offset: 12863454, size: 9268
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/environment/tree_01.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.004 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.003 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/environment/tree_01.obj, offset: 12872722, size: 1050312
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/evergreen_01.obj, offset: 13923034, size: 1134656
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/bullet-9mm.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh bullet-9mm_Cube.003 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_copper has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/bullet-9mm.obj, offset: 15057690, size: 6559
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/bullet-shotgun.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh bullet-shotgun_Cube.002 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_copper has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/bullet-shotgun.obj, offset: 15064249, size: 4067
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/bullet-sniper.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh bullet_Cube has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_copper has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/bullet-sniper.obj, offset: 15068316, size: 6455
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/pistol-coonan.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh body_Cube has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_light has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh reload_Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh mag_Cube.002 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 4 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/pistol-coonan.obj, offset: 15074771, size: 27231
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/revolver-python.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh body_Cube.002 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_copper has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_light has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh revolver_Cube.004 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 5 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/revolver-python.obj, offset: 15102002, size: 21126
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/shotgun.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh body_Cube has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_dark has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh reloader_Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 4 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/shotgun.obj, offset: 15123128, size: 21057
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/smg-mp5.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh mp5_Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh glass_blue has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_light has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh mag_Cube.000 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 5 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/smg-mp5.obj, offset: 15144185, size: 36390
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/smg-mp5x.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh mp5_Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh glass_blue has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_light has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh mag_Cube.000 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 5 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/smg-mp5x.obj, offset: 15180575, size: 36338
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/sniper.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh body_Cube has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_dark has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_light has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh scope_Cube.002 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_light has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh glass_blue has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 6 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/sniper.obj, offset: 15216913, size: 34113
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/guns/uzi.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh body_Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh metal_light has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh mag_Cube.000 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh reloader_Cube.002 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 5 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/guns/uzi.obj, offset: 15251026, size: 31254
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube_Cube.004_Cube_Cube.004_Handle has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube_Cube.004_Cube_Cube.004_Blade has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/katana.obj, offset: 15282280, size: 14187
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/lucy.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh lucy has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/lucy.obj, offset: 15296467, size: 1243408
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/map_01.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/map_01.obj, offset: 16539875, size: 58292
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/map_01.obj.trimesh.physx, offset: 16598167, size: 33062
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/modular_level_kit.blend
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/modular_level_kit.blend1
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rifle.blend
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rifle.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh rifle has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh dark(Clone) has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh _defaultMat(Clone) has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 3 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rifle.obj, offset: 16631229, size: 79282
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cylinder.001_Cylinder.002 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/ring_ruin.obj, offset: 16710511, size: 133705
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rocks
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rocks/rock_01.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh rock_01 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rocks/rock_01.obj, offset: 16844216, size: 21731
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rooms
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rooms/floor_10x10_01.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/floor_10x10_01.obj, offset: 16865947, size: 125248
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/floor_10x10_01.obj.convex.physx, offset: 16991195, size: 1143
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/rock_room_test.fbx, offset: 16992338, size: 4051004
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/rock_room_test.fbx.trimesh.physx, offset: 21043342, size: 728438
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/rock_room_test.gltf, offset: 21771780, size: 3809024
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/rock_room_test.gltf.trimesh.physx, offset: 25580804, size: 728292
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rooms/room_0.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/room_0.obj, offset: 26309096, size: 22528
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/room_0.obj.trimesh.physx, offset: 26331624, size: 7104
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rooms/room_01.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Floor10x10.004 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Floor10x10.003 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Stairs10x10x2.002 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Stairs10x10x2.001 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Wall10x10.004 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Wall10x10.003 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Wall10x10.002 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Wall10x10.001 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Floor10x10.002 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 9 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/room_01.obj, offset: 26338728, size: 6480764
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/room_01.obj.trimesh.physx, offset: 32819492, size: 1232896
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rooms/stairs_10x10x2_01.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.002 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/stairs_10x10x2_01.obj, offset: 34052388, size: 30420
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/stairs_10x10x2_01.obj.trimesh.physx, offset: 34082808, size: 6692
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rooms/tower_01.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Plane has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/tower_01.obj, offset: 34089500, size: 229161
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/tower_01.obj.trimesh.physx, offset: 34318661, size: 100055
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/rooms/wall_10x10_01.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/wall_10x10_01.obj, offset: 34418716, size: 8052
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/rooms/wall_10x10_01.obj.convex.physx, offset: 34426768, size: 498
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh shellbasegrp has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh shellgrp has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh coregrp has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh pedestalgrp has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 4 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/shaderball.obj, offset: 34427266, size: 438374
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/shaderball.obj.trimesh.physx, offset: 34865640, size: 269480
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh colmftr2co_2_001 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh _Gray6_ has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/ship_001.obj, offset: 35135120, size: 102631
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Trigger has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Pump has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Lever has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Gun has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 4 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/shotgun.fbx, offset: 35237751, size: 125195
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube.001 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Cube has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 2 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/spaceship_02.obj, offset: 35362946, size: 62936
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/sphere.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Sphere has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/sphere.obj, offset: 35425882, size: 36534
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/Sponza.bin
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-0 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-1 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-2 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-3 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-4 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-5 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-6 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-7 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-8 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-9 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-10 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-11 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-12 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-13 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-14 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-15 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-16 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-17 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-18 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-19 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-20 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-21 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-22 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-23 has no bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Mesh_0-24 has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 25 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/Sponza.gltf, offset: 35462416, size: 11824143
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/Sponza.gltf.trimesh.physx, offset: 47286559, size: 8850306
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/models/utah-teapot.mtl
+[0m[1m[38;2;255;255;255m[info][utl::anim::skeleton_t::load::<lambda_2>::operator ()]: Found 0 bones
+[0m[1m[38;2;255;255;255m[info][process_node]: Mesh Utah_Teapot_Quads has no bones
+[0m[1m[38;2;255;255;255m[info][mesh]: Loaded 1 meshes
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/utah-teapot.obj, offset: 56136865, size: 149485
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/models/utah-teapot.obj.convex.physx, offset: 56286350, size: 12772
+[0m[1m[38;2;255;255;255m[info][export]: Writing file: res/physx_defs.json, offset: 56299122, size: 555
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/player.prefab
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/res.pack
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/arm.frag
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/arm.vert
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/arm.frag.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/arm.vert.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/debug_line.frag.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/debug_line.vert.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/error_mesh.frag.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/gui.frag.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/gui.vert.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/invert.frag.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/screen.vert.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/simple.frag.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/simple.vert.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/skeletal.vert.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/skybox.frag.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/skybox.vert.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/trail.frag.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/trail.vert.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/tri.frag.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/bin/tri.vert.spv
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/debug_line.frag
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/debug_line.vert
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/error_mesh.frag
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/gui.frag
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/gui.vert
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/invert.frag
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/screen.vert
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/simple.frag
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/simple.vert
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/skeletal.vert
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/skybox.frag
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/skybox.vert
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/trail.frag
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/trail.vert
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/tri.frag
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/tri.vert
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/utl
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/utl/material.glsl
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/utl/noise.glsl
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/utl/pbr.glsl
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/utl/sky.glsl
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/utl/tonemap.glsl
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/shaders/utl/utl.glsl
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/textures
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/textures/brick_01.png
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/textures/checker.png
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/textures/null.png
+[0m[1m[38;2;255;255;255m[info][export]: Unknown file type: res/textures/rock_01_a.png
+[0m

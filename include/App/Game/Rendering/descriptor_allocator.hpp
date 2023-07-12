@@ -265,7 +265,7 @@ struct descriptor_builder_t {
     }
 
     descriptor_builder_t& bind_buffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
-    descriptor_builder_t& bind_image(uint32_t binding, VkDescriptorImageInfo* imageInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
+    descriptor_builder_t& bind_image(uint32_t binding, VkDescriptorImageInfo* imageInfo, u32 image_count, VkDescriptorType type, VkShaderStageFlags stageFlags);
 
     bool build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
     bool build(VkDescriptorSet& set);
@@ -308,16 +308,17 @@ descriptor_builder_t& descriptor_builder_t::bind_buffer(
     return *this;
 }
 
-descriptor_builder_t& descriptor_builder_t::bind_image(
+descriptor_builder_t& descriptor_builder_t::    bind_image(
     uint32_t binding, 
     VkDescriptorImageInfo* imageInfo,
+    u32 image_count,
     VkDescriptorType type, 
     VkShaderStageFlags stageFlags
 ) {
     //create the descriptor binding for the layout
     VkDescriptorSetLayoutBinding newBinding{};
 
-    newBinding.descriptorCount = 1;
+    newBinding.descriptorCount = image_count;
     newBinding.descriptorType = type;
     newBinding.pImmutableSamplers = nullptr;
     newBinding.stageFlags = stageFlags;
@@ -330,7 +331,7 @@ descriptor_builder_t& descriptor_builder_t::bind_image(
     newWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     newWrite.pNext = nullptr;
 
-    newWrite.descriptorCount = 1;
+    newWrite.descriptorCount = image_count;
     newWrite.descriptorType = type;
     newWrite.pImageInfo = imageInfo;
     newWrite.dstBinding = binding;

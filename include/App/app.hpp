@@ -80,7 +80,7 @@ struct app_t {
     app_memory_t*       app_mem{nullptr};
 
     // arenas
-    arena_t             main_arena;
+    arena_t&            main_arena;
     arena_t             temp_arena;
     arena_t             string_arena;
     arena_t             mesh_arena;

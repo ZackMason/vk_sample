@@ -5,13 +5,6 @@
 
 namespace gfx {
 
-struct material_info_t {
-    using stack_string_t = char[256];
-    stack_string_t textures[8]{};
-    stack_string_t properties[32]{};
-    u8 transparency{0};
-};
-
 namespace anim {
 
 using bone_id_t = i32;

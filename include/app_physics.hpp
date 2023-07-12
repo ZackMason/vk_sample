@@ -3,7 +3,7 @@
 
 #include "uid.hpp"
 
-#define PHYSICS_MAX_RIGIDBODY_COUNT 4096
+#define PHYSICS_MAX_RIGIDBODY_COUNT (4096<<2)
 #define PHYSICS_MAX_COLLIDER_COUNT 256
 #define PHYSICS_MAX_CHARACTER_COUNT 512
 
@@ -141,6 +141,33 @@ struct rigidbody_t {
 
         force = v3f{0.0f};
         torque = v3f{0.0f};
+
+    }
+
+    rigidbody_t& operator=(const rigidbody_t& o) {
+        if (this == &o) {return *this;}
+
+        position = o.position;
+        orientation = o.orientation;
+
+        velocity = o.velocity;
+        angular_velocity = o.angular_velocity;
+
+        mass = o.mass;
+
+        linear_dampening = o.linear_dampening;
+        angular_dampening = o.angular_dampening;
+
+        force = o.force;
+        torque = o.torque;
+
+        inertia = o.inertia;
+        inverse_inertia = o.inverse_inertia;
+
+        flags = o.flags;
+        layer = o.layer;
+
+        return *this;
     }
 };
 
@@ -159,7 +186,7 @@ struct api_t;
 using create_scene_function = void(*)(api_t*, const void* filter_fn);
 using destroy_scene_function = void(*)(api_t*);
 
-using create_rigidbody_function = rigidbody_t*(*)(api_t*, void* entity, rigidbody_type);
+using create_rigidbody_function = rigidbody_t*(*)(api_t*, void* entity, rigidbody_type, const v3f& position, const quat& rotation);
 using create_collider_function = collider_t*(*)(api_t*, rigidbody_t*, collider_shape_type, void* collider_info);
 using simulate_function = void(*)(api_t*, f32 dt);
 using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd);
@@ -193,17 +220,38 @@ struct export_dll api_t {
     destroy_scene_function      destroy_scene{0};
 
     // TODO(Zack): Add hashes
-    rigidbody_t rigidbodies[PHYSICS_MAX_RIGIDBODY_COUNT];
+    std::array<rigidbody_t, PHYSICS_MAX_RIGIDBODY_COUNT> rigidbodies;
     size_t      rigidbody_count{0};
 
-    collider_t  colliders[PHYSICS_MAX_COLLIDER_COUNT];
+    std::array<collider_t, PHYSICS_MAX_COLLIDER_COUNT>  colliders;
     size_t      collider_count{0};
 
-    rigidbody_t* characters[PHYSICS_MAX_CHARACTER_COUNT];
+    std::array<rigidbody_t*, PHYSICS_MAX_CHARACTER_COUNT> characters;
     size_t       character_count{0};
 
     using layer_mask_t = std::array<std::array<u8, 64>, 64>;
     layer_mask_t layer_mask{};
+
+    api_t& operator=(const api_t& o) {
+        if (this == &o) { return *this; }
+
+        // if (arena && o.arena) {
+        //     std::memcpy(arena->start, o.arena->start, o.arena->top);
+        //     arena->top = o.arena->top;
+        //     arena->size = o.arena->size;
+        // }
+
+        rigidbodies = o.rigidbodies;
+        colliders = o.colliders;
+        characters = o.characters;
+
+        rigidbody_count = o.rigidbody_count;
+        collider_count = o.collider_count;
+        character_count = o.character_count;
+
+        layer_mask = o.layer_mask;
+        return *this;
+    }
 
 #if GEN_INTERNAL
     get_debug_table_function get_debug_table{0};

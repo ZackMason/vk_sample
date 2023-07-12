@@ -81,7 +81,7 @@ load_bin_mesh_data(
     arena_t* arena,
     std::byte* data,
     utl::pool_t<gfx::vertex_t>* vertices,
-    utl::pool_t<u32>* indices
+    utl::pool_t<u32>* indices    
 ) {
     gfx::mesh_list_t results;
 
@@ -97,12 +97,12 @@ load_bin_mesh_data(
     assert(mesh == utl::res::magic::mesh);
 
     results.count = blob.deserialize<u64>();
-    gen_warn("app::load_bin_mesh_data", "Loading {} meshes", results.count);
+    gen_warn(__FUNCTION__, "Loading {} meshes", results.count);
     results.meshes  = arena_alloc_ctor<gfx::mesh_view_t>(arena, results.count);
 
     for (size_t i = 0; i < results.count; i++) {
         std::string name = blob.deserialize<std::string>();
-        gen_info("app::load_bin_mesh_data", "Mesh name: {}", name);
+        gen_info(__FUNCTION__, "Mesh name: {}", name);
         const size_t vertex_count = blob.deserialize<u64>();
         const size_t vertex_bytes = sizeof(gfx::vertex_t) * vertex_count;
 
@@ -126,10 +126,18 @@ load_bin_mesh_data(
         std::memcpy(tris, blob.read_data(), index_bytes);
         blob.advance(index_bytes);
 
+
         results.meshes[i].aabb = {};
         range_u64(j, 0, vertex_count) {
             results.meshes[i].aabb.expand(v[j].pos);
         }
+    }
+    const auto mate = blob.deserialize<u64>();
+    assert(mate == utl::res::magic::mate);
+
+    for (size_t i = 0; i < results.count; i++) {
+        const auto& material = results.meshes[i].material = blob.deserialize<gfx::material_info_t>();
+        gen_info(__FUNCTION__, "Loaded material: {}, albedo: {}, normal: {}", material.name, material.albedo, material.normal);
     }
 
     results.aabb = {};
@@ -209,7 +217,7 @@ make_noise_texture(arena_t* arena, u32 size) {
 inline app_t*
 get_app(app_memory_t* mem) {
     // note(zack): App should always be the first thing initialized in perm_memory
-    return (app_t*)mem->perm_memory;
+    return (app_t*)mem->arena.start;
 }
 
 inline static
@@ -248,7 +256,7 @@ app_init_graphics(app_memory_t* app_mem) {
         temp_arena_t t = app->main_arena;
         app->gfx.init(&app_mem->config, &t);
     }
-    
+
     app->render_system = game::rendering::init<megabytes(256)>(vk_gfx, &app->main_arena);
     vk_gfx.create_vertex_buffer(&app->render_system->vertices);
     vk_gfx.create_index_buffer(&app->render_system->indices);
@@ -275,6 +283,12 @@ app_init_graphics(app_memory_t* app_mem) {
         );
         const char* file_name = app->resource_file->table[i].name.c_data;
 
+        range_u64(m, 0, loaded_mesh.count) {
+            u64 ids[2];
+            u32 mask = app->render_system->texture_cache.load_material(app->render_system->arena, app->gfx, loaded_mesh.meshes[m].material, ids);
+            loaded_mesh.meshes[m].material.albedo_id = (mask&0x1) ? ids[0] : std::numeric_limits<u64>::max();
+            loaded_mesh.meshes[m].material.normal_id = (mask&0x2) ? ids[1] : std::numeric_limits<u64>::max();
+        }
         game::rendering::add_mesh(app->render_system, file_name, loaded_mesh);
     }
     
@@ -300,7 +314,7 @@ app_init_graphics(app_memory_t* app_mem) {
         assert(mesh == utl::res::magic::skel);
 
         results.count = blob.deserialize<u64>();
-        gen_warn("app::load_bin_mesh_data", "Loading {} meshes", results.count);
+        gen_warn(__FUNCTION__, "Loading {} meshes", results.count);
         results.meshes  = arena_alloc_ctor<gfx::mesh_view_t>(arena, results.count);
 
         u64 total_vertex_count = 0;
@@ -309,7 +323,7 @@ app_init_graphics(app_memory_t* app_mem) {
 
         for (size_t j = 0; j < results.count; j++) {
             std::string name = blob.deserialize<std::string>();
-            gen_info("app::load_bin_mesh_data", "Mesh name: {}", name);
+            gen_info(__FUNCTION__, "Mesh name: {}", name);
             const size_t vertex_count = blob.deserialize<u64>();
             const size_t vertex_bytes = sizeof(gfx::skinned_vertex_t) * vertex_count;
 
@@ -419,6 +433,7 @@ app_init_graphics(app_memory_t* app_mem) {
             &app->default_font);
     }
 
+
     gfx::vul::texture_2d_t* ui_textures[4096];
     for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = app->default_font_texture; }
 
@@ -501,6 +516,7 @@ app_init_graphics(app_memory_t* app_mem) {
             );
         };
 
+        make_material("default", gfx::material_t::plastic(gfx::color::v4::ray_white));
         make_material("red-plastic", gfx::material_t::plastic(gfx::color::v4::red));
         make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
         make_material("gold-metal", gfx::material_t::plastic(gfx::color::v4::yellow));
@@ -555,12 +571,10 @@ app_on_init(app_memory_t* app_mem) {
     // utl::profile_t p{"app init"};
     TIMED_FUNCTION;
     app_t* app = get_app(app_mem);
-    new (app) app_t;
+    new (app) app_t{app_mem, app_mem->arena};
 
     app->app_mem = app_mem;
-    app->main_arena.start = (std::byte*)app_mem->perm_memory + sizeof(app_t);
-    app->main_arena.size = app_mem->perm_memory_size - sizeof(app_t);
-
+    
     arena_t* main_arena = &app->main_arena;
     arena_t* string_arena = &app->string_arena;
 
@@ -617,11 +631,11 @@ app_on_init(app_memory_t* app_mem) {
 
     using namespace gfx::color;
 
-    app->scene.sporadic_buffer.mode = 2;
+    app->scene.sporadic_buffer.mode = 1;
     app->scene.sporadic_buffer.use_lighting = 1;
 
 
-    auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::assassin, v3f{3.0f, 5.0f, 0.0f});
+    auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::assassin);
     player->physics.rigidbody->on_collision = player_on_collision;
 
     game::spawn(app->game_world, app->render_system,
@@ -642,12 +656,12 @@ app_on_init(app_memory_t* app_mem) {
     //     auto* r = game::spawn(app->game_world, app->render_system, game::db::rooms::tower_01, pos);
     //     r->transform.set_rotation(axis::up * math::constants::pi32 * f32(i));
     // }
-    game::spawn(app->game_world, app->render_system, game::db::rooms::room_01);
+    game::spawn(app->game_world, app->render_system, game::db::rooms::room_01, axis::down * 20.0f);
 
     game::spawn(app->game_world, app->render_system, game::db::environmental::tree_group, v3f{20,0,20});
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
-    loop_iota_u64(i, 320) {
+    loop_iota_u64(i, 49) {
         auto* e = game::spawn(
             app->game_world, 
             app->render_system,
@@ -655,18 +669,17 @@ app_on_init(app_memory_t* app_mem) {
             rng.randnv<v3f>() * 100.0f * planes::xz + axis::up * 8.0f
         );
         e->transform.set_scale(v3f{2.f});
-        e->transform.set_rotation(rng.randnv<v3f>());
+        e->transform.set_rotation(rng.randnv<v3f>() * 1000.0f);
         e->gfx.material_id = rng.rand() % 6;
-        e->physics.rigidbody->on_collision = teapot_on_collision;
+        // if (e->physics.rigidbody) {
+        //     // e->physics.rigidbody->on_collision = teapot_on_collision;
+        // }
     }
 
     gen_info("app", "player id: {} - {}", 
         app->game_world->player->id,
         (void*)game::find_entity_by_id(app->game_world, app->game_world->player->id)
     );
-
-    app->game_world->player->transform.origin.y = 5.0f;
-    app->game_world->player->transform.origin.z = -5.0f;
         
     gen_info("app", "world size: {}mb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
 }
@@ -823,11 +836,11 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
     accum += f32(input->dt > 0.0f) * std::min(input->dt, 1.0f);
 
-    {
-        local_persist gfx::trail_renderer_t tr{};
-        v3f tr_pos = v3f{5.0f} + v3f{std::sinf(input->time), 0.0f, std::cosf(input->time)};
-        tr.tick(input->dt, tr_pos);
-    }
+    // {
+    //     local_persist gfx::trail_renderer_t tr{};
+    //     v3f tr_pos = v3f{5.0f} + v3f{std::sinf(input->time), 0.0f, std::cosf(input->time)};
+    //     tr.tick(input->dt, tr_pos);
+    // }
 
     game::world_update_physics(app->game_world);
 
@@ -839,34 +852,43 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         // }
     }
         
-    for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
-        auto* e = app->game_world->entities + i;
-        if (e->is_alive() == false) {
-            continue;
-        }
-        const bool is_physics_object = e->physics.flags != game::PhysicsEntityFlags_None && e->physics.rigidbody;
-        const bool is_pickupable = (e->flags & game::EntityFlags_Pickupable);
-        const bool is_not_renderable = !e->is_renderable();
+    {
+        TIMED_BLOCK(GameplayPostSimulate);
 
-        if (is_physics_object) {
-            app->game_world->physics->sync_rigidbody(0, e->physics.rigidbody);
-            e->transform.origin = e->physics.rigidbody->position;
-            e->transform.set_rotation(e->physics.rigidbody->orientation);
-        }
-
-        if (is_pickupable) {
-            e->transform.rotate(axis::up, input->dt);
-            if (math::intersect(math::sphere_t{e->global_transform().origin, 2.0f}, app->game_world->player->global_transform().origin)) {
-                app->game_world->player->primary_weapon.entity = e;
-                e->parent = app->game_world->player;
-                e->transform.origin = v3f{0.5, 0.0f, -0.5f};
-                e->flags &= ~game::EntityFlags_Pickupable;
+        for (size_t i{0}; i < app->game_world->entity_capacity; i++) {
+            auto* e = app->game_world->entities + i;
+            if (e->flags & game::EntityFlags_Breakpoint) {
+                __debugbreak();
             }
+            if (e->is_alive() == false) {
+                continue;
+            }
+
+            const bool is_physics_object = e->physics.flags != game::PhysicsEntityFlags_None && e->physics.rigidbody;
+            const bool is_pickupable = (e->flags & game::EntityFlags_Pickupable);
+            const bool is_not_renderable = !e->is_renderable();
+
+            if (is_physics_object) {
+                app->game_world->physics->sync_rigidbody(0, e->physics.rigidbody);
+                e->transform.origin = e->physics.rigidbody->position;
+                e->transform.set_rotation(e->physics.rigidbody->orientation);
+            }
+
+            if (is_pickupable) {
+                e->transform.rotate(axis::up, input->dt);
+                if (math::intersect(math::sphere_t{e->global_transform().origin, 2.0f}, app->game_world->player->global_transform().origin)) {
+                    app->game_world->player->primary_weapon.entity = e;
+                    e->parent = app->game_world->player;
+                    e->transform.origin = v3f{0.5, 0.0f, -0.5f};
+                    e->flags &= ~game::EntityFlags_Pickupable;
+                    // volatile int* crash{0}; *crash++;
+                }
+            }
+
+            
+
+            // app->debug.draw_aabb(e->global_transform().xform_aabb(e->aabb), gfx::color::v3::yellow);
         }
-
-        
-
-        // app->debug.draw_aabb(e->global_transform().xform_aabb(e->aabb), gfx::color::v3::yellow);
     }
 
     game::world_kill_free_queue(app->game_world);
@@ -876,6 +898,7 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
         app->render_system->ticket.lock();
     }
 
+    TIMED_BLOCK(GameSubmitRenderJobs);
     game::rendering::begin_frame(app->render_system);
     app->debug.debug_vertices.pool.clear();
 
@@ -1091,9 +1114,11 @@ draw_gui(app_memory_t* app_mem) {
                                 hist[j] = (f32)ms;
                             }
     
-                            im::text(state,
-                                fmt_sv(" {:.2f}ms - [{:.2f}, {:.2f}]", cycle/1e+6, debug_stat.range.min, debug_stat.range.max)
-                            );
+                            if (im::text(state,
+                                fmt_sv(" {:.2f}ms - [{:.3f}, {:.3f}]", cycle/1e+6, debug_stat.range.min, debug_stat.range.max)
+                            )) {
+                                record->set_breakpoint = !record->set_breakpoint;
+                            }
                             math::end_statistic(debug_stat);
 
                             im::histogram(state, hist, array_count(hist), (f32)debug_stat.range.max, v2f{4.0f*128.0f, 32.0f});
@@ -1209,7 +1234,13 @@ draw_gui(app_memory_t* app_mem) {
                     app->scene.sporadic_buffer.mode = ++app->scene.sporadic_buffer.mode % 4;
                 }
                 if (im::text(state, fmt_sv("- Resource File Count: {}", app->resource_file->file_count), &show_resources)) {
-                    loop_iota_u64(rf, app->resource_file->file_count) {
+                    local_persist u64 file_start = 0;
+                    im::same_line(state);
+                    if (im::text(state, "Next")) file_start = (file_start+1) % app->resource_file->file_count;
+                    if (im::text(state, "Prev")) file_start = file_start?file_start-1:app->resource_file->file_count-1;
+                    range_u64(rf_i, 0, 10) {
+                        u64 rf_ = file_start + rf_i;
+                        u64 rf = rf_ % app->resource_file->file_count;
                         assert(rf < array_count(show_files));
                         if (im::text(state, fmt_sv("--- File Name: {}", app->resource_file->table[rf].name.c_data), show_files + rf)) {
                             im::text(state, fmt_sv("----- Size: {} bytes", app->resource_file->table[rf].size));
@@ -1231,11 +1262,12 @@ draw_gui(app_memory_t* app_mem) {
 
             local_persist bool show_gfx = false;
             local_persist bool show_mats = false;
+            local_persist bool show_textures = false;
             local_persist bool show_probes = false;
             local_persist bool show_env = false;
             local_persist bool show_mat_id[8] = {};
-            if (im::text(state, "Graphics"sv, &show_gfx)) { 
                 local_persist bool show_sky = false;
+            if (im::text(state, "Graphics"sv, &show_gfx)) { 
                 if (im::text(state, "- Reload Shaders")) {
                     std::system("compile_shaders");
                     app->render_system->shader_cache.reload_all(
@@ -1243,6 +1275,24 @@ draw_gui(app_memory_t* app_mem) {
                         app->gfx
                     );
                 }
+
+                if (im::text(state, "- Texture Cache"sv, &show_textures)) {
+                    auto& cache = app->render_system->texture_cache;
+
+                    for(u64 i = cache.first();
+                        i != cache.end();
+                        i = cache.next(i)
+                    ) {
+                        if(im::text(state,
+                            fmt_sv("--- {} -> {}: {} x {}, {} channels",
+                                i, cache.textures[i].name, cache[i]->size.x, cache[i]->size.y, cache[i]->channels
+                            )
+                        )) {
+                            // todo show texture here                            
+                        }
+                    }
+                }
+
                 if (im::text(state, "- Probes"sv, &show_probes)) { 
                     auto& probes = app->render_system->light_probes;
                     range_u64(i, 0, probes.probe_count) {
@@ -1319,8 +1369,10 @@ draw_gui(app_memory_t* app_mem) {
                 im::text(state, fmt_sv("- Count: {}", entity_count));
 
                 if (im::text(state, "- Kill All"sv)) {
-                    range_u64(ei, 1, app->game_world->entity_count) {
-                        app->game_world->entities[ei].queue_free();
+                    range_u64(ei, 1, app->game_world->entity_capacity) {
+                        if (app->game_world->entities[ei].is_alive()) {
+                            app->game_world->entities[ei].queue_free();
+                        }
                     }
 
                     // app->game_world->entities.clear();
@@ -1348,7 +1400,6 @@ draw_gui(app_memory_t* app_mem) {
             auto* e = app->game_world->entities + i;
             if (e->is_alive() == false) { continue; }
 
-            // if (!show_entities && ((e->flags & BIT(23)) == 0)) continue;
             const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
 
             bool is_selected = widget_pos == &e->transform.origin;
@@ -1407,7 +1458,7 @@ draw_gui(app_memory_t* app_mem) {
                     }   break;
                 }
 
-                if (im::text(state, fmt_sv("kill\0: {}"sv, (void*)e))) {
+                if (im::text(state, fmt_sv("Kill\0: {}"sv, (void*)e))) {
                     auto* te = e->next;
                     gen_info("gui", "Killing entity: {}", (void*)e);
                     e->queue_free();
@@ -1417,6 +1468,10 @@ draw_gui(app_memory_t* app_mem) {
                         break;
                     }
                     e = te;
+                }
+
+                if (check_for_debugger() && im::text(state, fmt_sv("Breakpoint\0{}"sv, e->id))) {
+                    e->flags ^= game::EntityFlags_Breakpoint;
                 }
 
                 im::end_panel(state);
@@ -1630,20 +1685,9 @@ game_on_render(app_memory_t* app_mem) {
             ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
             ext.vkCmdSetDepthCompareOpEXT(command_buffer, VK_COMPARE_OP_LESS_OR_EQUAL);
             ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+            VkBool32 fb_blend[1] { true };
+            ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
             
-            {
-                struct pc_t {
-                    m44 vp;
-                    v4f cp;
-                } constants;
-                constants.vp = rs->vp;
-                constants.cp = v4f{rs->camera_pos, 0.0f};
-                                
-                vkCmdPushConstants(command_buffer, app->render_system->frames[0].mesh_pass.pipeline_layout,
-                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
-                    0, sizeof(constants), &constants
-                );
-            }
 
             {
                 VkVertexInputBindingDescription2EXT vertexInputBinding{};
@@ -1663,16 +1707,9 @@ game_on_render(app_memory_t* app_mem) {
                 ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
 
-            // vkCmdBindDescriptorSets(command_buffer, 
-            //     VK_PIPELINE_BIND_POINT_GRAPHICS, app->render_system->frames[0].mesh_pass.pipeline_layout,
-            //     4, 1, &app->brick_descriptor, 0, nullptr);
-
             build_shader_commands(
                 rs, 
-                command_buffer 
-                // app->mesh_pipeline->pipeline_layout, 
-                // app->mesh_pipeline->descriptor_sets, 
-                // app->mesh_pipeline->descriptor_count - 1
+                command_buffer
             );
         khr.vkCmdEndRenderingKHR(command_buffer);
     
