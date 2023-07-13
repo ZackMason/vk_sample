@@ -61,6 +61,7 @@ apply_environment(
 	float c = a/b;
 	// float fog = c - exp(-ro.y*b) * (1.0 - exp(-depth*rd.y*b))/rd.y;
 	float fog = a * exp(-ro.y*b)*(1.0-exp(-depth*rd.y*b))/rd.y;
+	fog = 1.0 - exp(-depth/40.0);
 
 	// return lum + env.fog_color.rgb * fog + env.ambient_color.rgb;
 	return mix(lum, env.fog_color.rgb, fog) + env.ambient_color.rgb;
@@ -150,7 +151,7 @@ main( )
 	// rgb = (albedo) * (light + la + skR + rim_intensity * rim_color);
 
 	// rgb = albedo;
-	// rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
+	rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
 	// rgb = pow(rgb, vec3(2.2));
 	// rgb = vec3(1,0,1);
 	

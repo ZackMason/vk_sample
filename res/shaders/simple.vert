@@ -32,7 +32,8 @@ layout ( location = 0 ) out flat uint vMatId;
 layout ( location = 1 ) out vec2 vTexCoord;
 layout ( location = 2 ) out vec3 vN;
 layout ( location = 3 ) out vec3 vWorldPos;
-
+layout ( location = 4 ) out vec3 vViewPos;
+layout ( location = 5 ) out vec3 vViewNormal;
 
 void
 main() {

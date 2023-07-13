@@ -7,6 +7,9 @@
 
 #include <unordered_map>
 
+#include "extensions/PxRigidBodyExt.h"
+
+
 namespace physics {
 
 using namespace physx;
@@ -29,14 +32,27 @@ glm::mat3 tensor_to_mat3(const physx::PxVec3& inertiaTensor) {
 
 // note(zack): SDK says not to create stuff during this callback
 class rigidbody_event_callback : public physx::PxSimulationEventCallback {
-    // std::unordered_map<u64, PxU32> active_contacts;
-
     virtual ~rigidbody_event_callback() = default;
 
     virtual void onConstraintBreak(PxConstraintInfo* constraints, PxU32 count) {}
 	virtual void onWake(PxActor** actors, PxU32 count) {}
 	virtual void onSleep(PxActor** actors, PxU32 count) {}
-	virtual void onTrigger(PxTriggerPair* pairs, PxU32 count) {}
+	virtual void onTrigger(PxTriggerPair* pairs, PxU32 count) {
+        TIMED_FUNCTION;
+        using namespace physx;
+
+        for(PxU32 i=0; i < count; i++) {
+            const PxTriggerPair& tp = pairs[i];
+            
+            auto* rb0 = (rigidbody_t*)tp.triggerActor->userData;
+            auto* rb1 = (rigidbody_t*)tp.otherActor->userData;
+
+            if (rb0->on_trigger) {
+                rb0->on_trigger(rb0, rb1);
+            }
+        }
+    }
+
 	virtual void onAdvance(const PxRigidBody*const* bodyBuffer, const PxTransform* poseBuffer, const PxU32 count) {}
 
     virtual void onContact(const physx::PxContactPairHeader& pairHeader,
@@ -44,7 +60,7 @@ class rigidbody_event_callback : public physx::PxSimulationEventCallback {
     ) override {
         TIMED_FUNCTION;
         using namespace physx;
-        
+
         for(PxU32 i=0; i < nbPairs; i++) {
             const PxContactPair& cp = pairs[i];
             
@@ -78,15 +94,34 @@ public:
     void onShapeHit(const physx::PxControllerShapeHit& hit) override
     {
         TIMED_FUNCTION;
-        physx::PxRigidActor* actor = hit.shape->getActor();
-        auto* rb0 = (rigidbody_t*)hit.controller->getActor()->userData;
-        auto* rb1 = (rigidbody_t*)actor->userData;
+        // physx::PxRigidActor* a = hit.shape->getActor();
+        // auto* rb0 = (rigidbody_t*)hit.controller->getActor()->userData;
+        // auto* rb1 = (rigidbody_t*)a->userData;
 
-        if (rb0->on_collision) {
-            rb0->on_collision(rb0, rb1);
-        }
-        if (rb1->on_collision) {
-            rb1->on_collision(rb1, rb0);
+        // if (rb0->on_collision) {
+        //     rb0->on_collision(rb0, rb1);
+        // }
+        // if (rb1->on_collision) {
+        //     rb1->on_collision(rb1, rb0);
+        // }
+
+        PxRigidDynamic* actor = hit.shape->getActor()->is<PxRigidDynamic>();
+        if(actor) {
+            if(actor->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC)
+                return;
+
+            // We only allow horizontal pushes. Vertical pushes when we stand on dynamic objects creates
+            // useless stress on the solver. It would be possible to enable/disable vertical pushes on
+            // particular objects, if the gameplay requires it.
+            const PxVec3 upVector = hit.controller->getUpDirection();
+            const PxF32 dp = hit.dir.dot(upVector);
+
+            if(fabsf(dp)<1e-3f)
+            {
+                const PxTransform globalPose = actor->getGlobalPose();
+                const PxVec3 localPos = globalPose.transformInv(toVec3(hit.worldPos));
+                PxRigidBodyExt::addForceAtLocalPos(*actor, hit.dir*hit.length*1000.0f, localPos, PxForceMode::eFORCE);
+            }
         }
     }
 };
@@ -115,6 +150,23 @@ inline static physx_backend_t* get_physx(const api_t* api) {
     assert(api->type == backend_type::PHYSX);
     return (physx_backend_t*)api->backend;
 }
+
+
+void physx_collider_set_active(collider_t* collider, bool x) {
+    auto* shape = (PxShape*)collider->shape;
+    shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, x);
+}
+
+void physx_collider_set_trigger(collider_t* collider, bool x) {
+    auto* shape = (PxShape*)collider->shape;
+    physx_collider_set_active(collider, !x);
+    shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, x);
+}
+
+// void physx_rigidbody_set_active(api_t* api, rigidbody_t* rb, bool x) {
+//     // const auto* ps = get_physx(api);
+    
+// }
 
 void
 physx_remove_rigidbody(api_t* api, rigidbody_t* rb) {
@@ -272,7 +324,7 @@ physx_create_scene(api_t* api, const void* filter = 0) {
     gen_info(__FUNCTION__, "Creating scene");
     auto* ps = get_physx(api);
     assert(ps->state);
-    // bug with arena
+    
     ps->world = arena_alloc<physics::physics_world_t>(api->arena);
     // ps->world = arena_alloc<physics::physics_world_t>(api->arena);
     if (filter) {
@@ -286,22 +338,30 @@ physx_create_scene(api_t* api, const void* filter = 0) {
 }
 
 void
-physx_destroy_scene(api_t*) {
+physx_destroy_scene(api_t* api) {
+    auto* ps = get_physx(api);
+    ps->world->scene->release();
+    ps->world->scene = nullptr;
     assert(0);
 }
 
 
+// these dont do anything??
 rigidbody_t*
 physx_create_rigidbody(api_t* api, void* entity, rigidbody_type type, const v3f& pos, const quat& orientation) {
     TIMED_FUNCTION;
     auto* ps = get_physx(api);
-    return physx_create_rigidbody_impl(api, type, entity, pos, orientation);
+    auto* rb = physx_create_rigidbody_impl(api, type, entity, pos, orientation);
+    rb->api = api;
+    return rb;
 }
 
 collider_t*
 physx_create_collider(api_t* api, rigidbody_t* rigidbody, collider_shape_type type, void* collider_info) {
     TIMED_FUNCTION;
     physx_create_collider_impl(api, rigidbody, type, collider_info);
+    
+    rigidbody->colliders[rigidbody->collider_count-1].rigidbody = rigidbody;
     return &rigidbody->colliders[rigidbody->collider_count-1];
 }
 
@@ -439,7 +499,7 @@ physx_sync_rigidbody(api_t* api, rigidbody_t* rb) {
         const auto [px,py,pz]  = controller->getPosition();
         rb->position = v3f{px,py,pz};
     }
-    rb->flags &= ~rigidbody_flags::SKIP_SYNC;
+    // rb->flags &= ~rigidbody_flags::SKIP_SYNC;
 }
 
 // set -> sim -> sync
@@ -453,7 +513,7 @@ physx_set_rigidbody(api_t* api, rigidbody_t* rb) {
     
     if (rb->type == rigidbody_type::CHARACTER) {
         auto* controller = (physx::PxController*)rb->api_data;
-        controller->setPosition({p.x,p.y,p.z});
+        // controller->setPosition({p.x,p.y,p.z});
     } else {
         physx::PxTransform t;
         t.p = {p.x, p.y, p.z};

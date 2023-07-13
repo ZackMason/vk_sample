@@ -9,6 +9,8 @@
 
 namespace physics {
 
+struct api_t;
+
 enum struct backend_type {
     PHYSX, BULLET, CUSTOM, SIZE
 };
@@ -33,6 +35,8 @@ enum struct rigidbody_type {
     DYNAMIC, STATIC, KINEMATIC, CHARACTER, SIZE
 };
 
+struct rigidbody_t;
+
 // Note(Zack): These are the frontend structs that the game code will interact with
 DEFINE_TYPED_ID(collider_id);
 struct collider_t {
@@ -40,17 +44,24 @@ struct collider_t {
     collider_id         id{uid::invalid_id};
     void*               shape;
 
+    rigidbody_t*        rigidbody{0};
+
+    u32                 is_trigger{0};
+
+    void set_trigger(bool x);
+    void set_active(bool x);
+
     // Todo(Zack)
     // v3f                 offset;
     // glm::quat           orientation;
 };
 
-struct rigidbody_t;
 using rigidbody_on_collision_function = void(*)(rigidbody_t*, rigidbody_t*);
+using rigidbody_set_active_function = void(*)(rigidbody_t*, bool);
 
 struct rigidbody_flags {
     enum {
-        SKIP_SYNC = BIT(0),     // todo(Zack): this can be removed
+        ACTIVE = BIT(0),     // todo(Zack): this can be removed
         IS_ON_GROUND = BIT(1), // note(zack): these are only set for character bodies
         IS_ON_WALL = BIT(2),
     };
@@ -63,6 +74,7 @@ struct rigidbody_t {
     rigidbody_id    id{uid::invalid_id};
     u64             flags{0};
     u64             layer{0};
+    api_t*          api{0};
 
     f32 mass{1.0f};
     f32 linear_dampening{0.5f};
@@ -83,7 +95,10 @@ struct rigidbody_t {
     size_t          collider_count{0};
 
     const void*     user_data{0};
-    const void*     api_data{0};
+    const void*     api_data{0}; // stores the pxActor
+
+
+    rigidbody_on_collision_function on_trigger{0};
 
     rigidbody_on_collision_function on_collision{0};
     rigidbody_on_collision_function on_collision_end{0};
@@ -191,6 +206,7 @@ using create_collider_function = collider_t*(*)(api_t*, rigidbody_t*, collider_s
 using simulate_function = void(*)(api_t*, f32 dt);
 using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd);
 
+using collider_set_trigger_function = void(*)(collider_t*, bool);
 
 #if GEN_INTERNAL
 using get_debug_table_function = debug_table_t*(*)(void);
@@ -218,6 +234,10 @@ struct export_dll api_t {
     raycast_world_function      raycast_world{0};
     create_scene_function       create_scene{0};
     destroy_scene_function      destroy_scene{0};
+
+    // rigidbody_set_active_function rigidbody_set_active{0};
+    collider_set_trigger_function collider_set_trigger{0};
+    collider_set_trigger_function collider_set_active{0};
 
     // TODO(Zack): Add hashes
     std::array<rigidbody_t, PHYSICS_MAX_RIGIDBODY_COUNT> rigidbodies;
@@ -260,6 +280,13 @@ struct export_dll api_t {
 };
 
 using init_function = void(__cdecl *)(api_t* api, backend_type type, arena_t* arena);
+
+void collider_t::set_trigger(bool x) {
+    rigidbody->api->collider_set_trigger(this, x);
+}
+void collider_t::set_active(bool x) {
+    rigidbody->api->collider_set_active(this, x);
+}
 
 };
 

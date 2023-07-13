@@ -2052,6 +2052,13 @@ state_t::load_texture(
         data = stbi_load(fmt_sv("{}.jpg", path).data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
         texture->channels = 4;
     }
+    if (!data) {
+        data = stbi_load(path.data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
+        texture->channels = 4;
+    }
+    if (!data) {
+        data = stbi_load("res/textures/null.png", &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
+    }
     texture->mip_levels = static_cast<u32>(std::floor(std::log2(std::max(texture->size.x, texture->size.y)))) + 1;
 
     assert(data);

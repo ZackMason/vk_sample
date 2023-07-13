@@ -24,19 +24,23 @@ struct prefab_t {
 
     struct physics_t {
         u32 flags{PhysicsEntityFlags_None};
-        physics::collider_shape_type shape{physics::collider_shape_type::NONE};
-        union {
-            struct box_t {
-                v3f size{};
-            } box;
-            struct sphere_t {
-                f32 radius;
-            } sphere;
-            struct capsule_t {
-                f32 radius;
-                f32 height;
-            } capsule;
-        } shape_def;
+        struct shape_t {
+            physics::collider_shape_type shape{physics::collider_shape_type::NONE};
+            u32 flags{};
+            union {
+                struct box_t {
+                    v3f size{};
+                } box;
+                struct sphere_t {
+                    f32 radius;
+                } sphere;
+                struct capsule_t {
+                    f32 radius;
+                    f32 height;
+                } capsule;
+            };
+        };
+        std::optional<shape_t> shapes[8]{}; 
     };
     std::optional<physics_t> physics{};
 
@@ -104,10 +108,12 @@ teapot {
     #if 0 // use convex
         .shape = physics::collider_shape_type::CONVEX,
     #else 
-        .shape = physics::collider_shape_type::SPHERE,
-        .shape_def = {
-            .sphere = {
-                .radius = 1.0f,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .sphere = {
+                    .radius = 1.0f,
+                },
             },
         },
     #endif
@@ -123,11 +129,14 @@ door {
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
     .physics = prefab_t::physics_t {
-        .flags = PhysicsEntityFlags_Trigger,
-        .shape = physics::collider_shape_type::BOX,
-        .shape_def = {
-            .box = {
-                .size = v3f{1.0f},
+        .flags = PhysicsEntityFlags_Static | PhysicsEntityFlags_Trigger,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::BOX,
+                .flags = 1,
+                .box = {
+                    .size = v3f{1.0f},
+                },
             },
         },
     },
@@ -189,7 +198,25 @@ tower_01 {
     },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
-        .shape = physics::collider_shape_type::TRIMESH,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
+    },
+};
+
+DB_ENTRY
+sponza {
+    .type = entity_type::environment,
+    .type_name = "Sponza",
+    .gfx = {
+        .mesh_name = "res/models/Sponza.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
     },
 };
 
@@ -199,14 +226,16 @@ room_01 {
     .type_name = "room_01",
     .gfx = {
         // .mesh_name = "res/models/rooms/room_01.obj",
-        // .mesh_name = "res/models/rooms/rock_room_test.fbx",
-        .mesh_name = "res/models/Sponza.gltf",
+        .mesh_name = "res/models/rooms/rock_room_test.fbx",
+        // .mesh_name = "res/models/Sponza.gltf",
         // .mesh_name = "res/models/rooms/rock_room_test.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
-        .shape = physics::collider_shape_type::TRIMESH,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
     },
 };
 
@@ -220,7 +249,9 @@ room_0 {
     },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
-        .shape = physics::collider_shape_type::TRIMESH,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
     },
 };
 
@@ -234,7 +265,9 @@ map_01 {
     },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
-        .shape = physics::collider_shape_type::TRIMESH,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
     },
 };
 
@@ -255,6 +288,18 @@ shotgun {
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_shotgun(),
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .flags = 1,
+                .sphere = {
+                    .radius = 1.0f,
+                },
+            },
+        },
+    },
 };
 
 DB_ENTRY
@@ -302,10 +347,12 @@ soldier {
     },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Character | PhysicsEntityFlags_Dynamic,
-        .shape = physics::collider_shape_type::SPHERE,
-        .shape_def = {
-            .sphere = {
-                .radius = 1.0f,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .sphere = {
+                    .radius = 1.0f,
+                },
             },
         },
         // .shape = physics::collider_shape_type::CAPSULE,
@@ -345,11 +392,13 @@ assassin {
     },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Character,
-        .shape = physics::collider_shape_type::CAPSULE,
-        .shape_def = {
-            .capsule = {
-                .radius = 1.0f,
-                .height = 3.0f,
+        .shapes = { 
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::CAPSULE,
+                .capsule = {
+                    .radius = 1.0f,
+                    .height = 3.0f,
+                },
             },
         },
     },

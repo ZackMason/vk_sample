@@ -2116,6 +2116,26 @@ struct skinned_vertex_t {
     v4f weight{0.0f};
 };
 
+struct instance_draw_t {
+    u32 object_id{};
+    u32 batch_id{};
+};
+
+struct indirect_draw_t {
+    u32     vertex_count{};
+    u32     instance_count{};
+    u32     first_vertex{};
+    u32     first_instance{};
+};
+
+struct indirect_indexed_draw_t {
+    u32    index_count{};
+    u32    instance_count{};
+    u32    first_index{};
+    i32    vertex_offset{};
+    u32    first_instance{};
+};
+
 using index32_t = u32;
 
 struct mesh_t {
@@ -2306,15 +2326,20 @@ struct material_t {
 
     u32 flags{};     // for material effects
     u32 opt_flags{}; // for performance
-    u32 padding[2+4];
+    u32 albedo_id{0};
+    u32 normal_id{0};
 
-    static constexpr material_t plastic(const v4f& color, f32 roughness = 0.8f) {
+    u32 padding[4];
+
+    static constexpr material_t plastic(const v4f& color, f32 roughness = 0.8f, u32 albedo_id = 0, u32 normal_id = 0) {
         return material_t {
             .albedo = color,
             .ao = 0.6f,
             .emission = 0.0f,
             .metallic = 0.0f,
             .roughness = roughness,
+            .albedo_id = albedo_id,
+            .normal_id = normal_id,
         };
     }
 
@@ -2686,6 +2711,7 @@ namespace gui {
 
         f32 padding{1.0f};
         f32 margin{1.0f};
+        f32 border_radius{16.0f};
     };
 
     struct text_t;
@@ -3105,12 +3131,12 @@ namespace gui {
             imgui.panel->expand(imgui.panel->draw_cursor);
 
             constexpr f32 border_size = 1.0f;
-            constexpr f32 corner_radius = 16.0f;
+            f32 corner_radius = imgui.theme.border_radius;
 
-            draw_round_rect(&imgui.ctx, *imgui.panel, 16.0f, imgui.theme.bg_color);
+            draw_round_rect(&imgui.ctx, *imgui.panel, corner_radius, imgui.theme.bg_color);
             imgui.panel->min -= v2f{border_size};
             imgui.panel->max += v2f{border_size};
-            draw_round_rect(&imgui.ctx, *imgui.panel, 16.0f, imgui.theme.fg_color);
+            draw_round_rect(&imgui.ctx, *imgui.panel, corner_radius, imgui.theme.fg_color);
 
             // imgui.panel->draw_cursor = v2f{0.0f};
             imgui.panel--;

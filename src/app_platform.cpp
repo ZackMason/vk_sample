@@ -307,8 +307,8 @@ load_dlls(app_dll_t* app_dlls) {
     // std::filesystem::copy(".\\build\\app_build.dll", ".\\build\\app_build_temp.dll");
 
 #if _WIN32
-    CopyFile(".\\build\\app_build.dll", ".\\build\\game.dll", 0);
-    app_dlls->dll = LoadLibrary(".\\build\\game.dll");
+    CopyFile(".\\build\\app_build.dll", ".\\build\\code.dll", 0);
+    app_dlls->dll = LoadLibrary(".\\build\\code.dll");
 #else
 
 #error "platform not imlemented"

@@ -378,11 +378,11 @@ app_init_graphics(app_memory_t* app_mem) {
         auto* skeleton = (gfx::anim::skeleton_t*)blob.read_data();
         blob.advance(skeleton_size);
 
-        app_mem->message_box(
-            fmt_sv("Asset {} has skeleton, {} vertices, {} animations\n{} - {}s {} ticks\nSkeleton: {} bones", 
-            file_name, total_vertex_count, anim_count, 
-            animations[0].name, animations[0].duration, animations[0].ticks_per_second,
-            skeleton->bone_count).data());
+        // app_mem->message_box(
+        //     fmt_sv("Asset {} has skeleton, {} vertices, {} animations\n{} - {}s {} ticks\nSkeleton: {} bones", 
+        //     file_name, total_vertex_count, anim_count, 
+        //     animations[0].name, animations[0].duration, animations[0].ticks_per_second,
+        //     skeleton->bone_count).data());
 
         range_u64(a, 0, anim_count) {
             auto& animation = animations[a];
@@ -635,12 +635,15 @@ app_on_init(app_memory_t* app_mem) {
     app->scene.sporadic_buffer.use_lighting = 1;
 
 
-    auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::assassin);
+    auto* player = game::spawn(app->game_world, app->render_system, game::db::characters::assassin, axis::up * 300.0f);
     player->physics.rigidbody->on_collision = player_on_collision;
+    player->physics.rigidbody->linear_dampening = 9.0f;
 
     game::spawn(app->game_world, app->render_system,
         game::db::weapons::shotgun,
-        v3f{-20,2,-10});
+        v3f{-20,2,-10})->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+            puts("hello");
+        };
 
 
     // game::spawn(app->game_world, app->render_system,
@@ -656,7 +659,7 @@ app_on_init(app_memory_t* app_mem) {
     //     auto* r = game::spawn(app->game_world, app->render_system, game::db::rooms::tower_01, pos);
     //     r->transform.set_rotation(axis::up * math::constants::pi32 * f32(i));
     // }
-    game::spawn(app->game_world, app->render_system, game::db::rooms::room_01, axis::down * 20.0f);
+    game::spawn(app->game_world, app->render_system, game::db::rooms::sponza);
 
     game::spawn(app->game_world, app->render_system, game::db::environmental::tree_group, v3f{20,0,20});
 
@@ -733,18 +736,14 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
     const v3f forward = game::cam::get_direction(yaw, pitch);
     const v3f right   = glm::cross(forward, axis::up);
     
-
     if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
         yaw += head_move.x * dt;
         pitch -= head_move.y * dt;
     }
 
-    const f32 move_speed = 12.0f * (pc.sprint ? 1.75f : 1.0f);
+    const f32 move_speed = 26.0f * (pc.sprint ? 1.75f : 1.0f);
 
-    // rigidbody->velocity += (forward * move.z + right * move.x + axis::up * move.y) * dt;
     rigidbody->add_relative_force((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
-    // player->transform.set_rotation(rigidbody->orientation = glm::quatLookAt(forward, axis::up));
-    
 
     if(player->primary_weapon.entity) {
         player->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
@@ -753,10 +752,8 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
 
 
     if (pc.jump && (is_on_ground || is_on_wall)) {
-        // rigidbody->add_relative_force(axis::up * 100.0f);
         rigidbody->velocity.y = .3f;
     }
-
     
     if (pc.fire1 && player->primary_weapon.entity) {
         auto rd = forward;
@@ -1298,10 +1295,13 @@ draw_gui(app_memory_t* app_mem) {
                     range_u64(i, 0, probes.probe_count) {
                         auto& p = probes.probes[i];
                         if (im::draw_circle_3d(state, vp, p.position, 0.1f, gfx::color::rgba::white)) {
+                            auto push_theme = state.theme;
+                            state.theme.border_radius = 1.0f;
                             if (im::begin_panel_3d(state, "probe"sv, vp, p.position)) {
                                 im::text(state, fmt_sv("Probe ID: {}"sv, p.id));
                                 im::end_panel(state);
                             }
+                            state.theme = push_theme;
                         }
                     }
                 }
