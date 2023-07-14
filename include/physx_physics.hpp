@@ -47,8 +47,14 @@ class rigidbody_event_callback : public physx::PxSimulationEventCallback {
             auto* rb0 = (rigidbody_t*)tp.triggerActor->userData;
             auto* rb1 = (rigidbody_t*)tp.otherActor->userData;
 
-            if (rb0->on_trigger) {
-                rb0->on_trigger(rb0, rb1);
+            if (tp.status == PxPairFlag::eNOTIFY_TOUCH_FOUND) {
+                if (rb0->on_trigger) {
+                    rb0->on_trigger(rb0, rb1);
+                }
+            } else if (tp.status == PxPairFlag::eNOTIFY_TOUCH_LOST) {
+                if (rb0->on_trigger_end) {
+                    rb0->on_trigger_end(rb0, rb1);
+                }
             }
         }
     }
@@ -295,6 +301,13 @@ physx_create_collider_impl(
                 physx::PxSphereGeometry(ci->radius), *material);
             ((physx::PxShape*)col->shape)->userData = col;
         }   break;
+        case collider_shape_type::BOX: {
+            auto* ci = (collider_box_info_t*)info;
+            col->shape = physx::PxRigidActorExt::createExclusiveShape(
+                *(physx::PxRigidActor*)rigidbody->api_data,
+                physx::PxBoxGeometry(PxVec3{ci->size.x, ci->size.y, ci->size.z}), *material);
+            ((physx::PxShape*)col->shape)->userData = col;
+        }   break;
         case_invalid_default;
     }
 }
@@ -310,6 +323,7 @@ static PxFilterFlags filterShader(
 {
     pairFlags = PxPairFlag::eCONTACT_DEFAULT;
     pairFlags |= PxPairFlag::eNOTIFY_TOUCH_FOUND;
+    pairFlags |= PxPairFlag::eNOTIFY_TOUCH_LOST;
     return PxFilterFlag::eDEFAULT;
 }
 

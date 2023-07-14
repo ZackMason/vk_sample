@@ -30,6 +30,9 @@ struct collider_trimesh_info_t {
 struct collider_sphere_info_t {
     f32 radius;
 };
+struct collider_box_info_t {
+    v3f size;
+};
 
 enum struct rigidbody_type {
     DYNAMIC, STATIC, KINEMATIC, CHARACTER, SIZE
@@ -99,6 +102,7 @@ struct rigidbody_t {
 
 
     rigidbody_on_collision_function on_trigger{0};
+    rigidbody_on_collision_function on_trigger_end{0};
 
     rigidbody_on_collision_function on_collision{0};
     rigidbody_on_collision_function on_collision_end{0};
@@ -135,7 +139,7 @@ struct rigidbody_t {
     inline void add_force(const v3f& force_)
     { force += force_; }
 
-    
+    inline void remove_collider(collider_t* collider);
 
     // Note(Zack): position is integrated by the api not here
     // Note(Zack): this should probably happen there instead of in game

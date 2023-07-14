@@ -641,10 +641,21 @@ app_on_init(app_memory_t* app_mem) {
 
     game::spawn(app->game_world, app->render_system,
         game::db::weapons::shotgun,
-        v3f{-20,2,-10})->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
-            puts("hello");
-        };
+        v3f{-20,2,-10});
+        // ->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+        //     puts("hello");
+        // };
 
+    auto* platform = game::spawn(app->game_world, app->render_system,
+        game::db::misc::platform_3x3,
+        v3f{8.0f,0.7f,0.0f});
+
+    platform->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+        auto* p = (game::entity_t*)trigger->user_data;
+        p->coroutine->start();
+
+        // puts("starting platform");
+    };
 
     // game::spawn(app->game_world, app->render_system,
     //     game::db::load_from_file(app->main_arena, "res/entity/shaderball.entt"),
@@ -660,7 +671,7 @@ app_on_init(app_memory_t* app_mem) {
     //     r->transform.set_rotation(axis::up * math::constants::pi32 * f32(i));
     // }
     game::spawn(app->game_world, app->render_system, game::db::rooms::sponza);
-
+    
     game::spawn(app->game_world, app->render_system, game::db::environmental::tree_group, v3f{20,0,20});
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
@@ -708,10 +719,11 @@ app_on_unload(app_memory_t* app_mem) {
     app->render_system->ticket.lock();
 }
 
+global_variable f32 gs_reload_time = 0.0f;
 export_fn(void)
 app_on_reload(app_memory_t* app_mem) {
     app_t* app = get_app(app_mem);
-    
+    gs_reload_time = 1.0f;
     app->render_system->ticket.unlock();
 }
 
@@ -741,7 +753,7 @@ camera_input(app_t* app, player_controller_t pc, f32 dt) {
         pitch -= head_move.y * dt;
     }
 
-    const f32 move_speed = 26.0f * (pc.sprint ? 1.75f : 1.0f);
+    const f32 move_speed = 45.0f * (pc.sprint ? 1.75f : 1.0f);
 
     rigidbody->add_relative_force((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
 
@@ -864,6 +876,11 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
             const bool is_physics_object = e->physics.flags != game::PhysicsEntityFlags_None && e->physics.rigidbody;
             const bool is_pickupable = (e->flags & game::EntityFlags_Pickupable);
             const bool is_not_renderable = !e->is_renderable();
+            // const bool is_running_coroutine = e->coroutine ? e->coroutine->is_running : false;
+
+            // if (is_running_coroutine) {
+            e->coroutine->run();
+            // }
 
             if (is_physics_object) {
                 app->game_world->physics->sync_rigidbody(0, e->physics.rigidbody);
@@ -951,6 +968,8 @@ draw_game_gui(app_memory_t* app_mem) {
     }
 }
 
+
+
 void 
 draw_gui(app_memory_t* app_mem) {
     TIMED_FUNCTION;
@@ -998,7 +1017,17 @@ draw_gui(app_memory_t* app_mem) {
     std::lock_guard lock{app->render_system->ticket};
     gfx::gui::ctx_clear(&app->gui.ctx, &app->gui.vertices[frame&1].pool, &app->gui.indices[frame&1].pool);
     
-    app->time_text_anim -= app_mem->input.dt;
+    const auto dt = app_mem->input.render_dt;
+
+    app->time_text_anim -= dt;
+    if ((gs_reload_time -= dt) > 0.0f) {
+        gfx::gui::string_render(
+            &app->gui.ctx, 
+            string_t{}.view("Code Reloaded"),
+            app->gui.ctx.screen_size/v2f{2.0f,4.0f} - gfx::font_get_size(app->gui.ctx.font, "Code Reloaded")/2.0f, 
+            gfx::color::to_color32(v4f{0.80f, .9f, .70f, gs_reload_time})
+        );
+    }
     if (app->time_text_anim > 0.0f) {
         gfx::gui::string_render(
             &app->gui.ctx, 

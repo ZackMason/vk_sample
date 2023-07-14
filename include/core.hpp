@@ -233,19 +233,20 @@ struct _auto_deferer_t {
 
 struct coroutine_t {
 	const f32& now;
+	void* data;
 	u64 line;
 	f32 start_time;
-	void* data;
+    u32 running{1};
 };
 
-#define co_begin(coro) switch (coro->line) {case 0: coro->line = 0;
+#define co_begin(coro) switch (coro->line) {case 0: coro->line = 0; coro->running=1;
 #define co_yield(coro) do { coro->line = __LINE__; return; case __LINE__:;} while(0)
 #define co_yield_until(coro, condition) while (!(condition)) { co_yield(coro); }
 #define co_wait(coro, duration) do {if (coro->start_time == 0) \
     { coro->start_time = coro->now; } \
     co_yield_until(coro, coro->now > (coro->start_time) + (f32)duration);\
     coro->start_time = 0; } while (0)
-#define co_end(coro) do { coro->line = __LINE__; } while (0); }
+#define co_end(coro) do { coro->line = __LINE__; coro->running = 0; } while (0); }
 #define co_reset(coro) do { coro->line = 0; } while (0); }
 #define co_set_label(coro, label) case label:
 #define co_goto_label(coro, label) do { coro->line = (label); return; } while(0)

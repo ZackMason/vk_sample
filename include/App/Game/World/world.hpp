@@ -64,9 +64,9 @@ namespace game {
         
         new_world->entropy = src->entropy;
 
-        range_u64(i, 0, src->entity_capacity) {
-            new_world->entities[i] = src->entities[i];
-        }
+        // range_u64(i, 0, src->entity_capacity) {
+        //     new_world->entities[i] = src->entities[i];
+        // }
 
         return new_world;
     }
@@ -181,7 +181,7 @@ namespace game {
             e->id = uid::invalid_id;
             node_push(e, world->free_entities);
         } else {
-            *e = world->entities[(world->entity_count - 1)];
+            // *e = world->entities[(world->entity_count - 1)];
         }
 
         world->entity_count--;
@@ -228,6 +228,15 @@ spawn(
     entity->type = def.type;
     entity->physics.flags = def.physics ? def.physics->flags : 0;
     // entity->physics.rigid_body.type = def.physics ? def.physics->shape : physics::collider_shape_type::NONE;
+
+    if (def.coroutine) {
+        entity->coroutine.emplace(
+            game::entity_coroutine_t{
+                .coroutine={world->app->app_mem->input.time, (void*)entity}, 
+                .func=def.coroutine
+            }
+        );
+    }
 
     switch(entity->type) {
         case entity_type::weapon:
@@ -302,6 +311,14 @@ spawn(
                 case physics::collider_shape_type::SPHERE: {
                     physics::collider_sphere_info_t ci;
                     ci.radius = def.physics->shapes[i]->sphere.radius;
+                    collider = world->physics->create_collider(
+                        world->physics,
+                        rb, shape, &ci
+                    );
+                }   break;
+                case physics::collider_shape_type::BOX: {
+                    physics::collider_box_info_t ci;
+                    ci.size = def.physics->shapes[i]->box.size;
                     collider = world->physics->create_collider(
                         world->physics,
                         rb, shape, &ci

@@ -67,8 +67,23 @@ struct character_stats_t {
 
 struct entity_coroutine_t {
     entity_coroutine_t* next{0};
-    coroutine_t* corourtine{0};
-    void (*func)(coroutine_t*) {[](coroutine_t* c){return;}};
+    coroutine_t coroutine;
+
+    bool _is_running = false;
+
+    void start() {
+        if (!_is_running) {
+            coroutine.line=0;
+        }
+        _is_running = true;
+    }
+    void run() {
+        if (func && _is_running) {
+            func(&coroutine);
+            _is_running = coroutine.running;
+        }
+    }
+    void (*func)(coroutine_t*);
 };
 
 DEFINE_TYPED_ID(entity_id);
@@ -136,7 +151,7 @@ struct entity_t : node_t<entity_t> {
 
     cam::first_person_controller_t camera_controller;
 
-    entity_coroutine_t* coroutine{0};
+    std::optional<entity_coroutine_t> coroutine{};
 
     // entity_update_function on_update{nullptr};
     // entity_interact_function on_interact{nullptr};
@@ -166,10 +181,10 @@ struct entity_t : node_t<entity_t> {
 
 static_assert(CEntity<entity_t>);
 
-inline void 
-entity_add_coroutine(entity_t* entity, entity_coroutine_t* coro) {
-    node_push(coro, entity->coroutine);
-}
+// inline void 
+// entity_add_coroutine(entity_t* entity, entity_coroutine_t* coro) {
+//     node_push(coro, entity->coroutine);
+// }
 
 inline void
 entity_init(entity_t* entity, u64 mesh_id = -1) {

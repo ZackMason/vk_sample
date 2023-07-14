@@ -19,11 +19,15 @@ struct prefab_t {
         char animations[128]{0};
     } gfx;
 
+    void (*coroutine)(coroutine_t*){0};
     std::optional<character_stats_t> stats{};
     std::optional<wep::base_weapon_t> weapon{};
 
     struct physics_t {
         u32 flags{PhysicsEntityFlags_None};
+        physics::rigidbody_on_collision_function on_collision{0};
+        physics::rigidbody_on_collision_function on_trigger{0};
+
         struct shape_t {
             physics::collider_shape_type shape{physics::collider_shape_type::NONE};
             u32 flags{};
@@ -142,6 +146,50 @@ door {
     },
 };
 
+void co_platform(coroutine_t* co) {
+    auto* e = (game::entity_t*)co->data;
+    local_persist f32 start = 0.0f;
+    local_persist f32 end = 7.0f;
+
+    co_begin(co);
+
+    start = e->physics.rigidbody->position.y;
+    end = start == 7.0f ? 0.0f : 7.0f;
+
+    co_lerp(co, e->physics.rigidbody->position.y, start, end, 1.0f, math::lerp);
+
+    co_end(co);
+}
+
+DB_ENTRY
+platform_3x3 {
+    .type = entity_type::environment,
+    .type_name = "platform",
+    .gfx = {
+        .mesh_name = "res/models/platform_3x3.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .coroutine = co_platform,
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static | PhysicsEntityFlags_Trigger,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::BOX,
+                .box = {
+                    .size = v3f{3.0f, .2f, 3.0f},
+                },
+            },
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::BOX,
+                .flags = 1,
+                .box = {
+                    .size = v3f{3.0f},
+                },
+            },
+        },
+    },
+};
+
 }; //namespace misc
 
 namespace environmental {
@@ -216,6 +264,13 @@ sponza {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
             prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            // prefab_t::physics_t::shape_t{
+            //     .shape = physics::collider_shape_type::SPHERE,
+            //     .flags = 1,
+            //     .sphere = {
+            //         .radius = 5.0f,
+            //     },
+            // },
         },
     },
 };
@@ -288,18 +343,18 @@ shotgun {
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_shotgun(),
-    .physics = prefab_t::physics_t {
-        .flags = PhysicsEntityFlags_Static,
-        .shapes = {
-            prefab_t::physics_t::shape_t{
-                .shape = physics::collider_shape_type::SPHERE,
-                .flags = 1,
-                .sphere = {
-                    .radius = 1.0f,
-                },
-            },
-        },
-    },
+    // .physics = prefab_t::physics_t {
+    //     .flags = PhysicsEntityFlags_Static,
+    //     .shapes = {
+    //         prefab_t::physics_t::shape_t{
+    //             .shape = physics::collider_shape_type::SPHERE,
+    //             .flags = 1,
+    //             .sphere = {
+    //                 .radius = 1.0f,
+    //             },
+    //         },
+    //     },
+    // },
 };
 
 DB_ENTRY
