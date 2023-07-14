@@ -72,26 +72,6 @@ struct cube_map_t {
     VkDeviceMemory memory;
 };
 
-struct object_buffer_t {
-    v4f color;
-};
-
-
-struct object_push_constants_t {
-    m44         model;
-    material_t  material;
-};
-
-struct scene_buffer_t {
-    m44         proj;
-    m44         view;
-    m44         scene;
-    v4f         light_pos;
-    v4f         light_col;
-    v4f         light_KaKdKs;
-    float       time;
-};
-
 struct sporadic_buffer_t {
     int mode;
     int use_lighting;

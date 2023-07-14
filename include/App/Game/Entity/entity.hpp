@@ -128,6 +128,9 @@ struct entity_t : node_t<entity_t> {
         u32 albedo_id{0};
         u32 material_id{0};
         u32 animation_id{0};
+
+        u32 instance_count{1};
+        m44* instance_buffer{0};
     } gfx;
 
     struct physics_t {

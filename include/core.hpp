@@ -1953,8 +1953,9 @@ struct transform_t {
         assert(i < 3);
         return glm::length(basis[i]);
     }
-	void translate(const v3f& delta) {
+	transform_t& translate(const v3f& delta) {
         origin += delta;
+        return *this;
     }
 	void scale(const v3f& delta) {
         basis = glm::scale(m44{basis}, delta);
@@ -2743,10 +2744,11 @@ namespace gui {
         ctx_t* ctx,
         string_t text,
         const v2f& position,
-        const color32& text_color = color::rgba::white
+        const color32& text_color = color::rgba::white,
+        font_t* font = 0
     ) {
         v2f cursor = position;
-        font_render(0, ctx->font, 
+        font_render(0, font ? font : ctx->font, 
             text.c_str(), 
             cursor,
             ctx->screen_size,
@@ -2761,9 +2763,10 @@ namespace gui {
         ctx_t* ctx,
         string_t text,
         v2f& position,
-        const color32& text_color = color::rgba::white
+        const color32& text_color = color::rgba::white,
+        font_t* font = 0
     ) {
-        font_render(0, ctx->font, 
+        font_render(0, font ? font : ctx->font, 
             text.c_str(), 
             position,
             ctx->screen_size,

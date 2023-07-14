@@ -409,6 +409,8 @@ public:
         const gfx::mesh_list_t*     meshes{0};
 
         m44                         transform{1.0f};
+        u32                         instance_count{1};
+        m44*                        instance_buffer{nullptr};
     };
 
     struct render_pass_t {
@@ -467,22 +469,27 @@ public:
         }
 
         void build_buffer_sets(gfx::vul::descriptor_builder_t& builder, VkBuffer* buffers) {
-            VkDescriptorBufferInfo buffer_info[4];
-            buffer_info[0].buffer = buffers[0];
-            buffer_info[0].offset = 0; 
-            buffer_info[0].range = sizeof(gfx::vul::sporadic_buffer_t);
+            VkDescriptorBufferInfo buffer_info[5];
+            u32 i = 0;
+            buffer_info[i].buffer = buffers[i];
+            buffer_info[i].offset = 0; 
+            buffer_info[i++].range = sizeof(gfx::vul::sporadic_buffer_t);
 
-            buffer_info[1].buffer = buffers[1];
-            buffer_info[1].offset = 0; 
-            buffer_info[1].range = (sizeof(m44) + sizeof(u32) * 4 * 4) * 10'000; // hardcoded
+            buffer_info[i].buffer = buffers[i];
+            buffer_info[i].offset = 0; 
+            buffer_info[i++].range = (sizeof(m44) + sizeof(u32) * 4 * 4) * 10'000; // hardcoded
             
-            buffer_info[2].buffer = buffers[2];
-            buffer_info[2].offset = 0; 
-            buffer_info[2].range = sizeof(gfx::material_t) * 100; // hardcoded
+            buffer_info[i].buffer = buffers[i];
+            buffer_info[i].offset = 0; 
+            buffer_info[i++].range = (sizeof(m44)) * 1'000'000; // hardcoded
+            
+            buffer_info[i].buffer = buffers[i];
+            buffer_info[i].offset = 0; 
+            buffer_info[i++].range = sizeof(gfx::material_t) * 100; // hardcoded
 
-            buffer_info[3].buffer = buffers[3];
-            buffer_info[3].offset = 0; 
-            buffer_info[3].range = sizeof(game::rendering::environment_t);
+            buffer_info[i].buffer = buffers[i];
+            buffer_info[i].offset = 0; 
+            buffer_info[i++].range = sizeof(game::rendering::environment_t);
 
             using namespace gfx::vul;
             builder
@@ -490,12 +497,13 @@ public:
                 .build(sporadic_descriptors, descriptor_layouts[0]);
             builder
                 .bind_buffer(0, buffer_info + 1, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(1, buffer_info + 2, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .build(object_descriptors, descriptor_layouts[1]);
             builder
-                .bind_buffer(0, buffer_info + 2, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(0, buffer_info + 3, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .build(material_descriptor, descriptor_layouts[2]);
             builder
-                .bind_buffer(0, buffer_info + 3, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(0, buffer_info + 4, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .build(enviornment_descriptor, descriptor_layouts[3]);
         }
 
@@ -607,6 +615,8 @@ public:
         mesh_pass_t mesh_pass{};
         anim_pass_t anim_pass{};
 
+        gfx::vul::storage_buffer_t<m44, 1'000'000> instance_buffer{};
+
         gfx::vul::descriptor_allocator_t* dynamic_descriptor_allocator{nullptr};
     };
 
@@ -647,6 +657,7 @@ public:
         // utl::deque<render_job_t> render_jobs{};
         render_job_t* render_jobs{};
         size_t render_job_count{};
+        u32 total_instance_count{0};
 
         mesh_cache_t    mesh_cache{};
         utl::str_hash_t mesh_hash{};
@@ -790,9 +801,12 @@ public:
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
 
         range_u64(i, 0, array_count(rs->frames)) {
+            state.create_storage_buffer(&rs->frames[i].instance_buffer);
+            
             VkBuffer buffers[]{
                 state.sporadic_uniform_buffer.buffer,
                 rs->job_storage_buffer().buffer,
+                rs->frames[i].instance_buffer.buffer,
                 rs->material_storage_buffer.buffer,
                 rs->environment_storage_buffer.buffer
             };
@@ -842,6 +856,7 @@ public:
         rs->frame_count++;
         rs->get_frame_data().dynamic_descriptor_allocator->reset_pools();
         rs->get_frame_data().mesh_pass.object_descriptors = VK_NULL_HANDLE;
+        rs->get_frame_data().instance_buffer.pool.clear();
         rs->job_storage_buffer().pool.clear();
 
         arena_clear(&rs->frame_arena);
@@ -854,12 +869,22 @@ public:
         u32 mat_id, // todo(zack): remove this
         // u32 albedo_id,
         // u32 normal_id,
-        m44 transform
+        m44 transform,
+        u32 instance_count = 1,
+        m44* instance_buffer = nullptr
     ) {
-        TIMED_FUNCTION;        
+        TIMED_FUNCTION;
+
+
         auto* job = rs->render_jobs + rs->render_job_count++;
         job->meshes = &rs->mesh_cache.get(mesh_id);
         job->material = mat_id;
+        job->instance_count = instance_count;
+        job->instance_buffer = instance_buffer;
+
+        if (instance_count != 1) {
+            std::memcpy(rs->get_frame_data().instance_buffer.pool.allocate(instance_count), instance_buffer, instance_count * sizeof(m44));
+        }
 
         const auto* mat = rs->materials[mat_id];
         
@@ -868,6 +893,9 @@ public:
         gpu_job->mat_id = mat_id;
         gpu_job->padding[0] = mat->padding[0];
         gpu_job->padding[1] = mat->padding[1];
+        gpu_job->padding[2] = rs->total_instance_count; // instance offset
+
+        rs->total_instance_count += instance_count != 1 ? instance_count : 0;
     }
 
     inline void 
@@ -952,6 +980,7 @@ public:
                     VkBuffer buffers[]{
                         rs->vk_gfx->sporadic_uniform_buffer.buffer,
                         rs->job_storage_buffer().buffer,
+                        rs->frames[i].instance_buffer.buffer,
                         rs->material_storage_buffer.buffer,
                         rs->environment_storage_buffer.buffer
                     };
@@ -1000,7 +1029,7 @@ public:
                     rs->stats.triangle_count += meshes->meshes[j].index_count/3;
                     vkCmdDrawIndexed(command_buffer,
                         meshes->meshes[j].index_count,
-                        1, 
+                        job->instance_count, 
                         meshes->meshes[j].index_start,
                         meshes->meshes[j].vertex_start,
                         safe_truncate_u64(i)
@@ -1009,7 +1038,7 @@ public:
                     rs->stats.triangle_count += meshes->meshes[j].vertex_count/3;
                     vkCmdDraw(command_buffer,
                         meshes->meshes[j].vertex_count,
-                        meshes->meshes[j].instance_count,
+                        job->instance_count,
                         meshes->meshes[j].vertex_start,
                         safe_truncate_u64(i)
                     );

@@ -15,6 +15,14 @@ layout(std430, set = 1, binding = 0) readonly buffer ObjectBuffer {
 	ObjectData objects[];
 } uObjectBuffer;
 
+struct InstanceData {
+	mat4 model;
+};
+
+layout(std430, set = 1, binding = 1) readonly buffer InstanceBuffer {
+	InstanceData instances[];
+} uInstanceData;
+
 layout( push_constant ) uniform constants
 {
 	mat4		uVP;
@@ -38,6 +46,10 @@ layout ( location = 5 ) out vec3 vViewNormal;
 void
 main() {
 	mat4   M = uObjectBuffer.objects[gl_BaseInstance].model;
+	if (gl_InstanceIndex - gl_BaseInstance > 1) {
+		uint instance_offset = uObjectBuffer.objects[gl_BaseInstance].padding[2];
+		M = M * uInstanceData.instances[gl_InstanceIndex - gl_BaseInstance].model;
+	}
 	mat4 PVM = PushConstants.uVP * M;
 
 	vMatId = uObjectBuffer.objects[gl_BaseInstance].material_id;

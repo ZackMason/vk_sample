@@ -401,8 +401,6 @@ app_init_graphics(app_memory_t* app_mem) {
         }
     }
 
-    
-
     app->gui_pipeline = gfx::vul::create_gui_pipeline(&app->mesh_arena, &vk_gfx, rs->render_passes[0]);
     app->sky_pipeline = gfx::vul::create_skybox_pipeline(&app->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass);
     // app->mesh_pipeline = gfx::vul::create_mesh_pipeline(&app->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass,
@@ -415,8 +413,6 @@ app_init_graphics(app_memory_t* app_mem) {
     // );
     // assert(app->mesh_pipeline);
 
-    vk_gfx.create_uniform_buffer(&app->scene.debug_scene_uniform_buffer);
-
     app->debug_pipeline = gfx::vul::create_debug_pipeline(
         &app->mesh_arena, 
         &vk_gfx, 
@@ -424,6 +420,7 @@ app_init_graphics(app_memory_t* app_mem) {
     );
 
     gfx::font_load(&app->texture_arena, &app->default_font, "./res/fonts/Go-Mono-Bold.ttf", 18.0f);
+    gfx::font_load(&app->texture_arena, &app->large_font, "./res/fonts/Go-Mono-Bold.ttf", 24.0f);
     app->default_font_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&app->texture_arena, 1);
     {
         temp_arena_t ta = app->texture_arena;
@@ -672,7 +669,13 @@ app_on_init(app_memory_t* app_mem) {
     // }
     game::spawn(app->game_world, app->render_system, game::db::rooms::sponza);
     
-    game::spawn(app->game_world, app->render_system, game::db::environmental::tree_group, v3f{20,0,20});
+    auto* tree = game::spawn(app->game_world, app->render_system, game::db::environmental::tree_01, v3f{20,0,20});
+    constexpr u32 tree_count = 10'000;
+    tree->gfx.instance_count = tree_count;
+    tree->gfx.instance_buffer = arena_alloc_ctor<m44>(&app->game_world->arena, tree_count, 1.0f);
+    for (size_t i = 0; i < tree_count; i++) {
+        tree->gfx.instance_buffer[i] = math::transform_t{}.translate(900.0f * planes::xz * (utl::rng::random_s::randv() * 2.0f - 1.0f)).to_matrix();
+    }
 
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
     loop_iota_u64(i, 49) {
@@ -833,17 +836,22 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
     input->dt *= app->time_scale;
     app_on_input(app, input);
 
+    
     // TODO(ZACK): GAME CODE HERE
 
     if (app->render_system == nullptr) return;
 
     auto* world = app->game_world;
 
+    if (world->player->global_transform().origin.y < -1000.0f) {
+        app->app_mem->input.pressed.keys[key_id::F10] = 1;
+    }
+
     local_persist f32 accum = 0.0f;
     const u32 sub_steps = 1;
     const f32 step = 1.0f/(60.0f*sub_steps);
 
-    accum += f32(input->dt > 0.0f) * std::min(input->dt, 1.0f);
+    accum += f32(input->dt > 0.0f) * std::min(input->dt, step*15);
 
     // {
     //     local_persist gfx::trail_renderer_t tr{};
@@ -853,12 +861,12 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
 
     game::world_update_physics(app->game_world);
 
-    while (accum >= step) {
+    {
         TIMED_BLOCK(PhysicsStep);
-        // range_u32(_i, 0, sub_steps) {
+        if (accum >= step) {
             accum -= step;
             world->physics->simulate(world->physics, step);
-        // }
+        }
     }
         
     {
@@ -936,7 +944,9 @@ void game_on_gameplay(app_t* app, app_input_t* input) {
             app->render_system, 
             e->gfx.mesh_id, 
             e->gfx.material_id, 
-            e->global_transform().to_matrix()
+            e->global_transform().to_matrix(),
+            e->gfx.instance_count,
+            e->gfx.instance_buffer
         );
     }
 
@@ -1024,8 +1034,9 @@ draw_gui(app_memory_t* app_mem) {
         gfx::gui::string_render(
             &app->gui.ctx, 
             string_t{}.view("Code Reloaded"),
-            app->gui.ctx.screen_size/v2f{2.0f,4.0f} - gfx::font_get_size(app->gui.ctx.font, "Code Reloaded")/2.0f, 
-            gfx::color::to_color32(v4f{0.80f, .9f, .70f, gs_reload_time})
+            app->gui.ctx.screen_size/v2f{2.0f,4.0f} - gfx::font_get_size(&app->default_font, "Code Reloaded")/2.0f, 
+            gfx::color::to_color32(v4f{0.80f, .9f, .70f, gs_reload_time}),
+            &app->default_font
         );
     }
     if (app->time_text_anim > 0.0f) {

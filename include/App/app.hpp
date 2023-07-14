@@ -94,6 +94,7 @@ struct app_t {
 
     // todo(zack) clean this up
     gfx::font_t default_font;
+    gfx::font_t large_font;
     gfx::vul::texture_2d_t* default_font_texture{nullptr};
     VkDescriptorSet default_font_descriptor;
 
@@ -102,8 +103,6 @@ struct app_t {
 
     struct scene_t {
         gfx::vul::sporadic_buffer_t sporadic_buffer;
-
-        gfx::vul::uniform_buffer_t<gfx::vul::scene_buffer_t>    debug_scene_uniform_buffer;
 
         struct lighting_t {
             v4f directional_light{1.0f, 2.0f, 3.0f, 1.0f};
