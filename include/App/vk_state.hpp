@@ -76,7 +76,7 @@ struct sporadic_buffer_t {
     int mode;
     int use_lighting;
     int num_instances;
-    int padd;
+    f32 time;
 };
 
 struct framebuffer_attachment_t {

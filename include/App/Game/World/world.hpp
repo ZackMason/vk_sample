@@ -152,12 +152,14 @@ namespace game {
         const auto* input = &world->app->app_mem->input;
         for (size_t i{0}; i < world->entity_count; i++) {
             auto* e = world->entities + i;
-            if (e->physics.rigidbody) {
-                e->physics.rigidbody->position = e->global_transform().origin;
-                e->physics.rigidbody->orientation = e->global_transform().get_orientation();
-                float apply_gravity = f32(e->physics.flags & game::PhysicsEntityFlags_Character);
-                e->physics.rigidbody->integrate(input->dt, apply_gravity * 9.81f * 0.02f);
+            if (e->physics.rigidbody && e->physics.flags & game::PhysicsEntityFlags_Static) {
+                // e->physics.rigidbody->position = e->global_transform().origin;
+                // e->physics.rigidbody->orientation = e->global_transform().get_orientation();
+                // float apply_gravity = f32(e->physics.flags & game::PhysicsEntityFlags_Character);
+                // e->physics.rigidbody->integrate(input->dt, apply_gravity * 9.81f * 0.02f);
                 world->physics->set_rigidbody(0, e->physics.rigidbody);
+                e->transform.origin = e->physics.rigidbody->position;
+                e->transform.basis = glm::toMat3(e->physics.rigidbody->orientation);
             }
         }
     }

@@ -4,7 +4,7 @@
 #include "core.hpp"
 #include "uid.hpp"
 
-namespace game::rendering::lighting {
+namespace rendering::lighting {
     struct cube_map_pass_t {
 		int32_t width, height;
 		std::array<VkFramebuffer, 6> framebuffers;

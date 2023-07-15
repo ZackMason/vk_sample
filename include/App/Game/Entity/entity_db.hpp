@@ -146,6 +146,27 @@ door {
     },
 };
 
+DB_ENTRY
+platform_1000 {
+    .type = entity_type::environment,
+    .type_name = "platform_1000",
+    .gfx = {
+        .mesh_name = "res/models/platform_1000x1000.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::BOX,
+                .box = {
+                    .size = v3f{1000.0f, 1.0f, 1000.0f},
+                },
+            },
+        },
+    },
+};
+
 void co_platform(coroutine_t* co) {
     auto* e = (game::entity_t*)co->data;
     local_persist f32 start = 0.0f;
@@ -200,6 +221,16 @@ rock_01 {
     .type_name = "rock",
     .gfx = {
         .mesh_name = "res/models/rocks/rock_01.obj",
+        .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+};
+
+DB_ENTRY
+grass {
+    .type = entity_type::environment,
+    .type_name = "grass",
+    .gfx = {
+        .mesh_name = "res/models/grass.gltf",
         .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
     },
 };

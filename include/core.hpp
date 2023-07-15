@@ -1081,7 +1081,6 @@ struct closure_t {
         return ((ReturnType(*)(void*, Args...))func)(data, std::forward<Args>(args)...);
     }
 };
-
 template <typename T>
 struct pool_t : public arena_t {
     size_t count{0};
@@ -1960,7 +1959,7 @@ struct transform_t {
 	void scale(const v3f& delta) {
         basis = glm::scale(m44{basis}, delta);
     }
-	void rotate(const v3f& axis, f32 rads) {
+	transform_t& rotate(const v3f& axis, f32 rads) {
         set_rotation((get_orientation() * glm::angleAxis(rads, axis)));
 
         // m44 rot = m44(1.0f);
@@ -1968,9 +1967,11 @@ struct transform_t {
         // rot = glm::rotate(rot, delta.y, { 0,1,0 });
         // rot = glm::rotate(rot, delta.x, { 1,0,0 });
         // basis = (basis) * m33(rot);
+        return *this;
     }
-	void rotate_quat(const glm::quat& delta) {
+	transform_t& rotate_quat(const glm::quat& delta) {
         set_rotation(get_orientation() * delta);
+        return *this;
     }
     
     glm::quat get_orientation() const {
@@ -2131,11 +2132,14 @@ struct indirect_draw_t {
 };
 
 struct indirect_indexed_draw_t {
-    u32    index_count{};
-    u32    instance_count{};
-    u32    first_index{};
-    i32    vertex_offset{};
-    u32    first_instance{};
+    u32     index_count{};
+    u32     instance_count{};
+    u32     first_index{};
+    i32     vertex_offset{};
+    u32     first_instance{};
+    u32     albedo_id{};
+    u32     normal_id{};
+    u32     padd{};
 };
 
 using index32_t = u32;
@@ -2690,6 +2694,8 @@ namespace gui {
         app_input_t* input;
         v2f screen_size{};
 
+        gfx::font_t* dyn_font[32];
+
         u64 frame{0};
     };
 
@@ -2742,14 +2748,14 @@ namespace gui {
     inline void
     string_render(
         ctx_t* ctx,
-        string_t text,
+        std::string_view text,
         const v2f& position,
         const color32& text_color = color::rgba::white,
         font_t* font = 0
     ) {
         v2f cursor = position;
         font_render(0, font ? font : ctx->font, 
-            text.c_str(), 
+            text, 
             cursor,
             ctx->screen_size,
             ctx->vertices,
@@ -2761,13 +2767,13 @@ namespace gui {
     inline void
     string_render(
         ctx_t* ctx,
-        string_t text,
+        std::string_view text,
         v2f& position,
         const color32& text_color = color::rgba::white,
         font_t* font = 0
     ) {
         font_render(0, font ? font : ctx->font, 
-            text.c_str(), 
+            text, 
             position,
             ctx->screen_size,
             ctx->vertices,
@@ -2780,7 +2786,7 @@ namespace gui {
     draw_circle(
         ctx_t* ctx,
         v2f pos, f32 radius,
-        u32 color, u32 res = 32, f32 perc = 1.0f, f32 start = 0.0f
+        u32 color, u32 res = 16, f32 perc = 1.0f, f32 start = 0.0f
     ) {
         const u32 v_start = safe_truncate_u64(ctx->vertices->count);
 
@@ -3550,10 +3556,10 @@ namespace gui {
         inline bool
         text(
             state_t& imgui, 
-            string_t text,
+            std::string_view text,
             bool* toggle_state = 0         
         ) {
-            const sid_t txt_id = sid(text.sv());
+            const sid_t txt_id = sid(text);
             bool result = toggle_state ? *toggle_state : false;
 
             constexpr f32 text_pad = 4.0f;
@@ -3782,10 +3788,14 @@ namespace gui {
         inline bool
         button(
             state_t& imgui, 
-            string_t name, 
-            v2f size = v2f{16.0f}
+            std::string_view name,
+            gfx::color32 color,
+            gfx::color32 text_color,
+            sid_t btn_id_ = 0,
+            v2f size = v2f{16.0f},
+            u8 font_size = 16
         ) {
-            const sid_t btn_id = sid(name.sv());
+            const sid_t btn_id = btn_id_ ? btn_id_ : sid(name);
             math::aabb_t<v2f> box;
             box.min = imgui.panel->draw_cursor + v2f{4.0f, 0.0f};
             box.max = imgui.panel->draw_cursor + v2f{size};
@@ -3805,7 +3815,7 @@ namespace gui {
                 }
             }
 
-            const v2f text_size = font_get_size(imgui.ctx.font, name);
+            const v2f text_size = font_get_size(imgui.ctx.dyn_font[font_size], name);
             box.expand(box.min + text_size + imgui.theme.margin * 2.0f);
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
@@ -3819,12 +3829,30 @@ namespace gui {
 
             imgui.panel->expand(box.max + imgui.theme.padding);
             v2f same_line = box.min + imgui.theme.margin;
-            string_render(&imgui.ctx, name, same_line, imgui.theme.text_color);
-            draw_rect(&imgui.ctx, box, imgui.hot.id == btn_id ? imgui.theme.active_color : imgui.theme.fg_color);
+            string_render(&imgui.ctx, name, same_line, text_color, imgui.ctx.dyn_font[font_size]);
+            draw_rect(&imgui.ctx, box, imgui.hot.id == btn_id ? imgui.theme.active_color : color);
             
-            imgui.panel->draw_cursor.y += size.y + imgui.theme.padding;
+            if (imgui.next_same_line) {
+                imgui.panel->draw_cursor.x += box.size().x + imgui.theme.padding;
+                imgui.next_same_line = false;
+            } else {
+                imgui.panel->draw_cursor.y += box.size().y + imgui.theme.padding;
+                imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
+            }
 
             return result;
+        }
+
+        
+        inline bool
+        button(
+            state_t& imgui, 
+            std::string_view name,
+            sid_t btn_id_ = 0,
+            v2f size = v2f{16.0f},
+            u8 font_size = 16
+        ) {
+            return button(imgui, name, imgui.theme.fg_color, imgui.theme.text_color, btn_id_, size, font_size);
         }
 
     };

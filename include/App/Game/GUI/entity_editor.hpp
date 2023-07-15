@@ -144,7 +144,7 @@ inline static void
 entity_editor_update(entity_editor_t* ee) {
     auto* app = ee->app;
 
-    game::rendering::begin_frame(app->render_system);
+    rendering::begin_frame(app->render_system);
 }
 
 inline static void

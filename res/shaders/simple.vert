@@ -4,6 +4,15 @@
 
 #include "material.glsl"
 
+layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
+{
+	int		uMode;
+	int		uUseLighting;
+	int		uNumInstances;
+	float 	uTime;
+} Sporadic;
+
+
 struct ObjectData {
 	mat4 model;
 
@@ -22,6 +31,10 @@ struct InstanceData {
 layout(std430, set = 1, binding = 1) readonly buffer InstanceBuffer {
 	InstanceData instances[];
 } uInstanceData;
+
+layout(std430, set = 1, binding = 2) readonly buffer IndirectBuffer {
+	IndirectIndexedDraw draw[];
+} uIndirectBuffer;
 
 layout( push_constant ) uniform constants
 {
@@ -42,25 +55,34 @@ layout ( location = 2 ) out vec3 vN;
 layout ( location = 3 ) out vec3 vWorldPos;
 layout ( location = 4 ) out vec3 vViewPos;
 layout ( location = 5 ) out vec3 vViewNormal;
+layout ( location = 6 ) out flat uint vAlbedoId;
+layout ( location = 7 ) out flat uint vNormalId;
 
 void
 main() {
 	mat4   M = uObjectBuffer.objects[gl_BaseInstance].model;
-	if (gl_InstanceIndex - gl_BaseInstance > 1) {
-		uint instance_offset = uObjectBuffer.objects[gl_BaseInstance].padding[2];
-		M = M * uInstanceData.instances[gl_InstanceIndex - gl_BaseInstance].model;
+	vec3 vertex = aVertex;
+	uint instance_offset = uObjectBuffer.objects[gl_BaseInstance].padding[2];
+	uint i = gl_InstanceIndex - gl_BaseInstance;
+	if (i > 1) {
+		M = M * uInstanceData.instances[gl_InstanceIndex].model;
+
+		vec3 world_pos = (M * vec4(vertex, 1.0)).xyz;
+		vertex.xz += max(vertex.y, 0.0) * sin(Sporadic.uTime * 0.1 + world_pos.x) * 0.05 + cos(Sporadic.uTime * 0.12 + world_pos.z)*0.1;
 	}
 	mat4 PVM = PushConstants.uVP * M;
 
 	vMatId = uObjectBuffer.objects[gl_BaseInstance].material_id;
-	// vAlbedoId = uObjectBuffer.objects[gl_BaseInstance].padding[0];
-	// vNormalId = uObjectBuffer.objects[gl_BaseInstance].padding[1];
+	// vAlbedoId = PushConstants.uAlbedoId;
+	// vNormalId = PushConstants.uNormalId;
+	vAlbedoId = uIndirectBuffer.draw[gl_DrawID].albedo_id;
+	vNormalId = uIndirectBuffer.draw[gl_DrawID].normal_id;
 
 	vTexCoord = aTexCoord;
 	
-	vWorldPos = (M * vec4(aVertex, 1.0)).xyz;
+	vWorldPos = (M * vec4(vertex, 1.0)).xyz;
 
 	vN = normalize(transpose(inverse(M)) * vec4(aNormal, 0.0)).xyz;
 
-	gl_Position = PVM * vec4(aVertex, 1. );
+	gl_Position = PVM * vec4(vertex, 1. );
 }

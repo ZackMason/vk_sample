@@ -14,7 +14,7 @@ layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 	int		uMode;
 	int		uUseLighting;
 	int		uNumInstances;
-	int 	pad;
+	float 	uTime;
 } Sporadic;
 
 struct ObjectData {
@@ -27,6 +27,10 @@ struct ObjectData {
 layout(std430, set = 1, binding = 0) readonly buffer ObjectBuffer {
 	ObjectData objects[];
 } uObjectBuffer;
+
+layout(std430, set = 1, binding = 2) readonly buffer IndirectBuffer {
+	IndirectIndexedDraw draw[];
+} uIndirectBuffer;
 
 layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 
@@ -45,6 +49,9 @@ layout ( location = 1 ) in vec2 vTexCoord;
 layout ( location = 2 ) in vec3 vN;
 layout ( location = 3 ) in vec3 vWorldPos;
 
+layout ( location = 6 ) in flat uint vAlbedoId;
+layout ( location = 7 ) in flat uint vNormalId;
+
 layout ( location = 0 ) out vec4 fFragColor;
 
 const vec3 WHITE = vec3( 1., 1., 1. );
@@ -61,7 +68,7 @@ apply_environment(
 	float c = a/b;
 	// float fog = c - exp(-ro.y*b) * (1.0 - exp(-depth*rd.y*b))/rd.y;
 	float fog = a * exp(-ro.y*b)*(1.0-exp(-depth*rd.y*b))/rd.y;
-	fog = 1.0 - exp(-depth/40.0);
+	fog = 1.0 - exp(-depth/10.0 * env.fog_density);
 
 	// return lum + env.fog_color.rgb * fog + env.ambient_color.rgb;
 	return mix(lum, env.fog_color.rgb, fog) + env.ambient_color.rgb;
@@ -81,7 +88,7 @@ main( )
 
 		case 1:
 			// rgb = texture( uSampler[1797], vTexCoord ).rgb;
-			vec4 albedo = texture( uSampler[PushConstants.uAlbedoId], vTexCoord ).rgba;
+			vec4 albedo = texture( uSampler[vAlbedoId], vTexCoord ).rgba;
 			if (albedo.a < 0.5) { discard; }
 			rgb = albedo.rgb;
 			break;
@@ -108,7 +115,7 @@ main( )
 	vec3 F0 = vec3(0.04); 
 	F0 = mix(F0, albedo, metallic);
 
-	vec3 Lv = (vec3(0.0, 100.0, 0.0) - vWorldPos);
+	vec3 Lv = normalize(vec3(0.0, 100.0, 50.0));
 	vec3 Lc = vec3(0.9686, 0.9765, 0.902);
 
 	vec3 N = normalize(vN);

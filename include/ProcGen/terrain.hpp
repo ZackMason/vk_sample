@@ -40,7 +40,7 @@ namespace prcgen::terrain {
     // utl::str_hash_create(app->mesh_hash_meta);
 
     // utl::str_hash_add(app->mesh_hash, "ground", 0);    
-    // game::rendering::add_mesh(app->render_system, "ground", app->mesh_cache.get(0));
+    // rendering::add_mesh(app->render_system, "ground", app->mesh_cache.get(0));
 
     }
 };

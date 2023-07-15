@@ -130,7 +130,53 @@ struct entity_t : node_t<entity_t> {
         u32 animation_id{0};
 
         u32 instance_count{1};
-        m44* instance_buffer{0};
+        union
+        {
+            struct {
+                m44* dynamic_instance_buffer;
+                m44* buffer;
+            };
+            m44* instance_buffer;
+        };
+
+        enum RenderFlag {
+            RenderFlag_Instance = 1,
+            RenderFlag_DynamicInstance = 2,
+        };
+
+        u32 render_flags = 0;
+
+        void swap() {
+            if (dynamic_instance_buffer == buffer) {
+                dynamic_instance_buffer = buffer + instance_count;
+            } else {
+                dynamic_instance_buffer = buffer;
+            }
+        }
+
+        void instance(utl::pool_t<m44>& pool, u32 count, bool dynamic = false) {
+            render_flags |= dynamic ? RenderFlag_DynamicInstance : RenderFlag_Instance;
+            render_flags &= !dynamic ? ~RenderFlag_DynamicInstance : ~RenderFlag_Instance;
+
+            if (dynamic) {
+                dynamic_instance_buffer = pool.allocate(count * 2);
+                buffer = dynamic_instance_buffer;
+            } else {
+                instance_buffer = pool.allocate(count);
+            }
+            instance_count = count;
+        }
+
+        u32 instance_offset() {
+            if (render_flags & RenderFlag_DynamicInstance) {
+                auto ret = dynamic_instance_buffer == buffer ? 0 : instance_count;
+                swap();
+                return ret;
+            } else {
+                return 0;
+            }
+        }
+        
     } gfx;
 
     struct physics_t {

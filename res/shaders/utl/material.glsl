@@ -1,3 +1,14 @@
+struct IndirectIndexedDraw {
+    uint     index_count;
+    uint     instance_count;
+    uint     first_index;
+    int      vertex_offset;
+    uint     first_instance;
+    uint     albedo_id;
+    uint     normal_id;
+    uint pad;
+};
+
 struct Material {
 	vec4 albedo;
 

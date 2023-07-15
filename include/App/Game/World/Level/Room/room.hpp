@@ -2,32 +2,24 @@
 
 #include "core.hpp"
 
-namespace game {
-    using game::db::prefab_t;
+#include "App/Game/Entity/entity_db.hpp"
 
-    enum struct cardinal {
-        North, South,
-        East,  West,
-        NorthEast, SouthEast,
-        NorthWest, SouthWest,
-        Size
-    };
+static constexpr u32 ROOM_MAX_SPAWNABLE_ENEMIES = 32;
+struct room_asset_pack_t {
+    const game::db::prefab_t* spawnable_enemy[ROOM_MAX_SPAWNABLE_ENEMIES];
+    const game::db::prefab_t* find_enemy(std::string_view name) const {
+        return find_prefab(std::span<const game::db::prefab_t* const>(spawnable_enemy), name);
+    }
+    const game::db::prefab_t* find_prefab(std::span<const game::db::prefab_t* const> list, std::string_view name) const {
+        for (const auto* prefab: list) {
+            if (prefab->type_name == name) {
+                return prefab;
+            }
+        }
+        return nullptr;
+    }
 
-    struct room_prefab_t {
-        std::string_view name;
+    
 
-        const prefab_t* room_prefab;
-        const prefab_t* prefabs[128];
 
-        math::aabb_t<v3f> aabb{v3f{0.0f}};
-
-        virtual void init(world_t* world) = 0;
-        virtual void update(world_t* world, f32 dt) {}
-    };
-};
-
-namespace game::room_prefabs {
-    struct room_01_p : room_prefab_t {
-        void init(world_t* world) override {};
-    } room_01;
 };

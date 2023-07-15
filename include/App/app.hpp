@@ -90,7 +90,7 @@ struct app_t {
     utl::res::pack_file_t *     resource_file{0};
 
     gfx::vul::state_t   gfx;
-    game::rendering::system_t* render_system{0};
+    rendering::system_t* render_system{0};
 
     // todo(zack) clean this up
     gfx::font_t default_font;
@@ -172,74 +172,67 @@ struct app_t {
     i32 height() {
         return app_mem->config.window_size[1];
     }
+
+    app_input_t& input() {
+        return app_mem->input;
+    }
 };
 
 
 struct debug_console_t {
     struct message_t {
-        message_t* next{0};
-        message_t* prev{0};
-
-        string_t text;
+        char text[256];
         gfx::color32 color = gfx::color::rgba::white;
 
         void (*command)(void*){0};
         void* data{0};
     };
 
-    message_t* messages{0};
+    message_t messages[256]{};
+    size_t message_top = 0;
 
     i32 scroll{0};
 
-    char    text_buffer[1024]{'>'};
+    char    text_buffer[1024]{};
     size_t  text_size{0};
 };
 
 inline void
 console_log(
     debug_console_t* console,
-    string_t text,
-    arena_t* arena
+    std::string_view text,
+    gfx::color32 color = gfx::color::rgba::white,
+    void (*on_click)(void*) = 0,
+    void* user_data = 0
 ) {
-    gen_info("console", text.c_data);
-    auto* message = arena_alloc<debug_console_t::message_t>(arena);
-    message->text = text;
-    message->data = message->command = 0;
-    
-    node_push(message, console->messages);
-}
+    size_t text_size = text.size();
+    while(text_size > 0) {
+        auto* message = console->messages + console->message_top;
+        console->message_top = (console->message_top + 1) % array_count(console->messages);
+        message->color = color;
+        const auto write_count = std::min(array_count(message->text), text_size);
+        std::memcpy(message->text, text.data(), write_count);
+        text_size -= write_count;
 
-inline void
-console_log_ex(
-    debug_console_t* console,
-    string_t text,
-    arena_t* arena,
-    void (*on_click)(void*),
-    void* data
-) {
-    gen_info("console", text.c_data);
-    auto* message = arena_alloc<debug_console_t::message_t>(arena);
-    message->text = text;
-    message->data = data;
-    message->command = on_click;
-    
-    node_push(message, console->messages);
-}
-
-inline void
-draw_reverse(
-    gfx::gui::im::state_t& imgui, 
-    debug_console_t::message_t* message
-) {
-    using namespace gfx::gui;
-    if (message == nullptr) {
-        return;
-    }
-    draw_reverse(imgui, message->next);
-    if (im::text(imgui, message->text) && message->command) {
-        message->command(message->data);
+        message->data = user_data;
+        message->command = on_click;
     }
 }
+
+// inline void
+// draw_reverse(
+//     gfx::gui::im::state_t& imgui, 
+//     debug_console_t::message_t* message
+// ) {
+//     using namespace gfx::gui;
+//     if (message == nullptr) {
+//         return;
+//     }
+//     // draw_reverse(imgui, message->next);
+//     if (im::text(imgui, message->text) && message->command) {
+//         message->command(message->data);
+//     }
+// }
 
 inline void
 draw_console(
@@ -250,14 +243,32 @@ draw_console(
     using namespace gfx::gui;
     using namespace std::string_view_literals;
 
+    const auto theme = imgui.theme;
+    imgui.theme.border_radius = 1.0f;
+
     if (im::begin_panel(imgui, "Console"sv, pos)) {
-        draw_reverse(imgui, console->messages);
+        // draw_reverse(imgui, console->messages);
+
+        for (u64 i = 10; i <= 10; i--) {
+            auto* message = console->messages + (console->message_top - 1 - i) % array_count(console->messages);
+            if (message->text[0]==0) {
+                continue;
+            }
+            if (im::text(imgui, message->text) && message->command) {
+                message->command(message->data);
+            }
+        }
         
-        im::text(imgui, string_t{console->text_buffer});
+        if (im::text_edit(imgui, console->text_buffer, &console->text_size, "console_text_box"_sid)) {
+            console_log(console, console->text_buffer);
+            std::memset(console->text_buffer, 0, array_count(console->text_buffer));
+        }
+        // im::text(imgui, string_t{console->text_buffer});
 
         im::end_panel(imgui);
     }
 
+    imgui.theme = theme;
 }
 
 #endif

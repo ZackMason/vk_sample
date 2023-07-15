@@ -240,13 +240,16 @@ physx_create_rigidbody_impl(
             auto* controller = ps->world->controller_manager->createController(desc);
             // controller->setSlopeLimit(3.14159f*0.25f);
             rb->api_data = controller;
+            rb->user_data = data;
 
             physx_add_rigidbody(api, rb);
             assert(api->character_count < PHYSICS_MAX_CHARACTER_COUNT);
             api->characters[api->character_count++] = rb;
         }   break;
         case rigidbody_type::STATIC: {
-            rb->api_data = ps->state->physics->createRigidStatic(t);
+            auto* body = ps->state->physics->createRigidStatic(t);
+            rb->api_data = body;
+
             physx_add_rigidbody(api, rb);
             rb->user_data = data;
         }   break;
@@ -461,14 +464,6 @@ physx_simulate(api_t* api, f32 dt) {
 
             v = math::damp(v, v3f{0.0f}, rb->linear_dampening, dt);
 
-            // if (isOnGround(controller)) {
-            //     // gen_info(__FUNCTION__, "on ground");
-            //     v.y = 0.0f;
-            //     rb->flags |= rigidbody_flags::IS_ON_GROUND;
-            // } else {
-            //     rb->flags &= ~rigidbody_flags::IS_ON_GROUND;
-            // }
-            
             const auto [px,py,pz] = controller->getPosition();
             rb->position = v3f{px,py,pz};
         }
@@ -485,6 +480,31 @@ physx_simulate(api_t* api, f32 dt) {
         // safe_truncate_u64(arena_get_remaining(&scratch))
     );
     ps->world->scene->fetchResults(true);
+
+    if (api->entity_transform_offset) {
+        PxU32 nb_active_actors;
+        PxActor** active_actors = ps->world->scene->getActiveActors(nb_active_actors);
+        range_u64(i, 0, nb_active_actors) {
+            auto* body = (rigidbody_t*)active_actors[i]->userData;
+            if (!body) {
+                gen_warn(__FUNCTION__, "Simulated rigidbody is null");
+                continue;
+            }
+            auto* transform = (math::transform_t*)((u8*)body->user_data + api->entity_transform_offset);
+            if (body->type == rigidbody_type::DYNAMIC) {
+                if (auto* rb = active_actors[i]->is<physx::PxRigidActor>()) {
+                    auto t = rb->getGlobalPose();
+                    transform->origin = v3f{t.p.x, t.p.y, t.p.z};
+                    transform->basis = glm::toMat3(quat{t.q.w, t.q.x, t.q.y, t.q.z});
+                }
+            } else if (body->type == rigidbody_type::CHARACTER) {
+                if (auto* cct = ((physx::PxController*)body->api_data)) {
+                    auto [x,y,z] = cct->getPosition();
+                    transform->origin = v3f{x,y,z};
+                }
+            } 
+        }
+    }
 }
 
 void

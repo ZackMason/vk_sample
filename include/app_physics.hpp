@@ -256,6 +256,8 @@ struct export_dll api_t {
     using layer_mask_t = std::array<std::array<u8, 64>, 64>;
     layer_mask_t layer_mask{};
 
+    size_t      entity_transform_offset{0};
+
     api_t& operator=(const api_t& o) {
         if (this == &o) { return *this; }
 
