@@ -171,9 +171,7 @@ load_bin_mesh(
 }
 
 inline static gfx::vul::texture_2d_t*
-make_error_texture(arena_t* arena, u32 size) {
-    auto* tex = arena_alloc<gfx::vul::texture_2d_t>(arena);
-
+make_grid_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size, v3f c1, v3f c2) {
     tex->size[0] = tex->size[1] = size;
     tex->channels = 4;
     tex->pixels = arena_alloc_ctor<u8>(arena, size*size*4);
@@ -182,14 +180,26 @@ make_error_texture(arena_t* arena, u32 size) {
         range_u64(y, 0, size) {
             auto n = std::sinf((f32)x/(f32)size*math::constants::pi32*10.0f) * std::cosf((f32)y/(f32)size*math::constants::pi32*10.0f);
             n = glm::step(n, 0.0f);
-            tex->pixels[i++] = u8(n*255.0f);
-            tex->pixels[i++] = 0;
-            tex->pixels[i++] = u8(n*255.0f);
-            tex->pixels[i++] = 255ui8;
+            auto c = glm::mix(c1,c2,n);
+            auto uc = gfx::color::to_color32(c);
+            tex->pixels[i++] = u8(uc & 0xff); uc >>= 8;
+            tex->pixels[i++] = u8(uc & 0xff); uc >>= 8;
+            tex->pixels[i++] = u8(uc & 0xff); uc >>= 8;
+            tex->pixels[i++] = u8(uc & 0xff); uc >>= 8;
         }
     }
 
     return tex;
+}
+inline static gfx::vul::texture_2d_t*
+make_error_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size) {
+    // auto* tex = arena_alloc<gfx::vul::texture_2d_t>(arena);
+    return make_grid_texture(arena, tex, size, gfx::color::v3::black, gfx::color::v3::purple);
+}
+inline static gfx::vul::texture_2d_t*
+make_error_texture(arena_t* arena, u32 size) {
+    auto* tex = arena_alloc<gfx::vul::texture_2d_t>(arena);
+    return make_grid_texture(arena, tex, size, gfx::color::v3::black, gfx::color::v3::purple);
 }
 
 inline static gfx::vul::texture_2d_t*
@@ -256,6 +266,11 @@ app_init_graphics(app_memory_t* app_mem) {
         temp_arena_t t = app->main_arena;
         app->gfx.init(&app_mem->config, &t);
     }
+
+    make_grid_texture(&app->texture_arena, &vk_gfx.null_texture, 256, v3f{0.3f}, v3f{0.6f});
+    // make_error_texture(&app->texture_arena, &vk_gfx.null_texture, 256);
+    vk_gfx.load_texture_sampler(&vk_gfx.null_texture);
+
 
     app->render_system = rendering::init<megabytes(256)>(vk_gfx, &app->main_arena);
     vk_gfx.create_vertex_buffer(&app->render_system->vertices);
@@ -461,7 +476,7 @@ app_init_graphics(app_memory_t* app_mem) {
     //     temp_arena_t ta = app->texture_arena;
     //     vk_gfx.load_texture_sampler(app->brick_texture, "./res/textures/rock_01_a.png", &ta);
     // }
-    // app->brick_texture = make_error_texture(&app->texture_arena, 256);
+    // make_error_texture(&app->texture_arena, 256);
     // vk_gfx.load_texture_sampler(app->brick_texture, &app->texture_arena);
 
     // app->brick_descriptor = vk_gfx.create_image_descriptor_set(
@@ -655,7 +670,10 @@ app_on_init(app_memory_t* app_mem) {
 
     platform->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
         auto* p = (game::entity_t*)trigger->user_data;
-        p->coroutine->start();
+        auto* o = (game::entity_t*)other->user_data;
+        if (o->type == game::entity_type::player) {
+            p->coroutine->start();
+        }
 
     };
 
@@ -1079,7 +1097,7 @@ draw_gui(app_memory_t* app_mem) {
         const m44 vp = 
             app->render_system->vp;
 
-        draw_console(state, app->debug.console, v2f{0.0, 800.0f});
+        // draw_console(state, app->debug.console, v2f{0.0, 800.0f});
         
 
         local_persist v3f default_widget_pos{10.0f};
@@ -1311,7 +1329,7 @@ draw_gui(app_memory_t* app_mem) {
             local_persist bool show_mat_id[8] = {};
                 local_persist bool show_sky = false;
             if (im::text(state, "Graphics"sv, &show_gfx)) { 
-                if (im::text(state, "Reload Shaders"sv)) {
+                if (im::text(state, "- Reload Shaders"sv)) {
                     std::system("compile_shaders");
                     app->render_system->shader_cache.reload_all(
                         app->render_system->arena,

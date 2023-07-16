@@ -170,14 +170,14 @@ platform_1000 {
 void co_platform(coroutine_t* co) {
     auto* e = (game::entity_t*)co->data;
     local_persist f32 start = 0.0f;
-    local_persist f32 end = 7.0f;
+    local_persist f32 end = 27.0f;
 
     co_begin(co);
 
     start = e->physics.rigidbody->position.y;
-    end = start == 7.0f ? 0.0f : 7.0f;
+    end = start == 27.0f ? 0.0f : 27.0f;
 
-    co_lerp(co, e->physics.rigidbody->position.y, start, end, 1.0f, math::lerp);
+    co_lerp(co, e->physics.rigidbody->position.y, start, end, 2.0f, math::lerp);
 
     co_end(co);
 }

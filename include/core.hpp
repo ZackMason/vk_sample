@@ -2749,25 +2749,6 @@ namespace gui {
     string_render(
         ctx_t* ctx,
         std::string_view text,
-        const v2f& position,
-        const color32& text_color = color::rgba::white,
-        font_t* font = 0
-    ) {
-        v2f cursor = position;
-        font_render(0, font ? font : ctx->font, 
-            text, 
-            cursor,
-            ctx->screen_size,
-            ctx->vertices,
-            ctx->indices,
-            text_color
-        );
-    }
-
-    inline void
-    string_render(
-        ctx_t* ctx,
-        std::string_view text,
         v2f& position,
         const color32& text_color = color::rgba::white,
         font_t* font = 0
@@ -2779,6 +2760,24 @@ namespace gui {
             ctx->vertices,
             ctx->indices,
             text_color
+        );
+    }
+
+    inline void
+    string_render(
+        ctx_t* ctx,
+        std::string_view text,
+        const v2f& position,
+        const color32& text_color = color::rgba::white,
+        font_t* font = 0
+    ) {
+        v2f cursor = position;
+        string_render(
+            ctx,
+            text,
+            cursor,
+            text_color,
+            font
         );
     }
 

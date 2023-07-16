@@ -80,7 +80,11 @@ main( )
 	vec3 rgb = vec3(0.0);
 	Material material = uMaterialBuffer.materials[vMatId];
 
-	switch( Sporadic.uMode )
+	int mode = Sporadic.uMode;
+
+	mode = mode == 1 && vAlbedoId == (0xffffffff % 4096) ? 0 : mode;
+
+	switch( mode )
 	{
 		case 0:
 			rgb = material.albedo.rgb;

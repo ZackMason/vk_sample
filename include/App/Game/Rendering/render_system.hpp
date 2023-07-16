@@ -126,7 +126,7 @@ namespace rendering {
             gfx::material_info_t& material_info,
             u64 ids[2]
         ) {
-            u32 count;
+            u32 count = 0;
             if (material_info.albedo[0]) { ids[0] = load(arena, vk_gfx, material_info.albedo); count |= 0x1; }
             if (material_info.normal[0]) { ids[1] = load(arena, vk_gfx, material_info.normal); count |= 0x2; }
             return count;
