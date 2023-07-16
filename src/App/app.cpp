@@ -1311,7 +1311,7 @@ draw_gui(app_memory_t* app_mem) {
             local_persist bool show_mat_id[8] = {};
                 local_persist bool show_sky = false;
             if (im::text(state, "Graphics"sv, &show_gfx)) { 
-                if (im::button(state, "Reload Shaders"sv, 0, v2f{0.0f}, 14)) {
+                if (im::text(state, "Reload Shaders"sv)) {
                     std::system("compile_shaders");
                     app->render_system->shader_cache.reload_all(
                         app->render_system->arena,
@@ -1615,22 +1615,9 @@ game_on_render(app_memory_t* app_mem, u32 imageIndex, u32 frame_count) {
 
     gfx::vul::state_t& vk_gfx = app->gfx;
 
-    // local_persist u32 frame_count = 0;
-    // if (frame_count++ < 3) {
-    //     gen_info(__FUNCTION__, "frame: {}", frame_count);
-    // }
-    // std::lock_guard lock{app->render_system->ticket};
-    // draw_gui(app_mem);
-    // u32 imageIndex = wait_for_frame(app, frame_count);
-    // note(zack): print the first 3 frames, if 
-    // a bug shows up its helpful to know if 
-    // maybe it only happens on the second frame
-    
-    // std::lock_guard lock{app->render_system->ticket};
-    {
-        app->render_system->camera_pos = app->game_world->camera.origin;
-        app->render_system->set_view(app->game_world->camera.inverse().to_matrix(), app->width(), app->height());
-    }
+
+    app->render_system->camera_pos = app->game_world->camera.origin;
+    app->render_system->set_view(app->game_world->camera.inverse().to_matrix(), app->width(), app->height());
 
     app->scene.sporadic_buffer.time = app->input().time;
     *vk_gfx.sporadic_uniform_buffer.data = app->scene.sporadic_buffer;

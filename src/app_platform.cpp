@@ -676,7 +676,7 @@ main(int argc, char* argv[]) {
             }
             first = false;
         }
-        
+        // limit gameplay fps
         while((f32)(glfwGetTime())-app_mem.input.time<1.0f/60.0f);
         update_input(&app_mem, window);
         if (app_dlls.on_update) {
