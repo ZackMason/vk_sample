@@ -19,6 +19,8 @@
 #undef near
 #undef far
 
+platform_api_t Platform;
+
 struct access_violation_exception : public std::exception {
     access_violation_exception(ULONG_PTR code_, void* address_) : code{code_}, address{address_} {}
     ULONG_PTR code;
@@ -38,9 +40,14 @@ struct access_violation_exception : public std::exception {
     }
 };
 
+void win32_free(void* ptr){
+    VirtualFree(ptr, 0, MEM_RELEASE);
+}
+
 void* win32_alloc(size_t size){
     return VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 }
+
 template <typename T>
 T* win32_alloc(){
     auto* t = (T*)win32_alloc(sizeof(T));
@@ -48,8 +55,8 @@ T* win32_alloc(){
     return t;
 }
 
-app_memory_t* gs_app{0};
-app_memory_t* gs_app_restore{0};
+game_memory_t* gs_app{0};
+game_memory_t* gs_app_restore{0};
 arena_t* gs_physics_arena;
 arena_t* gs_physics_restore_arena;
 
@@ -112,7 +119,7 @@ create_meta_data_dir() {
 }
 
 void
-load_graphics_config(app_memory_t* app_mem) {
+load_graphics_config(game_memory_t* game_memory) {
     std::ifstream file{"gfx_config.bin", std::ios::binary};
 
     if(!file.is_open()) {
@@ -128,21 +135,21 @@ load_graphics_config(app_memory_t* app_mem) {
     file.read((char*)data, size);
     utl::memory_blob_t loader{data};
     
-    app_mem->config.graphics_config = loader.deserialize<app_config_t::graphic_config_t>();
+    game_memory->config.graphics_config = loader.deserialize<app_config_t::graphic_config_t>();
     
     delete data;
 }
 void
-save_graphics_config(app_memory_t* app_mem) {
+save_graphics_config(game_memory_t* game_memory) {
     std::ofstream file{"./gfx_config.bin", std::ios::out | std::ios::binary};
 
     // std::byte* data = new std::byte[sizeof(app_config_t::graphic_config_t)];
     
     // utl::memory_blob_t loader{data};
     
-    // loader.serialize(0, app_mem->config.graphics_config);
+    // loader.serialize(0, game_memory->config.graphics_config);
 
-    file.write((const char*)&app_mem->config.graphics_config, sizeof(app_config_t::graphic_config_t));
+    file.write((const char*)&game_memory->config.graphics_config, sizeof(app_config_t::graphic_config_t));
 
     file.close();
 
@@ -152,7 +159,7 @@ save_graphics_config(app_memory_t* app_mem) {
 }
 
 GLFWwindow* 
-init_glfw(app_memory_t* app_mem) {
+init_glfw(game_memory_t* game_memory) {
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -160,15 +167,15 @@ init_glfw(app_memory_t* app_mem) {
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 	
     auto* window = 
-        glfwCreateWindow(app_mem->config.window_size[0], app_mem->config.window_size[1], "Vk App", 0, 0);
+        glfwCreateWindow(game_memory->config.window_size[0], game_memory->config.window_size[1], "Vk App", 0, 0);
 
-	app_mem->config.vk_exts = (char**)glfwGetRequiredInstanceExtensions (&app_mem->config.vk_ext_count);
-	printf("\nFound %d GLFW Required Instance Extensions:\n", app_mem->config.vk_ext_count);
-	for( uint32_t i = 0; i < app_mem->config.vk_ext_count; i++ ) {
-		printf( "\t%s\n", app_mem->config.vk_exts[ i ] );
+	game_memory->config.vk_exts = (char**)glfwGetRequiredInstanceExtensions (&game_memory->config.vk_ext_count);
+	printf("\nFound %d GLFW Required Instance Extensions:\n", game_memory->config.vk_ext_count);
+	for( uint32_t i = 0; i < game_memory->config.vk_ext_count; i++ ) {
+		printf( "\t%s\n", game_memory->config.vk_exts[ i ] );
 	}
 
-    app_mem->config.window_handle = glfwGetWin32Window(window);
+    game_memory->config.window_handle = glfwGetWin32Window(window);
 
     assert(window);
 
@@ -176,14 +183,14 @@ init_glfw(app_memory_t* app_mem) {
 }
 
 void
-update_input(app_memory_t* app_mem, GLFWwindow* window) {
+update_input(game_memory_t* game_memory, GLFWwindow* window) {
     app_input_t last_input;
-    std::memcpy(&last_input, &app_mem->input, sizeof(app_input_t));
+    std::memcpy(&last_input, &game_memory->input, sizeof(app_input_t));
 
-    app_input_reset(&app_mem->input);
+    app_input_reset(&game_memory->input);
 
-    app_mem->input.time = (f32)(glfwGetTime());
-    app_mem->input.dt = app_mem->input.time - last_input.time;
+    game_memory->input.time = (f32)(glfwGetTime());
+    game_memory->input.dt = game_memory->input.time - last_input.time;
 
     f64 mouse_temp[2];
     glfwGetCursorPos(window, mouse_temp+0, mouse_temp+1);
@@ -191,24 +198,24 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
     mouse[0] = f32(mouse_temp[0]);
     mouse[1] = f32(mouse_temp[1]);
 
-    app_mem->input.mouse.pos[0] = mouse[0];
-    app_mem->input.mouse.pos[1] = mouse[1];
+    game_memory->input.mouse.pos[0] = mouse[0];
+    game_memory->input.mouse.pos[1] = mouse[1];
 
 
-    app_mem->input.mouse.delta[0] = mouse[0] - last_input.mouse.pos[0];
-    app_mem->input.mouse.delta[1] = mouse[1] - last_input.mouse.pos[1];
+    game_memory->input.mouse.delta[0] = mouse[0] - last_input.mouse.pos[0];
+    game_memory->input.mouse.delta[1] = mouse[1] - last_input.mouse.pos[1];
     
-    loop_iota_i32(i, array_count(app_mem->input.keys)) {
-        if (i < array_count(app_mem->input.mouse.buttons)) {
-            app_mem->input.mouse.buttons[i] = glfwGetMouseButton(window, i) == GLFW_PRESS;
+    loop_iota_i32(i, array_count(game_memory->input.keys)) {
+        if (i < array_count(game_memory->input.mouse.buttons)) {
+            game_memory->input.mouse.buttons[i] = glfwGetMouseButton(window, i) == GLFW_PRESS;
         }
-        app_mem->input.keys[i] = glfwGetKey(window, i) == GLFW_PRESS;
-        app_mem->input.pressed.keys[i] = app_mem->input.keys[i] && !last_input.keys[i];
-        app_mem->input.released.keys[i] = !app_mem->input.keys[i] && last_input.keys[i];
+        game_memory->input.keys[i] = glfwGetKey(window, i) == GLFW_PRESS;
+        game_memory->input.pressed.keys[i] = game_memory->input.keys[i] && !last_input.keys[i];
+        game_memory->input.released.keys[i] = !game_memory->input.keys[i] && last_input.keys[i];
     }
 
-    loop_iota_i32(i, array_count(app_mem->input.gamepads)) {
-        auto& gamepad = app_mem->input.gamepads[i];
+    loop_iota_i32(i, array_count(game_memory->input.gamepads)) {
+        auto& gamepad = game_memory->input.gamepads[i];
 
         GLFWgamepadstate state;
         if (glfwJoystickIsGamepad(i) && glfwGetGamepadState(i, &state)) {
@@ -253,16 +260,16 @@ update_input(app_memory_t* app_mem, GLFWwindow* window) {
 
     }
 
-    loop_iota_u64(mb, array_count(app_mem->input.mouse.buttons)) {
-        const u8 mouse_btn = app_mem->input.mouse.buttons[mb];
+    loop_iota_u64(mb, array_count(game_memory->input.mouse.buttons)) {
+        const u8 mouse_btn = game_memory->input.mouse.buttons[mb];
         const u8 last_mouse_btn = last_input.mouse.buttons[mb];
-        app_mem->input.pressed.mouse_btns[mb] = !last_mouse_btn && mouse_btn;
-        app_mem->input.released.mouse_btns[mb] = last_mouse_btn && !mouse_btn;
+        game_memory->input.pressed.mouse_btns[mb] = !last_mouse_btn && mouse_btn;
+        game_memory->input.released.mouse_btns[mb] = last_mouse_btn && !mouse_btn;
     }
 
-    loop_iota_u64(g, array_count(app_mem->input.gamepads)) {
+    loop_iota_u64(g, array_count(game_memory->input.gamepads)) {
         loop_iota_u64(b, button_id::SIZE) {
-            auto& button = app_mem->input.gamepads[g].buttons[b];
+            auto& button = game_memory->input.gamepads[g].buttons[b];
             button.is_pressed = !last_input.gamepads[g].buttons[b].is_held && button.is_held;
             button.is_released = last_input.gamepads[g].buttons[b].is_held && !button.is_held;
         }
@@ -321,12 +328,12 @@ load_dlls(app_dll_t* app_dlls) {
 }
 
 void
-update_dlls(app_dll_t* app_dlls, app_memory_t* app_mem) {
+update_dlls(app_dll_t* app_dlls, game_memory_t* game_memory) {
     bool need_reload = !std::filesystem::exists("./build/lock.tmp");
     if (need_reload) {
         utl::profile_t p{"dll reload time"};
         gen_warn("win32", "Game DLL Reload Detected");
-        app_dlls->on_unload(app_mem);
+        app_dlls->on_unload(game_memory);
 
         FreeLibrary((HMODULE)app_dlls->dll);
         *app_dlls={};
@@ -338,7 +345,7 @@ update_dlls(app_dll_t* app_dlls, app_memory_t* app_mem) {
         }
 
         gen_warn("win32", "Game DLL has reloaded");
-        app_dlls->on_reload(app_mem);
+        app_dlls->on_reload(game_memory);
 
         gs_game_dll_write_time = win32_last_write_time(".\\build\\app_build.dll");
     }
@@ -446,26 +453,30 @@ main(int argc, char* argv[]) {
         gen_info("win32", "Closing Application");
     };
 
-    app_memory_t app_mem{};
-    app_mem.message_box = message_box_proc;
-    constexpr size_t application_memory_size = gigabytes(4);
-    app_mem.arena = arena_create(VirtualAlloc(0, application_memory_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), application_memory_size);
+    Platform.allocate = win32_alloc;
+    Platform.free = win32_free;
+    Platform.message_box = message_box_proc;
 
-    app_memory_t restore_point;
+    game_memory_t game_memory{};
+    game_memory.platform = Platform;
+    constexpr size_t application_memory_size = gigabytes(4);
+    game_memory.arena = arena_create(VirtualAlloc(0, application_memory_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), application_memory_size);
+
+    game_memory_t restore_point;
     restore_point.arena.start = 0;
 
-    gs_app = &app_mem;
+    gs_app = &game_memory;
     gs_app_restore = &restore_point;
  
-    assert(app_mem.arena.start);
+    assert(game_memory.arena.start);
 
-    auto& config = app_mem.config;
-    load_graphics_config(&app_mem);
+    auto& config = game_memory.config;
+    load_graphics_config(&game_memory);
 
-    config.window_size[0] = app_mem.config.graphics_config.window_size.x;
-    config.window_size[1] = app_mem.config.graphics_config.window_size.y;
+    config.window_size[0] = game_memory.config.graphics_config.window_size.x;
+    config.window_size[1] = game_memory.config.graphics_config.window_size.y;
 
-    app_mem.config.create_vk_surface = [](void* instance, void* surface, void* window_handle) {
+    game_memory.config.create_vk_surface = [](void* instance, void* surface, void* window_handle) {
         VkWin32SurfaceCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
         createInfo.hwnd = (HWND)window_handle;
@@ -486,19 +497,19 @@ main(int argc, char* argv[]) {
     if (physics_dll)
     {
         gen_info("win32", "Initializing Physics");
-        app_mem.physics = win32_alloc<physics::api_t>();
+        game_memory.physics = win32_alloc<physics::api_t>();
         restore_point.physics = win32_alloc<physics::api_t>();
         restore_point.physics->arena = &restore_physics_arena;
 
-        app_mem.physics->collider_count =
-        app_mem.physics->character_count =
-        app_mem.physics->rigidbody_count = 0;
+        game_memory.physics->collider_count =
+        game_memory.physics->character_count =
+        game_memory.physics->rigidbody_count = 0;
         assert(physics_dll && "Failing to load physics layer dll");
         physics::init_function init_physics = 
             reinterpret_cast<physics::init_function>(
                 GetProcAddress((HMODULE)physics_dll, "physics_init_api")
             );
-        init_physics(app_mem.physics, physics::backend_type::PHYSX, &physics_arena);
+        init_physics(game_memory.physics, physics::backend_type::PHYSX, &physics_arena);
     }
 
 #if USE_SDL
@@ -543,8 +554,8 @@ main(int argc, char* argv[]) {
             #endif
     });
     
-    app_mem.audio.load_sound_closure = &load_sound_closure;
-    app_mem.audio.play_sound_closure = &play_sound_closure;
+    game_memory.platform.audio.load_sound_closure = &load_sound_closure;
+    game_memory.platform.audio.play_sound_closure = &play_sound_closure;
 
     u64 sound = load_sound_closure.dispatch_request<u64>("./res/audio/unlock.wav");
     gen_info("sdl_mixer::play_sound", "playing Sound: {}", sound);
@@ -553,33 +564,33 @@ main(int argc, char* argv[]) {
     app_dll_t app_dlls;
     load_dlls(&app_dlls);
 
-    GLFWwindow* window = init_glfw(&app_mem);
+    GLFWwindow* window = init_glfw(&game_memory);
 
     gen_info("win32", "Platform Initialization Completed");
 
-    app_dlls.on_init(&app_mem);
+    app_dlls.on_init(&game_memory);
 
 #ifdef MULTITHREAD_ENGINE
     std::atomic_bool reload_flag = false;
     std::atomic_bool rendering_flag = false;
     auto render_thread = std::thread([&]{
-        while(app_mem.running && !glfwWindowShouldClose(window)) {
+        while(game_memory.running && !glfwWindowShouldClose(window)) {
             while(reload_flag);
             if (app_dlls.on_render) {
-                f32 last_time = app_mem.input.render_time;
+                f32 last_time = game_memory.input.render_time;
                 
-                app_mem.input.render_time = (f32)(glfwGetTime());
-                app_mem.input.render_dt = app_mem.input.render_time - last_time;
+                game_memory.input.render_time = (f32)(glfwGetTime());
+                game_memory.input.render_dt = game_memory.input.render_time - last_time;
 
                 rendering_flag = true;
-                app_dlls.on_render(&app_mem);
+                app_dlls.on_render(&game_memory);
                 rendering_flag = false;
             }
         }
     });
 #endif
     
-    app_mem.input.pressed.keys[key_id::F9] = 1;
+    game_memory.input.pressed.keys[key_id::F9] = 1;
 
     _set_se_translator([](unsigned int u, EXCEPTION_POINTERS *pExp) {
         std::string error = "SE Exception: ";
@@ -600,61 +611,61 @@ main(int argc, char* argv[]) {
         if (want_to_throw) throw std::exception(error.c_str());
     });
 
-    while(app_mem.running && !glfwWindowShouldClose(window)) {
+    while(game_memory.running && !glfwWindowShouldClose(window)) {
         utl::profile_t* p = 0;
 
-        if (app_mem.input.pressed.keys[key_id::F7]) {
+        if (game_memory.input.pressed.keys[key_id::F7]) {
             try {
                 int* crash{0}; *crash = 0xf;
             } catch (std::exception & e) {
                 puts(e.what());
             };
         }
-        if (app_mem.input.pressed.keys[key_id::F8]) {
+        if (game_memory.input.pressed.keys[key_id::F8]) {
             const auto dif = utl::memdif((const u8*)physics_arena.start, (const u8*)restore_physics_arena.start, restore_physics_arena.top);
             const auto undif = restore_physics_arena.top - dif;
             gen_info("memdif", "dif {} bytes, undif {} megabytes", dif, undif/megabytes(1));
         }
 
-        if (app_mem.input.pressed.keys[key_id::F9]) {
+        if (game_memory.input.pressed.keys[key_id::F9]) {
 #ifdef MULTITHREAD_ENGINE
             reload_flag = true;
             while(rendering_flag);
 #endif 
             std::memcpy(restore_physics_arena.start, physics_arena.start, physics_arena.top);
-            *restore_point.physics = *app_mem.physics;
+            *restore_point.physics = *game_memory.physics;
             restore_physics_arena.top = physics_arena.top;
 
             if (restore_point.arena.start) {
                 VirtualFree(restore_point.arena.start, 0, MEM_RELEASE);
                 restore_point.arena.start = 0;
             }
-            size_t copy_size = app_mem.arena.top;
+            size_t copy_size = game_memory.arena.top;
             restore_point.arena = arena_create(VirtualAlloc(0, copy_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), copy_size);
-            std::memcpy(restore_point.arena.start, app_mem.arena.start, copy_size);
-            restore_point.arena.top = app_mem.arena.top;
-            std::memcpy(&restore_point.input, &app_mem.input, sizeof(app_input_t));
+            std::memcpy(restore_point.arena.start, game_memory.arena.start, copy_size);
+            restore_point.arena.top = game_memory.arena.top;
+            std::memcpy(&restore_point.input, &game_memory.input, sizeof(app_input_t));
 #ifdef MULTITHREAD_ENGINE
                 reload_flag = false;
 #endif 
         }
-        if (app_mem.input.pressed.keys[key_id::F10]) {
+        if (game_memory.input.pressed.keys[key_id::F10]) {
 #ifdef MULTITHREAD_ENGINE
             reload_flag = true;
             while(rendering_flag);
 #endif 
             std::memcpy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
-            *app_mem.physics = *restore_point.physics;
+            *game_memory.physics = *restore_point.physics;
             physics_arena.top = restore_physics_arena.top;
 
-            std::memcpy(app_mem.arena.start, restore_point.arena.start, restore_point.arena.top);
-            app_mem.arena.top = restore_point.arena.top;
-            std::memcpy(&app_mem.input, &restore_point.input, sizeof(app_input_t));
+            std::memcpy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
+            game_memory.arena.top = restore_point.arena.top;
+            std::memcpy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
 #ifdef MULTITHREAD_ENGINE
                 reload_flag = false;
 #endif 
         }
-        if (app_mem.input.pressed.keys[key_id::P]) {
+        if (game_memory.input.pressed.keys[key_id::P]) {
             p = new utl::profile_t{"win32::loop"};
         }
 
@@ -669,7 +680,7 @@ main(int argc, char* argv[]) {
                 reload_flag = true;
                 while(rendering_flag);
 #endif 
-                update_dlls(&app_dlls, &app_mem);
+                update_dlls(&app_dlls, &game_memory);
 #ifdef MULTITHREAD_ENGINE
                 reload_flag = false;
 #endif 
@@ -677,26 +688,26 @@ main(int argc, char* argv[]) {
             first = false;
         }
         // limit gameplay fps
-        while((f32)(glfwGetTime())-app_mem.input.time<1.0f/60.0f);
-        update_input(&app_mem, window);
+        while((f32)(glfwGetTime())-game_memory.input.time<1.0f/60.0f);
+        update_input(&game_memory, window);
         if (app_dlls.on_update) {
             try {
-                app_dlls.on_update(&app_mem);
+                app_dlls.on_update(&game_memory);
 
             } catch (access_violation_exception& e) {
                 auto pressed = MessageBox(0, e.what(), 0, MB_ABORTRETRYIGNORE);
                 if (pressed == IDRETRY) {
-         #ifdef MULTITHREAD_ENGINE
+#ifdef MULTITHREAD_ENGINE
             reload_flag = true;
             while(rendering_flag);
 #endif 
             std::memcpy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
-            *app_mem.physics = *restore_point.physics;
+            *game_memory.physics = *restore_point.physics;
             physics_arena.top = restore_physics_arena.top;
 
-            std::memcpy(app_mem.arena.start, restore_point.arena.start, restore_point.arena.top);
-            app_mem.arena.top = restore_point.arena.top;
-            std::memcpy(&app_mem.input, &restore_point.input, sizeof(app_input_t));
+            std::memcpy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
+            game_memory.arena.top = restore_point.arena.top;
+            std::memcpy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
 #ifdef MULTITHREAD_ENGINE
                 reload_flag = false;
 #endif 
@@ -708,15 +719,15 @@ main(int argc, char* argv[]) {
         }
 #ifndef MULTITHREAD_ENGINE
         if (app_dlls.on_render) {
-            app_dlls.on_render(&app_mem);
+            app_dlls.on_render(&game_memory);
         }
 #endif 
 
         glfwPollEvents();
 
-        if (app_mem.input.keys[key_id::ESCAPE] || 
-            app_mem.input.gamepads[0].buttons[button_id::options].is_held) {
-            app_mem.running = false;
+        if (game_memory.input.keys[key_id::ESCAPE] || 
+            game_memory.input.gamepads[0].buttons[button_id::options].is_held) {
+            game_memory.running = false;
         }
 
         delete p;
@@ -727,9 +738,9 @@ main(int argc, char* argv[]) {
     render_thread.join();
 #endif 
 
-    save_graphics_config(&app_mem);
+    save_graphics_config(&game_memory);
 
-    app_dlls.on_deinit(&app_mem);
+    app_dlls.on_deinit(&game_memory);
 
     return 0;
 }

@@ -100,6 +100,16 @@ load_from_file(arena_t temp_arena, std::string_view path) {
 namespace misc {
 
 DB_ENTRY
+sphere {
+    .type = entity_type::environment,
+    .type_name = "Sphere",
+    .gfx = {
+        .mesh_name = "res/models/sphere.obj",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+};
+
+DB_ENTRY
 teapot {
     .type = entity_type::environment,
     .type_name = "Teapot",
@@ -240,7 +250,7 @@ tree_01 {
     .type = entity_type::environment,
     .type_name = "tree",
     .gfx = {
-        .mesh_name = "res/models/environment/tree_01.obj",
+        .mesh_name = "res/models/environment/tree_01.gltf",
         .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
     },
 };

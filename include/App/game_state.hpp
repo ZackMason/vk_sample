@@ -76,8 +76,8 @@ keyboard_controller(app_input_t* input) {
 
 struct debug_console_t;
 
-struct app_t {
-    app_memory_t*       app_mem{nullptr};
+struct game_state_t {
+    game_memory_t*       game_memory{nullptr};
 
     // arenas
     arena_t&            main_arena;
@@ -97,9 +97,6 @@ struct app_t {
     gfx::font_t large_font;
     gfx::vul::texture_2d_t* default_font_texture{nullptr};
     VkDescriptorSet default_font_descriptor;
-
-    gfx::vul::texture_2d_t* brick_texture{nullptr};
-    VkDescriptorSet brick_descriptor;
 
     struct scene_t {
         gfx::vul::sporadic_buffer_t sporadic_buffer;
@@ -167,14 +164,14 @@ struct app_t {
     f32 time_text_anim = 0.0f;
 
     i32 width() {
-        return app_mem->config.window_size[0];
+        return game_memory->config.window_size[0];
     }
     i32 height() {
-        return app_mem->config.window_size[1];
+        return game_memory->config.window_size[1];
     }
 
     app_input_t& input() {
-        return app_mem->input;
+        return game_memory->input;
     }
 };
 

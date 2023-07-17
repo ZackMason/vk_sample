@@ -795,6 +795,7 @@ public:
         rs->frame_images[0].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         // rs->frame_images[0].texture.image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         state.load_texture_sampler(&rs->frame_images[0].texture);
+
         state.create_depth_stencil_image(&rs->frame_images[1].texture, w, h);
 
         state.create_storage_buffer(&rs->job_storage_buffers[0]);
@@ -807,7 +808,7 @@ public:
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
 
         range_u64(i, 0, array_count(rs->frames)) {
-            state.create_storage_buffer(&rs->frames[i].indexed_indirect_storage_buffer);
+            state.create_storage_buffer(&rs->frames[i].indexed_indirect_storage_buffer, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
             
             VkBuffer buffers[]{
                 state.sporadic_uniform_buffer.buffer,
@@ -891,7 +892,8 @@ public:
             draw_cmd->instance_count = std::max(instance_count, 1ui32);
             draw_cmd->first_index = job->meshes->meshes[i].index_start;
             draw_cmd->vertex_offset = job->meshes->meshes[i].vertex_start;
-            draw_cmd->first_instance = (u32)rs->render_job_count - 1;
+            draw_cmd->first_instance = 0;
+            draw_cmd->object_id = (u32)rs->render_job_count - 1;
             draw_cmd->albedo_id = u32(job->meshes->meshes[i].material.albedo_id) % array_count(rs->texture_cache.textures);
             draw_cmd->normal_id = u32(job->meshes->meshes[i].material.normal_id) % array_count(rs->texture_cache.textures);
         }
@@ -901,9 +903,9 @@ public:
         auto* gpu_job = rs->job_storage_buffer().pool.allocate(1);
         gpu_job->model = transform;
         gpu_job->mat_id = mat_id;
-        gpu_job->padding[0] = mat->padding[0];
-        gpu_job->padding[1] = mat->padding[1];
-        gpu_job->padding[2] = instance_offset ; // instance offset
+        // gpu_job->padding[0] = mat->padding[0];
+        // gpu_job->padding[1] = mat->padding[1];
+        gpu_job->padding[2] = instance_offset; // instance offset
 
         rs->total_instance_count += instance_count != 1 ? instance_count + instance_offset : 0;
     }

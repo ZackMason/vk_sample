@@ -9,14 +9,9 @@ Found 2 GLFW Required Instance Extensions:
 	VK_KHR_surface
 	VK_KHR_win32_surface
 [1m[38;2;255;255;255m[info][win32]: Platform Initialization Completed
-[0m[1m[38;2;255;255;255m[info][console]: Hello world
-[0m[1m[38;2;255;255;255m[info][console]: Hello world
-[0m[1m[38;2;255;255;255m[info][console]: Hello world
-[0m[1m[38;2;255;255;255m[info][console]: Hello world
-[0m[1m[38;2;255;255;255m[info][console]: does this work?
 [0m[1m[38;2;255;255;255m[info][app_init]: Creating physics scene
 [0m[1m[38;2;255;255;255m[info][physics::physx_create_scene]: Creating scene
-[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x22b103600d8
+[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x1f16c1a00d8
 [0m[1m[38;2;255;255;255m[info][app_init]: Created physics scene
 [0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 24
 [0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
@@ -35,14 +30,12 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_EOS_Overlay
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_EOS_Overlay
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_override
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_ROCKSTAR_GAMES_social_club
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_api_dump
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_gfxreconstruct
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_profiles
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_shader_object
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_synchronization2
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_validation
-[0m[1m[38;2;255;255;255m[info][vk::ext]: 16 Instance Extensions actually available:
+[0m[1m[38;2;255;255;255m[info][vk::ext]: 15 Instance Extensions actually available:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_device_group_creation'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_external_fence_capabilities'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_external_memory_capabilities'
@@ -58,18 +51,10 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_NV_external_memory_capabilities'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_portability_enumeration'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_LUNARG_direct_driver_loading'
-[0m[1m[38;2;255;255;255m[info][vk::ext]: 2  'VK_EXT_validation_features'
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_surface
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_win32_surface
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_EXT_debug_utils
-[0mUNASSIGNED-CreateInstance-status-message(INFO / SPEC): msgNum: -2016116905 - Validation Information: [ UNASSIGNED-CreateInstance-status-message ] Object 0: handle = 0x22bf25b42f0, type = VK_OBJECT_TYPE_INSTANCE; | MessageID = 0x87d47f57 | Khronos Validation Layer Active:
-    Settings File: Found at C:\Users\zack\AppData\Local\LunarG\vkconfig\override\vk_layer_settings.txt specified by VkConfig application override.
-    Current Enables: None.
-    Current Disables: None.
-
-    Objects: 1
-        [0] 0x22bf25b42f0, type: 1, name: NULL
-[1m[38;2;255;255;255m[info][vulkan]: 3 extensions loaded
+[0m[1m[38;2;255;255;255m[info][vulkan]: 3 extensions loaded
 [0m[1m[38;2;255;255;255m[info][vulkan]: instance created
 [0m[1m[38;2;255;255;255m[info][vulkan]: created surface.
 [0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 185
@@ -271,14 +256,9 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	./res/textures/null
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 128
-	height: 128
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 65536
+[0m[1m[38;2;255;255;255m[info][vk]: vkCreateDescriptorPool
+[0m[1m[38;2;255;255;255m[info][vulkan]: init finished
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -287,32 +267,6 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0mUNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5f55020[] expects VkImage 0x3fbcd60000000028[] (subresource: aspectMask 0x1 array layer 0, mip level 0) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5f55020, type: 6, name: NULL
-UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5f55020[] expects VkImage 0x3fbcd60000000028[] (subresource: aspectMask 0x1 array layer 0, mip level 1) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5f55020, type: 6, name: NULL
-UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5f55020[] expects VkImage 0x3fbcd60000000028[] (subresource: aspectMask 0x1 array layer 0, mip level 2) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5f55020, type: 6, name: NULL
-UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5f55020[] expects VkImage 0x3fbcd60000000028[] (subresource: aspectMask 0x1 array layer 0, mip level 3) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5f55020, type: 6, name: NULL
-UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5f55020[] expects VkImage 0x3fbcd60000000028[] (subresource: aspectMask 0x1 array layer 0, mip level 4) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5f55020, type: 6, name: NULL
-UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5f55020[] expects VkImage 0x3fbcd60000000028[] (subresource: aspectMask 0x1 array layer 0, mip level 5) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5f55020, type: 6, name: NULL
-UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5f55020[] expects VkImage 0x3fbcd60000000028[] (subresource: aspectMask 0x1 array layer 0, mip level 6) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5f55020, type: 6, name: NULL
-UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5f55020[] expects VkImage 0x3fbcd60000000028[] (subresource: aspectMask 0x1 array layer 0, mip level 7) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5f55020, type: 6, name: NULL
-[1m[38;2;255;255;255m[info][vk]: vkCreateDescriptorPool
-[0m[1m[38;2;255;255;255m[info][vulkan]: init finished
 [0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: null
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
@@ -329,10 +283,7 @@ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 13
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0mUNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5febac0, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5febac0[] expects VkImage 0x40b43c0000000049[] (subresource: aspectMask 0x1 array layer 0, mip level 0) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5febac0, type: 6, name: NULL
-[1m[38;2;255;255;255m[info][vk]: 
+[0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1280000
@@ -383,19 +334,7 @@ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 13
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0mVUID-VkPipelineLayoutCreateInfo-pSetLayouts-06561(ERROR / SPEC): msgNum: -2012114744 - Validation Error: [ VUID-VkPipelineLayoutCreateInfo-pSetLayouts-06561 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x881190c8 | vkCreatePipelineLayout(): pSetLayouts[5] is VK_NULL_HANDLE, but VK_EXT_graphics_pipeline_library is not enabled. The Vulkan spec states: Elements of pSetLayouts must be valid VkDescriptorSetLayout objects (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-VkPipelineLayoutCreateInfo-pSetLayouts-06561)
-    Objects: 1
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753(ERROR / SPEC): msgNum: 1470849347 - Validation Error: [ VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x57ab6143 | vkCreatePipelineLayout(): pSetLayouts[5] is VK_NULL_HANDLE, but graphicsPipelineLibrary is not enabled. The Vulkan spec states: If graphicsPipelineLibrary is not enabled, elements of pSetLayouts must be valid VkDescriptorSetLayout objects (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753)
-    Objects: 1
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-VUID-VkPipelineLayoutCreateInfo-pSetLayouts-06561(ERROR / SPEC): msgNum: -2012114744 - Validation Error: [ VUID-VkPipelineLayoutCreateInfo-pSetLayouts-06561 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x881190c8 | vkCreatePipelineLayout(): pSetLayouts[5] is VK_NULL_HANDLE, but VK_EXT_graphics_pipeline_library is not enabled. The Vulkan spec states: Elements of pSetLayouts must be valid VkDescriptorSetLayout objects (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-VkPipelineLayoutCreateInfo-pSetLayouts-06561)
-    Objects: 1
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753(ERROR / SPEC): msgNum: 1470849347 - Validation Error: [ VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x57ab6143 | vkCreatePipelineLayout(): pSetLayouts[5] is VK_NULL_HANDLE, but graphicsPipelineLibrary is not enabled. The Vulkan spec states: If graphicsPipelineLibrary is not enabled, elements of pSetLayouts must be valid VkDescriptorSetLayout objects (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753)
-    Objects: 1
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 440000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 440000000
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -465,10 +404,7 @@ VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753(ERROR / SPEC): msg
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0mUNASSIGNED-CoreValidation-DrawState-InvalidImageLayout(ERROR / SPEC): msgNum: 1303270965 - Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ] Object 0: handle = 0x22bf5fe9530, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x4dae5635 | vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x22bf5fe9530[] expects VkImage 0xe750a0000000009a[] (subresource: aspectMask 0x1 array layer 0, mip level 0) to be in layout VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
-    Objects: 1
-        [0] 0x22bf5fe9530, type: 6, name: NULL
-[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: brick_01
+[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: brick_01
 [0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
 	res/textures/brick_01
 
@@ -488,6 +424,44 @@ VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753(ERROR / SPEC): msg
 [0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: brick_01
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.002
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: pillar, albedo: , normal: 
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.004
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.003
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Leaf, albedo: tree_palette, normal: 
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Leaf, albedo: tree_palette, normal: 
+[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
+	res/textures/tree_palette
+
+[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
+	width: 8
+	height: 8
+	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (31): i = 2 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (3): i = 1 *****
+
+[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: tree_palette
+[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
+	res/textures/tree_palette
+
+[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
+	width: 8
+	height: 8
+	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (31): i = 2 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (3): i = 1 *****
+
+[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: tree_palette
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.004
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.003
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Bark, albedo: , normal: 
@@ -1156,7 +1130,7 @@ VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753(ERROR / SPEC): msg
 	width: 4
 	height: 4
 	channels: 3
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 48
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 64
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1165,11 +1139,7 @@ VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753(ERROR / SPEC): msg
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0mVUID-vkCmdCopyBufferToImage-pRegions-00171(ERROR / SPEC): msgNum: 1867332608 - Validation Error: [ VUID-vkCmdCopyBufferToImage-pRegions-00171 ] Object 0: handle = 0x22bf5fe9530, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x55f71600000001a6, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x6f4d3c00 | vkCmdCopyBufferToImage: pRegion[0] is trying to copy  64 bytes plus 0 offset to/from the VkBuffer (VkBuffer 0x55f71600000001a6[]) which exceeds the VkBuffer total size of 48 bytes. The Vulkan spec states: srcBuffer must be large enough to contain all buffer locations that are accessed according to Buffer and Image Addressing, for each element of pRegions (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdCopyBufferToImage-pRegions-00171)
-    Objects: 2
-        [0] 0x22bf5fe9530, type: 6, name: NULL
-        [1] 0x55f71600000001a6, type: 9, name: NULL
-[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: white
+[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: white
 [0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
 	res/textures/4975155472559461469
 
@@ -1450,10 +1420,6 @@ VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753(ERROR / SPEC): msg
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/simple.vert.spv
-[0mVUID-VkShaderCreateInfoEXT-pSetLayouts-parameter(ERROR / SPEC): msgNum: -321372883 - Validation Error: [ VUID-VkShaderCreateInfoEXT-pSetLayouts-parameter ] Object 0: handle = 0x22bf25b42f0, type = VK_OBJECT_TYPE_INSTANCE; | MessageID = 0xecd83d2d | Invalid VkDescriptorSetLayout Object 0x0. The Vulkan spec states: If setLayoutCount is not 0, and pSetLayouts is not NULL, pSetLayouts must be a valid pointer to an array of setLayoutCount valid VkDescriptorSetLayout handles (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-VkShaderCreateInfoEXT-pSetLayouts-parameter)
-    Objects: 1
-        [0] 0x22bf25b42f0, type: 1, name: NULL
-[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skeletal.vert.spv
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/simple.frag.spv
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: default
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: red-plastic
@@ -1466,93 +1432,6 @@ VUID-VkPipelineLayoutCreateInfo-graphicsPipelineLibrary-06753(ERROR / SPEC): msg
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/gui.frag.spv
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.vert.spv
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.frag.spv
-[0m[1m[38;2;255;255;255m[info][app]: player id: 1 - 0x22a13760070
-[0m[1m[38;2;255;255;255m[info][app]: world size: 35mb
-[0m[1m[38;2;255;255;255m[info][game_on_render]: frame: 1
-[0m[1m[38;2;255;255;255m[info][game_on_render]: frame: 2
-[0mVUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x4e4775000000006e, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x4e4775000000006e[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5f55020, type: 6, name: NULL
-        [1] 0x4e4775000000006e, type: 9, name: NULL
-[1m[38;2;255;255;255m[info][game_on_render]: frame: 3
-[0mVUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5fd7890, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x4e4775000000006e, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x4e4775000000006e[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5fd7890, type: 6, name: NULL
-        [1] 0x4e4775000000006e, type: 9, name: NULL
-VUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x9389c50000000061, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x9389c50000000061[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5f55020, type: 6, name: NULL
-        [1] 0x9389c50000000061, type: 9, name: NULL
-VUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5fd7890, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x9389c50000000061, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x9389c50000000061[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5fd7890, type: 6, name: NULL
-        [1] 0x9389c50000000061, type: 9, name: NULL
-VUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x9389c50000000061, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x9389c50000000061[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5f55020, type: 6, name: NULL
-        [1] 0x9389c50000000061, type: 9, name: NULL
-VUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5fd7890, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x4e4775000000006e, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x4e4775000000006e[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5fd7890, type: 6, name: NULL
-        [1] 0x4e4775000000006e, type: 9, name: NULL
-VUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x4e4775000000006e, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x4e4775000000006e[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5f55020, type: 6, name: NULL
-        [1] 0x4e4775000000006e, type: 9, name: NULL
-VUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5fd7890, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x4e4775000000006e, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x4e4775000000006e[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5fd7890, type: 6, name: NULL
-        [1] 0x4e4775000000006e, type: 9, name: NULL
-VUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5f55020, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x9389c50000000061, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x9389c50000000061[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5f55020, type: 6, name: NULL
-        [1] 0x9389c50000000061, type: 9, name: NULL
-VUID-vkCmdDrawIndexedIndirect-buffer-02709(ERROR / SPEC): msgNum: 1235085634 - Validation Error: [ VUID-vkCmdDrawIndexedIndirect-buffer-02709 ] Object 0: handle = 0x22bf5fd7890, type = VK_OBJECT_TYPE_COMMAND_BUFFER; Object 1: handle = 0x9389c50000000061, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x499de942 | Invalid usage flag for VkBuffer 0x9389c50000000061[] used by vkCmdDrawIndexedIndirect. In this case, VkBuffer should have VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT set during creation. The Vulkan spec states: buffer must have been created with the VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT bit set (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkCmdDrawIndexedIndirect-buffer-02709)
-    Objects: 2
-        [0] 0x22bf5fd7890, type: 6, name: NULL
-        [1] 0x9389c50000000061, type: 9, name: NULL
-[1m[38;2;255;255;255m[info][win32]: Saved graphics config
-[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Render System cleaned up
-[0mVUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x22bf61e5370, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkCommandBuffer 0x22bf61e5370[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0x22bf61e5370, type: 6, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x22bf61e3c80, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkCommandBuffer 0x22bf61e3c80[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0x22bf61e3c80, type: 6, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0xee24d0000000059, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkBuffer 0xee24d0000000059[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0xee24d0000000059, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x93d4f20000000089, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkBuffer 0x93d4f20000000089[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0x93d4f20000000089, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x4e4775000000006e, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkBuffer 0x4e4775000000006e[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0x4e4775000000006e, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x176083000000005f, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkBuffer 0x176083000000005f[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0x176083000000005f, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x993a4d000000008f, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkBuffer 0x993a4d000000008f[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0x993a4d000000008f, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0xa7c5450000000023, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkBuffer 0xa7c5450000000023[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0xa7c5450000000023, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x6871490000000055, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkBuffer 0x6871490000000055[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0x6871490000000055, type: 9, name: NULL
-VUID-vkDestroyDevice-device-00378(ERROR / SPEC): msgNum: 1901072314 - Validation Error: [ VUID-vkDestroyDevice-device-00378 ] Object 0: handle = 0x22bf32a42c0, type = VK_OBJECT_TYPE_DEVICE; Object 1: handle = 0x6dcc3f000000005b, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x71500fba | OBJ ERROR : For VkDevice 0x22bf32a42c0[], VkBuffer 0x6dcc3f000000005b[] has not been destroyed. The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.3.250.0/windows/1.3-extensions/vkspec.html#VUID-vkDestroyDevice-device-00378)
-    Objects: 2
-        [0] 0x22bf32a42c0, type: 3, name: NULL
-        [1] 0x6dcc3f000000005b, type: 9, name: NULL
-[1m[38;2;255;255;255m[info][app_on_deinit]: Graphics API cleaned up
-[0m[1m[38;2;255;255;255m[info][win32]: Closing Application
+[0m[1m[38;2;255;255;255m[info][game_state]: player id: 1 - 0x1f06f5a00b8
+[0m[1m[38;2;255;255;255m[info][game_state]: world size: 36mb
 [0m

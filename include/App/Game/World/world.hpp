@@ -2,7 +2,7 @@
 
 #include "core.hpp"
 
-#include "App/app.hpp"
+#include "App/game_state.hpp"
 #include "App/Game/Entity/entity.hpp"
 #include "App/Game/Rendering/render_system.hpp"
 
@@ -11,7 +11,7 @@ namespace game {
 
     // note(zack): everything I need to rebuild game state should be in this struct
     struct world_t {
-        app_t* app;
+        game_state_t* game_state;
 
         arena_t arena;
         arena_t frame_arena[2];
@@ -36,10 +36,10 @@ namespace game {
     };
 
     inline world_t*
-    world_init(arena_t* arena, app_t* app, physics::api_t* phys_api) {
+    world_init(arena_t* arena, game_state_t* game_state, physics::api_t* phys_api) {
         TIMED_FUNCTION;
         world_t* world = arena_alloc_ctor<world_t>(arena, 1);
-        world->app = app;
+        world->game_state = game_state;
         world->physics = phys_api;
         
         world->arena = arena_sub_arena(arena, megabytes(32));
@@ -54,7 +54,7 @@ namespace game {
     clone(world_t* src, arena_t* arena) noexcept {
         assert(src);
 
-        world_t* new_world = world_init(arena, src->app, src->physics);
+        world_t* new_world = world_init(arena, src->game_state, src->physics);
 
         new_world->entity_count = src->entity_count;
         new_world->entity_capacity = src->entity_capacity;
@@ -149,7 +149,7 @@ namespace game {
     inline void
     world_update_physics(world_t* world) {
         TIMED_FUNCTION;
-        const auto* input = &world->app->app_mem->input;
+        const auto* input = &world->game_state->game_memory->input;
         for (size_t i{0}; i < world->entity_count; i++) {
             auto* e = world->entities + i;
             if (e->physics.rigidbody && e->physics.flags & game::PhysicsEntityFlags_Static) {
@@ -214,7 +214,7 @@ spawn(
 ) {
     using namespace std::string_view_literals;
     TIMED_FUNCTION;
-    utl::res::pack_file_t* resource_file = world->app->resource_file;
+    utl::res::pack_file_t* resource_file = world->game_state->resource_file;
 
     entity_t* entity = world_create_entity(world);
 
@@ -223,7 +223,7 @@ spawn(
         entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
     }
     if (def.type_name != ""sv) {
-        entity->name.own(&world->app->string_arena, def.type_name);
+        entity->name.own(&world->game_state->string_arena, def.type_name);
     }
     entity->transform.origin = pos;
 
@@ -234,7 +234,7 @@ spawn(
     if (def.coroutine) {
         entity->coroutine.emplace(
             game::entity_coroutine_t{
-                .coroutine={world->app->app_mem->input.time, (void*)entity}, 
+                .coroutine={world->game_state->game_memory->input.time, (void*)entity}, 
                 .func=def.coroutine
             }
         );

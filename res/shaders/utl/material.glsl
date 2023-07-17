@@ -6,7 +6,7 @@ struct IndirectIndexedDraw {
     uint     first_instance;
     uint     albedo_id;
     uint     normal_id;
-    uint pad;
+    uint     object_id;
 };
 
 struct Material {

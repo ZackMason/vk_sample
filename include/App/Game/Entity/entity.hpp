@@ -7,6 +7,8 @@
 #include "App/Game/Util/camera.hpp"
 #include "App/Game/Weapons/base_weapon.hpp"
 #include "App/Game/Entity/entity_concept.hpp"
+#include "App/Game/Rendering/particle.hpp"
+
 #include <variant>
 
 namespace game {
@@ -129,6 +131,8 @@ struct entity_t : node_t<entity_t> {
         u32 material_id{0};
         u32 animation_id{0};
 
+        particle_system_t* particle_system{0};
+
         u32 instance_count{1};
         union
         {
@@ -138,6 +142,7 @@ struct entity_t : node_t<entity_t> {
             };
             m44* instance_buffer;
         };
+        u32 instance_buffer_offset{0};
 
         enum RenderFlag {
             RenderFlag_Instance = 1,
@@ -158,6 +163,8 @@ struct entity_t : node_t<entity_t> {
             render_flags |= dynamic ? RenderFlag_DynamicInstance : RenderFlag_Instance;
             render_flags &= !dynamic ? ~RenderFlag_DynamicInstance : ~RenderFlag_Instance;
 
+            instance_buffer_offset = safe_truncate_u64(pool.count);
+
             if (dynamic) {
                 dynamic_instance_buffer = pool.allocate(count * 2);
                 buffer = dynamic_instance_buffer;
@@ -171,9 +178,9 @@ struct entity_t : node_t<entity_t> {
             if (render_flags & RenderFlag_DynamicInstance) {
                 auto ret = dynamic_instance_buffer == buffer ? 0 : instance_count;
                 swap();
-                return ret;
+                return ret + instance_buffer_offset;
             } else {
-                return 0;
+                return instance_buffer_offset;
             }
         }
         
@@ -209,7 +216,7 @@ struct entity_t : node_t<entity_t> {
     constexpr entity_t() noexcept = default;
 
     constexpr bool is_renderable() const noexcept {
-        return !(gfx.mesh_id == -1);
+        return (gfx.mesh_id != -1) || gfx.particle_system != nullptr;
     }
 
     constexpr bool is_alive() const noexcept {

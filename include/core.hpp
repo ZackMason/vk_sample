@@ -92,6 +92,13 @@ using i16 = int16_t;
 using i32 = int32_t;
 using i64 = int64_t;
 
+using b8 = u8;
+using b16 = u16;
+using b32 = u32;
+using b64 = u64;
+using umm = size_t;
+
+
 using f32 = float;
 using f64 = double;
 
@@ -170,10 +177,18 @@ namespace planes {
     constexpr inline static v3f zx {axis::right + axis::backward};
 };
 
+struct arena_settings_t {
+    size_t alignment{0};
+    size_t minimum_block_size{0};
+    u8     dynamic{0};
+};
+
 struct arena_t {
     std::byte* start{0};
     size_t top{0};
     size_t size{0};
+
+    arena_settings_t settings;
 };
 
 struct frame_arena_t {
@@ -660,33 +675,39 @@ struct timed_block_t {
 
 #include "app_physics.hpp"
 
-struct app_memory_t {
-    arena_t arena;
-    // void* perm_memory{nullptr};
-    // size_t perm_memory_size{};
+struct platform_api_t {
+    using allocate_memory_function = void*(*)(umm);
+    using free_memory_function = void(*)(void*);
 
-    app_config_t config;
-    app_input_t input;
+    allocate_memory_function allocate;
+    free_memory_function free;
 
-    bool running{true};
-
-    // void* (__cdecl* malloc)(size_t);
-    // void* (__cdecl* realloc)(void*, size_t);
-    // void (__cdecl* free)(void*);
+    using message_box_function = i32(*)(const char*);
+    message_box_function message_box{0};
 
     struct audio_closures_t {
         utl::closure_t* load_sound_closure;
         utl::closure_t* play_sound_closure;
         utl::closure_t* stop_sound_closure;
     } audio;
-
-    physics::api_t* physics{nullptr};
-
-    using message_box_function = i32(*)(const char*);
-    message_box_function message_box{0};
 };
 
-using app_func_t = void(__cdecl *)(app_memory_t*);
+extern platform_api_t Platform;
+
+struct game_memory_t {
+    platform_api_t platform;
+
+    arena_t arena;
+
+    app_config_t config;
+    app_input_t input;
+
+    b32 running{true};
+
+    physics::api_t* physics{nullptr};
+};
+
+using app_func_t = void(__cdecl *)(game_memory_t*);
 
 struct app_dll_t {
 #if _WIN32
@@ -849,6 +870,18 @@ arena_alloc(arena_t* arena) {
     assert(arena->top <= arena->size && "Arena overflow");
 
     return (T*)p_start;
+}
+
+template <typename T>
+inline T*
+arena_alloc(arena_t* arena, size_t count) {
+    T* first = arena_alloc<T>(arena);
+
+    for(size_t i = 1; i < count; i++) {
+        arena_alloc<T>(arena);
+    }
+
+    return first;
 }
 
 inline std::byte*
@@ -1802,6 +1835,10 @@ struct aabb_t {
         return (max+min)/2.0f;
     }
 
+    T sample(f32 a) const {
+        return size() * a + min;
+    }
+
     void expand(const aabb_t<T>& o) {
         expand(o.min);
         expand(o.max);
@@ -1956,8 +1993,9 @@ struct transform_t {
         origin += delta;
         return *this;
     }
-	void scale(const v3f& delta) {
+	transform_t& scale(const v3f& delta) {
         basis = glm::scale(m44{basis}, delta);
+        return *this;
     }
 	transform_t& rotate(const v3f& axis, f32 rads) {
         set_rotation((get_orientation() * glm::angleAxis(rads, axis)));
@@ -2139,7 +2177,7 @@ struct indirect_indexed_draw_t {
     u32     first_instance{};
     u32     albedo_id{};
     u32     normal_id{};
-    u32     padd{};
+    u32     object_id{};
 };
 
 using index32_t = u32;
@@ -4269,6 +4307,10 @@ struct random_t {
     template <typename T>
     auto choice(const T& indexable) -> const typename T::value_type& {
         return indexable[rng.rand()%indexable.size()];
+    }
+
+    f32 range(const math::aabb_t<f32>& range) {
+        return this->randf() * range.size() + range.min;
     }
 
     v3f aabb(const math::aabb_t<v3f>& box) {

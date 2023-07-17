@@ -60,6 +60,10 @@ struct texture_2d_t {
     VkFormat format{VK_FORMAT_R8G8B8A8_SRGB};
     VkSampler sampler;
     VkDeviceMemory vdm;
+
+    void calculate_mip_level() {
+        mip_levels = static_cast<u32>(std::floor(std::log2(std::max(size.x, size.y)))) + 1;
+    }
 };
 
 struct cube_map_t {
@@ -256,7 +260,7 @@ struct state_t {
 
     texture_2d_t null_texture;
     texture_2d_t depth_stencil_texture;
-    texture_2d_t color_buffer_texture;
+    
 
     VkDebugUtilsMessengerEXT debug_messenger;
 
@@ -361,8 +365,8 @@ struct state_t {
 
     // todo(zack): need to select proper memory type
     template <typename T, size_t N>
-    VkResult create_storage_buffer(storage_buffer_t<T, N>* buffer) {
-        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer);
+    VkResult create_storage_buffer(storage_buffer_t<T, N>* buffer, u32 additional_usage = 0 ) {
+        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | additional_usage, buffer);
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(T) * N, 0, &gpu_ptr);
         buffer->pool = utl::pool_t<T>{(T*)gpu_ptr, N};

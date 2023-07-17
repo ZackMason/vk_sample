@@ -12,7 +12,6 @@ layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 	float 	uTime;
 } Sporadic;
 
-
 struct ObjectData {
 	mat4 model;
 
@@ -60,21 +59,24 @@ layout ( location = 7 ) out flat uint vNormalId;
 
 void
 main() {
-	mat4   M = uObjectBuffer.objects[gl_BaseInstance].model;
+	IndirectIndexedDraw draw = uIndirectBuffer.draw[gl_DrawID];
+	uint object_id = draw.object_id;
+
+	mat4   M = uObjectBuffer.objects[object_id].model;
 	vec3 vertex = aVertex;
-	uint instance_offset = uObjectBuffer.objects[gl_BaseInstance].padding[2];
-	uint i = gl_InstanceIndex - gl_BaseInstance;
-	if (i > 1) {
-		M = M * uInstanceData.instances[gl_InstanceIndex].model;
+	uint instance_offset = uObjectBuffer.objects[object_id].padding[2];
+
+
+	if (draw.instance_count > 1) {
+		M = M * uInstanceData.instances[gl_InstanceIndex + instance_offset].model;
 
 		vec3 world_pos = (M * vec4(vertex, 1.0)).xyz;
 		vertex.xz += max(vertex.y, 0.0) * sin(Sporadic.uTime * 0.1 + world_pos.x) * 0.05 + cos(Sporadic.uTime * 0.12 + world_pos.z)*0.1;
 	}
 	mat4 PVM = PushConstants.uVP * M;
 
-	vMatId = uObjectBuffer.objects[gl_BaseInstance].material_id;
-	// vAlbedoId = PushConstants.uAlbedoId;
-	// vNormalId = PushConstants.uNormalId;
+	vMatId = uObjectBuffer.objects[object_id].material_id;
+
 	vAlbedoId = uIndirectBuffer.draw[gl_DrawID].albedo_id;
 	vNormalId = uIndirectBuffer.draw[gl_DrawID].normal_id;
 

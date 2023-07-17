@@ -32,15 +32,15 @@ namespace prcgen::terrain {
             }
         }
 
-    // app->mesh_cache.add(
-    //     &app->mesh_arena,
-    //     mesh_builder.build(&app->mesh_arena)
+    // game_state->mesh_cache.add(
+    //     &game_state->mesh_arena,
+    //     mesh_builder.build(&game_state->mesh_arena)
     // );
-    // utl::str_hash_create(app->mesh_hash);
-    // utl::str_hash_create(app->mesh_hash_meta);
+    // utl::str_hash_create(game_state->mesh_hash);
+    // utl::str_hash_create(game_state->mesh_hash_meta);
 
-    // utl::str_hash_add(app->mesh_hash, "ground", 0);    
-    // rendering::add_mesh(app->render_system, "ground", app->mesh_cache.get(0));
+    // utl::str_hash_add(game_state->mesh_hash, "ground", 0);    
+    // rendering::add_mesh(game_state->render_system, "ground", game_state->mesh_cache.get(0));
 
     }
 };

@@ -6,7 +6,9 @@
 #include "khr/spirv_reflect.h"
 #include "khr/spirv_reflect.c"
 
-#include "App/app.cpp"
+platform_api_t Platform;
+
+#include "App/game_state.cpp"
 #include "App/vk_state.cpp"
 
 #if GEN_INTERNAL

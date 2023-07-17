@@ -432,13 +432,6 @@ void state_t::init(app_config_t* info, arena_t* temp_arena) {
 
     load_texture_sampler(&null_texture, "./res/textures/null", temp_arena);
     
-    create_image(info->window_size[0], info->window_size[1], 1, 
-        msaa_samples, swap_chain_image_format, VK_IMAGE_TILING_OPTIMAL, 
-        VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, 
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &color_buffer_texture);
-
-    color_buffer_texture.image_view = create_image_view(device, color_buffer_texture.image, swap_chain_image_format, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-
     create_descriptor_set_pool();
 
     create_command_buffer();
@@ -2047,7 +2040,7 @@ state_t::load_texture(
 
     stbi_set_flip_vertically_on_load(true);
     texture->channels = 0;
-    u8* data = stbi_load(fmt_sv("{}.png", path).data(), &texture->size.x, &texture->size.y, &texture->channels, 0);
+    u8* data = stbi_load(fmt_sv("{}.png", path).data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
     if (!data) {
         data = stbi_load(fmt_sv("{}.jpg", path).data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
         texture->channels = 4;
@@ -2141,7 +2134,7 @@ void generate_mipmaps(state_t* state, texture_2d_t* texture) {
     }
     barrier.subresourceRange.baseMipLevel = texture->mip_levels - 1;
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    texture->image_layout = barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
@@ -2167,7 +2160,7 @@ void
 state_t::load_texture_sampler(
     texture_2d_t* texture
 ) {
-    auto image_size = texture->size[0] * texture->size[1] * texture->channels; // @hardcoded 4 channels
+    auto image_size = texture->size[0] * texture->size[1] * 4; // @hardcoded 4 channels
     if (texture->format == VK_FORMAT_R32G32B32A32_SFLOAT) {
         image_size *= 4;
     }
@@ -2252,8 +2245,13 @@ state_t::load_texture_sampler(
 
     transition_image_layout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copy_buffer_to_image(&staging_buffer, texture);
-    generate_mipmaps(this, texture);
-    transition_image_layout(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    if (texture->mip_levels > 1) {
+        generate_mipmaps(this, texture);
+    } else if (texture->image_layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        
+        transition_image_layout(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // }
+    }
 
     vkDestroyBuffer(device, staging_buffer.buffer, nullptr);
     vkFreeMemory(device, staging_buffer.vdm, nullptr);

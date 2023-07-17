@@ -6,10 +6,10 @@
 #include "App/Game/Entity/entity.hpp"
 #include "App/Game/Entity/entity_db.hpp"
 
-#include "App/app.hpp"
+#include "App/game_state.hpp"
 
 struct entity_editor_t {
-    app_t* app{0};
+    game_state_t* game_state{0};
     gfx::gui::im::state_t imgui;
 
     m44 projection{1.0f};
@@ -19,9 +19,9 @@ struct entity_editor_t {
 
     game::db::prefab_t entity;
 
-    entity_editor_t(app_t* app_)
-    : app{app_}, imgui{
-        .ctx = app->gui.ctx,
+    entity_editor_t(game_state_t* app_)
+    : game_state{app_}, imgui{
+        .ctx = game_state->gui.ctx,
         .theme = gfx::gui::theme_t {
             .fg_color = gfx::color::rgba::gray,
             .bg_color = gfx::color::rgba::black,
@@ -142,9 +142,9 @@ object_gui(gfx::gui::im::state_t& imgui, auto& value, size_t depth = 0) {
 
 inline static void
 entity_editor_update(entity_editor_t* ee) {
-    auto* app = ee->app;
+    auto* game_state = ee->game_state;
 
-    rendering::begin_frame(app->render_system);
+    rendering::begin_frame(game_state->render_system);
 }
 
 inline static void
@@ -159,10 +159,10 @@ entity_editor_render(entity_editor_t* ee) {
     local_persist bool show_graphics = false;
     local_persist bool show_physics = false;
 
-    auto* app = ee->app;
+    auto* game_state = ee->game_state;
     auto& imgui = ee->imgui;
-    const auto width = app->gui.ctx.screen_size.x;
-    gfx::gui::ctx_clear(&app->gui.ctx, &app->gui.vertices[frame&1].pool, &app->gui.indices[frame&1].pool);
+    const auto width = game_state->gui.ctx.screen_size.x;
+    gfx::gui::ctx_clear(&game_state->gui.ctx, &game_state->gui.vertices[frame&1].pool, &game_state->gui.indices[frame&1].pool);
 
     if (im::begin_panel(imgui, "EE", v2f{width/3.0f,0.0f} )) {
         im::text(imgui, "Entity Editor"sv);
@@ -189,7 +189,7 @@ entity_editor_render(entity_editor_t* ee) {
             im::same_line(imgui);
             if (im::text(imgui, "Accept"sv)) {
                 if (show_load) {
-                    ee->entity = game::db::load_from_file(app->main_arena, fmt_sv("./res/entity/{}", file_view));
+                    ee->entity = game::db::load_from_file(game_state->main_arena, fmt_sv("./res/entity/{}", file_view));
                 } else { // show_save
                     std::ofstream file{fmt_str("./res/entity/{}", file_view), std::ios::binary};
                     file.write((const char*)&ee->entity, sizeof(game::db::prefab_t));

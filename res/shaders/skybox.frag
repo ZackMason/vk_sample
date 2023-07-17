@@ -32,7 +32,7 @@ main() {
 	color.rgb += max(0.0, 1.0-pow(dot(color.rgb,color.rgb),.1250));// * stars(uv, 32, 0.04510, max(0.0, 2.0-length(extinction)));
 
 	// ground fade
-    if (vN.y < 0) {
+    if (vN.y < -0.05) {
         color = mix(vec3(1.0), vec3(0.3412, 0.1569, 0.1569), .750-vN.y);
 	}
     

@@ -34,7 +34,7 @@ T* win32_alloc(){
 #include <GLFW/glfw3native.h>
 
 GLFWwindow* 
-init_glfw(app_memory_t* app_mem) {
+init_glfw(game_memory_t* game_memory) {
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -43,7 +43,7 @@ init_glfw(app_memory_t* app_mem) {
 	
     auto* window = glfwCreateWindow(800, 600, "Webgpu App", 0, 0);
 
-    app_mem->config.window_handle = glfwGetWin32Window(window);
+    game_memory->config.window_handle = glfwGetWin32Window(window);
 
     assert(window);
 
