@@ -88,7 +88,7 @@ make_grid_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size, v3f c1,
     u64 i = 0;
     range_u64(x, 0, size) {
         range_u64(y, 0, size) {
-            auto n = std::sinf((f32)x/(f32)size*math::constants::pi32*grid_count) * std::cosf((f32)y/(f32)size*math::constants::pi32*grid_count);
+            auto n = std::sinf((f32)x/(f32)size*math::constants::pi32*grid_count) * std::sinf((f32)y/(f32)size*math::constants::pi32*grid_count);
             n = glm::step(n, 0.0f); 
             auto c = glm::mix(c1,c2,n);
             auto uc = gfx::color::to_color32(c);
@@ -101,6 +101,32 @@ make_grid_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size, v3f c1,
     tex->calculate_mip_level();
     return tex;
 }
+
+inline static gfx::vul::texture_2d_t*
+texture_add_border(gfx::vul::texture_2d_t* texture, v3f c1, u32 size) {
+    assert(texture->size.x > 0 && texture->size.y > 0);
+    const auto w = (u32)texture->size.x;
+    const auto i = [=](u32 x, u32 y) {
+        return (y*w+x);
+    };
+    u32* pixels = (u32*)texture->pixels;
+    auto uc = gfx::color::to_color32(c1);
+    range_u32(x, 0, (u32)texture->size.x) { 
+        range_u32(j, 0, size) {
+            pixels[i(x,j)] = uc;
+            pixels[i(x,texture->size.y-1-j)] = uc;
+        }
+    }
+    range_u32(y, 0, (u32)texture->size.y) {
+        range_u32(j, 0, size) {
+            pixels[i(j,y)] = uc;
+            pixels[i(texture->size.x-1-j,y)] = uc;
+        }
+    }
+    return texture;
+}
+
+
 inline static gfx::vul::texture_2d_t*
 make_error_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size) {
     // auto* tex = arena_alloc<gfx::vul::texture_2d_t>(arena);
@@ -152,6 +178,8 @@ app_init_graphics(game_memory_t* game_memory) {
     }
 
     make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.3f}, v3f{0.6f}, 2.0f);
+    // texture_add_border(&vk_gfx.null_texture, gfx::color::v3::yellow, 4);
+    texture_add_border(&vk_gfx.null_texture, v3f{0.2f}, 4);
     // make_error_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256);
     vk_gfx.load_texture_sampler(&vk_gfx.null_texture);
 
@@ -530,18 +558,20 @@ app_on_init(game_memory_t* game_memory) {
 
     };
 
-    auto* teapot_particle = game::spawn(game_state->game_world, game_state->render_system, game::db::misc::sphere);
+    auto* teapot_particle = game::spawn(game_state->game_world, game_state->render_system, game::db::misc::teapot_particle);
     teapot_particle->gfx.particle_system = particle_system_create(&game_state->game_world->arena, 1000);
     teapot_particle->gfx.instance(game_state->render_system->instance_storage_buffer.pool, 1000, 1);
 
 
     teapot_particle->gfx.particle_system->spawn_rate = 0.02f;
+    teapot_particle->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>{1.0f, 0.0f};
     teapot_particle->gfx.particle_system->velocity_random = math::aabb_t<v3f>{v3f{-4.0f}, v3f{4.0f}};
     teapot_particle->gfx.particle_system->angular_velocity_random = math::aabb_t<v3f>{v3f{-4.0f}, v3f{4.0f}};
     teapot_particle->gfx.particle_system->template_particle = particle_t {
         .position = v3f{0.0},
         .life_time = 4.0f,
         .color = gfx::color::v4::purple,
+        .scale = 1.0f,
         .velocity = axis::up * 5.0f
     };
 

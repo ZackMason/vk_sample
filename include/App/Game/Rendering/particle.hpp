@@ -87,7 +87,7 @@ inline static void particle_system_update(
         particle->velocity += system->acceleration * dt;
         particle->position += particle->velocity * dt;
         particle->orientation += (particle->orientation * glm::quat(0.0f, particle->angular_velocity)) * (0.5f * dt);
-        particle->scale = system->template_particle.scale * system->scale_over_life_time.sample(life_alpha);
+        particle->scale = system->template_particle.scale * system->scale_over_life_time.sample(1.0f-life_alpha);
     }
 }
 

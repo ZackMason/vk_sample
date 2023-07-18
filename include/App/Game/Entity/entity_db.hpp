@@ -110,6 +110,16 @@ sphere {
 };
 
 DB_ENTRY
+teapot_particle {
+    .type = entity_type::environment,
+    .type_name = "Teapot Particle",
+    .gfx = {
+        .mesh_name = "res/models/particles/teapot_particle.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+};
+
+DB_ENTRY
 teapot {
     .type = entity_type::environment,
     .type_name = "Teapot",
