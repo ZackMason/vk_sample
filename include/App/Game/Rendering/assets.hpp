@@ -85,6 +85,7 @@ struct sound_description_t {
     std::string_view    filename;
     f32                 volume{1.0f};
     u8                  loop{false};
+    mutable u64         id{0};
 };
 
 namespace assets::sounds {
@@ -93,6 +94,12 @@ namespace assets::sounds {
     ASSET_SOUND(unlock){"./res/audio/unlock.wav"};
 
     #undef ASSET_SOUND
+
+    #define LOAD_ASSET_SOUND(name) name.id = Platform.audio.load_sound.dispatch_request<u64>(name.filename.data())
+    void load() {
+        LOAD_ASSET_SOUND(unlock);
+    }
+    #undef LOAD_ASSET_SOUND
 };
 
 #undef ASSET_TYPE

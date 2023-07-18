@@ -80,7 +80,7 @@ FILETIME win32_last_write_time(const char* path){
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
-// #define USE_SDL 1
+#define USE_SDL 1
 
 #if USE_SDL
 #define SDL_MAIN_HANDLED
@@ -525,23 +525,23 @@ main(int argc, char* argv[]) {
 #endif
 
     audio_cache_t audio_cache{};
-    utl::closure_t load_sound_closure;
+    closure_t& load_sound_closure = Platform.audio.load_sound;
     load_sound_closure.data = &audio_cache;
     load_sound_closure.func = reinterpret_cast<void(*)(void*)>(
         +[](void* data, const char* path) -> u64 {
             gen_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
 
             auto* cache = (audio_cache_t*)data;
-            #if USE_SDL
+#if USE_SDL
             cache->sounds[cache->sound_count] = Mix_LoadWAV(path);
-            #endif
+#endif
 
             gen_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
         
             return cache->sound_count++;
     });
     
-    utl::closure_t play_sound_closure;
+    closure_t& play_sound_closure = Platform.audio.play_sound;
     play_sound_closure.data = &audio_cache;
     play_sound_closure.func = reinterpret_cast<void(*)(void*)>(
         +[](void* data, u64 id) -> void {
@@ -549,17 +549,12 @@ main(int argc, char* argv[]) {
 
             auto* cache = (audio_cache_t*)data;
 
-            #if USE_SDL
+#if USE_SDL
             Mix_PlayChannel(0, cache->sounds[id], 0);
-            #endif
+#endif
     });
-    
-    game_memory.platform.audio.load_sound_closure = &load_sound_closure;
-    game_memory.platform.audio.play_sound_closure = &play_sound_closure;
 
-    u64 sound = load_sound_closure.dispatch_request<u64>("./res/audio/unlock.wav");
-    gen_info("sdl_mixer::play_sound", "playing Sound: {}", sound);
-    //play_sound_closure.dispatch(sound);
+    game_memory.platform = Platform;
 
     app_dll_t app_dlls;
     load_dlls(&app_dlls);

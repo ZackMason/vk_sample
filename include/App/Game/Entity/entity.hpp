@@ -68,7 +68,7 @@ struct character_stats_t {
 };
 
 struct entity_coroutine_t {
-    entity_coroutine_t* next{0};
+    // entity_coroutine_t* next{0};
     coroutine_t coroutine;
 
     bool _is_running = false;
@@ -76,16 +76,18 @@ struct entity_coroutine_t {
     void start() {
         if (!_is_running) {
             coroutine.line=0;
+            _is_running = true;
+        } else {
+            gen_warn(__FUNCTION__, "{} tried to start coroutine that is already running", coroutine.data);
         }
-        _is_running = true;
     }
-    void run() {
+    inline void run(frame_arena_t& frame_arena) {
         if (func && _is_running) {
-            func(&coroutine);
+            func(&coroutine, frame_arena);
             _is_running = coroutine.running;
         }
     }
-    void (*func)(coroutine_t*);
+    void (*func)(coroutine_t*, frame_arena_t&);
 };
 
 DEFINE_TYPED_ID(entity_id);
@@ -130,6 +132,8 @@ struct entity_t : node_t<entity_t> {
         u32 albedo_id{0};
         u32 material_id{0};
         u32 animation_id{0};
+        // u32 object_id{0};
+        // u32 indirect_start{0};
 
         particle_system_t* particle_system{0};
 

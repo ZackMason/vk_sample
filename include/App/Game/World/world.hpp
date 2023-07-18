@@ -14,8 +14,9 @@ namespace game {
         game_state_t* game_state;
 
         arena_t arena;
-        arena_t frame_arena[2];
-        u64     frame_count{0};
+        frame_arena_t frame_arena;
+        // arena_t frame_arena[2];
+        // u64     frame_count{0};
 
         size_t          entity_count{0};
         size_t          entity_capacity{0};
@@ -32,6 +33,11 @@ namespace game {
 
         utl::rng::random_t<utl::rng::xor64_random_t> entropy;
 
+        rendering::system_t* 
+        render_system() {
+            return game_state->render_system;
+        }
+
         // world_t() = default;
     };
 
@@ -42,10 +48,10 @@ namespace game {
         world->game_state = game_state;
         world->physics = phys_api;
         
-        world->arena = arena_sub_arena(arena, megabytes(32));
+        world->arena = arena_sub_arena(arena, megabytes(256));
 
-        world->frame_arena[0] = arena_sub_arena(&world->arena, kilobytes(4));
-        world->frame_arena[1] = arena_sub_arena(&world->arena, kilobytes(4));
+        world->frame_arena.arena[0] = arena_sub_arena(&world->arena, megabytes(64));
+        world->frame_arena.arena[1] = arena_sub_arena(&world->arena, megabytes(64));
 
         return world;
     }
@@ -147,6 +153,12 @@ namespace game {
     }
 
     inline void
+    world_update(world_t* world, f32 dt) {
+        world->frame_arena.active += 1;
+        arena_clear(&world->frame_arena.get());
+    }
+
+    inline void
     world_update_physics(world_t* world) {
         TIMED_FUNCTION;
         const auto* input = &world->game_state->game_memory->input;
@@ -198,11 +210,6 @@ namespace game {
                 world_destroy_entity(world, e);
             }
         }
-    }
-
-    inline void
-    world_update(world_t* world, f32 dt) {
-
     }
     
 inline entity_t*

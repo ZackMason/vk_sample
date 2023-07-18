@@ -153,6 +153,7 @@ descriptor_allocator_t::reset_pools() {
         free_pools[free_pool_count++] = p;
         assert(free_pool_count < MAX_DESCRIPTOR_POOLS);
     }
+    std::memset(used_pools, 0, sizeof(VkDescriptorPool) * array_count(used_pools));
     used_pool_count = 0;
     current_pool = VK_NULL_HANDLE;
 }
@@ -308,7 +309,7 @@ descriptor_builder_t& descriptor_builder_t::bind_buffer(
     return *this;
 }
 
-descriptor_builder_t& descriptor_builder_t::    bind_image(
+descriptor_builder_t& descriptor_builder_t::bind_image(
     uint32_t binding, 
     VkDescriptorImageInfo* imageInfo,
     u32 image_count,

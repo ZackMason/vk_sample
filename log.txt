@@ -1,40 +1,17 @@
 [1m[38;2;255;255;255m[info][save]: Save File Path: C:\Users\zack\AppData\Roaming/estella
 [0m[1m[38;2;255;255;255m[info][win32]: Loading Platform Layer
 [0m[1m[38;2;255;255;255m[info][win32]: Initializing Physics
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/unlock.wav
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
 [0m
 Found 2 GLFW Required Instance Extensions:
 	VK_KHR_surface
 	VK_KHR_win32_surface
 [1m[38;2;255;255;255m[info][win32]: Platform Initialization Completed
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/unlock.wav
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 0
 [0m[1m[38;2;255;255;255m[info][app_init]: Creating physics scene
 [0m[1m[38;2;255;255;255m[info][physics::physx_create_scene]: Creating scene
-[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x1f16c1a00d8
+[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x25410b60108
 [0m[1m[38;2;255;255;255m[info][app_init]: Created physics scene
-[0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 24
-[0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_optimus
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_bandicam_helper
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_RENDERDOC_Capture
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: GalaxyOverlayVkLayer
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: GalaxyOverlayVkLayer_VERBOSE
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: GalaxyOverlayVkLayer_DEBUG
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_nsight
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_nomad_release_public_2022_2_1
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_GPU_Trace_release_public_2022_2_1
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OW_OVERLAY
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OW_OBS_HOOK
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_overlay
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_EOS_Overlay
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_EOS_Overlay
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_ROCKSTAR_GAMES_social_club
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_api_dump
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_gfxreconstruct
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_synchronization2
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_validation
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 15 Instance Extensions actually available:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_device_group_creation'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_external_fence_capabilities'
@@ -53,8 +30,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_LUNARG_direct_driver_loading'
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_surface
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_win32_surface
-[0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_EXT_debug_utils
-[0m[1m[38;2;255;255;255m[info][vulkan]: 3 extensions loaded
+[0m[1m[38;2;255;255;255m[info][vulkan]: 2 extensions loaded
 [0m[1m[38;2;255;255;255m[info][vulkan]: instance created
 [0m[1m[38;2;255;255;255m[info][vulkan]: created surface.
 [0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 185
@@ -250,17 +226,24 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 64
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 64
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
+	./res/textures/null
+
+[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
+	width: 128
+	height: 128
+	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (31): i = 2 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (3): i = 1 *****
+
 [0m[1m[38;2;255;255;255m[info][vk]: vkCreateDescriptorPool
 [0m[1m[38;2;255;255;255m[info][vulkan]: init finished
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -274,9 +257,6 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 16588800
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -286,93 +266,48 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1280000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1280000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6400
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32864
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 16384
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 320000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 320000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 440000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 120000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 2400000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 96000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 96000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -395,9 +330,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 2084
 	height: 2084
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 17372224
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -412,9 +344,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 2084
 	height: 2084
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 17372224
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -435,9 +364,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 8
 	height: 8
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -452,9 +378,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 8
 	height: 8
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -560,6 +483,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Default_OBJ, albedo: , normal: 
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Utah_Teapot_Quads
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Clear_Coat_Plastic, albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.002
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
@@ -705,9 +630,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -722,9 +644,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -739,9 +658,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -756,9 +672,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -773,9 +686,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -790,9 +700,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -807,9 +714,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -824,9 +728,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -841,9 +742,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -858,9 +756,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -875,9 +770,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -892,9 +784,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -909,9 +798,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -926,9 +812,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -943,9 +826,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -960,9 +840,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -977,9 +854,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -994,9 +868,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1011,9 +882,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1028,9 +896,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1045,9 +910,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1062,9 +924,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1079,9 +938,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1096,9 +952,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1113,9 +966,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1130,9 +980,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 4
 	height: 4
 	channels: 3
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 64
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1147,9 +994,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1164,9 +1008,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1181,9 +1022,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1198,9 +1036,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1215,9 +1050,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1232,9 +1064,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1249,9 +1078,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 1024
 	height: 1024
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1410,9 +1236,6 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: 14206284874694347467, parent: 77
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: 11779967842043732372, parent: 78
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: 6652614860823904566, parent: 79
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1432,6 +1255,829 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/gui.frag.spv
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.vert.spv
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.frag.spv
-[0m[1m[38;2;255;255;255m[info][game_state]: player id: 1 - 0x1f06f5a00b8
-[0m[1m[38;2;255;255;255m[info][game_state]: world size: 36mb
+[0m[1m[38;2;255;255;255m[info][game_state]: player id: 1 - 0x25313f600b8
+[0m[1m[38;2;255;255;255m[info][game_state]: world size: 37mb
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][gui]: Killing entity: 0x25313f9b398
+[0m[1m[38;2;255;255;255m[info][gui]: Killing entity: 0x25313f9aee8
+[0m[1m[38;2;255;255;255m[info][gui]: Killing entity: 0x25313f9b5f0
+[0m[1m[38;2;255;255;255m[info][gui]: Killing entity: 0x25313f9b140
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
+[0m[1m[38;2;255;255;255m[info][win32]: Saved graphics config
+[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Render System cleaned up
+[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Graphics API cleaned up
+[0m[1m[38;2;255;255;255m[info][win32]: Closing Application
 [0m

@@ -472,27 +472,27 @@ public:
             u32 i = 0;
             buffer_info[i].buffer = buffers[i];
             buffer_info[i].offset = 0; 
-            buffer_info[i++].range = sizeof(gfx::vul::sporadic_buffer_t);
+            buffer_info[i++].range = VK_WHOLE_SIZE;//sizeof(gfx::vul::sporadic_buffer_t);
 
             buffer_info[i].buffer = buffers[i];
             buffer_info[i].offset = 0; 
-            buffer_info[i++].range = (sizeof(m44) + sizeof(u32) * 4 * 4) * 10'000; // hardcoded
+            buffer_info[i++].range = VK_WHOLE_SIZE;//(sizeof(m44) + sizeof(u32) * 4 * 4) * 10'000; // hardcoded
             
             buffer_info[i].buffer = buffers[i];
             buffer_info[i].offset = 0; 
-            buffer_info[i++].range = (sizeof(m44)) * 2'000'000; // hardcoded
+            buffer_info[i++].range = VK_WHOLE_SIZE;// (sizeof(m44)) * 2'000'000; // hardcoded
 
             buffer_info[i].buffer = buffers[i];
             buffer_info[i].offset = 0; 
-            buffer_info[i++].range = (sizeof(gfx::indirect_indexed_draw_t)) * 10'000; // hardcoded
+            buffer_info[i++].range = VK_WHOLE_SIZE;//(sizeof(gfx::indirect_indexed_draw_t)) * 10'000; // hardcoded
     
             buffer_info[i].buffer = buffers[i];
             buffer_info[i].offset = 0; 
-            buffer_info[i++].range = sizeof(gfx::material_t) * 100; // hardcoded
+            buffer_info[i++].range = VK_WHOLE_SIZE;//sizeof(gfx::material_t) * 100; // hardcoded
 
             buffer_info[i].buffer = buffers[i];
             buffer_info[i].offset = 0; 
-            buffer_info[i++].range = sizeof(rendering::environment_t);
+            buffer_info[i++].range = VK_WHOLE_SIZE;//sizeof(rendering::environment_t);
 
             using namespace gfx::vul;
             builder
@@ -620,7 +620,7 @@ public:
 
         gfx::vul::descriptor_allocator_t* dynamic_descriptor_allocator{nullptr};
 
-        gfx::vul::storage_buffer_t<gfx::indirect_indexed_draw_t, 10'000> indexed_indirect_storage_buffer{};
+        gfx::vul::storage_buffer_t<gfx::indirect_indexed_draw_t, 1'000'000> indexed_indirect_storage_buffer{};
     };
 
     struct render_data_t {
@@ -686,8 +686,8 @@ public:
         gfx::vul::vertex_buffer_t<gfx::vertex_t, max_scene_vertex_count> vertices;
         gfx::vul::index_buffer_t<max_scene_index_count> indices;
 
-        gfx::vul::storage_buffer_t<render_data_t, 10'000>   job_storage_buffers[2];
-        gfx::vul::storage_buffer_t<render_data_t, 10'000>&  job_storage_buffer() {
+        gfx::vul::storage_buffer_t<render_data_t, 1'000'000>   job_storage_buffers[2];
+        gfx::vul::storage_buffer_t<render_data_t, 1'000'000>&  job_storage_buffer() {
             return job_storage_buffers[frame_count&1];
         }
 

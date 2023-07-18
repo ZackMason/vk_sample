@@ -19,7 +19,7 @@ struct prefab_t {
         char animations[128]{0};
     } gfx;
 
-    void (*coroutine)(coroutine_t*){0};
+    void (*coroutine)(coroutine_t*, frame_arena_t&){0};
     std::optional<character_stats_t> stats{};
     std::optional<wep::base_weapon_t> weapon{};
 
@@ -127,21 +127,21 @@ teapot {
         .mesh_name = "res/models/utah-teapot.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
-        .flags = PhysicsEntityFlags_Dynamic,
-    #if 0 // use convex
-        .shape = physics::collider_shape_type::CONVEX,
-    #else 
-        .shapes = {
-            prefab_t::physics_t::shape_t{
-                .shape = physics::collider_shape_type::SPHERE,
-                .sphere = {
-                    .radius = 1.0f,
-                },
-            },
-        },
-    #endif
-    },
+    // .physics = prefab_t::physics_t {
+    //     .flags = PhysicsEntityFlags_Dynamic,
+    // #if 0 // use convex
+    //     .shape = physics::collider_shape_type::CONVEX,
+    // #else 
+    //     .shapes = {
+    //         prefab_t::physics_t::shape_t{
+    //             .shape = physics::collider_shape_type::SPHERE,
+    //             .sphere = {
+    //                 .radius = 1.0f,
+    //             },
+    //         },
+    //     },
+    // #endif
+    // },
 };
 
 DB_ENTRY
@@ -187,17 +187,22 @@ platform_1000 {
     },
 };
 
-void co_platform(coroutine_t* co) {
+void co_platform(coroutine_t* co, frame_arena_t& frame_arena) {
     auto* e = (game::entity_t*)co->data;
-    local_persist f32 start = 0.0f;
-    local_persist f32 end = 27.0f;
+    auto& y_pos = e->physics.rigidbody->position.y;
+
+    auto* stack = co_stack(co, frame_arena);
+    f32* start  = co_push_stack(co, stack, f32);
+    f32* end    = co_push_stack(co, stack, f32);
 
     co_begin(co);
 
-    start = e->physics.rigidbody->position.y;
-    end = start == 27.0f ? 0.0f : 27.0f;
+        *start = y_pos;
+        *end = math::fcmp(*start, 27.0f) ? 0.0f : 27.0f;
 
-    co_lerp(co, e->physics.rigidbody->position.y, start, end, 2.0f, math::lerp);
+        Platform.audio.play_sound(assets::sounds::unlock.id);
+
+        co_lerp(co, y_pos, *start, *end, .90f, tween::lerp);
 
     co_end(co);
 }
@@ -224,7 +229,7 @@ platform_3x3 {
                 .shape = physics::collider_shape_type::BOX,
                 .flags = 1,
                 .box = {
-                    .size = v3f{3.0f},
+                    .size = v3f{5.5f, 32.0f, 5.5f},
                 },
             },
         },

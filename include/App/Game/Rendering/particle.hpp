@@ -46,6 +46,7 @@ struct particle_system_t {
     };
 };
 
+// user needs to check can spawn before calling
 inline static void particle_system_spawn(
     particle_system_t* system
 ) {
@@ -87,6 +88,7 @@ inline static void particle_system_update(
         particle->velocity += system->acceleration * dt;
         particle->position += particle->velocity * dt;
         particle->orientation += (particle->orientation * glm::quat(0.0f, particle->angular_velocity)) * (0.5f * dt);
+        particle->orientation = glm::normalize(particle->orientation);
         particle->scale = system->template_particle.scale * system->scale_over_life_time.sample(1.0f-life_alpha);
     }
 }
@@ -102,8 +104,8 @@ particle_system_build_matrices(
         auto* particle = system->particles + i;
         matrix[i] = math::transform_t{}
             .translate(particle->position)
+            .set_scale(v3f{particle->scale})
             .rotate_quat(particle->orientation)
-            .scale(v3f{particle->scale})
             .to_matrix();
     }
 }

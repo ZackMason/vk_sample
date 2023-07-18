@@ -7,6 +7,7 @@
 #include "ProcGen/terrain.hpp"
 #include "ProcGen/mesh_builder.hpp"
 #include "App/Game/World/world.hpp"
+#include "App/Game/WorldGen/worlds.hpp"
 
 #include "App/Game/World/Level/level.hpp"
 #include "App/Game/World/Level/Room/room.hpp"
@@ -54,29 +55,6 @@ void player_on_collision(
     // gen_info(__FUNCTION__, "player hit: {} - id", other_entity->id);
 }
 
-namespace tween {
-
-template <typename T, f32 D>
-T in_expo(T b, T c, f32 t) {
-    return (t==0) ? b : c * glm::pow(2, 10 * (t/D - 1.0f)) + b;
-}
-
-template <typename T, f32 D>
-T out_expo(T b, T c, f32 t) {
-    return (t==D) ? b+c : c * (-glm::pow(2, -10 * t/D) + 1) + b;
-}
-
-template <typename T, f32 D>
-T in_out_expo(T b, T c, f32 t) {
-    if (t==0) return b;
-    if (t==D) return b+c;
-    t /= D/2;
-    if (t < 1) return c/2 * glm::pow(2, 10 * (t - 1)) + b;
-    t--;
-    return c/2 * (-glm::pow(2, -10 * t) + 2) + b;
-}
-
-};
 
 
 inline static gfx::vul::texture_2d_t*
@@ -179,7 +157,8 @@ app_init_graphics(game_memory_t* game_memory) {
 
     make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.3f}, v3f{0.6f}, 2.0f);
     // texture_add_border(&vk_gfx.null_texture, gfx::color::v3::yellow, 4);
-    texture_add_border(&vk_gfx.null_texture, v3f{0.2f}, 4);
+    // texture_add_border(&vk_gfx.null_texture, v3f{0.2f}, 4);
+    texture_add_border(&vk_gfx.null_texture, v3f{0.9f}, 4);
     // make_error_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256);
     vk_gfx.load_texture_sampler(&vk_gfx.null_texture);
 
@@ -487,6 +466,8 @@ app_on_init(game_memory_t* game_memory) {
         arena_clear(&game_state->temp_arena);
     };
 
+    assets::sounds::load();
+
     using namespace std::string_view_literals;
 #ifdef GEN_INTERNAL
     game_state->debug.console = arena_alloc<debug_console_t>(main_arena);
@@ -533,94 +514,8 @@ app_on_init(game_memory_t* game_memory) {
     game_state->scene.sporadic_buffer.mode = 1;
     game_state->scene.sporadic_buffer.use_lighting = 1;
 
+    world_0(game_state->game_world);
 
-    auto* player = game::spawn(game_state->game_world, game_state->render_system, game::db::characters::assassin, axis::up * 300.0f);
-    player->physics.rigidbody->on_collision = player_on_collision;
-    player->physics.rigidbody->linear_dampening = 9.0f;
-
-    game::spawn(game_state->game_world, game_state->render_system,
-        game::db::weapons::shotgun,
-        axis::forward * 5.0f);
-        // ->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
-        //     puts("hello");
-        // };
-
-    auto* platform = game::spawn(game_state->game_world, game_state->render_system,
-        game::db::misc::platform_3x3,
-        v3f{8.0f,0.7f,0.0f});
-
-    platform->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
-        auto* p = (game::entity_t*)trigger->user_data;
-        auto* o = (game::entity_t*)other->user_data;
-        if (o->type == game::entity_type::player) {
-            p->coroutine->start();
-        }
-
-    };
-
-    auto* teapot_particle = game::spawn(game_state->game_world, game_state->render_system, game::db::misc::teapot_particle);
-    teapot_particle->gfx.particle_system = particle_system_create(&game_state->game_world->arena, 1000);
-    teapot_particle->gfx.instance(game_state->render_system->instance_storage_buffer.pool, 1000, 1);
-
-
-    teapot_particle->gfx.particle_system->spawn_rate = 0.02f;
-    teapot_particle->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>{1.0f, 0.0f};
-    teapot_particle->gfx.particle_system->velocity_random = math::aabb_t<v3f>{v3f{-4.0f}, v3f{4.0f}};
-    teapot_particle->gfx.particle_system->angular_velocity_random = math::aabb_t<v3f>{v3f{-4.0f}, v3f{4.0f}};
-    teapot_particle->gfx.particle_system->template_particle = particle_t {
-        .position = v3f{0.0},
-        .life_time = 4.0f,
-        .color = gfx::color::v4::purple,
-        .scale = 1.0f,
-        .velocity = axis::up * 5.0f
-    };
-
-    // game::spawn(game_state->game_world, game_state->render_system,
-    //     game::db::load_from_file(game_state->main_arena, "res/entity/shaderball.entt"),
-    //     v3f{-10,1,10});
-
-    // range_u64(i, 0, 1) {
-    //     v3f pos = v3f{0.0f, 35.0f * f32(i), 0.0f};
-    //     auto* r = game::spawn(game_state->game_world, game_state->render_system, game::db::rooms::tower_01, pos);
-        // r->transform.set_rotation(axis::up * math::constants::pi32 * f32(i));
-    // }
-    auto* tree = game::spawn(game_state->game_world, game_state->render_system, game::db::environmental::tree_01);
-    constexpr u32 tree_count = 1'000;
-    tree->gfx.instance(game_state->render_system->instance_storage_buffer.pool, tree_count, 1);
-    
-    for (size_t i = 0; i < tree_count; i++) {
-        tree->gfx.dynamic_instance_buffer[i + tree_count] = 
-        tree->gfx.dynamic_instance_buffer[i] = 
-            math::transform_t{}
-                .translate(400.0f * planes::xz * (utl::rng::random_s::randv() * 2.0f - 1.0f))
-                .rotate(axis::up, utl::rng::random_s::randf() * 10000.0f)
-                .to_matrix();
-    }
-
-    game::spawn(game_state->game_world, game_state->render_system, game::db::rooms::sponza);
-    game::spawn(game_state->game_world, game_state->render_system, game::db::misc::platform_1000, axis::down * 2.0f);
-    
-    utl::rng::random_t<utl::rng::xor64_random_t> rng;
-    loop_iota_u64(i, 9) {
-        auto* e = game::spawn(
-            game_state->game_world, 
-            game_state->render_system,
-            game::db::misc::teapot,
-            rng.randnv<v3f>() * 100.0f * planes::xz + axis::up * 8.0f
-        );
-        e->transform.set_scale(v3f{2.f});
-        e->transform.set_rotation(rng.randnv<v3f>() * 1000.0f);
-        e->gfx.material_id = rng.rand() % 6;
-        // if (e->physics.rigidbody) {
-        //     // e->physics.rigidbody->on_collision = teapot_on_collision;
-        // }
-    }
-
-    gen_info("game_state", "player id: {} - {}", 
-        game_state->game_world->player->id,
-        (void*)game::find_entity_by_id(game_state->game_world, game_state->game_world->player->id)
-    );
-        
     gen_info("game_state", "world size: {}mb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
 }
 
@@ -701,7 +596,7 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
         // auto ro = player->camera_controller.transform.origin;
         auto ro = player->global_transform().origin + rd * 1.7f;
 
-        temp_arena_t fire_arena = world->frame_arena[world->frame_count&1];
+        temp_arena_t fire_arena = world->frame_arena.get();
         u64 fired{0};
         auto* bullets = player->primary_weapon.entity->stats.weapon().fire(&fire_arena, dt, &fired);
 
@@ -768,6 +663,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
     if (game_state->render_system == nullptr) return;
 
     auto* world = game_state->game_world;
+    game::world_update(world, input->dt);
 
     if (world->player->global_transform().origin.y < -1000.0f) {
         game_state->game_memory->input.pressed.keys[key_id::F10] = 1;
@@ -813,7 +709,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
             const bool is_not_renderable = !e->is_renderable();
             // const bool is_running_coroutine = e->coroutine ? e->coroutine->is_running : false;
 
-            e->coroutine->run();
+            e->coroutine->run(world->frame_arena);
 
             if (is_pickupable) {
                 e->transform.rotate(axis::up, input->dt);
@@ -920,6 +816,8 @@ draw_gui(game_memory_t* game_memory) {
         &game_state->texture_arena,
         &game_state->game_arena,
         &game_state->game_world->arena,
+        &game_state->game_world->frame_arena.arena[0],
+        &game_state->game_world->frame_arena.arena[1],
         // &game_state->physics->default_allocator.arena,
         // &game_state->physics->default_allocator.heap_arena,
         &game_state->render_system->arena,
@@ -938,6 +836,8 @@ draw_gui(game_memory_t* game_memory) {
         "- Texture Arena",
         "- Game Arena",
         "- World Arena",
+        "- World Frame 0",
+        "- World Frame 1",
         // "- Physics Arena",
         // "- Physics Heap",
         "- Rendering Arena",

@@ -271,7 +271,7 @@ physx_create_collider_impl(
     collider_t* col = &rigidbody->colliders[rigidbody->collider_count++];
     *col = {};
     col->id = s_collider_id++;
-    auto* material = ps->state->physics->createMaterial(0.5f, 0.5f, 0.1f);
+    local_persist auto* material = ps->state->physics->createMaterial(0.5f, 0.5f, 0.1f);
     switch (col->type = type) {
         case collider_shape_type::CONVEX: {
             auto* ci = (collider_convex_info_t*)info;

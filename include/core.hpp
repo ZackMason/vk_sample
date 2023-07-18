@@ -194,6 +194,13 @@ struct arena_t {
 struct frame_arena_t {
     arena_t arena[2];
     u32     active{0};
+
+    arena_t& get() {
+        return arena[active%2];
+    }
+    arena_t& last() {
+        return arena[!(active%2)];
+    }
 };
 
 using temp_arena_t = arena_t;
@@ -252,7 +259,11 @@ struct coroutine_t {
 	u64 line;
 	f32 start_time;
     u32 running{1};
+    u8* stack{0};
+    u64 stack_size{0};
+    u64 stack_top{0};
 };
+
 
 #define co_begin(coro) switch (coro->line) {case 0: coro->line = 0; coro->running=1;
 #define co_yield(coro) do { coro->line = __LINE__; return; case __LINE__:;} while(0)
@@ -261,7 +272,7 @@ struct coroutine_t {
     { coro->start_time = coro->now; } \
     co_yield_until(coro, coro->now > (coro->start_time) + (f32)duration);\
     coro->start_time = 0; } while (0)
-#define co_end(coro) do { coro->line = __LINE__; coro->running = 0; } while (0); }
+#define co_end(coro) do { coro->line = __LINE__; coro->running = 0; coro->stack = 0;coro->stack_size = coro->stack_top = 0; } while (0); }
 #define co_reset(coro) do { coro->line = 0; } while (0); }
 #define co_set_label(coro, label) case label:
 #define co_goto_label(coro, label) do { coro->line = (label); return; } while(0)
@@ -279,7 +290,28 @@ do { \
 #define loop_iota_u64(itr, stop) for (size_t itr = 0; itr < stop; itr++)
 #define range_u32(itr, start, stop) for (u32 itr = (start); itr < (stop); itr++)
 #define range_u64(itr, start, stop) for (size_t itr = (start); itr < (stop); itr++)
+#define range_f32(itr, start, stop) for (f32 itr = (start); itr < (stop); itr++)
 #define loop_iota_i32(itr, stop) for (int itr = 0; itr < stop; itr++)
+
+struct closure_t {
+    void (*func)(void*){0};
+    void* data{0};
+
+    template <typename ... Args>
+    void operator()(Args ... args) {
+        dispatch(std::forward<Args>(args)...);
+    }
+
+    template <typename ... Args>
+    void dispatch(Args&& ... args) {
+        ((void(*)(void*, Args...))func)(data, std::forward<Args>(args)...);
+    }
+
+    template <typename ReturnType, typename ... Args>
+    ReturnType dispatch_request(Args&& ... args) {
+        return ((ReturnType(*)(void*, Args...))func)(data, std::forward<Args>(args)...);
+    }
+};
 
 inline u32
 safe_truncate_u64(u64 value) {
@@ -686,9 +718,9 @@ struct platform_api_t {
     message_box_function message_box{0};
 
     struct audio_closures_t {
-        utl::closure_t* load_sound_closure;
-        utl::closure_t* play_sound_closure;
-        utl::closure_t* stop_sound_closure;
+        closure_t load_sound;
+        closure_t play_sound;
+        closure_t stop_sound;
     } audio;
 };
 
@@ -945,6 +977,35 @@ arena_create_frame_arena(
     return frame;
 }
 
+arena_t* co_stack(coroutine_t* coro, frame_arena_t& frame_arena) {
+    // if (coro->running == false) return 0;
+    if (coro->stack) {
+        auto* stack = (u8*)arena_alloc(&frame_arena.get(), coro->stack_size);
+        std::memcpy(stack, coro->stack, coro->stack_size);
+        coro->stack = stack;
+        coro->stack_size = coro->stack_top = 0;
+        return 0;
+    } else {
+        coro->stack_top = 0;
+        coro->stack_size = 0;
+        coro->stack = (u8*)arena_get_top(&frame_arena.get());
+        return &frame_arena.get();
+    }    
+}
+
+template <typename T>
+T* co_push_stack_(coroutine_t* coro, arena_t* arena) {
+    // if (coro->running == false) return 0;
+    T* data = (T*)(coro->stack + coro->stack_top);
+    coro->stack_top += sizeof(T);
+    coro->stack_size += sizeof(T);
+    if (arena) { arena_alloc<T>(arena); }
+    return data;
+}
+
+#define co_push_stack(coro, stack, type) co_push_stack_<type>(coro, stack) 
+
+
 namespace utl {
 
 template <typename T>
@@ -1098,22 +1159,6 @@ private:
     T* data{0};
 };
 
-
-
-struct closure_t {
-    void (*func)(void*){0};
-    void* data{0};
-
-    template <typename ... Args>
-    void dispatch(Args&& ... args) {
-        ((void(*)(void*, Args...))func)(data, std::forward<Args>(args)...);
-    }
-
-    template <typename ReturnType, typename ... Args>
-    ReturnType dispatch_request(Args&& ... args) {
-        return ((ReturnType(*)(void*, Args...))func)(data, std::forward<Args>(args)...);
-    }
-};
 template <typename T>
 struct pool_t : public arena_t {
     size_t count{0};
@@ -1537,68 +1582,7 @@ struct any_t {
 
 
 namespace math {
-    template <typename T>
-    inline T lerp(T a, T b, f32 t) {
-        return b * t + a * (1.0f - t);
-    }
-    template <typename T>
-    inline T lerp_dt(T a, T b, f32 s, f32 dt) {
-        return lerp(b, a, std::pow(1.0f - s, dt));
-    }
-    template <typename T>
-    inline T damp(T a, T b, f32 lambda, f32 dt) {
-        return lerp<T>(a, b, 1.0f - std::exp(-lambda * dt));
-    }
-
-    template <typename T>
-    inline T bilinear(T a, T b, T c, T d, f32 u, f32 v) {
-        return glm::mix(
-            glm::mix(a, b, v),
-            glm::mix(c, d, v),
-            u
-        );
-    }
-
-    template <typename T>
-    inline T bezier4(T x, f32 a, f32 b) {
-        a = glm::clamp(a, 0.0f, 1.0f);
-        b = glm::clamp(b, 0.0f, 1.0f);
-        if (a==0.5f) {
-            a += 0.00001f;
-        }
-        f32 om2a = 1.0f - 2.0f*a;
-        f32 t = (glm::sqrt(a*a + om2a*x) - a)/om2a;
-        return (1.0f - 2.0f*b)*(t*t) + (2.0f*b)*t;
-    }
-
-    template <typename T>
-    T smoothdamp(
-        T current, T target, T& velocity, 
-        f32 smooth_time, f32 max_speed, f32 dt
-    ) {
-        smooth_time = glm::max(0.0001f, smooth_time);
-        f32 omega = 2.0f / smooth_time;
-
-        f32 x = omega * dt;
-        f32 exp = 1.0f / (1.0f + x + 0.48f * x * x + 0.235f * x * x * x);
-        auto change = current - target;
-        auto original = target;
-        auto maxChange = max_speed * smooth_time;
-        change = glm::clamp(change, -maxChange, maxChange);
-        target = current - change;
-        auto temp = (velocity + omega * change) * dt;
-        velocity = (velocity - omega * temp) * exp;
-        auto output = target + (change + temp) * exp;
-
-        if(original - current > 0.0f == output > original) {
-            output = original;
-            velocity = (output - original) / dt;
-        }
-        
-        return output;
-    }
-
-
+    
     namespace swizzle {
 
         constexpr v2f xx(v2f v) { return v2f{v.x,v.x}; }
@@ -1661,6 +1645,10 @@ namespace math {
 
     v3f world_to_screen(const m44& vp, const v3f& p) noexcept {
         return world_to_screen(vp, v4f{p, 1.0f});
+    }
+
+    bool fcmp(f32 a, f32 b, f32 eps = 1e-6) {
+        return std::fabsf(a-b) < eps;
     }
 
     namespace constants {
@@ -2027,10 +2015,11 @@ struct transform_t {
         set_rotation(glm::quatLookAt(target-origin, up));
     }
 
-    constexpr void set_scale(const v3f& scale) {
+    constexpr transform_t& set_scale(const v3f& scale) {
         for (int i = 0; i < 3; i++) {
             basis[i] = glm::normalize(basis[i]) * scale[i];
         }
+        return *this;
     }
 	constexpr void set_rotation(const v3f& rotation) {
         f32 scales[3];
@@ -5179,4 +5168,99 @@ std::byte* pack_file_get_file_by_name(
 
 
 }; // namespace utl
+
+
+namespace tween {
+
+template <typename T>
+inline T lerp(T a, T b, f32 t) {
+    return b * t + a * (1.0f - t);
+}
+template <typename T>
+inline T lerp_dt(T a, T b, f32 s, f32 dt) {
+    return lerp(b, a, std::pow(1.0f - s, dt));
+}
+template <typename T>
+inline T damp(T a, T b, f32 lambda, f32 dt) {
+    return lerp<T>(a, b, 1.0f - std::exp(-lambda * dt));
+}
+
+template <typename T>
+inline T bilinear(T a, T b, T c, T d, f32 u, f32 v) {
+    return glm::mix(
+        glm::mix(a, b, v),
+        glm::mix(c, d, v),
+        u
+    );
+}
+
+template <typename T>
+inline T bezier4(T x, f32 a, f32 b) {
+    a = glm::clamp(a, 0.0f, 1.0f);
+    b = glm::clamp(b, 0.0f, 1.0f);
+    if (a==0.5f) {
+        a += 0.00001f;
+    }
+    f32 om2a = 1.0f - 2.0f*a;
+    f32 t = (glm::sqrt(a*a + om2a*x) - a)/om2a;
+    return (1.0f - 2.0f*b)*(t*t) + (2.0f*b)*t;
+}
+
+template <typename T>
+T smoothdamp(
+    T current, T target, T& velocity, 
+    f32 smooth_time, f32 max_speed, f32 dt
+) {
+    smooth_time = glm::max(0.0001f, smooth_time);
+    f32 omega = 2.0f / smooth_time;
+
+    f32 x = omega * dt;
+    f32 exp = 1.0f / (1.0f + x + 0.48f * x * x + 0.235f * x * x * x);
+    auto change = current - target;
+    auto original = target;
+    auto maxChange = max_speed * smooth_time;
+    change = glm::clamp(change, -maxChange, maxChange);
+    target = current - change;
+    auto temp = (velocity + omega * change) * dt;
+    velocity = (velocity - omega * temp) * exp;
+    auto output = target + (change + temp) * exp;
+
+    if(original - current > 0.0f == output > original) {
+        output = original;
+        velocity = (output - original) / dt;
+    }
+    
+    return output;
+}
+
+
+
+template <typename T, f32 D>
+T in_expo(T b, T c, f32 t) {
+    return (t==0) ? b : c * glm::pow(2, 10 * (t/D - 1.0f)) + b;
+}
+
+template <typename T, f32 D>
+T out_expo(T b, T c, f32 t) {
+    return (t==D) ? b+c : c * (-glm::pow(2, -10 * t/D) + 1) + b;
+}
+
+template <typename T>
+T in_out_expo(T b, T c, f32 d, f32 t) {
+    if (t==0) return b;
+    if (t==d) return b+c;
+    t /= d/2.0f;
+    if (t < 10.f) return c/2.0f * glm::pow(2.0f, 10.0f * (t - 1.0f)) + b;
+    t--;
+    return c/2.0f * (-glm::pow(2.0f, -10.0f * t) + 2.0f) + b;
+}
+
+template <typename T>
+auto in_out_expo(f32 d) {
+    return [=](T b, T c, f32 t) {
+        return in_out_expo<T>(b, c, d, t);
+    };
+}
+
+};
 
