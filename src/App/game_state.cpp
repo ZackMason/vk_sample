@@ -514,7 +514,8 @@ app_on_init(game_memory_t* game_memory) {
     game_state->scene.sporadic_buffer.mode = 1;
     game_state->scene.sporadic_buffer.use_lighting = 1;
 
-    world_0(game_state->game_world);
+    
+    // world_0(game_state->game_world);
 
     gen_info("game_state", "world size: {}mb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
 }
@@ -620,11 +621,13 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
 
 void 
 app_on_input(game_state_t* game_state, app_input_t* input) {
-    camera_input(game_state, 
-        input->gamepads->is_connected ? 
-        gamepad_controller(input) : keyboard_controller(input),
-        input->dt
-    );
+    if (game_state->game_world->player) {
+        camera_input(game_state, 
+            input->gamepads->is_connected ? 
+            gamepad_controller(input) : keyboard_controller(input),
+            input->dt
+        );
+    }
 
     // if (input->pressed.keys['P']) {
     //     const game::entity_t player = *game_state->game_world->player;
@@ -663,9 +666,14 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
     if (game_state->render_system == nullptr) return;
 
     auto* world = game_state->game_world;
+
+    if (game_state->game_world->entity_count == 0) {
+        load_world<world_0>(game_state);
+    }
+    
     game::world_update(world, input->dt);
 
-    if (world->player->global_transform().origin.y < -1000.0f) {
+    if (world->player && world->player->global_transform().origin.y < -1000.0f) {
         game_state->game_memory->input.pressed.keys[key_id::F10] = 1;
     }
 
@@ -681,7 +689,9 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
     //     tr.tick(input->dt, tr_pos);
     // }
 
-    world->player->physics.rigidbody->integrate(input->dt, 9.81f * 0.16f);
+    if (world->player) {
+        world->player->physics.rigidbody->integrate(input->dt, 9.81f * 0.16f);
+    }
     game::world_update_physics(game_state->game_world);
 
     {
@@ -739,8 +749,10 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
     rendering::begin_frame(game_state->render_system);
     // game_state->debug.debug_vertices.pool.clear();
 
-    game_state->game_world->player->camera_controller.transform = game_state->game_world->player->transform;
-    game_state->game_world->player->camera_controller.translate(axis::up);
+    if (world->player){
+        game_state->game_world->player->camera_controller.transform = game_state->game_world->player->transform;
+        game_state->game_world->player->camera_controller.translate(axis::up);
+    }
 
     for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
         auto* e = game_state->game_world->entities + i;
@@ -787,6 +799,8 @@ draw_game_gui(game_memory_t* game_memory) {
     game_state_t* game_state = get_game_state(game_memory);
     auto* world = game_state->game_world;
     auto* player = world->player;
+
+    if(!player || !world) return;
 
     local_persist u64 frame{0}; frame++;
     auto& imgui = *gs_imgui_state;
@@ -904,6 +918,22 @@ draw_gui(game_memory_t* game_memory) {
         local_persist v3f* widget_pos = &default_widget_pos;
 
         im::clear(state);
+
+        if (game_state->loading_steps) {
+            im::begin_panel(state, "Loading"sv, v2f{350,350}, v2f{800, 600});
+            im::text(state, "Loading World");
+            const auto theme = state.theme;
+            state.theme.text_color = gfx::color::rgba::green;
+            for (size_t i = 0; i < game_state->steps_finished; i++) {
+                im::text(state, fmt_sv("Step {}: {}", i, game_state->loading_steps[i].name));
+            }
+            state.theme.text_color = gfx::color::rgba::purple;
+            if (game_state->steps_finished < game_state->loading_step_count) {
+                im::text(state, fmt_sv("Step {}: {}", game_state->steps_finished, game_state->loading_steps[game_state->steps_finished].name));
+            }
+            state.theme = theme;
+            im::end_panel(state);
+        }
 
         local_persist bool show_entities = false;
         if (im::begin_panel(state, "Main UI"sv)) {
@@ -1517,15 +1547,15 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
             khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
         }
-
+            auto view_dir = game_state->game_world->player ? game::cam::get_direction(
+                    game_state->game_world->player->camera_controller.yaw,
+                    game_state->game_world->player->camera_controller.pitch
+                ) : axis::forward;
             rendering::draw_skybox(
                 rs, command_buffer, 
                 assets::shaders::skybox_frag.filename,
                 game_state->sky_pipeline->pipeline_layout,
-                game::cam::get_direction(
-                    game_state->game_world->player->camera_controller.yaw,
-                    game_state->game_world->player->camera_controller.pitch
-                ), game_state->scene.lighting.directional_light
+                view_dir, game_state->scene.lighting.directional_light
             );
 
             auto viewport = gfx::vul::utl::viewport((f32)rs->width, (f32)rs->height, 0.0f, 1.0f);

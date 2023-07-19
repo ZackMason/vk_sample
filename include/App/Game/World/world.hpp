@@ -6,6 +6,8 @@
 #include "App/Game/Entity/entity.hpp"
 #include "App/Game/Rendering/render_system.hpp"
 
+struct game_state_t;
+
 namespace game {
     static constexpr u64 max_entities = 500000;
 

@@ -462,7 +462,7 @@ physx_simulate(api_t* api, f32 dt) {
                 rb->flags &= ~rigidbody_flags::IS_ON_WALL;
             }
 
-            v = math::damp(v, v3f{0.0f}, rb->linear_dampening, dt);
+            v = tween::damp(v, v3f{0.0f}, rb->linear_dampening, dt);
 
             const auto [px,py,pz] = controller->getPosition();
             rb->position = v3f{px,py,pz};

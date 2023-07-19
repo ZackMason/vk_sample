@@ -198,7 +198,7 @@ void co_platform(coroutine_t* co, frame_arena_t& frame_arena) {
     co_begin(co);
 
         *start = y_pos;
-        *end = math::fcmp(*start, 27.0f) ? 0.0f : 27.0f;
+        *end = math::fcmp(*start, 20.0f) ? 0.0f : 20.0f;
 
         Platform.audio.play_sound(assets::sounds::unlock.id);
 
