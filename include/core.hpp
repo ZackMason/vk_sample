@@ -106,6 +106,7 @@ using f64 = double;
 #include <glm/glm.hpp>
 #include "glm/gtc/matrix_transform.hpp"
 
+
 // #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/euler_angles.hpp>
@@ -1580,24 +1581,24 @@ struct any_t {
 };
 
 
+namespace swizzle {
+
+    constexpr v2f xx(v2f v) { return v2f{v.x,v.x}; }
+    constexpr v2f yx(v2f v) { return v2f{v.y,v.x}; }
+    constexpr v2f yy(v2f v) { return v2f{v.y,v.y}; }
+    
+    constexpr v2f xy(v3f v) { return v2f{v.x,v.y}; }
+    constexpr v2f xx(v3f v) { return v2f{v.x,v.x}; }
+    constexpr v2f yx(v3f v) { return v2f{v.y,v.x}; }
+    constexpr v2f yy(v3f v) { return v2f{v.y,v.y}; }
+    constexpr v2f zy(v3f v) { return v2f{v.z,v.y}; }
+    constexpr v2f yz(v3f v) { return v2f{v.y,v.z}; }
+    constexpr v2f xz(v3f v) { return v2f{v.x,v.z}; }
+    constexpr v2f zx(v3f v) { return v2f{v.z,v.x}; }
+};
 
 namespace math {
     
-    namespace swizzle {
-
-        constexpr v2f xx(v2f v) { return v2f{v.x,v.x}; }
-        constexpr v2f yx(v2f v) { return v2f{v.y,v.x}; }
-        constexpr v2f yy(v2f v) { return v2f{v.y,v.y}; }
-        
-        constexpr v2f xy(v3f v) { return v2f{v.x,v.y}; }
-        constexpr v2f xx(v3f v) { return v2f{v.x,v.x}; }
-        constexpr v2f yx(v3f v) { return v2f{v.y,v.x}; }
-        constexpr v2f yy(v3f v) { return v2f{v.y,v.y}; }
-        constexpr v2f zy(v3f v) { return v2f{v.z,v.y}; }
-        constexpr v2f yz(v3f v) { return v2f{v.y,v.z}; }
-        constexpr v2f xz(v3f v) { return v2f{v.x,v.z}; }
-        constexpr v2f zx(v3f v) { return v2f{v.z,v.x}; }
-    };
 
     constexpr v2f octahedral_mapping(v3f co) {
         using namespace swizzle;
@@ -1635,6 +1636,10 @@ namespace math {
         };
     }
 
+    v3f world_to_screen(const m44& proj, const m44& view, const v4f& viewport, const v3f& p) noexcept {
+        return glm::project(p, view, proj, viewport);
+    }
+    
     v3f world_to_screen(const m44& vp, const v4f& p) noexcept {
         v4f sp = vp * p;
         sp /= sp.w;
@@ -1645,6 +1650,10 @@ namespace math {
 
     v3f world_to_screen(const m44& vp, const v3f& p) noexcept {
         return world_to_screen(vp, v4f{p, 1.0f});
+    }
+
+    v3f world_normal_to_screen(const m44& vp, const v3f& p) noexcept {
+        return world_to_screen(vp, v4f{p, 0.0f});
     }
 
     bool fcmp(f32 a, f32 b, f32 eps = 1e-6) {
@@ -2776,13 +2785,13 @@ namespace gui {
     string_render(
         ctx_t* ctx,
         std::string_view text,
-        v2f& position,
+        v2f* position,
         const color32& text_color = color::rgba::white,
         font_t* font = 0
     ) {
         font_render(0, font ? font : ctx->font, 
             text, 
-            position,
+            *position,
             ctx->screen_size,
             ctx->vertices,
             ctx->indices,
@@ -2802,7 +2811,7 @@ namespace gui {
         string_render(
             ctx,
             text,
-            cursor,
+            &cursor,
             text_color,
             font
         );
@@ -3537,7 +3546,7 @@ namespace gui {
             imgui.panel->expand(box.max + imgui.theme.padding);
 
             tmp_cursor = box.center() - font_get_size(imgui.ctx.font, fmt_sv("{:.2f}", *val)) * 0.5f;
-            string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), tmp_cursor, imgui.theme.text_color);
+            string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tmp_cursor, imgui.theme.text_color);
             draw_rect(&imgui.ctx, prc_box, imgui.active.id == sld_id ? imgui.theme.active_color : imgui.theme.fg_color);
             draw_rect(&imgui.ctx, box, imgui.theme.bg_color);
             box.max += v2f{1.0f};
@@ -3623,7 +3632,7 @@ namespace gui {
                 }
             }
 
-            string_render(&imgui.ctx, text, temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             // draw_rect(&imgui.ctx, text_box, gfx::color::rgba::purple);
             if (imgui.next_same_line) {
                 imgui.next_same_line = false;
@@ -3685,7 +3694,7 @@ namespace gui {
                 }
             }
 
-            string_render(&imgui.ctx, text, temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             if (imgui.hot.id != txt_id && *position == 0) {
                 draw_rect(&imgui.ctx, text_box, imgui.theme.fg_color);
             }

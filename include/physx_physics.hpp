@@ -14,6 +14,10 @@ namespace physics {
 
 using namespace physx;
 
+PxVec3 pvec(const v3f& v) {
+    return PxVec3{v.x,v.y,v.z};
+}
+
 glm::mat3 tensor_to_mat3(const physx::PxVec3& inertiaTensor) {
     glm::mat3 mat;
 
@@ -158,6 +162,25 @@ inline static physx_backend_t* get_physx(const api_t* api) {
 }
 
 
+void physx_rigidbody_add_force(rigidbody_t* rb, const v3f& v) {
+    if (rb->type == rigidbody_type::DYNAMIC) {
+        PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
+        
+        const PxVec3 pos = pvec(v3f{0.0});
+        PxRigidBodyExt::addForceAtLocalPos(*actor, pvec(v), pos, PxForceMode::eFORCE);
+    }
+}
+
+void physx_rigidbody_add_force_at_point(rigidbody_t* rb, const v3f& v, const v3f& p) {
+    if (rb->type == rigidbody_type::DYNAMIC) {
+        PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
+        
+        const PxTransform globalPose = actor->getGlobalPose();
+        const PxVec3 localPos = globalPose.transformInv(pvec(p));
+        PxRigidBodyExt::addForceAtLocalPos(*actor, pvec(v), localPos, PxForceMode::eFORCE);
+    }
+}
+
 void physx_collider_set_active(collider_t* collider, bool x) {
     auto* shape = (PxShape*)collider->shape;
     shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, x);
@@ -167,6 +190,7 @@ void physx_collider_set_trigger(collider_t* collider, bool x) {
     auto* shape = (PxShape*)collider->shape;
     physx_collider_set_active(collider, !x);
     shape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, x);
+    shape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, !x);
 }
 
 // void physx_rigidbody_set_active(api_t* api, rigidbody_t* rb, bool x) {
@@ -222,8 +246,15 @@ physx_create_rigidbody_impl(
     *rb = {};
     const auto t = cast_transform(math::transform_t{position, orientation});
     switch (rb->type = type) {
+        case rigidbody_type::KINEMATIC:
         case rigidbody_type::DYNAMIC: {
-            rb->api_data = ps->state->physics->createRigidDynamic(t);
+            auto* body = ps->state->physics->createRigidDynamic(t);
+            rb->api_data = body;
+
+            if (rb->type == rigidbody_type::KINEMATIC) {
+                body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+            }
+
             physx_add_rigidbody(api, rb);
             rb->inertia = tensor_to_mat3(((physx::PxRigidBody*)rb->api_data)->getMassSpaceInertiaTensor());
             rb->inverse_inertia = tensor_to_mat3(((physx::PxRigidBody*)rb->api_data)->getMassSpaceInvInertiaTensor());
@@ -238,6 +269,7 @@ physx_create_rigidbody_impl(
             desc.reportCallback = arena_alloc<character_hit_report>(api->arena);
             desc.material = ps->state->physics->createMaterial(0.5f, 0.5f, 0.1f);
             auto* controller = ps->world->controller_manager->createController(desc);
+            controller->setPosition({position.x, position.y, position.z});
             // controller->setSlopeLimit(3.14159f*0.25f);
             rb->api_data = controller;
             rb->user_data = data;
@@ -327,6 +359,8 @@ static PxFilterFlags filterShader(
     pairFlags = PxPairFlag::eCONTACT_DEFAULT;
     pairFlags |= PxPairFlag::eNOTIFY_TOUCH_FOUND;
     pairFlags |= PxPairFlag::eNOTIFY_TOUCH_LOST;
+    pairFlags |= PxPairFlag::eDETECT_DISCRETE_CONTACT;
+    
     return PxFilterFlag::eDEFAULT;
 }
 
@@ -391,8 +425,10 @@ physx_raycast_world(const api_t* api, v3f ro, v3f rd) {
     const physx::PxVec3 prd{ rd.x, rd.y, rd.z };
     physx::PxRaycastBuffer hit;
 
+    PxQueryFilterData filter_data(PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC);
+
     raycast_result_t result{};
-    result.hit = ps->world->scene->raycast(pro, prd, 1000.0f, hit);
+    result.hit = ps->world->scene->raycast(pro, prd, 1000.0f, hit, PxHitFlag::eDEFAULT, filter_data);
     if (result.hit) {
         if (hit.block.actor->userData) {
             result.user_data = hit.block.actor->userData;
@@ -415,24 +451,6 @@ auto dampen(auto currentValue, auto targetValue, float dampingFactor, float delt
     currentValue += changeAmount;
 
     return currentValue;
-}
-
-bool isOnGround(physx::PxController* controller) {
-    auto [x,y,z] = controller->getFootPosition();
-    PxVec3 rayOrigin{(f32)x,(f32)y + 0.05f,(f32)z}; 
-    
-    PxVec3 rayDirection = -PxVec3(0.0f, 1.0f, 0.0f);
-
-    physx::PxRaycastBuffer hit;
-    
-    physx::PxSceneQueryFilterData filter{PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC};
-    bool hasHit = 
-        controller->getScene()->raycast(
-            rayOrigin, 
-            rayDirection, 
-            0.5f, hit, 
-            PxHitFlag::eDEFAULT, filter);
-    return hit.hasAnyHits();
 }
 
 void

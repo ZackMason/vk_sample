@@ -62,6 +62,9 @@ init_physx(api_t* api, arena_t* arena) {
     api->collider_set_trigger = physx_collider_set_trigger;
     api->collider_set_active = physx_collider_set_active;
 
+    api->rigidbody_add_force = physx_rigidbody_add_force;
+    api->rigidbody_add_force_at_point = physx_rigidbody_add_force_at_point;
+
     api->
         get_debug_table_size= get_debug_table_size;
     api->get_debug_table    = get_debug_table;

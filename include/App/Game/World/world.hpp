@@ -8,6 +8,8 @@
 
 struct game_state_t;
 
+struct world_generator_t;
+
 namespace game {
     static constexpr u64 max_entities = 500000;
 
@@ -34,6 +36,8 @@ namespace game {
         physics::api_t* physics{0};
 
         utl::rng::random_t<utl::rng::xor64_random_t> entropy;
+
+        world_generator_t* world_generator{0};
 
         rendering::system_t* 
         render_system() {
@@ -141,6 +145,7 @@ namespace game {
             node_pop(e, world->free_entities);
             world->entity_count++;
             assert(e);
+            new (e) entity_t;
             e->id = world->next_entity_id++;
             add_entity_to_id_hash(world, e);
             return e;
@@ -166,7 +171,7 @@ namespace game {
         const auto* input = &world->game_state->game_memory->input;
         for (size_t i{0}; i < world->entity_count; i++) {
             auto* e = world->entities + i;
-            if (e->physics.rigidbody && e->physics.flags & game::PhysicsEntityFlags_Static) {
+            if (e->physics.rigidbody && e->physics.flags & game::PhysicsEntityFlags_Kinematic) {
                 // e->physics.rigidbody->position = e->global_transform().origin;
                 // e->physics.rigidbody->orientation = e->global_transform().get_orientation();
                 // float apply_gravity = f32(e->physics.flags & game::PhysicsEntityFlags_Character);
@@ -275,6 +280,8 @@ spawn(
             rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::CHARACTER, entity->transform.origin, entity->transform.get_orientation());
         } else if (def.physics->flags & PhysicsEntityFlags_Static) {
             rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::STATIC, entity->transform.origin, entity->transform.get_orientation());
+        } else if (def.physics->flags & PhysicsEntityFlags_Kinematic) {
+            rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::KINEMATIC, entity->transform.origin, entity->transform.get_orientation());
         } else if (def.physics->flags & PhysicsEntityFlags_Dynamic) {
             rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::DYNAMIC, entity->transform.origin, entity->transform.get_orientation());
         }

@@ -467,6 +467,11 @@ app_on_init(game_memory_t* game_memory) {
     };
 
     assets::sounds::load();
+    game_state->debug_state = arena_alloc_ctor<debug_state_t>(main_arena, 1, game_memory->input.time);
+    game_state->debug_state->arena = arena_sub_arena(main_arena, megabytes(4));
+
+
+    gs_debug_state = game_state->debug_state;    
 
     using namespace std::string_view_literals;
 #ifdef GEN_INTERNAL
@@ -548,6 +553,7 @@ export_fn(void)
 app_on_reload(game_memory_t* game_memory) {
     Platform = game_memory->platform;
     game_state_t* game_state = get_game_state(game_memory);
+    gs_debug_state = game_state->debug_state;
     gs_reload_time = 1.0f;
     game_state->render_system->ticket.unlock();
 }
@@ -580,7 +586,8 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
 
     const f32 move_speed = 45.0f * (pc.sprint ? 1.75f : 1.0f);
 
-    rigidbody->add_relative_force((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
+    // rigidbody->add_force((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
+    rigidbody->force += ((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
 
     if(player->primary_weapon.entity) {
         player->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
@@ -591,11 +598,13 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
     if (pc.jump && (is_on_ground || is_on_wall)) {
         rigidbody->velocity.y = .3f;
     }
+    player->camera_controller.transform.origin = player->transform.origin + axis::up * 1.0f;
+    // player->camera_controller.translate(axis::up);
     
     if (pc.fire1 && player->primary_weapon.entity) {
         auto rd = forward;
-        // auto ro = player->camera_controller.transform.origin;
-        auto ro = player->global_transform().origin + rd * 1.7f;
+        auto ro = player->camera_controller.transform.origin + rd * 1.7f;
+        // auto ro = player->global_transform().origin + rd * 1.7f;
 
         temp_arena_t fire_arena = world->frame_arena.get();
         u64 fired{0};
@@ -605,14 +614,31 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
         
             if (auto ray = physics->raycast_world(physics, ro, rd); ray.hit) {
                 auto* rb = (physics::rigidbody_t*)ray.user_data;
+                math::ray_t gun_shot{ro, rd};
+                DEBUG_ADD_VARIABLE(gun_shot);
                 if (rb == player->physics.rigidbody) {
                     gen_warn(__FUNCTION__, "player shot them self");
                 }
+                auto hp = (ray.point);
+                game::entity_t* hit_entity=0;
                 if (rb->type == physics::rigidbody_type::DYNAMIC) {
-                    //rb->inverse_transform_direction
-                    auto hp = (ray.point - rb->position);
-                    auto f = rb->inverse_transform_direction(rd);
-                    rb->add_force_at_point(f*100.0f, hp);
+                    // rb->inverse_transform_direction
+                    // auto f = rb->inverse_transform_direction(rd);
+                    // rb->add_force(rd*1.0f);
+                    hit_entity = (game::entity_t*)rb->user_data;
+                    rb->add_force_at_point(rd*10.0f, hp);
+                    math::ray_t force{hp, rd};
+                    DEBUG_ADD_VARIABLE(force);
+                } else {
+                    DEBUG_ADD_VARIABLE(ray.point);
+                }
+                auto* hole = game::spawn(world, world->render_system(), game::db::misc::bullet_hole, hp);
+                hole->transform.set_rotation(world->entropy.randnv<v3f>() * 100.0f);
+                hole->coroutine->start();
+                if (hit_entity) {
+                    // auto local_pos = hole->global_transform().origin - hit_entity->global_transform().origin;
+                    hit_entity->add_child(hole, true);
+                    hole->transform.origin = hit_entity->global_transform().inv_xform(hp);
                 }
             }
         // }
@@ -659,22 +685,25 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
 
     input->dt *= game_state->time_scale;
     app_on_input(game_state, input);
-
-    
+ 
     // TODO(ZACK): GAME CODE HERE
 
     if (game_state->render_system == nullptr) return;
 
     auto* world = game_state->game_world;
-
-    if (game_state->game_world->entity_count == 0) {
-        load_world<world_0>(game_state);
-    }
     
     game::world_update(world, input->dt);
 
-    if (world->player && world->player->global_transform().origin.y < -1000.0f) {
-        game_state->game_memory->input.pressed.keys[key_id::F10] = 1;
+    DEBUG_ADD_VARIABLE(v3f{axis::right * 50.0f});
+
+    if (world->player && world->player->global_transform().origin.y < -100.0f) {
+        if (world->player->parent) {
+            world->player->transform.origin.y = world->player->parent->global_transform().inv_xform(v3f{0.0f}).y;
+        } else {
+            world->player->transform.origin.y = 0.0f;
+        }
+        gen_warn("killz", "Reset players vertical position");
+        // game_state->game_memory->input.pressed.keys[key_id::F10] = 1;
     }
 
     local_persist f32 accum = 0.0f;
@@ -750,8 +779,10 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
     // game_state->debug.debug_vertices.pool.clear();
 
     if (world->player){
-        game_state->game_world->player->camera_controller.transform = game_state->game_world->player->transform;
-        game_state->game_world->player->camera_controller.translate(axis::up);
+        world->player->camera_controller.transform.origin = world->player->transform.origin + axis::up;
+        world->player->camera_controller.translate(v3f{0.0f});
+
+        DEBUG_SET_FOCUS(world->player->global_transform().origin);
     }
 
     for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
@@ -790,7 +821,12 @@ game_on_update(game_memory_t* game_memory) {
     // utl::profile_t p{"on_update"};
     game_state_t* game_state = get_game_state(game_memory);
     gs_dt = game_memory->input.dt;
-    game_on_gameplay(game_state, &game_memory->input);
+    auto* world_generator = game_state->game_world->world_generator;
+    if (world_generator && world_generator->is_done() == false) {
+        world_generator->execute(game_state->game_world);
+    } else {
+        game_on_gameplay(game_state, &game_memory->input);
+    }
 }
 
 void 
@@ -818,6 +854,7 @@ void
 draw_gui(game_memory_t* game_memory) {
     TIMED_FUNCTION;
     game_state_t* game_state = get_game_state(game_memory);
+    auto* render_system = game_state->render_system;
 
     local_persist u64 frame{0}; frame++;
     auto string_mark = arena_get_mark(&game_state->string_arena);
@@ -829,6 +866,9 @@ draw_gui(game_memory_t* game_memory) {
         &game_state->mesh_arena,
         &game_state->texture_arena,
         &game_state->game_arena,
+#ifdef DEBUG_STATE
+        &DEBUG_STATE.arena,
+#endif
         &game_state->game_world->arena,
         &game_state->game_world->frame_arena.arena[0],
         &game_state->game_world->frame_arena.arena[1],
@@ -849,6 +889,9 @@ draw_gui(game_memory_t* game_memory) {
         "- Mesh Arena",
         "- Texture Arena",
         "- Game Arena",
+#ifdef DEBUG_STATE
+        "- Debug Arena",
+#endif
         "- World Arena",
         "- World Frame 0",
         "- World Frame 1",
@@ -919,17 +962,32 @@ draw_gui(game_memory_t* game_memory) {
 
         im::clear(state);
 
-        if (game_state->loading_steps) {
+        auto* world = game_state->game_world;
+        if (world->world_generator == nullptr) {
             im::begin_panel(state, "Loading"sv, v2f{350,350}, v2f{800, 600});
-            im::text(state, "Loading World");
+
+            auto* world_0_temp = generate_world_0(&world->frame_arena.get());
+            if (im::text(state, fmt_sv("World 0 - {}", world_0_temp->step_count))) {
+                world->world_generator = generate_world_0(&world->arena);
+            }
+
+            im::end_panel(state);
+        }
+
+        if (world->world_generator && world->world_generator->is_done() == false) {
+            auto* generator = world->world_generator;
+            im::begin_panel(state, "Loading"sv, v2f{350,350}, v2f{800, 600});
+            im::text(state, fmt_sv("Loading World {}/{}", generator->completed_count, generator->step_count));
             const auto theme = state.theme;
             state.theme.text_color = gfx::color::rgba::green;
-            for (size_t i = 0; i < game_state->steps_finished; i++) {
-                im::text(state, fmt_sv("Step {}: {}", i, game_state->loading_steps[i].name));
+            auto* step = generator->first_step;
+            for (size_t i = 0; i < generator->completed_count; i++) {
+                im::text(state, fmt_sv("Step {}: {}", i, step->name));
+                node_next(step);
             }
             state.theme.text_color = gfx::color::rgba::purple;
-            if (game_state->steps_finished < game_state->loading_step_count) {
-                im::text(state, fmt_sv("Step {}: {}", game_state->steps_finished, game_state->loading_steps[game_state->steps_finished].name));
+            if (generator->completed_count < generator->step_count) {
+                im::text(state, fmt_sv("Step {}: {}", generator->completed_count, step->name));
             }
             state.theme = theme;
             im::end_panel(state);
@@ -1385,6 +1443,10 @@ draw_gui(game_memory_t* game_memory) {
 
         im::gizmo(state, widget_pos, vp);
 
+#ifdef DEBUG_STATE 
+        DEBUG_STATE_DRAW(state, render_system->projection, render_system->view, render_system->viewport());
+        DEBUG_STATE.begin_frame();
+#endif
         draw_game_gui(game_memory);
 
         local_persist viewport_t viewport{};
@@ -1755,6 +1817,10 @@ app_on_render(game_memory_t* game_memory) {
     
             u32 image_index = wait_for_frame(game_state, ++frame_count);
             std::lock_guard lock{game_state->render_system->ticket};
+
+            game_state->render_system->camera_pos = game_state->game_world->camera.origin;
+            game_state->render_system->set_view(game_state->game_world->camera.inverse().to_matrix(), game_state->width(), game_state->height());
+
             draw_gui(game_memory);
             game_on_render(game_memory, image_index, frame_count);
         

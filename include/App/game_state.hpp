@@ -9,9 +9,9 @@
 #include "App/Game/Rendering/render_system.hpp"
 
 #include "App/Game/GUI/viewport.hpp"
+#include "App/Game/GUI/debug_state.hpp"
 
 
-struct world_generation_step_t;
 namespace game {
     struct world_t;
 };
@@ -89,6 +89,8 @@ struct game_state_t {
     arena_t             texture_arena;
     arena_t             game_arena;
 
+    debug_state_t* debug_state{0};
+
     utl::res::pack_file_t *     resource_file{0};
 
     gfx::vul::state_t   gfx;
@@ -161,10 +163,6 @@ struct game_state_t {
     } debug;
 
     game::world_t* game_world{0};
-
-    world_generation_step_t* loading_steps{0};
-    std::atomic<u64>         loading_step_count{0};
-    std::atomic<u64>         steps_finished{0};
 
     f32 time_scale = 1.0f;
     f32 time_text_anim = 0.0f;

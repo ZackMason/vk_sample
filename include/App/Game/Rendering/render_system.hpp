@@ -698,6 +698,7 @@ public:
 
         m44 vp{1.0f};
         m44 projection{1.0f};
+        m44 view{1.0f};
         v3f camera_pos{0.0f};
         u32 width{}, height{};
 
@@ -707,7 +708,12 @@ public:
 
         RenderingStats stats{};
 
-        void set_view(const m44& view, u32 w, u32 h) {
+        v4f viewport() const {
+            return v4f{0,0,(f32)width, (f32)height};
+        }
+
+        void set_view(const m44& view_, u32 w, u32 h) {
+            view = view_;
             vp = projection * view;
             width = w;
             height = h;

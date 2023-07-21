@@ -94,7 +94,7 @@ struct rigidbody_t {
 
     m33             inertia{0.0f}, inverse_inertia{0.0f};
 
-    collider_t      colliders[RIGIDBODY_MAX_COLLIDER_COUNT];
+    std::array<collider_t, RIGIDBODY_MAX_COLLIDER_COUNT>      colliders;
     size_t          collider_count{0};
 
     const void*     user_data{0};
@@ -106,6 +106,9 @@ struct rigidbody_t {
 
     rigidbody_on_collision_function on_collision{0};
     rigidbody_on_collision_function on_collision_end{0};
+    
+    inline void add_force_ex(const v3f& force);
+    inline void add_force_at_point_ex(const v3f& force, const v3f& point);
 
     // transform direction from body space to world space
     inline v3f transform_direction(const v3f& direction) const
@@ -116,28 +119,30 @@ struct rigidbody_t {
     { return glm::inverse(orientation) * direction; }
 
     // get velocity and angular velocity in body space
-    inline v3f get_point_velocity(const v3f& point) const
-    { return inverse_transform_direction(velocity) + glm::cross(angular_velocity, point); }
+    // inline v3f get_point_velocity(const v3f& point) const
+    // { return inverse_transform_direction(velocity) + glm::cross(angular_velocity, point); }
 
     // force and point vectors are in body space
     inline void add_force_at_point(const v3f& force_, const v3f& point)
-    { force += transform_direction(force_), torque += glm::cross(point, force_); }
+    { add_force_at_point_ex(force_, point); }
+    // { force += transform_direction(force_), torque += glm::cross(point, force_); }
 
     // force vector in body space
-    inline void add_relative_force(const v3f& force_)
-    { force += transform_direction(force_); }
+    // inline void add_relative_force(const v3f& force_)
+    // { force += transform_direction(force_); }
 
     // force vector in body space
-    inline void add_relative_impulse(const v3f& force_, float dt)
-    { force += transform_direction(force_) * mass / dt; }
+    // inline void add_relative_impulse(const v3f& force_, float dt)
+    // { force += transform_direction(force_) * mass / dt; }
 
     // force vector in body space
-    inline void add_impulse(const v3f& force_, float dt)
-    { force += force_ * mass / dt; }
+    // inline void add_impulse(const v3f& force_, float dt)
+    // { force += force_ * mass / dt; }
 
     // force vector in body space
     inline void add_force(const v3f& force_)
-    { force += force_; }
+    { add_force_ex(force_); }
+    // { force += force_; }
 
     inline void remove_collider(collider_t* collider);
 
@@ -163,31 +168,31 @@ struct rigidbody_t {
 
     }
 
-    rigidbody_t& operator=(const rigidbody_t& o) {
-        if (this == &o) {return *this;}
+    // rigidbody_t& operator=(const rigidbody_t& o) {
+    //     if (this == &o) {return *this;}
 
-        position = o.position;
-        orientation = o.orientation;
+    //     position = o.position;
+    //     orientation = o.orientation;
 
-        velocity = o.velocity;
-        angular_velocity = o.angular_velocity;
+    //     velocity = o.velocity;
+    //     angular_velocity = o.angular_velocity;
 
-        mass = o.mass;
+    //     mass = o.mass;
 
-        linear_dampening = o.linear_dampening;
-        angular_dampening = o.angular_dampening;
+    //     linear_dampening = o.linear_dampening;
+    //     angular_dampening = o.angular_dampening;
 
-        force = o.force;
-        torque = o.torque;
+    //     force = o.force;
+    //     torque = o.torque;
 
-        inertia = o.inertia;
-        inverse_inertia = o.inverse_inertia;
+    //     inertia = o.inertia;
+    //     inverse_inertia = o.inverse_inertia;
 
-        flags = o.flags;
-        layer = o.layer;
+    //     flags = o.flags;
+    //     layer = o.layer;
 
-        return *this;
-    }
+    //     return *this;
+    // }
 };
 
 // Todo(Zack): Change to hit result
@@ -219,6 +224,8 @@ using get_debug_table_size_function = size_t(*)(void);
 
 // updates a rigidbody pos and orientation
 using update_rigidbody_function = void(*)(api_t*, rigidbody_t*);
+using rigidbody_add_force_function = void(*)(rigidbody_t*, const v3f&);
+using rigidbody_add_force_at_point_function = void(*)(rigidbody_t*, const v3f&, const v3f&);
 
 struct export_dll api_t {
     backend_type type;
@@ -242,6 +249,9 @@ struct export_dll api_t {
     // rigidbody_set_active_function rigidbody_set_active{0};
     collider_set_trigger_function collider_set_trigger{0};
     collider_set_trigger_function collider_set_active{0};
+
+    rigidbody_add_force_function rigidbody_add_force{0};
+    rigidbody_add_force_at_point_function rigidbody_add_force_at_point{0};
 
     // TODO(Zack): Add hashes
     std::array<rigidbody_t, PHYSICS_MAX_RIGIDBODY_COUNT> rigidbodies;
@@ -290,8 +300,16 @@ using init_function = void(__cdecl *)(api_t* api, backend_type type, arena_t* ar
 void collider_t::set_trigger(bool x) {
     rigidbody->api->collider_set_trigger(this, x);
 }
+
 void collider_t::set_active(bool x) {
     rigidbody->api->collider_set_active(this, x);
+}
+
+void rigidbody_t::add_force_ex(const v3f& f) {
+    this->api->rigidbody_add_force(this, f);
+}
+void rigidbody_t::add_force_at_point_ex(const v3f& f, const v3f& p) {
+    this->api->rigidbody_add_force_at_point(this, f, p);
 }
 
 };

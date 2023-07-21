@@ -31,6 +31,7 @@ enum PhysicsEntityFlags {
     PhysicsEntityFlags_Dynamic = BIT(1),
     PhysicsEntityFlags_Trigger = BIT(2),
     PhysicsEntityFlags_Character = BIT(3),
+    PhysicsEntityFlags_Kinematic = BIT(4),
 };
 
 enum struct entity_type {
@@ -78,7 +79,7 @@ struct entity_coroutine_t {
             coroutine.line=0;
             _is_running = true;
         } else {
-            gen_warn(__FUNCTION__, "{} tried to start coroutine that is already running", coroutine.data);
+            // gen_warn(__FUNCTION__, "{} tried to start coroutine that is already running", coroutine.data);
         }
     }
     inline void run(frame_arena_t& frame_arena) {
@@ -233,9 +234,11 @@ struct entity_t : node_t<entity_t> {
     }
 
     void add_child(entity_t* child, bool maintain_world_pos = false) {
-        assert(maintain_world_pos == false);
+        // assert(maintain_world_pos == false);
         child->parent = this;
-        child->transform = math::transform_t{};
+        if (!maintain_world_pos) {
+            child->transform = math::transform_t{};
+        }
     }
 };
 
