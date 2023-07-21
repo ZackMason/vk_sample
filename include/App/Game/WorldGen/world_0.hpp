@@ -3,6 +3,29 @@
 #include "App/Game/WorldGen/world_gen.hpp"
 
 world_generator_t*
+generate_world_test(arena_t* arena) {
+    auto* generator = arena_alloc<world_generator_t>(arena);
+    generator->arena = arena;
+    generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
+       world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.04f;
+    });
+    generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
+        auto* player = game::spawn(world, world->render_system(), game::db::characters::assassin, axis::up * 3.0f);
+        player->physics.rigidbody->linear_dampening = 9.0f;
+    });
+    generator->add_step("Placing Weapons", WORLD_STEP_TYPE_LAMBDA(items) {
+        game::spawn(world, world->render_system(),
+            game::db::weapons::shotgun);
+        // ->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+    });
+    generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
+        // game::spawn(world, world->render_system(), game::db::rooms::sponza);
+        game::spawn(world, world->render_system(), game::db::misc::platform_1000, axis::down);
+    });
+    return generator;
+}
+
+world_generator_t*
 generate_world_0(arena_t* arena) {
     auto* generator = arena_alloc<world_generator_t>(arena);
     generator->arena = arena;
@@ -60,7 +83,7 @@ generate_world_0(arena_t* arena) {
         }
     });
     generator->add_step("Teapots", WORLD_STEP_TYPE_LAMBDA(environment) {
-        loop_iota_u64(i, 5000) {
+        loop_iota_u64(i, 500) {
             auto* e = game::spawn(
                 world, 
                 world->render_system(),
@@ -77,7 +100,7 @@ generate_world_0(arena_t* arena) {
     });
     generator->add_step("Planting Trees", WORLD_STEP_TYPE_LAMBDA(environment) {
         auto* tree = game::spawn(world, world->render_system(), game::db::environmental::tree_01, axis::down);
-        constexpr u32 tree_count = 500;
+        constexpr u32 tree_count = 50;
         tree->gfx.instance(world->render_system()->instance_storage_buffer.pool, tree_count);
         
         for (size_t i = 0; i < tree_count; i++) {

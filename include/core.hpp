@@ -538,10 +538,11 @@ struct app_input_t {
     f32 render_time;
     f32 render_dt;
 
-    char keyboard_input() const noexcept {
+    char keyboard_input() noexcept {
         const bool shift = keys[key_id::LEFT_SHIFT] || keys[key_id::RIGHT_SHIFT];
         range_u64(c, key_id::SPACE, key_id::GRAVE_ACCENT+1) {
             if (pressed.keys[c]) { 
+                pressed.keys[c] = 0;
                 if (shift) {
                     return (char)c;
                 } else {
@@ -2755,7 +2756,7 @@ namespace gui {
 
         f32 padding{1.0f};
         f32 margin{1.0f};
-        f32 border_radius{16.0f};
+        f32 border_radius{6.0f};
     };
 
     struct text_t;

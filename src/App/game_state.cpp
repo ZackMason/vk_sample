@@ -23,6 +23,8 @@
 global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
 global_variable f32 gs_dt;
 
+global_variable b32 gs_show_console=false;
+
 global_variable VkCullModeFlagBits gs_cull_modes[] = {
     VK_CULL_MODE_BACK_BIT,
     VK_CULL_MODE_FRONT_BIT,
@@ -477,14 +479,54 @@ app_on_init(game_memory_t* game_memory) {
 #ifdef GEN_INTERNAL
     game_state->debug.console = arena_alloc<debug_console_t>(main_arena);
 
-    console_log(game_state->debug.console, "Hello world");
-    console_log(game_state->debug.console, "Hello world");
-    console_log(game_state->debug.console, "Hello world");
-    console_log(game_state->debug.console, "Hello world");
-    console_log(game_state->debug.console, "does this work?", gfx::color::rgba::yellow, [](void* app_){
-        game_state_t* game_state = (game_state_t*)app_;
-        console_log(game_state->debug.console, "You tell me");
+    console_add_command(game_state->debug.console, "help", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        range_u64(i, 0, console->command_count) {
+            console_log(
+                console, 
+                console->console_commands[i].name, 
+                gfx::color::rgba::yellow, 
+                console->console_commands[i].command.command, 
+                console->console_commands[i].command.data 
+            );
+        }
+    }, game_state->debug.console);
+
+    // time is broken during loops, this is a reminder
+    console_add_command(game_state->debug.console, "time", [](void* data) {
+        auto* game_state = (game_state_t*)data;
+        console_log(game_state->debug.console, fmt_sv("Run Time: {} seconds", game_state->input().time));
     }, game_state);
+
+    console_add_command(game_state->debug.console, "build", [](void* data) {
+        // auto* console = (debug_console_t*)data;
+        std::system("start /B build n game");
+        
+    }, game_state->debug.console);
+
+    console_add_command(game_state->debug.console, "set focus distance", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        const auto& message = console->last_message();
+        auto i = std::string_view{message.text}.find_first_of("0123456789.+");
+        if (i != std::string_view::npos) {
+            std::stringstream ss{std::string_view{message.text}.substr(i).data()};
+            float f;
+            ss >> f;
+            console_log(console, fmt_sv("Setting Debug Focus to {}", f));
+            DEBUG_SET_FOCUS_DISTANCE(f);
+        } else {
+            console_log(console, "Parse error");
+        }
+
+    }, game_state->debug.console);
+
+    // console_add_command(game_state->debug.console, "build", [](void* data) {
+    //     // auto* console = (debug_console_t*)data;
+    //     std::system("start /B build n game");
+        
+    // }, game_state->debug.console);
+
+    console_log(game_state->debug.console, "Enter a command");
 
 #endif
 
@@ -655,20 +697,11 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
         );
     }
 
-    // if (input->pressed.keys['P']) {
-    //     const game::entity_t player = *game_state->game_world->player;
-    //     std::memcpy(game_state->game_world, &gs_saved_world, sizeof(game::world_t));
-    //     *game_state->game_world->player = player;
-    //     range_u64(i, 0, game_state->game_world->entity_count) {
-    //         auto* e = game_state->game_world->entities + i;
-    //         if (e->physics.flags == game::PhysicsEntityFlags_Dynamic &&
-    //             e->physics.rigidbody
-    //         ) {
-    //             e->physics.rigidbody->velocity = v3f{0.0f};
-    //             e->physics.rigidbody->angular_velocity = v3f{0.0f};
-    //         }
-    //     }
-    // }
+    if (input->pressed.keys[key_id::F2]) {
+        if (auto b = gs_show_console = !gs_show_console) {
+            gs_imgui_state->active = "console_text_box"_sid;
+        }
+    }
 
     if (input->gamepads[0].buttons[button_id::dpad_left].is_released) {
         game_state->time_scale *= 0.5f;
@@ -954,7 +987,9 @@ draw_gui(game_memory_t* game_memory) {
         const m44 vp = 
             game_state->render_system->vp;
 
-        // draw_console(state, game_state->debug.console, v2f{0.0, 800.0f});
+        if (gs_show_console) {
+            draw_console(state, game_state->debug.console, v2f{400.0, 0.0f});
+        }
         
 
         local_persist v3f default_widget_pos{10.0f};
@@ -964,13 +999,12 @@ draw_gui(game_memory_t* game_memory) {
 
         auto* world = game_state->game_world;
         if (world->world_generator == nullptr) {
-            im::begin_panel(state, "Loading"sv, v2f{350,350}, v2f{800, 600});
+            im::begin_panel(state, "World Select"sv, v2f{350,350}, v2f{800, 600});
 
-            auto* world_0_temp = generate_world_0(&world->frame_arena.get());
-            if (im::text(state, fmt_sv("World 0 - {}", world_0_temp->step_count))) {
-                world->world_generator = generate_world_0(&world->arena);
-            }
-
+            #define WORLD_GUI(name) if (im::text(state, #name)) {world->world_generator = generate_##name(&world->arena); }
+            WORLD_GUI(world_0);
+            WORLD_GUI(world_test);
+            #undef WORLD_GUI
             im::end_panel(state);
         }
 
@@ -990,6 +1024,8 @@ draw_gui(game_memory_t* game_memory) {
                 im::text(state, fmt_sv("Step {}: {}", generator->completed_count, step->name));
             }
             state.theme = theme;
+
+            state.hot = 0; state.active = 0; // @hack to clear ui state
             im::end_panel(state);
         }
 

@@ -14,6 +14,37 @@ enum struct debug_variable_type {
     COUNT
 };
 
+enum struct debug_watcher_type {
+    UINT32, INT32,
+    FLOAT32, FLOAT64,
+    VEC2, VEC3,
+    AABB, RAY,
+    ENTITY,
+    COUNT
+};
+
+struct debug_watcher_t {
+    debug_watcher_t* next{0};
+    std::string_view name{};
+
+    debug_watcher_type type{};
+
+
+    union {
+        char* as_cstr;
+        b32* as_b32;
+        u32* as_u32;
+        i32* as_i32;
+        f32* as_f32;
+        f64* as_f64;
+        v2f* as_v2f;
+        v3f* as_v3f;
+        // math::aabb_t<v3f> as_aabb;
+        math::ray_t* as_ray;
+    };
+
+};
+
 struct debug_variable_t {
     debug_variable_t* next{0};
     std::string_view name{};
@@ -43,6 +74,9 @@ struct debug_state_t {
 
     debug_variable_t* variables{0};
     debug_variable_t* first_free{0};
+
+    debug_watcher_t* watcher{0};
+    debug_watcher_t* first_free_watcher{0};
 
     void begin_frame() { 
         // variables = nullptr;
@@ -124,13 +158,149 @@ struct debug_state_t {
         node_push(var, variables);
         return var;
     }
-
 };
 
+
+struct debug_console_t {
+    struct command_t {
+        void (*command)(void*){0};
+        void* data{0};
+    };
+
+    struct message_t {
+        char text[256]{};
+        gfx::color32 color = gfx::color::rgba::white;
+        command_t command{};
+    };
+
+    struct console_command_t {
+        console_command_t* next{0};
+        char name[64]{};
+        command_t command{};
+    };
+
+    console_command_t console_commands[64]{};
+    u32 command_count{0};
+
+    message_t messages[256]{};
+    size_t message_top = 0;
+
+    i32 scroll{0};
+
+    const message_t& last_message() const {
+        return messages[message_top?message_top-1:array_count(messages)-1];
+    }
+
+    char    text_buffer[1024]{};
+    size_t  text_size{0};
+};
+
+inline static void 
+console_add_command(
+    debug_console_t* console,
+    std::string_view command_name,
+    void (*command)(void*),
+    void* user_data
+) {
+    assert(console->command_count < array_count(console->console_commands));
+    debug_console_t::console_command_t& new_command = console->console_commands[console->command_count++];
+
+    std::memcpy(new_command.name, command_name.data(), std::min(array_count(new_command.name), command_name.size()));
+    // strncpy_s(new_command.name, array_count(new_command.name), command_name.data(), command_name.size()+1);
+    new_command.command.command = command;
+    new_command.command.data = user_data;
+}
+
+inline static void 
+console_try_command(
+    debug_console_t* console,
+    std::string_view command_name
+) {
+    range_u64(i, 0, console->command_count) {
+        if (std::strstr(command_name.data(), console->console_commands[i].name)) {
+            console->console_commands[i].command.command(
+                console->console_commands[i].command.data
+            );
+            return;
+        }
+    }
+}
+
+inline static void
+console_log(
+    debug_console_t* console,
+    std::string_view text,
+    gfx::color32 color = gfx::color::rgba::white,
+    void (*on_click)(void*) = 0,
+    void* user_data = 0
+) {
+    size_t text_size = text.size();
+    while(text_size > 0) {
+        auto* message = console->messages + console->message_top;
+        console->message_top = (console->message_top + 1) % array_count(console->messages);
+        message->color = color;
+        const auto write_count = std::min(array_count(message->text), text_size);
+        std::memcpy(message->text, text.data(), write_count);
+        text_size -= write_count;
+
+        message->command.data = user_data;
+        message->command.command = on_click;
+    }
+}
+
+inline void
+draw_console(
+    gfx::gui::im::state_t& imgui, 
+    debug_console_t* console,
+    v2f pos
+) {
+    using namespace gfx::gui;
+    using namespace std::string_view_literals;
+
+    const auto theme = imgui.theme;
+    imgui.theme.border_radius = 1.0f;
+
+    if (im::begin_panel(imgui, "Console"sv, pos, v2f{400.0f, 0.0f})) {
+        // draw_reverse(imgui, console->messages);
+
+        for (u64 i = 10; i <= 10; i--) {
+            u64 index = (console->message_top - 1 - i) % array_count(console->messages);
+            auto* message = console->messages + index;
+            if (message->text[0]==0) {
+                continue;
+            }
+            imgui.theme.text_color = message->color;
+            if (im::text(imgui, fmt_sv("[{}] {}", index, message->text)) && message->command.command) {
+                message->command.command(message->command.data);
+            }
+        }
+        
+        if (im::text_edit(imgui, console->text_buffer, &console->text_size, "console_text_box"_sid)) {
+            console_log(console, console->text_buffer);
+            console_try_command(console, console->text_buffer);
+            std::memset(console->text_buffer, 0, array_count(console->text_buffer));
+            console->text_size = 0;
+        }
+
+        im::end_panel(imgui);
+    }
+
+    imgui.theme = theme;
+}
+
 #define DEBUG_STATE (*gs_debug_state)
-#define DEBUG_ADD_VARIABLE(var) DEBUG_STATE.add_time_variable((var), #var)
-#define DEBUG_SET_FOCUS(point) DEBUG_STATE.focus_point = (point)
-#define DEBUG_SET_TIMEOUT(timeout) DEBUG_STATE.timeout = (timeout)
-#define DEBUG_STATE_DRAW(imgui, proj, view, viewport) DEBUG_STATE.draw(imgui, proj, view, viewport)
+
+#ifdef DEBUG_STATE
+    #define DEBUG_ADD_VARIABLE(var) DEBUG_STATE.add_time_variable((var), #var)
+    #define DEBUG_SET_FOCUS(point) DEBUG_STATE.focus_point = (point)
+    #define DEBUG_SET_FOCUS_DISTANCE(distance) DEBUG_STATE.focus_distance = (distance)
+    #define DEBUG_SET_TIMEOUT(timeout) DEBUG_STATE.timeout = (timeout)
+    #define DEBUG_STATE_DRAW(imgui, proj, view, viewport) DEBUG_STATE.draw(imgui, proj, view, viewport)
+#else
+    #define DEBUG_ADD_VARIABLE(var) 
+    #define DEBUG_SET_FOCUS(point) 
+    #define DEBUG_SET_TIMEOUT(timeout)
+    #define DEBUG_STATE_DRAW(imgui, proj, view, viewport)
+#endif
 
 debug_state_t* gs_debug_state;

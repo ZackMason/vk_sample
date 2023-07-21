@@ -88,7 +88,7 @@ FILETIME win32_last_write_time(const char* path){
 #include "SDL_mixer.h"
 #endif
 
-#define MULTITHREAD_ENGINE
+// #define MULTITHREAD_ENGINE
 
 struct audio_cache_t {
     #if USE_SDL
