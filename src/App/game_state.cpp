@@ -322,11 +322,11 @@ app_init_graphics(game_memory_t* game_memory) {
         rs->render_targets[0].render_pass
     );
 
-    gfx::font_load(&game_state->texture_arena, &game_state->default_font, "./res/fonts/Go-Mono-Bold.ttf", 18.0f);
-    gfx::font_load(&game_state->texture_arena, &game_state->large_font, "./res/fonts/Go-Mono-Bold.ttf", 24.0f);
-    game_state->default_font_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&game_state->texture_arena, 1);
     {
         temp_arena_t ta = game_state->texture_arena;
+        gfx::font_load(&ta, &game_state->large_font, "./res/fonts/Go-Mono-Bold.ttf", 24.0f);
+        gfx::font_load(&ta, &game_state->default_font, "./res/fonts/Go-Mono-Bold.ttf", 18.0f);
+        game_state->default_font_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&ta, 1);
         vk_gfx.load_font_sampler(
             &ta,
             game_state->default_font_texture,
