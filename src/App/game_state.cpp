@@ -62,9 +62,13 @@ draw_game_gui(game_memory_t* game_memory) {
     auto& imgui = *gs_imgui_state;
 
     if (player->primary_weapon.entity) {
+        const auto& weapon = player->primary_weapon.entity->stats.weapon;
         const auto center = imgui.ctx.screen_size * 0.5f;
         gfx::gui::im::draw_circle(imgui, center, 2.0f, gfx::color::rgba::white);
         gfx::gui::im::draw_circle(imgui, center, 4.0f, gfx::color::rgba::light_gray);
+        v2f weapon_display_start = imgui.ctx.screen_size * v2f{0.05f, 0.9f};
+        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", weapon.clip.current, weapon.clip.max), &weapon_display_start, gfx::color::rgba::white);
+        gfx::gui::string_render(&imgui.ctx, fmt_sv("Chambered: {}", weapon.chamber_count), &weapon_display_start, gfx::color::rgba::white);
     }
 }
 
@@ -718,15 +722,21 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
         Platform.audio.play_sound(0x1);
     }
 
+    if (player->primary_weapon.entity) {
+        player->primary_weapon.entity->stats.weapon.update(dt);
+    }
     if (pc.fire1 && player->primary_weapon.entity) {
-        auto rd = forward;
-        auto ro = player->camera_controller.transform.origin + rd * 1.7f;
 
         temp_arena_t fire_arena = world->frame_arena.get();
         u64 fired{0};
         auto* bullets = player->primary_weapon.entity->stats.weapon.fire(&fire_arena, dt, &fired);
 
         range_u64(bullet, 0, fired) {
+            auto ro = player->camera_controller.transform.origin + forward * 1.7f;
+            auto r_angle = utl::rng::random_s::randf() * 1000.0f;
+            auto r_radius = utl::rng::random_s::randf() * bullets[bullet].spread;
+            v2f polar{glm::cos(r_angle) * r_radius, glm::sin(r_angle) * r_radius};
+            auto rd = glm::normalize(forward * 10.0f + right * polar.x + axis::up * polar.y);
         
             if (auto ray = physics->raycast_world(physics, ro, rd); ray.hit) {
                 auto* rb = (physics::rigidbody_t*)ray.user_data;
@@ -742,7 +752,7 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
                     // auto f = rb->inverse_transform_direction(rd);
                     // rb->add_force(rd*1.0f);
                     hit_entity = (game::entity_t*)rb->user_data;
-                    rb->add_force_at_point(rd*10.0f, hp);
+                    rb->add_force_at_point(rd*50.0f, hp);
                     math::ray_t force{hp, rd};
                     DEBUG_ADD_VARIABLE(force);
                 } else {

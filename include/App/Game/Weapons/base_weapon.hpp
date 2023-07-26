@@ -58,6 +58,7 @@ namespace game::wep {
     struct weapon_stats_t {
         f32 damage{};
         f32 pen{};
+        f32 spread{};
     };
 
     enum struct bullet_type {
@@ -67,6 +68,7 @@ namespace game::wep {
     struct bullet_t {
         // math::ray_t ray{};
         f32 damage{};
+        f32 spread{};
 
         item::effect_t* effects{};
 
@@ -94,11 +96,20 @@ namespace game::wep {
 
         item::effect_t* effects{};
 
+        struct sound_effects_t {
+            u64 reload{0x2};
+            u64 fire{0x3};
+        } sound_effects;
+
         bool chamber_round(f32 dt) {
+            if (action.chamber_time == 0.0f) {
+            }
             action.chamber_time += dt;
             if (action.chamber_time > chamber_speed) {
+                Platform.audio.play_sound(sound_effects.reload);
                 action.chamber_time = 0.0f;
-                clip.current -= chamber_count;
+                clip.current -= chamber_max;
+                chamber_count += chamber_max;
                 return true;
             }
             return false;
@@ -107,28 +118,37 @@ namespace game::wep {
         bool reload(f32 dt) {
             action.reload_time += dt;
             if (action.reload_time > load_speed) {
+                action.reload_time = 0.0f;
                 clip.current = clip.max;
+                Platform.audio.play_sound(sound_effects.reload);
                 return true;
             }
             return false;
         }
 
-        bullet_t* fire(arena_t* arena, f32 dt, u64* count) {
+        void update(f32 dt) {
             if (chamber_count == 0) {
                 if (clip.current > 0) {
-                    if (!chamber_round(dt)) { return nullptr; }
+                    chamber_round(dt);
                 } else {
-                    if (!reload(dt)) { return nullptr; }
+                    reload(dt);
                 }
-                // return nullptr;
+            } else if (action.fire_time > 0.0f) {
+                action.fire_time -= dt;
+            }
+        }
+
+        bullet_t* fire(arena_t* arena, f32 dt, u64* count) {
+            if (chamber_count == 0) {
+                return nullptr;
             }
 
-            action.fire_time += dt;
             bullet_t* bullets{0};
 
-            while(action.fire_time > fire_rate) {
-                action.fire_time -= fire_rate;
+            while(action.fire_time < 0.0f) {
+                action.fire_time += fire_rate;
                 chamber_count -= 1;
+                Platform.audio.play_sound(sound_effects.fire);
 
                 for (size_t bullet = 0; bullet < chamber_mult; bullet++) {
                     (*count)++;
@@ -138,6 +158,7 @@ namespace game::wep {
                     }
                     this_bullet->damage = stats.damage;
                     this_bullet->effects = effects;
+                    this_bullet->spread = stats.spread;
                 }
             }
 
@@ -198,7 +219,8 @@ namespace game::wep {
             .chamber_mult = 8,
             .stats = wep::weapon_stats_t {
                 .damage = 1.0f,
-                .pen = 1.0f
+                .pen = 1.0f,
+                .spread = 1.0f
             },
             .clip = wep::ammo_clip_t {
                 .current = 16,

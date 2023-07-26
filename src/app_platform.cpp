@@ -91,9 +91,9 @@ FILETIME win32_last_write_time(const char* path){
 #define MULTITHREAD_ENGINE
 
 struct audio_cache_t {
-    #if USE_SDL
+#if USE_SDL
     Mix_Chunk* sounds[1024];
-    #endif
+#endif
     u64 sound_count{0};
 };
 
@@ -545,7 +545,7 @@ main(int argc, char* argv[]) {
             auto* cache = (audio_cache_t*)data;
 
 #if USE_SDL
-            Mix_PlayChannel(0, cache->sounds[id], 0);
+            Mix_PlayChannel(-1, cache->sounds[id], 0);
 #endif
     });
 

@@ -95,12 +95,19 @@ namespace assets::sounds {
 
     ASSET_SOUND(walking_dirt_01){"./res/audio/Steps_dirt-002.wav"};
 
+    ASSET_SOUND(reload){"./res/audio/1911-reload.wav"};
+    ASSET_SOUND(pistol_shot){"./res/audio/9mm_firing_01.wav"};
+    ASSET_SOUND(shotgun_shot){"./res/audio/shotgun_firing_01.wav"};
+
     #undef ASSET_SOUND
 
     #define LOAD_ASSET_SOUND(name) name.id = Platform.audio.load_sound.dispatch_request<u64>(name.filename.data())
     void load() {
         LOAD_ASSET_SOUND(unlock);
         LOAD_ASSET_SOUND(walking_dirt_01);
+        LOAD_ASSET_SOUND(reload);
+        LOAD_ASSET_SOUND(pistol_shot);
+        LOAD_ASSET_SOUND(shotgun_shot);
     }
     #undef LOAD_ASSET_SOUND
 };
