@@ -53,8 +53,7 @@ load_bin_mesh_data(
         std::memcpy(tris, blob.read_data(), index_bytes);
         blob.advance(index_bytes);
 
-
-        results.meshes[i].aabb = {};
+        new (&results.meshes[i].aabb) math::aabb_t<v3f>();
         range_u64(j, 0, vertex_count) {
             results.meshes[i].aabb.expand(v[j].pos);
         }

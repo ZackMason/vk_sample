@@ -231,6 +231,8 @@ struct export_dll api_t {
     backend_type type;
     void*        backend{nullptr};
 
+    void* user_world{nullptr};
+
     arena_t*        arena;
 
     simulate_function           simulate{0};

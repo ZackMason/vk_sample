@@ -36,13 +36,15 @@ struct world_generator_t {
     std::atomic<u64> step_count{0};
     world_generation_step_t* first_step{0};
 
-    void execute(game::world_t* world) {
+    void execute(game::world_t* world, std::function<void(void)> draw_gui = [](){}) {
+        TIMED_FUNCTION;
         auto* step = first_step;
         while(step) {
             {
                 std::lock_guard lock{world->render_system()->ticket};
                 rendering::begin_frame(world->render_system());
             }
+            draw_gui();
             step->function(world);
             completed_count++;
 

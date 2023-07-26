@@ -973,7 +973,7 @@ void set_image_layout(
 
 // extensions
 void create_shader_objects_from_files(
-    arena_t arena, state_t& state,
+    arena_t arena, const state_t& state,
     VkDescriptorSetLayout* descriptor_set_layout,
     u32 descriptor_set_layout_count,
     u32 push_constant_size,

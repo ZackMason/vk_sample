@@ -94,14 +94,11 @@ namespace game::wep {
 
         item::effect_t* effects{};
 
-        utl::closure_t* on_hit{};
-        u64             on_hit_count{};
-
         bool chamber_round(f32 dt) {
             action.chamber_time += dt;
             if (action.chamber_time > chamber_speed) {
                 action.chamber_time = 0.0f;
-                clip.current -= chamber_count = chamber_max;
+                clip.current -= chamber_count;
                 return true;
             }
             return false;

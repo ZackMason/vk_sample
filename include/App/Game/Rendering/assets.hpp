@@ -93,11 +93,14 @@ namespace assets::sounds {
 
     ASSET_SOUND(unlock){"./res/audio/unlock.wav"};
 
+    ASSET_SOUND(walking_dirt_01){"./res/audio/Steps_dirt-002.wav"};
+
     #undef ASSET_SOUND
 
     #define LOAD_ASSET_SOUND(name) name.id = Platform.audio.load_sound.dispatch_request<u64>(name.filename.data())
     void load() {
         LOAD_ASSET_SOUND(unlock);
+        LOAD_ASSET_SOUND(walking_dirt_01);
     }
     #undef LOAD_ASSET_SOUND
 };

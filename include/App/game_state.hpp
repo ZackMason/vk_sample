@@ -119,6 +119,7 @@ struct game_state_t {
         gfx::gui::ctx_t ctx;
         gfx::vul::vertex_buffer_t<gfx::gui::vertex_t, 4'000'000> vertices[2];
         gfx::vul::index_buffer_t<6'000'000> indices[2];
+        std::atomic<u64> frame{0};
 
         arena_t  arena;
     } gui;

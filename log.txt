@@ -10,7 +10,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 0
 [0m[1m[38;2;255;255;255m[info][app_init]: Creating physics scene
 [0m[1m[38;2;255;255;255m[info][physics::physx_create_scene]: Creating scene
-[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x2173da10108
+[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x1d1b8370108
 [0m[1m[38;2;255;255;255m[info][app_init]: Created physics scene
 [0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 24
 [0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
@@ -391,6 +391,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Plane
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Sphere.001
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube
@@ -1446,23 +1448,19 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: sand
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: dirt
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/gui.vert.spv
-[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/gui.frag.spv
-[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.vert.spv
-[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.frag.spv
-[0m[1m[38;2;255;255;255m[info][game_state]: world size: 37mb
-[0m[1m[38;2;255;255;255m[info][game_state]: player id: 1 - 0x21640e100b8
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::play_sound]: playing Sound: 0
-[0m[1m[38;2;255;255;255m[info][win32]: Saved graphics config
-[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Render System cleaned up
-[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Graphics API cleaned up
-[0m[1m[38;2;255;255;255m[info][win32]: Closing Application
-[0m
+[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]:app_build.cpp
+   Creating library app_build.lib and object app_build.exp
+
+CLINK C:\Users\zack\Documents\GitHub\vk_sample>app_build.cpp
+   Creating library app_build.lib and object app_build.exp
+
+CLINK C:\Users\zack\Documents\GitHub\vk_sample>7 File(s) copied
+app_build.cpp
+   Creating library app_build.lib and object app_build.exp
+
+CLINK C:\Users\zack\Documents\GitHub\vk_sample>7 File(s) copied
+app_build.cpp
+   Creating library app_build.lib and object app_build.exp
+
+CLINK C:\Users\zack\Documents\GitHub\vk_sample>CLINK C:\Users\zack\Documents\GitHub\vk_sample>CLINK C:\Users\zack\Documents\GitHub\vk_sample>CLINK C:\Users\zack\Documents\GitHub\vk_sample>
+CLINK C:\Users\zack\Documents\GitHub\vk_sample>

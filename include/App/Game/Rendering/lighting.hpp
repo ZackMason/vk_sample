@@ -23,8 +23,8 @@ namespace rendering::lighting {
         gfx::vul::framebuffer_t framebuffer{};
     };
 
-    struct probe_box_t : public math::aabb_t<v3f> {
-        using math::aabb_t<v3f>::aabb_t;
+    struct probe_box_t {
+        math::aabb_t<v3f> aabb;
         f32 grid_size{16.0f};
         probe_t* probes{0};
         u64 probe_count{0};
@@ -59,7 +59,7 @@ namespace rendering::lighting {
     inline static void 
     set_probes(gfx::vul::state_t& vk_gfx, probe_box_t* probe_box, arena_t* arena) {
         const v3f step_size = v3f{probe_box->grid_size};
-        const v3u probe_count = v3u{glm::floor(probe_box->size() / probe_box->grid_size)};
+        const v3u probe_count = v3u{glm::floor(probe_box->aabb.size() / probe_box->grid_size)};
         const u64 total_probe_count = probe_count.x * probe_count.y * probe_count.z;
         probe_box->probes = arena_alloc_ctor<probe_t>(arena, total_probe_count);
         probe_box->probe_count = total_probe_count;
@@ -69,7 +69,7 @@ namespace rendering::lighting {
             range_u32(y, 0, probe_count.y) {
                 range_u32(z, 0, probe_count.z) {
                     auto* probe = probe_box->probes + i++;
-                    probe->position = probe_box->min + step_size * v3f{x,y,z};
+                    probe->position = probe_box->aabb.min + step_size * v3f{x,y,z};
                     probe->id = i;
                     // setup_framebuffer(vk_gfx, probe, arena);
                 }

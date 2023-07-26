@@ -52,7 +52,7 @@ enum struct entity_type {
 };
 
 struct health_t {
-    f32 max{100.0f};
+    f32 max{};
     f32 current{};
 
     constexpr health_t(f32 v = 100.0f) noexcept
@@ -136,9 +136,10 @@ struct entity_t : node_t<entity_t> {
         // u32 object_id{0};
         // u32 indirect_start{0};
 
+        particle_system_id particle_system_id{uid::invalid_id};
         particle_system_t* particle_system{0};
 
-        u32 instance_count{1};
+        u32 _instance_count{1};
         union
         {
             struct {
@@ -158,7 +159,7 @@ struct entity_t : node_t<entity_t> {
 
         void swap() {
             if (dynamic_instance_buffer == buffer) {
-                dynamic_instance_buffer = buffer + instance_count;
+                dynamic_instance_buffer = buffer + _instance_count;
             } else {
                 dynamic_instance_buffer = buffer;
             }
@@ -176,17 +177,21 @@ struct entity_t : node_t<entity_t> {
             } else {
                 instance_buffer = pool.allocate(count);
             }
-            instance_count = count;
+            _instance_count = count;
         }
 
         u32 instance_offset() {
             if (render_flags & RenderFlag_DynamicInstance) {
-                auto ret = dynamic_instance_buffer == buffer ? 0 : instance_count;
+                auto ret = dynamic_instance_buffer == buffer ? 0 : _instance_count;
                 swap();
                 return ret + instance_buffer_offset;
             } else {
                 return instance_buffer_offset;
             }
+        }
+
+        u32 instance_count() {
+            return _instance_count - (particle_system ? particle_system->max_count - particle_system->live_count : 0); 
         }
         
     } gfx;
@@ -197,14 +202,10 @@ struct entity_t : node_t<entity_t> {
     } physics;
 
     struct stats_t {
-        std::variant<character_stats_t, wep::base_weapon_t> character_, weapon_;
-
-        wep::base_weapon_t weapon() const {
-            return std::get<wep::base_weapon_t>(weapon_);
-        }
-        character_stats_t character() const {
-            return std::get<character_stats_t>(character_);
-        }
+        union {
+            character_stats_t character;
+            wep::base_weapon_t weapon{};
+        };
     } stats;
 
     entity_ref_t primary_weapon{0};

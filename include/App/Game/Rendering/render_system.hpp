@@ -5,6 +5,8 @@
 
 #include "App/vk_state.hpp"
 
+#include "App/Game/Util/loading.hpp"
+
 #include "lighting.hpp"
 #include "assets.hpp"
 #include "descriptor_allocator.hpp"
@@ -122,7 +124,7 @@ namespace rendering {
         // returns a bitmask of which textures were loaded
         u32 load_material(
             arena_t arena,
-            gfx::vul::state_t vk_gfx,
+            const gfx::vul::state_t& vk_gfx,
             gfx::material_info_t& material_info,
             u64 ids[2]
         ) {
@@ -232,6 +234,16 @@ public:
             }
         };
 
+        inline void
+        destroy(const gfx::vul::state_t& vk_gfx) {
+            range_u64(i, 0, array_count(shaders)) {
+                if (shaders[i].hash) {
+                    shaders[i].hash = 0;
+                    vk_gfx.ext.vkDestroyShaderEXT(vk_gfx.device, shaders[i].shader, nullptr);
+                }
+            }
+        }
+
         // @hash
         link_t shaders[64]{};
 
@@ -261,7 +273,7 @@ public:
 
         u64 load(
             arena_t arena,
-            gfx::vul::state_t vk_gfx,
+            const gfx::vul::state_t& vk_gfx,
             const char* filename,
             VkShaderStageFlagBits stage,
             VkShaderStageFlagBits next_stage,
@@ -296,7 +308,7 @@ public:
 
         u64 load(
             arena_t arena,
-            gfx::vul::state_t vk_gfx,
+            const gfx::vul::state_t& vk_gfx,
             const gfx::shader_description_t& shader_description,
             VkDescriptorSetLayout* descriptor_set_layouts,
             u32 descriptor_count
@@ -609,6 +621,7 @@ public:
 
     // for double buffering
     struct frame_data_t {
+        // these arent being used
         VkSemaphore present_semaphore, render_semaphore;
         VkFence render_fence;
 
@@ -654,6 +667,7 @@ public:
         arena_t frame_arena;
 
         gfx::vul::state_t* vk_gfx{0};
+        utl::res::pack_file_t* resource_file{0};
 
         std::mutex ticket{};
 
@@ -702,7 +716,7 @@ public:
         v3f camera_pos{0.0f};
         u32 width{}, height{};
 
-        lighting::probe_box_t light_probes{v3f{-30.0f, -6.0f, -30.0f}, v3f{40.0f}};
+        lighting::probe_box_t light_probes{.aabb={v3f{-30.0f, -6.0f, -30.0f}, v3f{40.0f}}};
 
         frame_image_t frame_images[8]{};
 
@@ -750,8 +764,15 @@ public:
         system_t* rs
     ) {
         utl::profile_t p{__FUNCTION__};
+        rs->shader_cache.destroy(*rs->vk_gfx);
         rs->descriptor_layout_cache->cleanup();
+        range_u64(i, 0, rs->framebuffer_count) {
+            vkDestroyFramebuffer(rs->vk_gfx->device, rs->framebuffers[i], 0);
+        }
         range_u64(i, 0, system_t::frame_overlap) {
+            vkDestroyCommandPool(rs->vk_gfx->device, rs->frames[i].command_pool, 0);
+            // vkDestroySemaphore(rs->vk_gfx->device, rs->frames[i].present_semaphore, 0);
+            // vkDestroySemaphore(rs->vk_gfx->device, rs->frames[i].render_semaphore, 0);
             rs->frames[i].dynamic_descriptor_allocator->cleanup();
         }
         rs->permanent_descriptor_allocator->cleanup();
@@ -1006,7 +1027,8 @@ public:
             
             mesh_pass_t& mesh_pass = rs->get_frame_data().mesh_pass;
 
-            if (mesh_pass.object_descriptors == VK_NULL_HANDLE) {
+            // if (mesh_pass.object_descriptors == VK_NULL_HANDLE) 
+            {
                 auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
                 VkBuffer buffers[]{
                     rs->vk_gfx->sporadic_uniform_buffer.buffer,
@@ -1230,7 +1252,36 @@ public:
         std::string_view name
     ) {
         if (name.empty()) return std::numeric_limits<u64>::max();
-        return utl::str_hash_find(rs->mesh_hash, name);
+        auto id = utl::str_hash_find(rs->mesh_hash, name);
+        if (id == utl::invalid_hash) {
+            std::byte* file_data = utl::res::pack_file_get_file_by_name(rs->resource_file, name);
+                        
+            auto loaded_mesh = load_bin_mesh_data(
+                &rs->arena,
+                file_data, 
+                &rs->vertices.pool,
+                &rs->indices.pool
+            );
+
+            range_u64(m, 0, loaded_mesh.count) {
+                u64 ids[2];
+                u32 mask = rs->texture_cache.load_material(rs->arena, *rs->vk_gfx, loaded_mesh.meshes[m].material, ids);
+                loaded_mesh.meshes[m].material.albedo_id = (mask&0x1) ? ids[0] : std::numeric_limits<u64>::max();
+                loaded_mesh.meshes[m].material.normal_id = (mask&0x2) ? ids[1] : std::numeric_limits<u64>::max();
+            }
+
+            return add_mesh(rs, name, loaded_mesh);
+        }
+        return id;
+    }
+
+    inline u64
+    safe_get_mesh_id(
+        system_t* rs,
+        std::string_view name
+    ) {
+        std::lock_guard lock{rs->ticket};
+        return get_mesh_id(rs, name);
     }
 
     inline const gfx::mesh_list_t&
@@ -1433,7 +1484,8 @@ public:
         auto& ext = rs->vk_gfx->ext;
         auto& khr = rs->vk_gfx->khr;
 
-        local_persist const auto& sky_mesh = get_mesh(rs, "res/models/sphere.obj");
+        const auto& sky_mesh_id = get_mesh_id(rs, "res/models/sphere.obj");
+        const auto& sky_mesh = get_mesh(rs, "res/models/sphere.obj");
 
         auto viewport = gfx::vul::utl::viewport((f32)rs->width, (f32)rs->height, 0.0f, 1.0f);
         auto scissor = gfx::vul::utl::rect2D(rs->width, rs->height, 0, 0);

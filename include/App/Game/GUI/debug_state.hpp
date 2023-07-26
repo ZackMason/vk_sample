@@ -59,7 +59,7 @@ struct debug_variable_t {
         f64 as_f64;
         v2f as_v2f;
         v3f as_v3f;
-        // math::aabb_t<v3f> as_aabb;
+        math::aabb_t<v3f> as_aabb{};
         math::ray_t as_ray;
     };
 };
@@ -67,6 +67,8 @@ struct debug_variable_t {
 struct debug_state_t {
     f32& time;
     arena_t arena;
+
+    std::mutex ticket;
 
     f32 timeout{1.0f};
     v3f focus_point{0.0f};
@@ -85,11 +87,15 @@ struct debug_state_t {
     }
 
     void draw(gfx::gui::im::state_t& imgui, const m44& proj, const m44& view, const v4f& viewport) {
+        std::lock_guard lock{ticket};
         using namespace gfx::gui;
         debug_variable_t* last = nullptr;
         debug_variable_t* curr = variables;
         while (curr && time - curr->time_stamp > timeout) {
-            curr = variables = curr->next;
+            auto* next = curr->next;
+            node_next(variables);
+            node_push(curr, first_free);
+            curr = next;
         }
         while (curr) {
             if (time - curr->time_stamp > timeout) {
@@ -116,6 +122,20 @@ struct debug_state_t {
                     draw_circle(&imgui.ctx, pos, glm::distance(pos_up, pos), gfx::color::rgba::light_blue);
                     string_render(&imgui.ctx, var->name, pos, gfx::color::rgba::light_blue);
                 }
+            } else if (var->type == debug_variable_type::AABB) {
+                const auto aabb_distance = glm::distance(var->as_aabb.center(), focus_point);
+                if (
+                    aabb_distance > focus_distance || 
+                    // var->as_aabb.contains(focus_point) || 
+                    aabb_distance < 1.0f
+                ) continue;
+
+                auto pos = (math::world_to_screen(proj, view, viewport, var->as_aabb.center()));
+                if (viewable.contains(pos)) {
+                    string_render(&imgui.ctx, var->name, swizzle::xy(pos), gfx::color::rgba::yellow);
+                }
+                draw_aabb(&imgui.ctx, var->as_aabb, proj * view, 2.0f, gfx::color::rgba::yellow);
+
             } else if (var->type == debug_variable_type::RAY) {
                 if (glm::distance(var->as_ray.origin, focus_point) > focus_distance) continue;
                 auto ro_ = math::world_to_screen(proj, view, viewport, var->as_ray.origin);
@@ -132,17 +152,26 @@ struct debug_state_t {
     }
 
     template <typename T>
-    debug_variable_t* add_time_variable(T val, std::string_view name) {
+    debug_variable_t* add_time_variable(T val, std::string_view name, f32 force_life = -1.0f) {
         auto* var = add_variable(val, name);
-        var->time_stamp = time;
+        if (force_life != -1.0f) {
+            const auto delta = timeout - force_life;
+            var->time_stamp = time - delta;
+        } else {
+            var->time_stamp = time;
+        }
 
         return var;
     }
 
     template <typename T>
     debug_variable_t* add_variable(T val, std::string_view name) {
+        std::lock_guard lock{ticket};
         auto* var = first_free ? first_free : arena_alloc<debug_variable_t>(&arena);
-        if (first_free) { node_next(first_free); }
+        if (first_free) { 
+            node_next(first_free); 
+            new (var) debug_variable_t;
+        }
         var->name = name;
         if constexpr (std::is_same_v<T, u32>) { var->type = debug_variable_type::UINT32; }
         if constexpr (std::is_same_v<T, i32>) { var->type = debug_variable_type::INT32; }
@@ -240,6 +269,7 @@ console_log(
         console->message_top = (console->message_top + 1) % array_count(console->messages);
         message->color = color;
         const auto write_count = std::min(array_count(message->text), text_size);
+        utl::memzero(message->text, array_count(message->text));
         std::memcpy(message->text, text.data(), write_count);
         text_size -= write_count;
 
@@ -278,7 +308,7 @@ draw_console(
         if (im::text_edit(imgui, console->text_buffer, &console->text_size, "console_text_box"_sid)) {
             console_log(console, console->text_buffer);
             console_try_command(console, console->text_buffer);
-            std::memset(console->text_buffer, 0, array_count(console->text_buffer));
+            utl::memzero(console->text_buffer, array_count(console->text_buffer));
             console->text_size = 0;
         }
 
@@ -292,6 +322,7 @@ draw_console(
 
 #ifdef DEBUG_STATE
     #define DEBUG_ADD_VARIABLE(var) DEBUG_STATE.add_time_variable((var), #var)
+    #define DEBUG_ADD_VARIABLE_(var, time) DEBUG_STATE.add_time_variable((var), #var, (time))
     #define DEBUG_SET_FOCUS(point) DEBUG_STATE.focus_point = (point)
     #define DEBUG_SET_FOCUS_DISTANCE(distance) DEBUG_STATE.focus_distance = (distance)
     #define DEBUG_SET_TIMEOUT(timeout) DEBUG_STATE.timeout = (timeout)

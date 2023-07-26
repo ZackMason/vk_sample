@@ -232,6 +232,8 @@ VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, int wi
     }
 }
 
+// @crash @bug
+// Note(Zack): Very weird reload crash here
 swapchain_support_details_t querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface) {
     swapchain_support_details_t details;
 
@@ -499,8 +501,6 @@ state_t::end_single_time_commands(VkCommandBuffer cmd_buffer) {
 
     vkFreeCommandBuffers(device, command_pool, 1, &cmd_buffer);
 }
-
-
 
 void 
 begin_render_pass(
@@ -1007,7 +1007,7 @@ VkShaderModule create_shader_module(VkDevice device, std::span<char> code) {
 
 void create_shader_objects(
     arena_t arena,
-    state_t& state,
+    const state_t& state,
     VkDescriptorSetLayout* descriptor_set_layouts,
     u32 descriptor_set_layout_count,
     u32 push_constant_size,
@@ -1050,7 +1050,7 @@ void create_shader_objects(
 
 void create_shader_objects_from_files(
     arena_t arena,
-    state_t& state,
+    const state_t& state,
     VkDescriptorSetLayout* descriptor_set_layout,
     u32 descriptor_set_layout_count,
     u32 push_constant_size,

@@ -80,7 +80,7 @@ inline static void
 object_data_gui(gfx::gui::im::state_t& imgui, reflect::type_t type, std::byte* data, const char* prop_name = 0, size_t depth = 0) {
     using namespace gfx::gui;
     char depth_str[32];
-    std::memset(depth_str, 0, 32);
+    utl::memzero(depth_str, 32);
     std::memset(depth_str, '-', depth?depth-1:0);
 
     auto show_property = type.get_property("show");

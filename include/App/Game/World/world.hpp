@@ -39,6 +39,8 @@ namespace game {
 
         world_generator_t* world_generator{0};
 
+        particle_cache_t* particle_cache{0};
+
         rendering::system_t* 
         render_system() {
             return game_state->render_system;
@@ -53,11 +55,16 @@ namespace game {
         world_t* world = arena_alloc_ctor<world_t>(arena, 1);
         world->game_state = game_state;
         world->physics = phys_api;
+        phys_api->user_world = world;
         
         world->arena = arena_sub_arena(arena, megabytes(256));
 
         world->frame_arena.arena[0] = arena_sub_arena(&world->arena, megabytes(64));
         world->frame_arena.arena[1] = arena_sub_arena(&world->arena, megabytes(64));
+
+        // world->particle_cache = arena_alloc<particle_cache_t>(&world->arena);
+
+        // world->particle_cache->instance_buffer = world->render_system()->instance_storage_buffer.pool.allocate(MAX_PARTICLE_SYSTEM_COUNT * 1024);
 
         return world;
     }
@@ -231,8 +238,8 @@ spawn(
     utl::res::pack_file_t* resource_file = world->game_state->resource_file;
 
     entity_t* entity = world_create_entity(world);
+    entity_init(entity, rendering::safe_get_mesh_id(rs, def.gfx.mesh_name));
 
-    entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name));
     if (def.gfx.mesh_name != ""sv) {
         entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
     }
@@ -261,9 +268,9 @@ spawn(
     }
 
     if (def.stats) {
-        entity->stats.character_ = *def.stats;
+        entity->stats.character = *def.stats;
     } else if (def.weapon) {
-        entity->stats.weapon_ = *def.weapon;
+        entity->stats.weapon = *def.weapon;
     }
 
     if (def.physics && def.physics->flags & PhysicsEntityFlags_Character) {
@@ -329,6 +336,8 @@ spawn(
                 case physics::collider_shape_type::SPHERE: {
                     physics::collider_sphere_info_t ci;
                     ci.radius = def.physics->shapes[i]->sphere.radius;
+                    entity->aabb.expand(v3f{def.physics->shapes[i]->sphere.radius});
+                    entity->aabb.expand(v3f{-def.physics->shapes[i]->sphere.radius});
                     collider = world->physics->create_collider(
                         world->physics,
                         rb, shape, &ci
@@ -337,6 +346,8 @@ spawn(
                 case physics::collider_shape_type::BOX: {
                     physics::collider_box_info_t ci;
                     ci.size = def.physics->shapes[i]->box.size;
+                    entity->aabb.expand(def.physics->shapes[i]->box.size*0.5f);
+                    entity->aabb.expand(def.physics->shapes[i]->box.size*-0.5f);
                     collider = world->physics->create_collider(
                         world->physics,
                         rb, shape, &ci

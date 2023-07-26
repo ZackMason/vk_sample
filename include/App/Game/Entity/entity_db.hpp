@@ -192,6 +192,8 @@ void co_platform(coroutine_t* co, frame_arena_t& frame_arena) {
     auto* e = (game::entity_t*)co->data;
     auto& y_pos = e->physics.rigidbody->position.y;
 
+
+    const auto lerp = tween::generic<f32>(tween::in_out_elastic);
     auto* stack = co_stack(co, frame_arena);
     f32* start  = co_push_stack(co, stack, f32);
     f32* end    = co_push_stack(co, stack, f32);
@@ -206,7 +208,7 @@ void co_platform(coroutine_t* co, frame_arena_t& frame_arena) {
 
         // Platform.audio.play_sound(assets::sounds::unlock.id);
 
-        co_lerp(co, y_pos, *start, *end, .90f, tween::lerp);
+        co_lerp(co, y_pos, *start, *end, 10.0f, lerp);
 
     co_end(co);
 }

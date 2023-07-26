@@ -88,7 +88,7 @@ FILETIME win32_last_write_time(const char* path){
 #include "SDL_mixer.h"
 #endif
 
-// #define MULTITHREAD_ENGINE
+#define MULTITHREAD_ENGINE
 
 struct audio_cache_t {
     #if USE_SDL
@@ -190,7 +190,7 @@ update_input(game_memory_t* game_memory, GLFWwindow* window) {
     app_input_reset(&game_memory->input);
 
     game_memory->input.time = (f32)(glfwGetTime());
-    game_memory->input.dt = game_memory->input.time - last_input.time;
+    game_memory->input.dt = std::min(game_memory->input.time - last_input.time, 0.5f);
 
     f64 mouse_temp[2];
     glfwGetCursorPos(window, mouse_temp+0, mouse_temp+1);
@@ -200,7 +200,6 @@ update_input(game_memory_t* game_memory, GLFWwindow* window) {
 
     game_memory->input.mouse.pos[0] = mouse[0];
     game_memory->input.mouse.pos[1] = mouse[1];
-
 
     game_memory->input.mouse.delta[0] = mouse[0] - last_input.mouse.pos[0];
     game_memory->input.mouse.delta[1] = mouse[1] - last_input.mouse.pos[1];
@@ -257,7 +256,6 @@ update_input(game_memory_t* game_memory, GLFWwindow* window) {
             // gen_warn("input", "Joystick is not gamepad");
             gamepad = {};
         }
-
     }
 
     loop_iota_u64(mb, array_count(game_memory->input.mouse.buttons)) {
@@ -430,16 +428,8 @@ LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
-
 i32 message_box_proc(const char* text) {
     return MessageBox(0, text, 0, MB_OKCANCEL);
-}
-
-bool open_file_dialog(char* filename, size_t max_file_size) {
-    OPENFILENAME open_file_name{};
-    open_file_name.lStructSize = sizeof(OPENFILENAME);
-    open_file_name.hwndOwner = 0;
-    return false;
 }
 
 int 
@@ -459,7 +449,7 @@ main(int argc, char* argv[]) {
 
     game_memory_t game_memory{};
     game_memory.platform = Platform;
-    constexpr size_t application_memory_size = gigabytes(4);
+    constexpr size_t application_memory_size = gigabytes(2);
     game_memory.arena = arena_create(VirtualAlloc(0, application_memory_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), application_memory_size);
 
     game_memory_t restore_point;
@@ -522,6 +512,7 @@ main(int argc, char* argv[]) {
         gen_info("sdl_mixer", "Couldn't open audio: {}", SDL_GetError());
         return 255;
     }
+    
 #endif
 
     audio_cache_t audio_cache{};
@@ -533,7 +524,11 @@ main(int argc, char* argv[]) {
 
             auto* cache = (audio_cache_t*)data;
 #if USE_SDL
+            // if (utl::has_extension(path, "wav")) {
             cache->sounds[cache->sound_count] = Mix_LoadWAV(path);
+            // } else if (utl::has_extension(path, "ogg")) {
+                // cache->sounds[cache->sound_count] = Mix_LoadMUS(path);
+            // }
 #endif
 
             gen_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);

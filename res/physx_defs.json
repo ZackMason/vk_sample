@@ -8,7 +8,8 @@
         "res/models/Sponza.gltf",
         "res/models/shaderball.obj",
         "res/models/rooms/rock_room_test.fbx",
-        "res/models/rooms/rock_room_test.gltf"
+        "res/models/rooms/rock_room_test.gltf",
+        "res/models/rooms/homebase.gltf"
     ],
     "convex": [
         "res/models/rooms/wall_10x10_01.obj",

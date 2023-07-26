@@ -540,10 +540,14 @@ struct app_input_t {
 
     char keyboard_input() noexcept {
         const bool shift = keys[key_id::LEFT_SHIFT] || keys[key_id::RIGHT_SHIFT];
+        const char* num_lut=")!@#$%^&*(";
         range_u64(c, key_id::SPACE, key_id::GRAVE_ACCENT+1) {
             if (pressed.keys[c]) { 
                 pressed.keys[c] = 0;
                 if (shift) {
+                    if (c >= key_id::NUM_0 && c <= key_id::NUM_9) {
+                        return num_lut[c-key_id::NUM_0];
+                    }
                     return (char)c;
                 } else {
                     return (char)std::tolower((char)c); 
@@ -779,6 +783,28 @@ struct window_t {
 
 #define node_for(type, node, itr) for(type* itr = (node); (itr); node_next(itr))
 
+#define dlist_insert(sen, ele) \
+    (ele)->next = (sen)->next;\
+    (ele)->prev = (sen);\
+    (ele)->next->prev = (ele);\
+    (ele)->prev->next = (ele);
+
+#define dlist_insert_as_last(sen, ele) \
+    (ele)->next = (sen);\
+    (ele)->prev = (sen)->prev;\
+    (ele)->next->prev = (ele);\
+    (ele)->prev->next = (ele);
+
+#define dlist_init(sen) \
+    (sen)->next = (sen);\
+    (sen)->prev = (sen);
+
+#define freelist_allocate(result, freelist, alloc_code)\
+    (result) = (freelist);\
+    if (result) { freelist = (result)->next_free;} else { result = alloc_code;}
+#define freelist_deallocate(ptr, freelist) \
+    if (ptr) { (ptr)->next_free = (freelist); (freelist) = (ptr); }
+
 template <typename T>
 struct node_t {
     union {
@@ -847,6 +873,10 @@ memdif(const u8* dst, const u8* src, size_t size) {
     return dif;
 }
 
+inline void
+memzero(void* buffer, umm size) {
+    std::memset(buffer, 0, size);
+}
 
 }; // namespace utl
 
@@ -1599,7 +1629,10 @@ namespace swizzle {
 };
 
 namespace math {
-    
+    template <typename T>
+    constexpr T remap01(T a, T b, T x) {
+        return (x-a)/(b-a);
+    }
 
     constexpr v2f octahedral_mapping(v3f co) {
         using namespace swizzle;
@@ -1812,15 +1845,15 @@ namespace math {
     
 template <typename T = v3f>
 struct aabb_t {
-    aabb_t() = default;
-    aabb_t(const T& o) {
-        expand(o);
-    }
+    // aabb_t(){}
+    // aabb_t(const T& o) {
+    //     expand(o);
+    // }
 
-    aabb_t(const T& min_, const T& max_) noexcept
-        : min{min_}, max{max_}
-    {
-    }
+    // aabb_t(const T& min_, const T& max_) noexcept
+    //     : min{min_}, max{max_}
+    // {
+    // }
 
     T min{std::numeric_limits<float>::max()};
     T max{-std::numeric_limits<float>::max()};
@@ -2775,7 +2808,7 @@ namespace gui {
         utl::pool_t<vertex_t>* vertices,
         utl::pool_t<u32>* indices
     ) {
-        ctx->frame++;
+        ctx->frame++; // remove this
         ctx->vertices = vertices;
         ctx->indices = indices;
         ctx->vertices->clear();
@@ -2855,6 +2888,8 @@ namespace gui {
         *tris++ = v_start + 1;
     }
 
+
+    // in screen space
     inline void
     draw_line(
         ctx_t* ctx,
@@ -2934,6 +2969,64 @@ namespace gui {
             const v2f p1 = pos + b0 * glm::cos(as) * radius.x + b1 * glm::sin(as) * radius.y;
 
             draw_line(ctx, p0, p1, line_width, color);
+        }
+    }
+
+    inline void 
+    draw_quad_outline(
+        ctx_t* ctx,
+        const v2f* points,
+        f32 line_width,
+        u32 color
+    ) {
+        draw_line(ctx, points[0], points[1], line_width, color);
+        draw_line(ctx, points[1], points[2], line_width, color);
+        draw_line(ctx, points[2], points[3], line_width, color);
+        draw_line(ctx, points[3], points[0], line_width, color);
+    }
+
+    inline void
+    draw_quad_outline(
+        ctx_t* ctx,
+        const v3f* points,
+        const m44& vp,
+        f32 line_width,
+        u32 color
+    ) {
+        draw_line(ctx, swizzle::xy(math::world_to_screen(vp, points[0])) * ctx->screen_size, swizzle::xy(math::world_to_screen(vp, points[1])) * ctx->screen_size, line_width, color);
+        draw_line(ctx, swizzle::xy(math::world_to_screen(vp, points[1])) * ctx->screen_size, swizzle::xy(math::world_to_screen(vp, points[2])) * ctx->screen_size, line_width, color);
+        draw_line(ctx, swizzle::xy(math::world_to_screen(vp, points[2])) * ctx->screen_size, swizzle::xy(math::world_to_screen(vp, points[3])) * ctx->screen_size, line_width, color);
+        draw_line(ctx, swizzle::xy(math::world_to_screen(vp, points[3])) * ctx->screen_size, swizzle::xy(math::world_to_screen(vp, points[0])) * ctx->screen_size, line_width, color);
+    }
+
+    inline void
+    draw_aabb(
+        ctx_t* ctx,
+        math::aabb_t<v3f> aabb,
+        const m44& vp,
+        f32 line_width,
+        u32 color
+    ) {
+        const v3f size = aabb.size();
+        const v3f sxxx = v3f{size.x,0,0};
+        const v3f syyy = v3f{0,size.y,0};
+        const v3f szzz = v3f{0,0,size.z};
+
+        math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
+
+        if (viewable.contains(math::world_to_screen(vp, aabb.min)) == false) {return;}
+        if (viewable.contains(math::world_to_screen(vp, aabb.center())) == false) {return;}
+        if (viewable.contains(math::world_to_screen(vp, aabb.max)) == false) {return;}
+
+        // bottom
+        const v3f q1[4]{aabb.min, aabb.min + sxxx, aabb.min + sxxx + szzz, aabb.min + szzz};
+        // top
+        const v3f q2[4]{aabb.min + syyy, aabb.min + syyy + sxxx, aabb.min + syyy + sxxx + szzz, aabb.min + syyy + szzz};
+        draw_quad_outline(ctx, q1, vp, line_width, color);
+        draw_quad_outline(ctx, q2, vp, line_width, color);
+
+        range_u64(i, 0, 4) {
+            draw_line(ctx, swizzle::xy(math::world_to_screen(vp, q1[i])) * ctx->screen_size, swizzle::xy(math::world_to_screen(vp, q2[i])) * ctx->screen_size, line_width, color);
         }
     }
 
@@ -3275,13 +3368,13 @@ namespace gui {
                 draw_circle(&imgui.ctx, v_right,    abw - bbw, color::rgba::light_gray);
                 draw_circle(&imgui.ctx, v_forward,  abw - bbw, color::rgba::light_gray);
 
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.0f, 0.25f, clw, color::rgba::red, 64);
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.0f, 0.25f, clw, color::rgba::green, 64);
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.0f, 0.25f, clw, color::rgba::blue, 64);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.0f, 0.25f, clw, color::rgba::red, 32);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.0f, 0.25f, clw, color::rgba::green, 32);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.0f, 0.25f, clw, color::rgba::blue, 32);
 
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 64);
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 64);
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.25f, 1.0f, dlw, color::rgba::light_gray, 64);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 32);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 32);
+                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.25f, 1.0f, dlw, color::rgba::light_gray, 32);
 
                 draw_circle(&imgui.ctx, v_up,       abw, color::rgba::green);
                 draw_circle(&imgui.ctx, v_right,    abw, color::rgba::red);
@@ -5205,18 +5298,6 @@ inline T bilinear(T a, T b, T c, T d, f32 u, f32 v) {
 }
 
 template <typename T>
-inline T bezier4(T x, f32 a, f32 b) {
-    a = glm::clamp(a, 0.0f, 1.0f);
-    b = glm::clamp(b, 0.0f, 1.0f);
-    if (a==0.5f) {
-        a += 0.00001f;
-    }
-    f32 om2a = 1.0f - 2.0f*a;
-    f32 t = (glm::sqrt(a*a + om2a*x) - a)/om2a;
-    return (1.0f - 2.0f*b)*(t*t) + (2.0f*b)*t;
-}
-
-template <typename T>
 T smoothdamp(
     T current, T target, T& velocity, 
     f32 smooth_time, f32 max_speed, f32 dt
@@ -5243,34 +5324,71 @@ T smoothdamp(
     return output;
 }
 
-
-
-template <typename T, f32 D>
-T in_expo(T b, T c, f32 t) {
-    return (t==0) ? b : c * glm::pow(2, 10 * (t/D - 1.0f)) + b;
+constexpr f32 smoothstep_cubic(f32 x) noexcept {
+    return x*x*(3.0f-2.0f*x);
 }
 
-template <typename T, f32 D>
-T out_expo(T b, T c, f32 t) {
-    return (t==D) ? b+c : c * (-glm::pow(2, -10 * t/D) + 1) + b;
+constexpr f32 smoothstep_quartic(f32 x) noexcept {
+    return x*x*(2.0f*x*x);
 }
 
-template <typename T>
-T in_out_expo(T b, T c, f32 d, f32 t) {
-    if (t==0) return b;
-    if (t==d) return b+c;
-    t /= d/2.0f;
-    if (t < 10.f) return c/2.0f * glm::pow(2.0f, 10.0f * (t - 1.0f)) + b;
-    t--;
-    return c/2.0f * (-glm::pow(2.0f, -10.0f * t) + 2.0f) + b;
+constexpr f32 smoothstep_quintic(f32 x) noexcept {
+    return x*x*x*(x*(x*6.0f-15.0f)+10.0f);
 }
 
 template <typename T>
-auto in_out_expo(f32 d) {
-    return [=](T b, T c, f32 t) {
-        return in_out_expo<T>(b, c, d, t);
+constexpr T smoothstep_cubic(T a, T b, f32 t) noexcept {
+    return a + (b-a) * smoothstep_cubic(t);
+}
+
+template <typename T>
+constexpr T smoothstep_quartic(T a, T b, f32 t) noexcept {
+    return a + (b-a) * smoothstep_quartic(t);
+}
+template <typename T>
+constexpr T smoothstep_quintic(T a, T b, f32 t) noexcept {
+    return a + (b-a) * smoothstep_quintic(t);
+}
+
+f32 in_out_sine(f32 x) noexcept {
+    return -(glm::cos(math::constants::pi32 * x) - 1.0f) * 0.5f;
+}
+
+constexpr f32 in_elastic(f32 x) noexcept {
+    const auto c4 = (2.0f * math::constants::pi32) / 3.0f;
+    return x == 0.0f ? 0.0f : x == 1.0f ? 1.0f : -glm::pow(2.0f, 10.0f * x - 10.0f) * glm::sin((x * 10.0f - 10.75f) * c4);
+
+}
+
+constexpr f32 out_elastic(f32 x) noexcept {
+    const auto c4 = (2.0f * math::constants::pi32) / 3.0f;
+    return 
+        x == 0.0f 
+        ? 0.0f 
+        : x == 1.0f 
+        ? 1.0f 
+        : glm::pow(2.0f, -10.0f * x) * glm::sin((x * 10.0f - 0.75f) * c4) + 1.0f;
+}
+
+constexpr f32 in_out_elastic(f32 x) noexcept {
+    const auto c5 = (2.0f * math::constants::pi32) / 4.5f;
+    return x == 0.0f 
+            ? 0.0f 
+            : x == 1.0f 
+            ? 1.0f
+            : x < 0.5f
+            ? -(glm::pow(2.0f, 20.0f * x - 10.0f) * glm::sin((20.0f * x - 11.125f) * c5)) * 0.5f 
+            : (glm::pow(2.0f, -20.0f * x + 10.0f) * glm::sin((20.0f * x - 11.125f) * c5)) * 0.5f + 1.0f;
+}
+
+template <typename T>
+auto generic(auto&& fn) {
+    return [=](T a, T b, f32 x) {
+        return a + (b-a) * fn(x);
     };
 }
+
+
 
 };
 
