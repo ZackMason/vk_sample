@@ -1629,6 +1629,10 @@ namespace swizzle {
 };
 
 namespace math {
+    constexpr v2f from_polar(f32 angle, f32 radius = 1.0f) noexcept {
+        return v2f{glm::cos(angle), glm::sin(angle)} * radius;
+    }
+
     template <typename T>
     constexpr T remap01(T a, T b, T x) {
         return (x-a)/(b-a);

@@ -429,18 +429,18 @@ shotgun {
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_shotgun(),
-    // .physics = prefab_t::physics_t {
-    //     .flags = PhysicsEntityFlags_Static,
-    //     .shapes = {
-    //         prefab_t::physics_t::shape_t{
-    //             .shape = physics::collider_shape_type::SPHERE,
-    //             .flags = 1,
-    //             .sphere = {
-    //                 .radius = 1.0f,
-    //             },
-    //         },
-    //     },
-    // },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .flags = 1,
+                .sphere = {
+                    .radius = 1.0f,
+                },
+            },
+        },
+    },
 };
 
 DB_ENTRY
@@ -448,7 +448,7 @@ rifle {
     .type = entity_type::weapon,
     .type_name = "rifle",
     .gfx = {
-        .mesh_name = "rifle",
+        .mesh_name = "res/models/rifle.obj",
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_rifle(),

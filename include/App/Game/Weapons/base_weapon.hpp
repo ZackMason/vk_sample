@@ -145,7 +145,7 @@ namespace game::wep {
 
             bullet_t* bullets{0};
 
-            while(action.fire_time < 0.0f) {
+            while(action.fire_time <= 0.0f) {
                 action.fire_time += fire_rate;
                 chamber_count -= 1;
                 Platform.audio.play_sound(sound_effects.fire);

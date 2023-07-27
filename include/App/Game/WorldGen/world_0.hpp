@@ -51,8 +51,19 @@ generate_crash_test(arena_t* arena) {
     auto* generator = generate_world_test(arena);
 
     generator->add_step("Placing Weapons", WORLD_STEP_TYPE_LAMBDA(items) {
-        game::spawn(world, world->render_system(),
-            game::db::weapons::shotgun, v3f{10.0f, 1.0f, 10.0f});
+        auto* shotgun = game::spawn(world, world->render_system(),
+            game::db::weapons::shotgun, axis::forward * 10.0f);
+        shotgun->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+            auto* self = (game::entity_t*)trigger->user_data;
+            auto* other_e = (game::entity_t*)other->user_data;
+
+            if (other_e->type == game::entity_type::player) {
+                puts("pick up");
+                other_e->add_child(self);
+                other_e->primary_weapon.entity = self;
+                self->flags &= ~game::EntityFlags_Pickupable;
+            }
+        };
     });
 
     return generator;
@@ -137,9 +148,19 @@ generate_world_0(arena_t* arena) {
         player->physics.rigidbody->linear_dampening = 9.0f;
     });
     generator->add_step("Placing Weapons", WORLD_STEP_TYPE_LAMBDA(items) {
-        game::spawn(world, world->render_system(),
+        auto* shotgun = game::spawn(world, world->render_system(),
             game::db::weapons::shotgun);
-        // ->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+        shotgun->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+            auto* self = (game::entity_t*)trigger->user_data;
+            auto* other_e = (game::entity_t*)other->user_data;
+
+            if (other_e->type == game::entity_type::player) {
+                puts("pick up");
+                other_e->add_child(self);
+                other_e->primary_weapon.entity = self;
+                self->flags &= ~game::EntityFlags_Pickupable;
+            }
+        };
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         // game::spawn(world, world->render_system(), game::db::rooms::sponza);

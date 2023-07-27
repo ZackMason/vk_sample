@@ -566,7 +566,7 @@ physx_set_rigidbody(api_t* api, rigidbody_t* rb) {
     
     if (rb->type == rigidbody_type::CHARACTER) {
         auto* controller = (physx::PxController*)rb->api_data;
-        // controller->setPosition({p.x,p.y,p.z});
+        controller->setPosition({p.x,p.y,p.z});
     } else {
         physx::PxTransform t;
         t.p = {p.x, p.y, p.z};

@@ -1,6 +1,7 @@
 #ifndef APP_PHYSICS_HPP
 #define APP_PHYSICS_HPP
 
+
 #include "uid.hpp"
 
 #define PHYSICS_MAX_RIGIDBODY_COUNT (4096<<2)
@@ -145,6 +146,8 @@ struct rigidbody_t {
     // { force += force_; }
 
     inline void remove_collider(collider_t* collider);
+
+    inline void set_transform(const m44& transform); 
 
     // Note(Zack): position is integrated by the api not here
     // Note(Zack): this should probably happen there instead of in game
@@ -305,6 +308,13 @@ void collider_t::set_trigger(bool x) {
 
 void collider_t::set_active(bool x) {
     rigidbody->api->collider_set_active(this, x);
+}
+
+void rigidbody_t::set_transform(const m44& transform) {
+    position = v3f{transform[3]};
+    orientation = glm::quat_cast(transform);
+
+    this->api->set_rigidbody(this->api, this);
 }
 
 void rigidbody_t::add_force_ex(const v3f& f) {

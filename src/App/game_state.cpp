@@ -735,7 +735,7 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
             auto ro = player->camera_controller.transform.origin + forward * 1.7f;
             auto r_angle = utl::rng::random_s::randf() * 1000.0f;
             auto r_radius = utl::rng::random_s::randf() * bullets[bullet].spread;
-            v2f polar{glm::cos(r_angle) * r_radius, glm::sin(r_angle) * r_radius};
+            v2f polar{math::from_polar(r_angle, r_radius)};
             auto rd = glm::normalize(forward * 10.0f + right * polar.x + axis::up * polar.y);
         
             if (auto ray = physics->raycast_world(physics, ro, rd); ray.hit) {
@@ -747,7 +747,9 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
                 }
                 auto hp = (ray.point);
                 game::entity_t* hit_entity=0;
-                if (rb->type == physics::rigidbody_type::DYNAMIC) {
+                if (rb->type == physics::rigidbody_type::DYNAMIC ||
+                    rb->type == physics::rigidbody_type::KINEMATIC
+                ) {
                     // rb->inverse_transform_direction
                     // auto f = rb->inverse_transform_direction(rd);
                     // rb->add_force(rd*1.0f);
@@ -868,13 +870,13 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
 
             if (is_pickupable) {
                 e->transform.rotate(axis::up, std::min(0.5f, input->dt));
-                if (math::intersect(math::sphere_t{e->global_transform().origin, 2.0f}, game_state->game_world->player->global_transform().origin)) {
-                    game_state->game_world->player->primary_weapon.entity = e;
-                    e->parent = game_state->game_world->player;
-                    e->transform.origin = v3f{0.5, 0.0f, -0.5f};
-                    e->flags &= ~game::EntityFlags_Pickupable;
-                    // volatile int* crash{0}; *crash++;
-                }
+                // if (math::intersect(math::sphere_t{e->global_transform().origin, 2.0f}, game_state->game_world->player->global_transform().origin)) {
+                //     game_state->game_world->player->primary_weapon.entity = e;
+                //     e->parent = game_state->game_world->player;
+                //     e->transform.origin = v3f{0.5, 0.0f, -0.5f};
+                //     e->flags &= ~game::EntityFlags_Pickupable;
+                //     // volatile int* crash{0}; *crash++;
+                // }
             }
 
             const auto entity_aabb = e->global_transform().xform_aabb(e->aabb);

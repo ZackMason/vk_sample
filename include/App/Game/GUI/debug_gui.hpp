@@ -113,6 +113,7 @@ draw_gui(game_memory_t* game_memory) {
         
 
         local_persist v3f default_widget_pos{10.0f};
+        local_persist game::entity_t* selected_entity{0};
         local_persist v3f* widget_pos = &default_widget_pos;
 
         im::clear(state);
@@ -515,6 +516,9 @@ draw_gui(game_memory_t* game_memory) {
             const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
 
             bool is_selected = widget_pos == &e->transform.origin;
+            if (is_selected) {
+                selected_entity = e;
+            }
             bool not_player = e != game_state->game_world->player;
             bool opened = false;
             if ((show_entities || is_selected) && im::begin_panel_3d(state, 
@@ -603,7 +607,20 @@ draw_gui(game_memory_t* game_memory) {
             }
         }
 
+        if (widget_pos == &default_widget_pos) {
+            selected_entity = 0;
+        }
+
         im::gizmo(state, widget_pos, vp);
+
+        if (selected_entity && 
+            selected_entity->physics.rigidbody //&&
+            // (selected_entity->physics.rigidbody->type == physics::rigidbody_type::KINEMATIC ||
+            //  selected_entity->physics.rigidbody->type == physics::rigidbody_type::STATIC 
+            // )
+        ) {
+            selected_entity->physics.rigidbody->set_transform(selected_entity->global_transform().to_matrix());
+        }
 
 #ifdef DEBUG_STATE 
         DEBUG_STATE_DRAW(state, render_system->projection, render_system->view, render_system->viewport());
