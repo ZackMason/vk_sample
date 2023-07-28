@@ -72,7 +72,7 @@ struct first_person_controller_t {
     f32 head_offset{0.0f};
     f32 walk_time{0.0f};
     f32 right_offset{0.0};
-    f32 step_time{0.55f};
+    f32 step_time{0.5f};
     f32 step_timer{step_time};
 
     // returns true if you should want to play a sound

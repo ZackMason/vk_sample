@@ -57,6 +57,8 @@ generate_crash_test(arena_t* arena) {
             auto* self = (game::entity_t*)trigger->user_data;
             auto* other_e = (game::entity_t*)other->user_data;
 
+            volatile int* crash{0}; *crash++;
+
             if (other_e->type == game::entity_type::player) {
                 puts("pick up");
                 other_e->add_child(self);

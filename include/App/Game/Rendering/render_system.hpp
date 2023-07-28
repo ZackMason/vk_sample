@@ -1027,7 +1027,7 @@ public:
             
             mesh_pass_t& mesh_pass = rs->get_frame_data().mesh_pass;
 
-            // if (mesh_pass.object_descriptors == VK_NULL_HANDLE) 
+            if (mesh_pass.object_descriptors == VK_NULL_HANDLE) 
             {
                 auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
                 VkBuffer buffers[]{

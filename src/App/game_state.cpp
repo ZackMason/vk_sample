@@ -725,7 +725,7 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
     if (player->primary_weapon.entity) {
         player->primary_weapon.entity->stats.weapon.update(dt);
     }
-    if (pc.fire1 && player->primary_weapon.entity) {
+    if (pc.fire1 && player->primary_weapon.entity && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
 
         temp_arena_t fire_arena = world->frame_arena.get();
         u64 fired{0};
@@ -764,6 +764,11 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
                 hole->transform.set_rotation(world->entropy.randnv<v3f>() * 100.0f);
                 hole->coroutine->start();
                 if (hit_entity) {
+                    if (hit_entity->stats.character.health.max) {
+                        if (hit_entity->stats.character.health.damage(bullets[bullet].damage)) {
+                            hit_entity->queue_free();
+                        }
+                    }
                     // auto local_pos = hole->global_transform().origin - hit_entity->global_transform().origin;
                     hit_entity->add_child(hole, true);
                     hole->transform.origin = hit_entity->global_transform().inv_xform(hp);

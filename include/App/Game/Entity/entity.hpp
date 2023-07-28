@@ -55,6 +55,11 @@ struct health_t {
     f32 max{};
     f32 current{};
 
+    bool damage(f32 x) {
+        current -= x;
+        return current <= 0.0f;
+    }
+
     constexpr health_t(f32 v = 100.0f) noexcept
         : max{v}, current{v} {}
 };
@@ -202,10 +207,10 @@ struct entity_t : node_t<entity_t> {
     } physics;
 
     struct stats_t {
-        union {
-            character_stats_t character;
-            wep::base_weapon_t weapon{};
-        };
+        // union {
+        character_stats_t character;
+        wep::base_weapon_t weapon{};
+        // };
     } stats;
 
     entity_ref_t primary_weapon{0};

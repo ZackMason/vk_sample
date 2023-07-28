@@ -127,6 +127,11 @@ teapot {
         .mesh_name = "res/models/utah-teapot.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
+    .stats = character_stats_t {
+        .health = {
+            50
+        },
+    },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Dynamic,
     #if 0 // use convex
