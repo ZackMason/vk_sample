@@ -2,6 +2,7 @@
 #define ENTITY_DB_HPP
 
 #include "App/Game/Entity/entity.hpp"
+#include "App/Game/GUI/debug_state.hpp"
 
 namespace game::db {
 
@@ -509,16 +510,6 @@ soldier {
         //     },
         // },
     },
-    .children = {
-        // {
-        //     .entity = &weapons::rifle,
-        //     .offset = v3f{0.0f},
-        // },
-        {
-            .entity = &weapons::shotgun,
-            .offset = v3f{1.0f, 1.0f, 0.50f},
-        },
-    },
 };
 
 DB_ENTRY
@@ -547,16 +538,6 @@ assassin {
                 },
             },
         },
-    },
-    .children = {
-        // {
-        //     .entity = &weapons::shotgun,
-        //     .offset = v3f{0.0f},
-        // },
-        // {
-        //     .entity = &weapons::pistol,
-        //     .offset = v3f{0.0f},
-        // },
     },
 };
 

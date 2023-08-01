@@ -32,8 +32,8 @@ struct world_generator_t {
 
     arena_t* arena{0};
 
-    std::atomic<u64> completed_count{0};
-    std::atomic<u64> step_count{0};
+    u64 completed_count{0};
+    u64 step_count{0};
     world_generation_step_t* first_step{0};
 
     void execute(game::world_t* world, std::function<void(void)> draw_gui = [](){}) {

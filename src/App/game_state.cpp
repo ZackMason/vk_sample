@@ -533,7 +533,7 @@ app_on_init(game_memory_t* game_memory) {
     }, game_state->debug.console);
 
     // time is broken during loops, this is a reminder
-    console_add_command(game_state->debug.console, "time", [](void* data) {
+    console_add_command(game_state->debug.console, "rtime", [](void* data) {
         auto* game_state = (game_state_t*)data;
         console_log(game_state->debug.console, fmt_sv("Run Time: {} seconds", game_state->input().time));
     }, game_state);
@@ -576,20 +576,26 @@ app_on_init(game_memory_t* game_memory) {
         
     }, game_state->debug.console);
 
-    console_add_command(game_state->debug.console, "set focus distance", [](void* data) {
+    console_add_command(game_state->debug.console, "dtimeout", [](void* data) {
         auto* console = (debug_console_t*)data;
-        const auto& message = console->last_message();
-        auto i = std::string_view{message.text}.find_first_of("0123456789.+");
-        if (i != std::string_view::npos) {
-            std::stringstream ss{std::string_view{message.text}.substr(i).data()};
-            float f;
-            ss >> f;
-            console_log(console, fmt_sv("Setting Debug Focus to {}", f));
-            DEBUG_SET_FOCUS_DISTANCE(f);
+        const auto time = console->last_float();
+        if (time) {
+            console_log(console, fmt_sv("Setting Debug Focus to {}", *time));
+            DEBUG_SET_TIMEOUT(*time);
         } else {
             console_log(console, "Parse error", gfx::color::rgba::red);
         }
+    }, game_state->debug.console);
 
+    console_add_command(game_state->debug.console, "fdist", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        const auto time = console->last_float();
+        if (time) {
+            DEBUG_SET_TIMEOUT(*time);
+            console_log(console, fmt_sv("Setting Debug Focus to {}", *time));
+        } else {
+            console_log(console, "Parse error", gfx::color::rgba::red);
+        }
     }, game_state->debug.console);
 
     // console_add_command(game_state->debug.console, "build", [](void* data) {

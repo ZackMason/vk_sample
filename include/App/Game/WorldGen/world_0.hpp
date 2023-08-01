@@ -206,7 +206,7 @@ generate_world_0(arena_t* arena) {
         }
     });
     generator->add_step("Teapots", WORLD_STEP_TYPE_LAMBDA(environment) {
-        loop_iota_u64(i, 5000) {
+        loop_iota_u64(i, 500) {
             auto* e = game::spawn(
                 world, 
                 world->render_system(),
@@ -223,7 +223,7 @@ generate_world_0(arena_t* arena) {
     });
     generator->add_step("Planting Trees", WORLD_STEP_TYPE_LAMBDA(environment) {
         auto* tree = game::spawn(world, world->render_system(), game::db::environmental::tree_01, axis::down);
-        constexpr u32 tree_count = 50;
+        constexpr u32 tree_count = 2000;
         tree->gfx.instance(world->render_system()->instance_storage_buffer.pool, tree_count);
         
         for (size_t i = 0; i < tree_count; i++) {

@@ -488,14 +488,14 @@ physx_simulate(api_t* api, f32 dt) {
         }
     }
 
-    // temp_arena_t scratch = *api->arena;
-    // scratch.top = align16(scratch.top);
-    // scratch.size = (scratch.size / kilobytes(16)) * kilobytes(16);
+    temp_arena_t scratch = *api->arena;
+    scratch.top = align16(scratch.top);
+    scratch.size = (scratch.size / kilobytes(16)) * kilobytes(16);
 
     ps->world->scene->simulate(
         dt,
         0
-        // arena_get_top(&scratch), 
+        // ,arena_get_top(&scratch), 
         // safe_truncate_u64(arena_get_remaining(&scratch))
     );
     ps->world->scene->fetchResults(true);

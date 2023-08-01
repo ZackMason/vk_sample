@@ -298,6 +298,10 @@ struct closure_t {
     void (*func)(void*){0};
     void* data{0};
 
+    operator bool() const {
+        return func != nullptr;
+    }
+
     template <typename ... Args>
     void operator()(Args ... args) {
         dispatch(std::forward<Args>(args)...);
@@ -4256,18 +4260,10 @@ struct xoshiro256_random_t {
         const u64 this_entropy = utl::rng::fnv_hash_u64((std::uintptr_t)this);
         const u64 pid_entropy = utl::rng::fnv_hash_u64(RAND_GETPID);
         
-        if constexpr (sizeof(time_t) >= 8) {
-            state[3] = static_cast<uint64_t>(time(0)) ^ comp_time_entropy;
-            state[2] = (static_cast<uint64_t>(time(0)) << 17) ^ this_entropy;
-            state[1] = (static_cast<uint64_t>(time(0)) >> 21) ^ (static_cast<uint64_t>(~time(0)) << 13);
-            state[0] = (static_cast<uint64_t>(~time(0)) << 23) ^ pid_entropy;
-        }
-        else {
-            state[3] = static_cast<uint64_t>(time(0) | (~time(0) << 32));
-            state[2] = static_cast<uint64_t>(time(0) | (~time(0) << 32));
-            state[1] = static_cast<uint64_t>(time(0) | (~time(0) << 32));
-            state[0] = static_cast<uint64_t>(time(0) | (~time(0) << 32));
-        }
+        state[3] = static_cast<uint64_t>(time(0)) ^ comp_time_entropy;
+        state[2] = (static_cast<uint64_t>(time(0)) << 17) ^ this_entropy;
+        state[1] = (static_cast<uint64_t>(time(0)) >> 21) ^ (static_cast<uint64_t>(~time(0)) << 13);
+        state[0] = (static_cast<uint64_t>(~time(0)) << 23) ^ pid_entropy;
     };
 
     uint64_t rand() {

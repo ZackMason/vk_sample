@@ -2,6 +2,10 @@
 
 #include "core.hpp"
 
+namespace game {
+
+struct world_t;
+
 DEFINE_TYPED_ID(script_id);
 
 template <typename T>
@@ -173,4 +177,6 @@ struct player_script_t {
     void update(world_t* world, f32 dt) {
         score++;
     }
+};
+
 };

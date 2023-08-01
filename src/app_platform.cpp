@@ -13,9 +13,6 @@
 #define NOMINMAX
 #include "Windows.h"
 #include "commdlg.h"
-// #include "combaseapi.h"
-// #include <Psapi.h>
-// #include <winternl.h>
 #undef near
 #undef far
 
