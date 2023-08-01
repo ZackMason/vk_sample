@@ -1,7 +1,7 @@
 #ifndef PRCGEN_TERRAIN_HPP
 #define PRCGEN_TERRAIN_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 namespace prcgen::terrain {
 

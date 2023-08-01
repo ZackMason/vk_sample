@@ -3,7 +3,7 @@
 
 #include "App/Game/Entity/entity.hpp"
 
-namespace game::db {
+namespace zyy::db {
 
 struct prefab_t {
     entity_type type{entity_type::environment};
@@ -78,7 +78,7 @@ load_from_file(arena_t temp_arena, std::string_view path) {
     std::ifstream file{path.data(), std::ios::binary};
 
     if(!file.is_open()) {
-        gen_error("res", "Failed to open file");
+        zyy_error("res", "Failed to open file");
         return entity;
     }
 
@@ -194,7 +194,7 @@ platform_1000 {
 
 void co_platform(coroutine_t* co, frame_arena_t& frame_arena) {
     // return;
-    auto* e = (game::entity_t*)co->data;
+    auto* e = (zyy::entity_t*)co->data;
     auto& y_pos = e->physics.rigidbody->position.y;
 
 
@@ -249,7 +249,7 @@ platform_3x3 {
 };
 
 void co_kill_in_ten(coroutine_t* co, frame_arena_t& frame_arena) {
-    auto* e = (game::entity_t*)co->data;
+    auto* e = (zyy::entity_t*)co->data;
 
     co_begin(co);
 
@@ -430,7 +430,7 @@ shotgun {
     .type = entity_type::weapon,
     .type_name = "shotgun",
     .gfx = {
-        .mesh_name = "res/models/rifle.obj",
+        .mesh_name = "res/models/shotgun.fbx",
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_shotgun(),

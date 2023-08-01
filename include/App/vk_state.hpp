@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include <vulkan\vulkan.h>
 
 #include <vector>
 #include <functional>
 
-#define VK_OK(res) do { const auto r = (res); if ((r) != VK_SUCCESS) { gen_error("vk", gfx::vul::utl::error_string(r)); std::terminate(); } } while(0)
+#define VK_OK(res) do { const auto r = (res); if ((r) != VK_SUCCESS) { zyy_error("vk", gfx::vul::utl::error_string(r)); std::terminate(); } } while(0)
 
 using VkDataBuffer = VkBuffer;
 
@@ -455,7 +455,7 @@ create_pipeline_layout(
 
     VkPipelineLayout pipeline_layout;
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipeline_layout) != VK_SUCCESS) {
-        gen_error("vulkan", "failed to create pipeline layout!");
+        zyy_error("vulkan", "failed to create pipeline layout!");
         std::terminate();
     }
 

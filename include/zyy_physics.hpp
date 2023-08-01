@@ -220,7 +220,7 @@ using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd)
 
 using collider_set_trigger_function = void(*)(collider_t*, bool);
 
-#if GEN_INTERNAL
+#if ZYY_INTERNAL
 using get_debug_table_function = debug_table_t*(*)(void);
 using get_debug_table_size_function = size_t(*)(void);
 #endif
@@ -294,7 +294,7 @@ struct export_dll api_t {
         return *this;
     }
 
-#if GEN_INTERNAL
+#if ZYY_INTERNAL
     get_debug_table_function get_debug_table{0};
     get_debug_table_size_function get_debug_table_size{0};
 #endif

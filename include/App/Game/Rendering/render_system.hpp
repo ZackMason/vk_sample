@@ -1,7 +1,7 @@
 #ifndef RENDER_SYSTEM_HPP
 #define RENDER_SYSTEM_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include "App/vk_state.hpp"
 
@@ -91,7 +91,7 @@ namespace rendering {
                 if (textures[i].hash) {
                     textures[i].hash = 0;
 
-#if !GEN_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
+#if !ZYY_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
                     // Todo(Zack): destroy texture
 #endif
                     load(
@@ -143,11 +143,11 @@ namespace rendering {
             u64 id = hash % array_count(textures);
             // probe
             while(textures[id].is_dead() == false && textures[id].hash != hash) {
-                gen_warn(__FUNCTION__, "probing for texture, {} collided with {}", name, textures[id].name);
+                zyy_warn(__FUNCTION__, "probing for texture, {} collided with {}", name, textures[id].name);
                 id = (id+1) % array_count(textures);
             }
 
-            gen_info(__FUNCTION__, "Adding texture: {}", name);
+            zyy_info(__FUNCTION__, "Adding texture: {}", name);
             textures[id].hash = hash;
             textures[id].name = name;
             textures[id].texture = texture;
@@ -163,10 +163,10 @@ private:
             u64 start = id;
             // probe
             while(textures[id].hash && textures[id].hash != hash) {
-                gen_warn(__FUNCTION__, "probing for texture");
+                zyy_warn(__FUNCTION__, "probing for texture");
                 id = (id+1) % array_count(textures);
                 if (id == start) {
-                    gen_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
+                    zyy_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
                     assert(0);
                     return textures[0];
                 }
@@ -254,7 +254,7 @@ public:
             range_u64(i, 0, array_count(shaders)) {
                 if (shaders[i].hash) {
                     shaders[i].hash = 0;
-#if !GEN_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
+#if !ZYY_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
                     vk_gfx.ext.vkDestroyShaderEXT(vk_gfx.device, shaders[i].shader, nullptr);
 #endif
                     load(
@@ -339,11 +339,11 @@ public:
             u64 id = hash % array_count(shaders);
             // probe
             while(shaders[id].hash != 0 && shaders[id].hash != hash) {
-                gen_warn(__FUNCTION__, "probing for shader, {} collided with {}", name, shaders[id].name);
+                zyy_warn(__FUNCTION__, "probing for shader, {} collided with {}", name, shaders[id].name);
                 id = (id+1) % array_count(shaders);
             }
 
-            gen_info(__FUNCTION__, "Adding shader: {}", name);
+            zyy_info(__FUNCTION__, "Adding shader: {}", name);
             shaders[id].hash = hash;
             shaders[id].name = name;
             shaders[id].stage = stage;
@@ -366,10 +366,10 @@ private:
             u64 start = id;
             // probe
             while(!shaders[id].hash && shaders[id].hash != hash) {
-                gen_warn(__FUNCTION__, "probing for shader");
+                zyy_warn(__FUNCTION__, "probing for shader");
                 id = (id+1) % array_count(shaders);
                 if (id == start) {
-                    gen_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
+                    zyy_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
                     assert(0);
                     return shaders[0];
                 }
@@ -1319,7 +1319,7 @@ public:
             }
         }
         if (!material) {
-            gen_info("rendering", "Creating material: {}", name);
+            zyy_info("rendering", "Creating material: {}", name);
             material = arena_alloc_ctor<material_node_t>(&rs->arena, 1, std::move(p_material), shaders, shader_count);
             material->name.own(&rs->arena, name);
             material->pipeline = pipeline;
@@ -1403,7 +1403,7 @@ public:
         renderPassInfo.pDependencies = dependencies;
 
         if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &rs->render_passes[0]) != VK_SUCCESS) {
-            gen_error("vulkan", "failed to create render pass!");
+            zyy_error("vulkan", "failed to create render pass!");
             std::terminate();
         }
     }
@@ -1466,7 +1466,7 @@ public:
             vfci.layers = 1;
 
             if (vkCreateFramebuffer(device, &vfci, nullptr, &rs->framebuffers[i]) != VK_SUCCESS) {
-                gen_error("vulkan", "failed to create framebuffer!");
+                zyy_error("vulkan", "failed to create framebuffer!");
                 std::terminate();
             }
         }

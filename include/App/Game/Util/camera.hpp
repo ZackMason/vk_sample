@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
-namespace game::cam {
+namespace zyy::cam {
 
 struct camera_t : math::transform_t {
     math::ray_t get_ray(const v2f& uv);

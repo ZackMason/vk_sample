@@ -1,7 +1,7 @@
 #ifndef APP_RENDERING_ASSETS_HPP
 #define APP_RENDERING_ASSETS_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include "App/vk_state.hpp"
 

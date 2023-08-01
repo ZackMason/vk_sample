@@ -1,7 +1,7 @@
 #ifndef GUI_VIEWPORT_HPP
 #define GUI_VIEWPORT_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 struct viewport_t {
     f32 h_split[2]{1.0f,0.0f};

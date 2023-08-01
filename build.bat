@@ -4,18 +4,22 @@ if not exist build mkdir build
 
 pushd build
 
-if not exist SDL2.dll echo "No SDL DLL"
-if not exist SDL2_mixer.dll echo "No SDL Mixer DLL"
+if not exist SDL2.dll (
+    echo "No SDL DLL"
+) 
+if not exist SDL2_mixer.dll (
+    echo "No SDL Mixer DLL"
+) 
 
 set OptLevel=fast
 
 if exist C:\Users\zack (
-set PhysXSDK=C:\Users\zack\Documents\GitHub\Physx5\PhysX\physx
-set PhysXInclude=/I %PhysXSDK%/include
+    set PhysXSDK=C:\Users\zack\Documents\GitHub\Physx5\PhysX\physx
+    set PhysXInclude=/I %PhysXSDK%/include
 )
 if exist C:\Users\crazy (
-set PhysXSDK=C:\Users\crazy\Documents\GitHub\Physx5\PhysX\physx
-set PhysXInclude=/I %PhysXSDK%\include
+    set PhysXSDK=C:\Users\crazy\Documents\GitHub\Physx5\PhysX\physx
+    set PhysXInclude=/I %PhysXSDK%\include
 )
 Set PhysXCompiler=%PhysXSDK%\bin\win.x86_64.vc142.md
 rem use physx checked or debug for development
@@ -39,25 +43,25 @@ xcopy %PhysXCompiler%\%PhysXOpt%\*.dll . /yq
 if "%~2"=="game" (
     del *.pdb > NUL 2> NUL
     echo Build Lock > lock.tmp
-    cl %OptimizationFlags% -DGEN_INTERNAL=1 %IncludeFlags% /I ..\src %CompilerFlags% ..\src\app_build.cpp -LD /link -PDB:game_%random%.pdb %LinkFlags%
+    cl %OptimizationFlags% -DZYY_INTERNAL=1 %IncludeFlags% /I ..\src %CompilerFlags% ..\src\zyy_build.cpp -LD /link -PDB:game_%random%.pdb %LinkFlags%
     del lock.tmp
 )
 
 if "%~1"=="win32" (
-    cl %OptimizationFlags% -DGEN_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\src\app_platform.cpp /link %LinkFlags% %SDLLinkFlags% glfw3.lib /OUT:game.exe
+    cl %OptimizationFlags% -DZYY_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\src\zyy_platform.cpp /link %LinkFlags% %SDLLinkFlags% glfw3.lib /OUT:game.exe
 )
 
 if "%~1"=="physics" (
-    cl %OptimizationFlags% -DGEN_LINK_PHYSICS_API_PHYSX=1 -DGEN_INTERNAL=1 %IncludeFlags% %PhysXInclude% %CompilerFlags% ..\src\app_physics.cpp -LD /link %PhysicsLinkFlags%
-    rem cl %OptimizationFlags% -DGEN_LINK_PHYSICS_API_PHYSX=0 -DGEN_INTERNAL=0 %IncludeFlags% /I %PhysXInclude% %CompilerFlags% ..\src\app_physics.cpp -LD 
+    cl %OptimizationFlags% -DZYY_LINK_PHYSICS_API_PHYSX=1 -DZYY_INTERNAL=1 %IncludeFlags% %PhysXInclude% %CompilerFlags% ..\src\zyy_physics.cpp -LD /link %PhysicsLinkFlags%
+    rem cl %OptimizationFlags% -DZYY_LINK_PHYSICS_API_PHYSX=0 -DGEN_INTERNAL=0 %IncludeFlags% /I %PhysXInclude% %CompilerFlags% ..\src\zyy_physics.cpp -LD 
 )
 
 if "%~1"=="web" (
-    cl %OptimizationFlags% -DGEN_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\webgpu\main.cpp /link %LinkFlags% glfw3.lib wgpu_native.lib /OUT:webgpu.exe
+    cl %OptimizationFlags% -DZYY_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\webgpu\main.cpp /link %LinkFlags% glfw3.lib wgpu_native.lib /OUT:webgpu.exe
 )
 
 if "%~1"=="tests" (
-    cl %OptimizationFlags% -DGEN_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\tests\tests.cpp /link %LinkFlags% %SDLLinkFlags%
+    cl %OptimizationFlags% -DZYY_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\tests\tests.cpp /link %LinkFlags% %SDLLinkFlags%
 )
 
 popd build

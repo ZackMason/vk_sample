@@ -1,10 +1,10 @@
-#include "core.hpp"
+#include "zyy_core.hpp"
 
-#ifndef GEN_LINK_PHYSICS_API_PHYSX
-#define GEN_LINK_PHYSICS_API_PHYSX 1
+#ifndef ZYY_LINK_PHYSICS_API_PHYSX
+#define ZYY_LINK_PHYSICS_API_PHYSX 1
 #endif
 
-#if GEN_LINK_PHYSICS_API_PHYSX
+#if ZYY_LINK_PHYSICS_API_PHYSX
 #include "App\Game\Physics\physics_world.hpp"
 #include "physx_physics.hpp"
 #endif
@@ -12,13 +12,13 @@
 #include "custom_physics.hpp"
 
 
-#if GEN_INTERNAL
+#if ZYY_INTERNAL
 debug_table_t gs_debug_table;
 size_t gs_main_debug_record_size = __COUNTER__;
 #endif
 
 debug_table_t* get_debug_table() {
-#if GEN_INTERNAL
+#if ZYY_INTERNAL
     return &gs_debug_table;
 #else
     return nullptr;
@@ -26,7 +26,7 @@ debug_table_t* get_debug_table() {
 }
 
 size_t get_debug_table_size() {
-#if GEN_INTERNAL
+#if ZYY_INTERNAL
     return gs_main_debug_record_size;
 #else
     return 0;
@@ -35,7 +35,7 @@ size_t get_debug_table_size() {
 
 namespace physics {
 
-#if GEN_LINK_PHYSICS_API_PHYSX
+#if ZYY_LINK_PHYSICS_API_PHYSX
 static void 
 init_physx(api_t* api, arena_t* arena) {
     api->arena = arena;
@@ -104,7 +104,7 @@ physics_init_api(api_t* api, backend_type type, arena_t* arena) {
         case backend_type::CUSTOM: {
             init_custom(api, arena);
         } break;
-#if GEN_LINK_PHYSICS_API_PHYSX
+#if ZYY_LINK_PHYSICS_API_PHYSX
         case backend_type::PHYSX: {
             init_physx(api, arena);
         } break;

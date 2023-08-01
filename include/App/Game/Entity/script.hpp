@@ -1,14 +1,14 @@
 #ifndef ENTITY_SCRIPT_HPP
 #define ENTITY_SCRIPT_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 #include "uid.hpp"
 
-namespace game {
+namespace zyy {
     DEFINE_TYPED_ID(entity_id);
 };
 
-namespace game {
+namespace zyy {
     namespace static_mesh {
         DEFINE_TYPED_ID(static_mesh_id);
         struct component_t final {
@@ -47,7 +47,7 @@ namespace game {
     };
 };
 
-namespace game {
+namespace zyy {
     struct ecs_world_t;
     
     struct scriptable_entity_t {
@@ -66,11 +66,11 @@ namespace game {
     };
 };
 
-namespace game::script {
+namespace zyy::script {
     struct entity_script_t;
 };
 
-namespace game {
+namespace zyy {
     struct ecs_world_t {
         u64 capacity{0};
 
@@ -153,7 +153,7 @@ namespace game {
     }
 };
 
-namespace game::script {
+namespace zyy::script {
 
     struct entity_script_t : public entity::scriptable_entity_t {
 
@@ -171,17 +171,17 @@ namespace game::script {
 
     namespace detail {
         using script_ptr = entity_script_t*;
-        using script_creator = script_ptr(*)(arena_t*, game::scriptable_entity_t);
+        using script_creator = script_ptr(*)(arena_t*, zyy::scriptable_entity_t);
 
         template <typename ScriptClass>
-        script_ptr create_script(arena_t* arena, game::scriptable_entity_t entity) {
+        script_ptr create_script(arena_t* arena, zyy::scriptable_entity_t entity) {
             assert(entity.is_valid());
             return arena_alloc_ctor<ScriptClass>(arena, 1, entity);
         }
     };
 };
 
-namespace game {
+namespace zyy {
     namespace static_mesh {
         struct init_info_t {
             u32 mesh_id;

@@ -8,32 +8,18 @@ Found 2 GLFW Required Instance Extensions:
 [1m[38;2;255;255;255m[info][win32]: Platform Initialization Completed
 [0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/unlock.wav
 [0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 0
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/Steps_dirt-002.wav
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 1
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/1911-reload.wav
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 2
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/9mm_firing_01.wav
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 3
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/shotgun_firing_01.wav
+[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 4
 [0m[1m[38;2;255;255;255m[info][app_init]: Creating physics scene
 [0m[1m[38;2;255;255;255m[info][physics::physx_create_scene]: Creating scene
-[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x1d1b8370108
+[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x1d864d80108
 [0m[1m[38;2;255;255;255m[info][app_init]: Created physics scene
-[0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 24
-[0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_optimus
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_bandicam_helper
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_RENDERDOC_Capture
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: GalaxyOverlayVkLayer
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: GalaxyOverlayVkLayer_VERBOSE
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: GalaxyOverlayVkLayer_DEBUG
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_nsight
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_nomad_release_public_2022_2_1
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_GPU_Trace_release_public_2022_2_1
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OW_OVERLAY
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OW_OBS_HOOK
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_overlay
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_EOS_Overlay
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_EOS_Overlay
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_ROCKSTAR_GAMES_social_club
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_api_dump
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_gfxreconstruct
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_synchronization2
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_validation
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 15 Instance Extensions actually available:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_device_group_creation'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_external_fence_capabilities'
@@ -52,8 +38,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_LUNARG_direct_driver_loading'
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_surface
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_win32_surface
-[0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_EXT_debug_utils
-[0m[1m[38;2;255;255;255m[info][vulkan]: 3 extensions loaded
+[0m[1m[38;2;255;255;255m[info][vulkan]: 2 extensions loaded
 [0m[1m[38;2;255;255;255m[info][vulkan]: instance created
 [0m[1m[38;2;255;255;255m[info][vulkan]: created surface.
 [0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 185
@@ -249,9 +234,6 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 64
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 64
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -262,9 +244,6 @@ Found 2 GLFW Required Instance Extensions:
 	width: 128
 	height: 128
 	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 65536
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -273,9 +252,6 @@ Found 2 GLFW Required Instance Extensions:
 
 [0m[1m[38;2;255;255;255m[info][vk]: vkCreateDescriptorPool
 [0m[1m[38;2;255;255;255m[info][vulkan]: init finished
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -289,9 +265,6 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 16588800
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -301,985 +274,51 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6400
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32864
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 16384
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 440000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 120000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 2400000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 96000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 96000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Plane
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Sphere.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Suzanne
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.004
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.003
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: wood, albedo: brick_01, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: wood, albedo: brick_01, normal: 
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/brick_01
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 2084
-	height: 2084
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 17372224
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: brick_01
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/brick_01
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 2084
-	height: 2084
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 17372224
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: brick_01
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: pillar, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.004
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.003
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Leaf, albedo: tree_palette, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Leaf, albedo: tree_palette, normal: 
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/tree_palette
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 8
-	height: 8
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: tree_palette
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/tree_palette
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 8
-	height: 8
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: tree_palette
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.004
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.003
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Bark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Leaf, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Bark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Leaf, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: bullet-9mm_Cube.003
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_copper
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_gold, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_copper, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: bullet-shotgun_Cube.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_copper
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_gold, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_copper, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: bullet_Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_copper
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_gold, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_copper, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: body_Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_light
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: reload_Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: mag_Cube.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_light, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: body_Cube.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_copper
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_light
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: revolver_Cube.004
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_copper, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_light, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: body_Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_dark
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: reloader_Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: wood_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: mp5_Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: glass_blue
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_light
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: mag_Cube.000
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: glass_blue, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_light, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: mp5_Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: glass_blue
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_light
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: mag_Cube.000
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: glass_blue, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_light, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: body_Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_dark
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_light
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: scope_Cube.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_light
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: glass_blue
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_light, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_light, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: glass_blue, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: body_Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: metal_light
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: mag_Cube.000
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: reloader_Cube.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_light, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_dark, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metal_light, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube_Cube.004_Cube_Cube.004_Handle
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube_Cube.004_Cube_Cube.004_Blade
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Handle, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Blade, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: lucy
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Default_OBJ, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Utah_Teapot_Quads
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Clear_Coat_Plastic, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: rifle
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: dark(Clone)
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: _defaultMat(Clone)
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: metalDark(Clone), albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: dark(Clone), albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: _defaultMat(Clone), albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cylinder.001_Cylinder.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Default_OBJ, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: rock_01
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Rock1, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Rock1.001, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Rock1.001, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Floor10x10.004
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Floor10x10.003
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Stairs10x10x2.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Stairs10x10x2.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Wall10x10.004
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Wall10x10.003
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Wall10x10.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Wall10x10.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Floor10x10.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Plane
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: shellbasegrp
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: shellgrp
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: coregrp
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: pedestalgrp
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: default, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: default, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: /obj/lsystem_object1/testgeometry_shaderball1/shader_ball/core, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: default, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: colmftr2co_2_001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: _Gray6_
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: 01___Default2, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: _Gray6_, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Trigger
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Pump
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Lever
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Gun
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: GunMetal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Wood, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: GunMetal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: GunMetal, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.001
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Sphere
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-0
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-1
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-2
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-3
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-4
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-5
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-6
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-7
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-8
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-9
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-10
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-11
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-12
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-13
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-14
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: <trimesh>-15
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-0
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-1
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-2
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-3
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-4
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-5
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-6
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-7
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-8
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-9
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-10
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-11
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-12
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-13
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-14
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-15
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: detail-16
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_1, albedo: 7268504077753552595, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_4, albedo: 8750083169368950601, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_5, albedo: 5792855332885324923, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_6, albedo: 14650633544276105767, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_7, albedo: 15295713303328085182, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_8, albedo: 6047387724914829168, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_9, albedo: 5823059166183034438, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_10, albedo: 7441062115984513793, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_11, albedo: 11490520546946913238, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_12, albedo: 6151467286084645207, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_17, albedo: 17876391417123941155, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_18, albedo: 11474523244911310074, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_19, albedo: 9288698199695299068, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_21, albedo: 755318871556304029, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_22, albedo: 8481240838833932244, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_23, albedo: 6772804448157695701, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_0, albedo: 5061699253647017043, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_3, albedo: 8006627369776289000, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_1, albedo: 7268504077753552595, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_5, albedo: 5792855332885324923, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_6, albedo: 14650633544276105767, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_7, albedo: 15295713303328085182, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_10, albedo: 7441062115984513793, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_11, albedo: 11490520546946913238, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_12, albedo: 6151467286084645207, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_2, albedo: white, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_13, albedo: 4975155472559461469, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_14, albedo: 4675343432951571524, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_15, albedo: 2775690330959970771, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_16, albedo: 2185409758123873465, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_20, albedo: 16275776544635328252, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_21, albedo: 755318871556304029, normal: 
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material_24, albedo: 2969916736137545357, normal: 
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/7268504077753552595
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 7268504077753552595
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/8750083169368950601
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 8750083169368950601
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/5792855332885324923
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 5792855332885324923
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/14650633544276105767
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 14650633544276105767
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/15295713303328085182
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 15295713303328085182
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/6047387724914829168
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 6047387724914829168
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/5823059166183034438
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 5823059166183034438
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/7441062115984513793
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 7441062115984513793
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/11490520546946913238
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 11490520546946913238
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/6151467286084645207
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 6151467286084645207
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/17876391417123941155
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 17876391417123941155
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/11474523244911310074
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 11474523244911310074
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/9288698199695299068
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 9288698199695299068
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/755318871556304029
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 755318871556304029
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/8481240838833932244
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 8481240838833932244
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/6772804448157695701
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 6772804448157695701
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/5061699253647017043
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 5061699253647017043
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/8006627369776289000
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 8006627369776289000
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/7268504077753552595
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 7268504077753552595
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/5792855332885324923
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 5792855332885324923
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/14650633544276105767
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 14650633544276105767
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/15295713303328085182
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 15295713303328085182
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/7441062115984513793
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 7441062115984513793
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/11490520546946913238
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 11490520546946913238
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/6151467286084645207
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 6151467286084645207
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/white
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 4
-	height: 4
-	channels: 3
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 64
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: white
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/4975155472559461469
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 4975155472559461469
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/4675343432951571524
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 4675343432951571524
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/2775690330959970771
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 2775690330959970771
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/2185409758123873465
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 2185409758123873465
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/16275776544635328252
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 16275776544635328252
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/755318871556304029
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 755318871556304029
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
-	res/textures/2969916736137545357
-
-[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
-	width: 1024
-	height: 1024
-	channels: 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: 2969916736137545357
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Utah_Teapot_Quads
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Clear_Coat_Plastic, albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Mesh name: Mesh
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Animation: Armature|death, size: 7139600
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: Armature, id: 2
@@ -1429,9 +468,6 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: 14206284874694347467, parent: 77
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: 11779967842043732372, parent: 78
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: 6652614860823904566, parent: 79
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
@@ -1448,19 +484,14 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: sand
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: dirt
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/gui.vert.spv
-[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]:app_build.cpp
-   Creating library app_build.lib and object app_build.exp
-
-CLINK C:\Users\zack\Documents\GitHub\vk_sample>app_build.cpp
-   Creating library app_build.lib and object app_build.exp
-
-CLINK C:\Users\zack\Documents\GitHub\vk_sample>7 File(s) copied
-app_build.cpp
-   Creating library app_build.lib and object app_build.exp
-
-CLINK C:\Users\zack\Documents\GitHub\vk_sample>7 File(s) copied
-app_build.cpp
-   Creating library app_build.lib and object app_build.exp
-
-CLINK C:\Users\zack\Documents\GitHub\vk_sample>CLINK C:\Users\zack\Documents\GitHub\vk_sample>CLINK C:\Users\zack\Documents\GitHub\vk_sample>CLINK C:\Users\zack\Documents\GitHub\vk_sample>
-CLINK C:\Users\zack\Documents\GitHub\vk_sample>
+[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/gui.frag.spv
+[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.vert.spv
+[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.frag.spv
+[0m[1m[38;2;255;255;255m[info][game_state]: world size: 35mb
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Sphere
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
+[0m[1m[38;2;255;255;255m[info][win32]: Saved graphics config
+[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Render System cleaned up
+[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Graphics API cleaned up
+[0m[1m[38;2;255;255;255m[info][win32]: Closing Application
+[0m

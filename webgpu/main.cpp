@@ -1,4 +1,4 @@
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include <thread>
 #include <semaphore>
@@ -109,7 +109,7 @@ LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
 
     MessageBox(0, fmt::format("Exception at address {}\nCode: {}\nFlag: {}", address, msg!=""?msg:fmt::format("{}", code), flags).c_str(), 0, MB_ABORTRETRYIGNORE);
 
-    gen_error(__FUNCTION__, "Exception at {} Code: {} Flag: {}", address, msg!=""?msg:fmt::format("{}", code), flags);
+    zyy_error(__FUNCTION__, "Exception at {} Code: {} Flag: {}", address, msg!=""?msg:fmt::format("{}", code), flags);
 
     return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -257,14 +257,14 @@ main(int argc, char* argv[]) {
     std::cout << "Got device: " << device << std::endl;
 
     auto onDeviceError = [](WGPUErrorType type, char const* message, void* /* pUserData */) {
-        gen_error("wgpu", "Uncaptured device error: type {}, ({})", type, message);
+        zyy_error("wgpu", "Uncaptured device error: type {}, ({})", type, message);
     };
     wgpuDeviceSetUncapturedErrorCallback(device, onDeviceError, nullptr /* pUserData */);
 
     WGPUQueue queue = wgpuDeviceGetQueue(device);
 
     // auto onQueueWorkDone = [](WGPUQueueWorkDoneStatus status, void* /* pUserData */) {
-    //     gen_info("wgpu", "Queued work finished with status: {}", status);
+    //     zyy_info("wgpu", "Queued work finished with status: {}", status);
     // };
     // wgpuQueueOnSubmittedWorkDone(queue, onQueueWorkDone, nullptr /* pUserData */);
 

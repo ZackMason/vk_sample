@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 enum struct debug_priority_level {
     LOW, MEDIUM, HIGH

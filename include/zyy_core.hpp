@@ -10,10 +10,10 @@
 #define fmt_str(...) (fmt::format(__VA_ARGS__))
 #define fmt_sv(...) (std::string_view{fmt::format(__VA_ARGS__)})
 #define println(...) do { fmt::print(__VA_ARGS__); } while(0)
-#define gen_info(cat, str, ...) do { fmt::print(fg(fmt::color::white) | fmt::emphasis::bold, fmt_str("[info][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
-#define gen_warn(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::yellow) | fmt::emphasis::bold, fmt_str("[warn][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
-#define gen_error(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::red) | fmt::emphasis::bold, fmt_str("[error][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
-#define gen_profile(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::blue) | fmt::emphasis::bold, fmt_str("[profile][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
+#define zyy_info(cat, str, ...) do { fmt::print(fg(fmt::color::white) | fmt::emphasis::bold, fmt_str("[info][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
+#define zyy_warn(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::yellow) | fmt::emphasis::bold, fmt_str("[warn][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
+#define zyy_error(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::red) | fmt::emphasis::bold, fmt_str("[error][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
+#define zyy_profile(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::blue) | fmt::emphasis::bold, fmt_str("[profile][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
 
 #if defined(GAME_USE_SIMD)
 #include <immintrin.h>
@@ -28,7 +28,7 @@
     #include <process.h>
 
 
-#if GEN_INTERNAL
+#if ZYY_INTERNAL
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -600,7 +600,7 @@ namespace utl {
 };
 
 
-#if GEN_INTERNAL
+#if ZYY_INTERNAL
 
 
 inline u64
@@ -711,7 +711,7 @@ struct timed_block_t {
 
 #endif
 
-#include "app_physics.hpp"
+#include "zyy_physics.hpp"
 
 struct platform_api_t {
     using allocate_memory_function = void*(*)(umm);
@@ -2560,7 +2560,7 @@ public:
         size_t write_position = 0;
         range_u64(_i, 0, MAX_POINTS-1) {
             if (write_position > vertices.size()) {
-                gen_error(__FUNCTION__, "Not enough vertices supplied: {} were given", vertices.size());
+                zyy_error(__FUNCTION__, "Not enough vertices supplied: {} were given", vertices.size());
                 return write_position > 5 ? write_position - 6 : 0;
             }
             u64 i = (point_head + _i) % MAX_POINTS;
@@ -4171,7 +4171,7 @@ struct profile_t {
         const auto m_time_delta = std::chrono::duration_cast<std::chrono::milliseconds>(delta).count();
         const auto u_time_delta = std::chrono::duration_cast<std::chrono::microseconds>(delta).count();
         const auto n_time_delta = std::chrono::duration_cast<std::chrono::nanoseconds>(delta).count();
-        gen_profile(name, " {}{}", 
+        zyy_profile(name, " {}{}", 
             m_time_delta ? m_time_delta : u_time_delta ? u_time_delta : n_time_delta,
             m_time_delta ? "ms" : u_time_delta ? "us" : "ns");
     }
@@ -4963,7 +4963,7 @@ struct memory_blob_t {
         // allocate(sizeof(T));
         i64 data_offset = 8;// allocation_offset - serialize_offset;
 
-        // gen_info("blob", "data_offset: {}", data_offset);
+        // zyy_info("blob", "data_offset: {}", data_offset);
         
         serialize(arena, data_offset);
 
@@ -5032,7 +5032,7 @@ struct memory_blob_t {
         //allocate(sizeof(T) * array.count);
         i64 data_offset = 8;// allocation_offset - serialize_offset;
 
-        // gen_info("blob", "data_offset: {}", data_offset);
+        // zyy_info("blob", "data_offset: {}", data_offset);
         
         serialize(arena, array.count);
         serialize(arena, data_offset);
@@ -5162,7 +5162,7 @@ load_pack_file(
     std::ifstream file{path.data(), std::ios::binary};
 
     if(!file.is_open()) {
-        gen_error("res", "Failed to open file");
+        zyy_error("res", "Failed to open file");
         return 0;
     }
 
@@ -5213,7 +5213,7 @@ load_pack_file(
         loader.advance(resource_size);
     }
 
-    // gen_info("res", "Loaded Resource File: {}", path);
+    // zyy_info("res", "Loaded Resource File: {}", path);
 
     return packed_file;
 }
@@ -5221,9 +5221,9 @@ load_pack_file(
 void pack_file_print(
     pack_file_t* packed_file
 ) {
-    gen_info("res", "Asset File contains: {} files", packed_file->file_count);
+    zyy_info("res", "Asset File contains: {} files", packed_file->file_count);
     for (size_t i = 0; i < packed_file->file_count; i++) {
-        gen_info("res", "\tfile: {} - {}", packed_file->table[i].name.c_str(), packed_file->table[i].size);
+        zyy_info("res", "\tfile: {} - {}", packed_file->table[i].name.c_str(), packed_file->table[i].size);
     }
 }
 
@@ -5236,7 +5236,7 @@ size_t pack_file_find_file(
             return i;
         }
     }
-    gen_warn("pack_file", "Failed to find file: {}", file_name);
+    zyy_warn("pack_file", "Failed to find file: {}", file_name);
     return ~0ui32;
 }
 
@@ -5249,7 +5249,7 @@ u64 pack_file_get_file_size(
             return pack_file->table[i].size;
         }
     }
-    gen_warn("pack_file", "Failed to find file: {}", file_name);
+    zyy_warn("pack_file", "Failed to find file: {}", file_name);
     return 0;
 }
 

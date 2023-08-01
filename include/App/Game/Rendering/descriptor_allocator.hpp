@@ -1,7 +1,7 @@
 #ifndef DESCRIPTOR_ALLOCATOR_HPP
 #define DESCRIPTOR_ALLOCATOR_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 namespace gfx::vul {
 
@@ -242,7 +242,7 @@ descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCre
     
     while (cache[bucket] != VK_NULL_HANDLE && meta[bucket] != hash) {
         bucket = (bucket + 1) % MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE;
-        gen_warn(__FUNCTION__, "probe: {}", hash);
+        zyy_warn(__FUNCTION__, "probe: {}", hash);
     }
 
     if (meta[bucket] == hash) {
@@ -355,7 +355,7 @@ bool descriptor_builder_t::build(VkDescriptorSet& set, VkDescriptorSetLayout& la
 	//allocate descriptor
 	bool success = alloc->allocate(&set, layout);
 	if (!success) { 
-        gen_warn(__FUNCTION__, "Failed to build descriptor set");
+        zyy_warn(__FUNCTION__, "Failed to build descriptor set");
         return false; 
     };
 

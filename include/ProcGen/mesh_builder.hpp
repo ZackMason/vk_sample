@@ -1,7 +1,7 @@
 #ifndef MESH_BUILDER_HPP
 #define MESH_BUILDER_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include "ProcGen/marching_cubes.hpp"
 

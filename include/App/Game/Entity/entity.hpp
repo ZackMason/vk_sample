@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include "uid.hpp"
 
@@ -11,7 +11,7 @@
 
 #include <variant>
 
-namespace game {
+namespace zyy {
 
 
 // most of these should be inferred from entity data
@@ -84,7 +84,7 @@ struct entity_coroutine_t {
             coroutine.line=0;
             _is_running = true;
         } else {
-            // gen_warn(__FUNCTION__, "{} tried to start coroutine that is already running", coroutine.data);
+            // zyy_warn(__FUNCTION__, "{} tried to start coroutine that is already running", coroutine.data);
         }
     }
     inline void run(frame_arena_t& frame_arena) {

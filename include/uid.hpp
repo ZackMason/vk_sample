@@ -1,7 +1,7 @@
 #ifndef UID_HPP
 #define UID_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 namespace uid {
 	using id_type = u64;

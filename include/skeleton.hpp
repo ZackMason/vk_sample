@@ -1,7 +1,7 @@
 #ifndef SKELETON_HPP
 #define SKELETON_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 namespace gfx {
 

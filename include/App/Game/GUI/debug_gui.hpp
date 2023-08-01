@@ -113,7 +113,7 @@ draw_gui(game_memory_t* game_memory) {
         
 
         local_persist v3f default_widget_pos{10.0f};
-        local_persist game::entity_t* selected_entity{0};
+        local_persist zyy::entity_t* selected_entity{0};
         local_persist v3f* widget_pos = &default_widget_pos;
 
         im::clear(state);
@@ -189,7 +189,7 @@ draw_gui(game_memory_t* game_memory) {
                 im::text(state, fmt_sv("Graphics FPS: {:.2f} - {:.2f} ms", 1.0f / (rdt_accum/rdt_count), (rdt_accum/rdt_count) * 1000.0f));
             }
 
-#if GEN_INTERNAL
+#if ZYY_INTERNAL
             local_persist bool show_record[128];
             if (im::text(state, "Profiling"sv, &show_perf)) {
                 debug_table_t* tables[] {
@@ -508,7 +508,7 @@ draw_gui(game_memory_t* game_memory) {
             im::end_panel(state);
         }
 
-        // for (game::entity_t* e = game_itr(game_state->game_world); e; e = e->next) {
+        // for (zyy::entity_t* e = game_itr(game_state->game_world); e; e = e->next) {
         for (size_t i = 0; i < game_state->game_world->entity_capacity; i++) {
             auto* e = game_state->game_world->entities + i;
             if (e->is_alive() == false) { continue; }
@@ -549,19 +549,19 @@ draw_gui(game_memory_t* game_memory) {
                 }
 
                 switch(e->physics.flags) {
-                    case game::PhysicsEntityFlags_None:
+                    case zyy::PhysicsEntityFlags_None:
                         im::text(state, "Physics Type: None");
                         break;
-                    case game::PhysicsEntityFlags_Static:
+                    case zyy::PhysicsEntityFlags_Static:
                         im::text(state, "Physics Type: Static");
                         break;
-                    case game::PhysicsEntityFlags_Dynamic:
+                    case zyy::PhysicsEntityFlags_Dynamic:
                         im::text(state, "Physics Type: Dynamic");
                         break;
                 }
 
                 switch(e->type) {
-                    case game::entity_type::weapon: {
+                    case zyy::entity_type::weapon: {
                         auto stats = e->stats.weapon;
                         im::text(state, "Type: Weapon");
                         im::text(state, "- Stats");
@@ -578,9 +578,9 @@ draw_gui(game_memory_t* game_memory) {
 
                 if (im::text(state, fmt_sv("Kill\0: {}"sv, (void*)e))) {
                     auto* te = e->next;
-                    gen_info("gui", "Killing entity: {}", (void*)e);
+                    zyy_info("gui", "Killing entity: {}", (void*)e);
                     e->queue_free();
-                    // game::world_destroy_entity(game_state->game_world, e);
+                    // zyy::world_destroy_entity(game_state->game_world, e);
                     if (!te) {
                         im::end_panel(state);
                         break;
@@ -589,7 +589,7 @@ draw_gui(game_memory_t* game_memory) {
                 }
 
                 if (check_for_debugger() && im::text(state, fmt_sv("Breakpoint\0{}"sv, e->id))) {
-                    e->flags ^= game::EntityFlags_Breakpoint;
+                    e->flags ^= zyy::EntityFlags_Breakpoint;
                 }
 
                 im::end_panel(state);

@@ -3,7 +3,7 @@
 
 #include "uid.hpp"
 
-namespace game {
+namespace zyy {
 
 template <typename EntityType>
 concept CEntity = requires(EntityType entity) {

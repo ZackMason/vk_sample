@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include "App/game_state.hpp"
 #include "App/Game/Entity/entity.hpp"
@@ -10,7 +10,7 @@ struct game_state_t;
 
 struct world_generator_t;
 
-namespace game {
+namespace zyy {
     static constexpr u64 max_entities = 500000;
 
     // note(zack): everything I need to rebuild game state should be in this struct
@@ -24,14 +24,14 @@ namespace game {
 
         size_t          entity_count{0};
         size_t          entity_capacity{0};
-        game::entity_id next_entity_id{1};
-        game::entity_t  entities[65535]; // entities from [0,cap]
-        game::entity_t* entity_id_hash[BIT(12)];
-        game::entity_t* free_entities{0};
+        zyy::entity_id next_entity_id{1};
+        zyy::entity_t  entities[65535]; // entities from [0,cap]
+        zyy::entity_t* entity_id_hash[BIT(12)];
+        zyy::entity_t* free_entities{0};
 
-        game::entity_t* player;
+        zyy::entity_t* player;
 
-        game::cam::camera_t camera;
+        zyy::cam::camera_t camera;
 
         physics::api_t* physics{0};
 
@@ -178,10 +178,10 @@ namespace game {
         const auto* input = &world->game_state->game_memory->input;
         for (size_t i{0}; i < world->entity_count; i++) {
             auto* e = world->entities + i;
-            if (e->physics.rigidbody && e->physics.flags & game::PhysicsEntityFlags_Kinematic) {
+            if (e->physics.rigidbody && e->physics.flags & zyy::PhysicsEntityFlags_Kinematic) {
                 // e->physics.rigidbody->position = e->global_transform().origin;
                 // e->physics.rigidbody->orientation = e->global_transform().get_orientation();
-                // float apply_gravity = f32(e->physics.flags & game::PhysicsEntityFlags_Character);
+                // float apply_gravity = f32(e->physics.flags & zyy::PhysicsEntityFlags_Character);
                 // e->physics.rigidbody->integrate(input->dt, apply_gravity * 9.81f * 0.02f);
                 world->physics->set_rigidbody(0, e->physics.rigidbody);
                 e->transform.origin = e->physics.rigidbody->position;
@@ -254,7 +254,7 @@ spawn(
 
     if (def.coroutine) {
         entity->coroutine.emplace(
-            game::entity_coroutine_t{
+            zyy::entity_coroutine_t{
                 .coroutine={world->game_state->game_memory->input.time, (void*)entity}, 
                 .func=def.coroutine
             }
@@ -310,7 +310,7 @@ spawn(
                     physics::collider_convex_info_t ci;
                     ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
                     if (ci.mesh == nullptr) {
-                        gen_warn(__FUNCTION__, "Error loading convex physics mesh: {}", collider_name);
+                        zyy_warn(__FUNCTION__, "Error loading convex physics mesh: {}", collider_name);
                     } else {
                         ci.size = safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name));
                         collider = world->physics->create_collider(
@@ -324,7 +324,7 @@ spawn(
                     physics::collider_trimesh_info_t ci;
                     ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
                     if (ci.mesh == nullptr) {
-                        gen_warn(__FUNCTION__, "Error loading trimesh physics mesh: {}", collider_name);
+                        zyy_warn(__FUNCTION__, "Error loading trimesh physics mesh: {}", collider_name);
                     } else {
                         ci.size = safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name));
                         collider = world->physics->create_collider(

@@ -1,7 +1,7 @@
 #ifndef LIGHTING_HPP
 #define LIGHTING_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 #include "uid.hpp"
 
 namespace rendering::lighting {

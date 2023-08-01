@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 DEFINE_TYPED_ID(script_id);
 
@@ -167,7 +167,7 @@ struct player_script_t {
 
     void end_play(world_t* world) {}
     void begin_play(world_t* world) {
-        gen_info("PlayerScript", "Hello World: {} - {}", script_name(), id);
+        zyy_info("PlayerScript", "Hello World: {} - {}", script_name(), id);
     }
 
     void update(world_t* world, f32 dt) {

@@ -1,4 +1,4 @@
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include <cassert>
 #include <exception>
@@ -86,7 +86,7 @@ void utl::memory_blob_t::serialize<scene_t>( arena_t* arena, const scene_t& s) {
 
 template<>
 void utl::memory_blob_t::serialize<entity_t>( arena_t* arena, const entity_t& e) {
-    // gen_info("entity", "Saving entity: {}", (void*)&e);
+    // zyy_info("entity", "Saving entity: {}", (void*)&e);
     serialize(arena, e.id);
     serialize(arena, e.pos);
     // serialize(arena, e.item);
@@ -95,7 +95,7 @@ void utl::memory_blob_t::serialize<entity_t>( arena_t* arena, const entity_t& e)
 
 template<>
 entity_t utl::memory_blob_t::deserialize<entity_t>() {
-    // gen_info("entity", "Loading entity");
+    // zyy_info("entity", "Loading entity");
     entity_t e;
     e.id = deserialize<u64>();
     e.pos = deserialize<v2f>();
@@ -139,10 +139,10 @@ void print_properties(auto obj) {
         };
         
         if (p.type) {
-            gen_info("refl", "{}: {} = {} - ({} offset, {} bytes)", p.name.data(), p.type->name, p.get_value(obj, data), p.offset, p.size);
+            zyy_info("refl", "{}: {} = {} - ({} offset, {} bytes)", p.name.data(), p.type->name, p.get_value(obj, data), p.offset, p.size);
             print_properties(*p.type);
         } else {
-            gen_warn("refl", "Unregistered type");
+            zyy_warn("refl", "Unregistered type");
         }
     }
 }
@@ -174,7 +174,7 @@ int main(int argc, char** argv) {
     //     constexpr size_t arena_size = megabytes(32);
     //     arena_t arena = arena_create(new u8[arena_size], arena_size);
         
-    //     using namespace game;
+    //     using namespace zyy;
 
     //     entity::ecs_world_t* w = entity::world_init(&arena, 24);
     //     auto e = w->get_entity(w->create_entity());
@@ -567,13 +567,13 @@ int main(int argc, char** argv) {
         };
         
         u32 child_count = 0;
-        for (size_t i = 0; i < array_count(game::db::characters::soldier.children); i++) {
-            child_count += !!game::db::characters::soldier.children[i].entity;
+        for (size_t i = 0; i < array_count(zyy::db::characters::soldier.children); i++) {
+            child_count += !!zyy::db::characters::soldier.children[i].entity;
         }
         TEST_ASSERT(child_count == 2);
         
-        const auto& p0 = game::db::characters::soldier;
-        const auto& p1 = game::db::rooms::map_01;
+        const auto& p0 = zyy::db::characters::soldier;
+        const auto& p1 = zyy::db::rooms::map_01;
         TEST_ASSERT(p0.stats->health.max == 120);
         TEST_ASSERT(p0.stats->health.max == p0.stats->health.current);
         
@@ -583,8 +583,8 @@ int main(int argc, char** argv) {
         blob.serialize(&arena, p0);
         blob.serialize(&arena, p1);
 
-        auto r0 = blob.deserialize<game::db::prefab_t>();
-        auto r1 = blob.deserialize<game::db::prefab_t>();
+        auto r0 = blob.deserialize<zyy::db::prefab_t>();
+        auto r1 = blob.deserialize<zyy::db::prefab_t>();
         
         TEST_ASSERT(r0.stats->health.max == 120);
         TEST_ASSERT(r0.type_name == "soldier"sv);
@@ -598,7 +598,7 @@ int main(int argc, char** argv) {
             delete [] arena.start;
         };
 
-        using namespace game;
+        using namespace zyy;
 
         wep::base_weapon_t rifle = wep::create_rifle();
         wep::base_weapon_t shotgun = wep::create_shotgun();
@@ -649,7 +649,7 @@ int main(int argc, char** argv) {
     });
 
     RUN_TEST("script hashing")
-        using namespace game;
+        using namespace zyy;
         using namespace utl::rng;
         
         static constexpr size_t arena_size = kilobytes(4);
@@ -663,7 +663,7 @@ int main(int argc, char** argv) {
             u32 score{0};
             void end_play(world_t* world) {}
             void begin_play(world_t* world) {
-                gen_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
+                zyy_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
             }
 
             void update(world_t* world, f32 dt) {
@@ -677,7 +677,7 @@ int main(int argc, char** argv) {
             f32 strength{1.0f};
             void end_play(world_t* world) {}
             void begin_play(world_t* world) {
-                gen_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
+                zyy_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
             }
 
             void update(world_t* world, f32 dt) {

@@ -1,7 +1,7 @@
 #ifndef PHYSX_PHYSICS_HPP
 #define PHYSX_PHYSICS_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include "App/Game/Physics/physics_world.hpp"
 
@@ -372,7 +372,7 @@ static PxFilterFlags filterShader(
 void
 physx_create_scene(api_t* api, const void* filter = 0) {
     TIMED_FUNCTION;
-    gen_info(__FUNCTION__, "Creating scene");
+    zyy_info(__FUNCTION__, "Creating scene");
     auto* ps = get_physx(api);
     assert(ps->state);
     
@@ -506,7 +506,7 @@ physx_simulate(api_t* api, f32 dt) {
         range_u64(i, 0, nb_active_actors) {
             auto* body = (rigidbody_t*)active_actors[i]->userData;
             if (!body) {
-                gen_warn(__FUNCTION__, "Simulated rigidbody is null");
+                zyy_warn(__FUNCTION__, "Simulated rigidbody is null");
                 continue;
             }
             auto* transform = (math::transform_t*)((u8*)body->user_data + api->entity_transform_offset);

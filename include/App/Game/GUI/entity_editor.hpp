@@ -1,7 +1,7 @@
 #ifndef GUI_ENTITY_EDITOR_HPP
 #define GUI_ENTITY_EDITOR_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include "App/Game/Entity/entity.hpp"
 #include "App/Game/Entity/entity_db.hpp"
@@ -13,11 +13,11 @@ struct entity_editor_t {
     gfx::gui::im::state_t imgui;
 
     m44 projection{1.0f};
-    game::cam::orbit_camera_t camera{};
+    zyy::cam::orbit_camera_t camera{};
 
     v3f* selection{0};
 
-    game::db::prefab_t entity;
+    zyy::db::prefab_t entity;
 
     entity_editor_t(game_state_t* app_)
     : game_state{app_}, imgui{
@@ -189,10 +189,10 @@ entity_editor_render(entity_editor_t* ee) {
             im::same_line(imgui);
             if (im::text(imgui, "Accept"sv)) {
                 if (show_load) {
-                    ee->entity = game::db::load_from_file(game_state->main_arena, fmt_sv("./res/entity/{}", file_view));
+                    ee->entity = zyy::db::load_from_file(game_state->main_arena, fmt_sv("./res/entity/{}", file_view));
                 } else { // show_save
                     std::ofstream file{fmt_str("./res/entity/{}", file_view), std::ios::binary};
-                    file.write((const char*)&ee->entity, sizeof(game::db::prefab_t));
+                    file.write((const char*)&ee->entity, sizeof(zyy::db::prefab_t));
                 }
                 show_save = show_load = false;
             }
@@ -221,7 +221,7 @@ entity_editor_render(entity_editor_t* ee) {
         };
 
         if (im::text(imgui, fmt_sv("Type: {}"sv, types[(u32)ee->entity.type]))) {
-            ee->entity.type = (game::entity_type)(((u32)ee->entity.type + 1) % (u32)game::entity_type::SIZE);
+            ee->entity.type = (zyy::entity_type)(((u32)ee->entity.type + 1) % (u32)zyy::entity_type::SIZE);
         }
   
         if (im::text(imgui, "Graphics"sv, &show_graphics)) {
@@ -236,7 +236,7 @@ entity_editor_render(entity_editor_t* ee) {
         
         if (im::text(imgui, "Physics"sv, &show_physics)) {
             if (!ee->entity.physics) {
-                ee->entity.physics.emplace(game::db::prefab_t::physics_t{});
+                ee->entity.physics.emplace(zyy::db::prefab_t::physics_t{});
             }
             if (im::text(imgui, "Clear"sv)) {
                 ee->entity.physics.reset();

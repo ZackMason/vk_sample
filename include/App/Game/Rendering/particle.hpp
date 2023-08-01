@@ -1,7 +1,7 @@
 #ifndef RENDERING_PARTICLE_HPP
 #define RENDERING_PARTICLE_HPP
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 DEFINE_TYPED_ID(particle_system_id);
 

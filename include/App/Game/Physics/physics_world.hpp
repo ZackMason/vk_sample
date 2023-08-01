@@ -1,8 +1,8 @@
 #pragma once
 
-#include "PxPhysicsAPI.h"
 
 #include "PxPhysics.h"
+#include "PxPhysicsAPI.h"
 #include "PxRigidActor.h"
 #include "PxActor.h"
 #include "PxScene.h"
@@ -131,7 +131,7 @@ namespace physics {
                     load_convex(data, size, transform);
                     break;
                 default:
-                    gen_warn("rigidbody", "Failed to load shape");
+                    zyy_warn("rigidbody", "Failed to load shape");
             }
         }
         void load_trimesh(std::byte* data, size_t size, const math::transform_t& transform) {
@@ -197,7 +197,7 @@ namespace physics {
     ) {
         assert(world);
 
-        gen_info("physx", "physics_world_init: {}", (void*)world);
+        zyy_info("physx", "physics_world_init: {}", (void*)world);
         world->state = state;
 
         physx::PxSceneDesc scene_desc(state->physics->getTolerancesScale());

@@ -1,12 +1,12 @@
 #pragma once
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
-namespace game::item {
+namespace zyy::item {
     struct effect_t;
 };
 
-namespace game::wep {
+namespace zyy::wep {
 
     enum struct weapon_part_type {
         HANDLE, BODY, SIGHT,

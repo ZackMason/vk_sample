@@ -1,4 +1,4 @@
-#include <core.hpp>
+#include <zyy_core.hpp>
 
 #include "App/game_state.hpp"
 
@@ -27,7 +27,7 @@ global_variable f32 gs_reload_time = 0.0f;
 
 global_variable b32 gs_show_console=false;
 
-global_variable game::cam::first_person_controller_t gs_debug_camera;
+global_variable zyy::cam::first_person_controller_t gs_debug_camera;
 global_variable b32 gs_debug_camera_active;
 
 global_variable VkCullModeFlagBits gs_cull_modes[] = {
@@ -79,8 +79,8 @@ void teapot_on_collision(
     physics::rigidbody_t* teapot,
     physics::rigidbody_t* other
 ) {
-    // gen_info(__FUNCTION__, "teapot hit: {} - id", teapot->id);
-    // auto* teapot_entity = (game::entity_t*) teapot->user_data;
+    // zyy_info(__FUNCTION__, "teapot hit: {} - id", teapot->id);
+    // auto* teapot_entity = (zyy::entity_t*) teapot->user_data;
     // teapot->add_relative_impulse(teapot->inverse_transform_direction(axis::up) * 10.0f, gs_dt);
     
     // teapot->flags = physics::rigidbody_flags::SKIP_SYNC;
@@ -90,8 +90,8 @@ void player_on_collision(
     physics::rigidbody_t* player,
     physics::rigidbody_t* other
 ) {
-    auto* other_entity = (game::entity_t*) other->user_data;
-    // gen_info(__FUNCTION__, "player hit: {} - id", other_entity->id);
+    auto* other_entity = (zyy::entity_t*) other->user_data;
+    // zyy_info(__FUNCTION__, "player hit: {} - id", other_entity->id);
 }
 
 
@@ -255,7 +255,7 @@ app_init_graphics(game_memory_t* game_memory) {
         assert(mesh == utl::res::magic::skel);
 
         results.count = blob.deserialize<u64>();
-        gen_warn(__FUNCTION__, "Loading {} meshes", results.count);
+        zyy_warn(__FUNCTION__, "Loading {} meshes", results.count);
         results.meshes  = arena_alloc_ctor<gfx::mesh_view_t>(arena, results.count);
 
         u64 total_vertex_count = 0;
@@ -264,7 +264,7 @@ app_init_graphics(game_memory_t* game_memory) {
 
         for (size_t j = 0; j < results.count; j++) {
             std::string name = blob.deserialize<std::string>();
-            gen_info(__FUNCTION__, "Mesh name: {}", name);
+            zyy_info(__FUNCTION__, "Mesh name: {}", name);
             const size_t vertex_count = blob.deserialize<u64>();
             const size_t vertex_bytes = sizeof(gfx::skinned_vertex_t) * vertex_count;
 
@@ -325,18 +325,18 @@ app_init_graphics(game_memory_t* game_memory) {
 
         range_u64(a, 0, anim_count) {
             auto& animation = animations[a];
-            gen_info(__FUNCTION__, "Animation: {}, size: {}", animation.name, sizeof(gfx::anim::animation_t));
+            zyy_info(__FUNCTION__, "Animation: {}, size: {}", animation.name, sizeof(gfx::anim::animation_t));
             range_u64(n, 0, animation.node_count) {
                 auto& node = animation.nodes[n];
                 auto& timeline = node.bone;
                 if (timeline) {
-                    gen_info(__FUNCTION__, "Bone: {}, id: {}", timeline->name, timeline->id);
+                    zyy_info(__FUNCTION__, "Bone: {}, id: {}", timeline->name, timeline->id);
                 }
             }
         }
         range_u64(b, 0, skeleton->bone_count) {
             auto& bone = skeleton->bones[b];
-            gen_info(__FUNCTION__, "Bone: {}, parent: {}", bone.name_hash, bone.parent);
+            zyy_info(__FUNCTION__, "Bone: {}, parent: {}", bone.name_hash, bone.parent);
         }
     }
 
@@ -510,7 +510,7 @@ app_on_init(game_memory_t* game_memory) {
     gs_debug_state = game_state->debug_state;    
 
     using namespace std::string_view_literals;
-#ifdef GEN_INTERNAL
+#ifdef ZYY_INTERNAL
     game_state->debug.console = arena_alloc<debug_console_t>(main_arena);
 
     console_add_command(game_state->debug.console, "help", [](void* data) {
@@ -606,14 +606,14 @@ app_on_init(game_memory_t* game_memory) {
 
     
     physics::api_t* physics = game_memory->physics;
-    physics->entity_transform_offset = offsetof(game::entity_t, transform);
+    physics->entity_transform_offset = offsetof(zyy::entity_t, transform);
     if (physics) {
-        gen_info("app_init", "Creating physics scene");
+        zyy_info("app_init", "Creating physics scene");
         assert(physics && physics->create_scene);
         physics->create_scene(physics, 0);
-        gen_info("app_init", "Created physics scene");
+        zyy_info("app_init", "Created physics scene");
     }
-    game_state->game_world = game::world_init(&game_state->game_arena, game_state, physics);
+    game_state->game_world = zyy::world_init(&game_state->game_arena, game_state, physics);
 
     app_init_graphics(game_memory);
 
@@ -636,7 +636,7 @@ app_on_init(game_memory_t* game_memory) {
     
     
 
-    gen_info("game_state", "world size: {}mb", GEN_TYPE_INFO(game::world_t).size/megabytes(1));
+    zyy_info("game_state", "world size: {}mb", GEN_TYPE_INFO(zyy::world_t).size/megabytes(1));
 }
 
 export_fn(void) 
@@ -647,10 +647,10 @@ app_on_deinit(game_memory_t* game_memory) {
     vkDeviceWaitIdle(vk_gfx.device);
 
     rendering::cleanup(game_state->render_system);
-    gen_info(__FUNCTION__, "Render System cleaned up");
+    zyy_info(__FUNCTION__, "Render System cleaned up");
 
     vk_gfx.cleanup();
-    gen_info(__FUNCTION__, "Graphics API cleaned up");
+    zyy_info(__FUNCTION__, "Graphics API cleaned up");
 
     game_state->~game_state_t();
 }
@@ -689,7 +689,7 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
     auto& yaw = gs_debug_camera_active ? gs_debug_camera.yaw : player->camera_controller.yaw;
     auto& pitch = gs_debug_camera_active ? gs_debug_camera.pitch : player->camera_controller.pitch;
 
-    const v3f forward = game::cam::get_direction(yaw, pitch);
+    const v3f forward = zyy::cam::get_direction(yaw, pitch);
     const v3f right   = glm::cross(forward, axis::up);
     
     if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
@@ -743,24 +743,24 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
                 math::ray_t gun_shot{ro, rd};
                 DEBUG_ADD_VARIABLE(gun_shot);
                 if (rb == player->physics.rigidbody) {
-                    gen_warn(__FUNCTION__, "player shot them self");
+                    zyy_warn(__FUNCTION__, "player shot them self");
                 }
                 auto hp = (ray.point);
-                game::entity_t* hit_entity=0;
+                zyy::entity_t* hit_entity=0;
                 if (rb->type == physics::rigidbody_type::DYNAMIC ||
                     rb->type == physics::rigidbody_type::KINEMATIC
                 ) {
                     // rb->inverse_transform_direction
                     // auto f = rb->inverse_transform_direction(rd);
                     // rb->add_force(rd*1.0f);
-                    hit_entity = (game::entity_t*)rb->user_data;
+                    hit_entity = (zyy::entity_t*)rb->user_data;
                     rb->add_force_at_point(rd*50.0f, hp);
                     math::ray_t force{hp, rd};
                     DEBUG_ADD_VARIABLE(force);
                 } else {
                     DEBUG_ADD_VARIABLE(ray.point);
                 }
-                auto* hole = game::spawn(world, world->render_system(), game::db::misc::bullet_hole, hp);
+                auto* hole = zyy::spawn(world, world->render_system(), zyy::db::misc::bullet_hole, hp);
                 hole->transform.set_rotation(world->entropy.randnv<v3f>() * 100.0f);
                 hole->coroutine->start();
                 if (hit_entity) {
@@ -818,7 +818,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
 
     auto* world = game_state->game_world;
     
-    game::world_update(world, input->dt);
+    zyy::world_update(world, input->dt);
 
     DEBUG_ADD_VARIABLE_(v3f{axis::right * 50.0f}, 0.01f);
 
@@ -828,7 +828,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
         } else {
             world->player->transform.origin.y = 0.0f;
         }
-        gen_warn("killz", "Reset players vertical position");
+        zyy_warn("killz", "Reset players vertical position");
         // game_state->game_memory->input.pressed.keys[key_id::F10] = 1;
     }
 
@@ -844,7 +844,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
     //     tr.tick(input->dt, tr_pos);
     // }
     
-    game::world_update_physics(game_state->game_world);
+    zyy::world_update_physics(game_state->game_world);
 
     {
         TIMED_BLOCK(PhysicsStep);
@@ -859,15 +859,15 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
 
         for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
             auto* e = game_state->game_world->entities + i;
-            if (e->flags & game::EntityFlags_Breakpoint) {
+            if (e->flags & zyy::EntityFlags_Breakpoint) {
                 __debugbreak();
             }
             if (e->is_alive() == false) {
                 continue;
             }
 
-            const bool is_physics_object = e->physics.flags != game::PhysicsEntityFlags_None && e->physics.rigidbody;
-            const bool is_pickupable = (e->flags & game::EntityFlags_Pickupable);
+            const bool is_physics_object = e->physics.flags != zyy::PhysicsEntityFlags_None && e->physics.rigidbody;
+            const bool is_pickupable = (e->flags & zyy::EntityFlags_Pickupable);
             const bool is_not_renderable = !e->is_renderable();
 
 
@@ -879,13 +879,13 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
                 //     game_state->game_world->player->primary_weapon.entity = e;
                 //     e->parent = game_state->game_world->player;
                 //     e->transform.origin = v3f{0.5, 0.0f, -0.5f};
-                //     e->flags &= ~game::EntityFlags_Pickupable;
+                //     e->flags &= ~zyy::EntityFlags_Pickupable;
                 //     // volatile int* crash{0}; *crash++;
                 // }
             }
 
             const auto entity_aabb = e->global_transform().xform_aabb(e->aabb);
-            if (e->type != game::entity_type::player) {
+            if (e->type != zyy::entity_type::player) {
                 DEBUG_ADD_VARIABLE_(entity_aabb, 0.0000f);
             }
             if (e->gfx.particle_system) {
@@ -905,7 +905,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
         }
     }
 
-    game::world_kill_free_queue(game_state->game_world);
+    zyy::world_kill_free_queue(game_state->game_world);
 
     std::lock_guard lock{game_state->render_system->ticket};
     {
@@ -938,7 +938,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
         }
 
         if (is_not_renderable) {
-            // gen_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
+            // zyy_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
             continue;
         }
 
@@ -1010,7 +1010,7 @@ present_frame(game_state_t* game_state, VkCommandBuffer command_buffer, u32 imag
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[frame_count&1]) != VK_SUCCESS) {
-        gen_error("vk:submit", "failed to submit draw command buffer!");
+        zyy_error("vk:submit", "failed to submit draw command buffer!");
         std::terminate();
     }
 
@@ -1122,7 +1122,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
             khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
         }
-            auto view_dir = game_state->game_world->player ? game::cam::get_direction(
+            auto view_dir = game_state->game_world->player ? zyy::cam::get_direction(
                     game_state->game_world->player->camera_controller.yaw,
                     game_state->game_world->player->camera_controller.pitch
                 ) : axis::forward;
@@ -1340,7 +1340,7 @@ app_on_render(game_memory_t* game_memory) {
         
         }   break;
         default:
-            gen_warn("scene::render", "Unknown scene: {}", scene_state);
+            zyy_warn("scene::render", "Unknown scene: {}", scene_state);
             break;
         //     scene_state = 1;
     }
@@ -1360,7 +1360,7 @@ app_on_update(game_memory_t* game_memory) {
             game_on_update(game_memory);
             break;
         default:
-            gen_warn("scene::update", "Unknown scene: {}", scene_state);
+            zyy_warn("scene::update", "Unknown scene: {}", scene_state);
             break;
         //     scene_state = 1;
     }

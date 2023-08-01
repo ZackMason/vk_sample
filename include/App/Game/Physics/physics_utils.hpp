@@ -52,9 +52,9 @@ private:
         std::lock_guard lock{mut};
 
         // if (type_name) {
-        //     gen_info("px::alloc", "{}::allocate: {} bytes from {}:{}", type_name, size, file_name, line);
+        //     zyy_info("px::alloc", "{}::allocate: {} bytes from {}:{}", type_name, size, file_name, line);
         // } else {
-        //     gen_info("px::alloc", "typeless::allocate: {} bytes from {}:{}", size, file_name, line);
+        //     zyy_info("px::alloc", "typeless::allocate: {} bytes from {}:{}", size, file_name, line);
         // }
 
         // todo(zack): search for freed blocks
@@ -96,7 +96,7 @@ private:
         block->next = heap;
         heap = block;
 
-        // gen_info("px::free", "deallocate: {} bytes", block->size);
+        // zyy_info("px::free", "deallocate: {} bytes", block->size);
     }
 };
 
@@ -105,7 +105,7 @@ public:
     virtual void reportError(physx::PxErrorCode::Enum code, const char* message, const char* file,
         int line)
     {
-        gen_error("physx", "PhysX Error Callback: {}:{} -\n\t{}\n", file, line, message);
+        zyy_error("physx", "PhysX Error Callback: {}:{} -\n\t{}\n", file, line, message);
     }
 };
 

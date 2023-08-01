@@ -1,11 +1,11 @@
 #pragma once
 
 
-#include "core.hpp"
+#include "zyy_core.hpp"
 
 #include "App/Game/Weapons/base_weapon.hpp"
 
-namespace game::item {
+namespace zyy::item {
 
     namespace effect_type {
         enum {
@@ -27,11 +27,11 @@ namespace game::item {
     };
 
     namespace augment_character {
-        using function_type = game::character_stats_t(*)(const game::character_stats_t&);
+        using function_type = zyy::character_stats_t(*)(const zyy::character_stats_t&);
 
-        #define AUGMENT_STATS_DEF(x) inline game::character_stats_t \
+        #define AUGMENT_STATS_DEF(x) inline zyy::character_stats_t \
         x(\
-            const game::character_stats_t& _stats\
+            const zyy::character_stats_t& _stats\
         ) noexcept 
         
         AUGMENT_STATS_DEF(vitality) {
