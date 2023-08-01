@@ -220,6 +220,19 @@ struct debug_console_t {
         return messages[message_top?message_top-1:array_count(messages)-1];
     }
 
+    std::optional<f32> last_float() const {
+        const auto& message = last_message();
+        auto i = std::string_view{message.text}.find_first_of("0123456789.+");
+        if (i != std::string_view::npos) {
+            std::stringstream ss{std::string_view{message.text}.substr(i).data()};
+            float f;
+            ss >> f;
+            return f;
+        } else {
+            return std::nullopt;
+        }
+    }
+
     char    text_buffer[1024]{};
     size_t  text_size{0};
 };
@@ -325,7 +338,7 @@ draw_console(
     #define DEBUG_ADD_VARIABLE_(var, time) DEBUG_STATE.add_time_variable((var), #var, (time))
     #define DEBUG_SET_FOCUS(point) DEBUG_STATE.focus_point = (point)
     #define DEBUG_SET_FOCUS_DISTANCE(distance) DEBUG_STATE.focus_distance = (distance)
-    #define DEBUG_SET_TIMEOUT(timeout) DEBUG_STATE.timeout = (timeout)
+    #define DEBUG_SET_TIMEOUT(time) DEBUG_STATE.timeout = (time)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport) DEBUG_STATE.draw(imgui, proj, view, viewport)
 #else
     #define DEBUG_ADD_VARIABLE(var) 

@@ -148,7 +148,9 @@ namespace zyy::wep {
             while(action.fire_time <= 0.0f) {
                 action.fire_time += fire_rate;
                 chamber_count -= 1;
-                Platform.audio.play_sound(sound_effects.fire);
+                if (Platform.audio.play_sound) {
+                    Platform.audio.play_sound(sound_effects.fire);
+                }
 
                 for (size_t bullet = 0; bullet < chamber_mult; bullet++) {
                     (*count)++;
