@@ -2,7 +2,7 @@
 
 #include "zyy_core.hpp"
 
-namespace game {
+namespace zyy {
 
 struct world_t;
 

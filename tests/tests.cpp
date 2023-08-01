@@ -693,8 +693,8 @@ int main(int argc, char** argv) {
             delete [] arena.start;
         };
         
-        const auto& p0 = game::db::characters::soldier;
-        const auto& p1 = game::db::rooms::map_01;
+        const auto& p0 = zyy::db::characters::soldier;
+        const auto& p1 = zyy::db::rooms::map_01;
         TEST_ASSERT(p0.stats->health.max == 120);
         TEST_ASSERT(p0.stats->health.max == p0.stats->health.current);
         
