@@ -50,7 +50,7 @@ float filament_SmithGGXCorrelated(float NoV, float NoL, float a) {
     float a2 = a * a;
     float GGXL = NoV * sqrt((-NoL * a2 + NoL) * NoL + a2);
     float GGXV = NoL * sqrt((-NoV * a2 + NoV) * NoV + a2);
-    return 0.5 / (GGXV + GGXL);
+    return 0.5 / max(GGXV + GGXL, 1e-5);
 }
 
 float filament_DLambert() {

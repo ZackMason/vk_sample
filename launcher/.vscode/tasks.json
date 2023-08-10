@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "debug",
+            "type": "shell",
+            "command": "build.bat no game"
+        },
+        {
+            "label": "debugs",
+            "type": "shell",
+            "command": "build.bat tests"
+        }
+    ]
+}

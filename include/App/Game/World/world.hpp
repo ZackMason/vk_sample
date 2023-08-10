@@ -4,6 +4,7 @@
 
 #include "App/game_state.hpp"
 #include "App/Game/Entity/entity.hpp"
+#include "App/Game/Entity/entity_db.hpp"
 #include "App/Game/Rendering/render_system.hpp"
 
 struct game_state_t;
@@ -59,8 +60,8 @@ namespace zyy {
         
         world->arena = arena_sub_arena(arena, megabytes(256));
 
-        world->frame_arena.arena[0] = arena_sub_arena(&world->arena, megabytes(64));
-        world->frame_arena.arena[1] = arena_sub_arena(&world->arena, megabytes(64));
+        world->frame_arena.arena[0] = arena_sub_arena(&world->arena, megabytes(8));
+        world->frame_arena.arena[1] = arena_sub_arena(&world->arena, megabytes(8));
 
         // world->particle_cache = arena_alloc<particle_cache_t>(&world->arena);
 

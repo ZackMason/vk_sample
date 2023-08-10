@@ -1930,6 +1930,11 @@ struct aabb_t {
     
 };
 
+static bool
+intersect(aabb_t<v2f> rect, v2f p) {
+    return rect.contains(p);
+}
+
 inline static bool
 intersect(const ray_t& ray, const triangle_t& tri, f32& t) noexcept {
     const auto& [v0, v1, v2] = tri.p;
@@ -2792,8 +2797,8 @@ namespace gui {
         color32 active_color{color::rgba::yellow};
         color32 disabled_color{};
         color32 border_color{};
-        u32     shadow_distance{1};
-        color32 shadow_color{};
+        f32     shadow_distance{1.0f};
+        color32 shadow_color{color::rgba::black};
 
         f32 padding{1.0f};
         f32 margin{1.0f};
@@ -3285,6 +3290,16 @@ namespace gui {
             imgui.panel->max += v2f{border_size};
             draw_round_rect(&imgui.ctx, *imgui.panel, corner_radius, imgui.theme.fg_color);
 
+            auto [x,y] = imgui.ctx.input->mouse.pos;
+            if (imgui.hot.id == 0) {
+                if (math::intersect(*imgui.panel, v2f{x,y})) {
+                    imgui.hot.id = imgui.panel->name;
+                }
+            } else if (imgui.hot.id == imgui.panel->name) {
+                if (!math::intersect(*imgui.panel, v2f{x,y})) {
+                    imgui.hot.id = 0;
+                }
+            }
             // imgui.panel->draw_cursor = v2f{0.0f};
             imgui.panel--;
         }
@@ -3734,7 +3749,9 @@ namespace gui {
                 }
             }
 
+            auto shadow_cursor = temp_cursor + imgui.theme.shadow_distance;
             string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
             // draw_rect(&imgui.ctx, text_box, gfx::color::rgba::purple);
             if (imgui.next_same_line) {
                 imgui.next_same_line = false;
@@ -3795,8 +3812,10 @@ namespace gui {
                     imgui.active = txt_id;
                 }
             }
-
+            auto shadow_cursor = temp_cursor + imgui.theme.shadow_distance;
             string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
+
             if (imgui.hot.id != txt_id && *position == 0) {
                 draw_rect(&imgui.ctx, text_box, imgui.theme.fg_color);
             }
@@ -3991,6 +4010,36 @@ namespace gui {
         ) {
             return button(imgui, name, imgui.theme.fg_color, imgui.theme.text_color, btn_id_, size, font_size);
         }
+        
+        inline void
+        vec3(
+            state_t& imgui, 
+            const v3f& data,
+            f32 min = 0.0f,
+            f32 max = 1.0f
+        ) {
+
+            const auto theme = imgui.theme;
+
+            imgui.theme.fg_color = gfx::color::rgba::red;
+            same_line(imgui);
+            indent(imgui, v2f{28.0f,0.0f});
+            float_slider(imgui, (f32*)&data.x, min, max);
+
+            imgui.theme.fg_color = gfx::color::rgba::green;
+            same_line(imgui);
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            float_slider(imgui, (f32*)&data.y, min, max);
+
+            imgui.theme.fg_color = gfx::color::rgba::blue;
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            float_slider(imgui, (f32*)&data.z, min, max);
+
+            imgui.theme = theme;
+        }
 
     };
 }; // namespace gui
@@ -4009,6 +4058,7 @@ struct font_t {
     u8* ttf_buffer{0};
     u8* bitmap{0};
     stbtt_bakedchar cdata[96];
+    u32 id{0};
 };
 
 inline void
@@ -4123,10 +4173,13 @@ font_render(
             const v2f c2 = v2f{glyph.texture.max.x, glyph.texture.min.y};
             const v2f c3 = v2f{glyph.texture.max.x, glyph.texture.max.y};
 
-            v[0] = gui::vertex_t{ .pos = p0, .tex = c0, .img = 0|(u32)BIT(30), .col = text_color};
-            v[1] = gui::vertex_t{ .pos = p1, .tex = c1, .img = 0|(u32)BIT(30), .col = text_color};
-            v[2] = gui::vertex_t{ .pos = p2, .tex = c2, .img = 0|(u32)BIT(30), .col = text_color};
-            v[3] = gui::vertex_t{ .pos = p3, .tex = c3, .img = 0|(u32)BIT(30), .col = text_color};
+            const u32 font_id = font->id;
+            const u32 texture_bit = (u32)BIT(30);
+
+            v[0] = gui::vertex_t{ .pos = p0, .tex = c0, .img = font_id|texture_bit, .col = text_color};
+            v[1] = gui::vertex_t{ .pos = p1, .tex = c1, .img = font_id|texture_bit, .col = text_color};
+            v[2] = gui::vertex_t{ .pos = p2, .tex = c2, .img = font_id|texture_bit, .col = text_color};
+            v[3] = gui::vertex_t{ .pos = p3, .tex = c3, .img = font_id|texture_bit, .col = text_color};
 
             i[0] = v_start + 0;
             i[1] = v_start + 2;
@@ -5370,7 +5423,8 @@ constexpr f32 out_elastic(f32 x) noexcept {
         : glm::pow(2.0f, -10.0f * x) * glm::sin((x * 10.0f - 0.75f) * c4) + 1.0f;
 }
 
-constexpr f32 in_out_elastic(f32 x) noexcept {
+constexpr f32 
+in_out_elastic(f32 x) noexcept {
     const auto c5 = (2.0f * math::constants::pi32) / 4.5f;
     return x == 0.0f 
             ? 0.0f 

@@ -26,6 +26,7 @@ global_variable f32 gs_dt;
 global_variable f32 gs_reload_time = 0.0f;
 
 global_variable b32 gs_show_console=false;
+global_variable b32 gs_show_watcher=false;
 
 global_variable zyy::cam::first_person_controller_t gs_debug_camera;
 global_variable b32 gs_debug_camera_active;
@@ -433,6 +434,28 @@ app_init_graphics(game_memory_t* game_memory) {
         rs->shader_cache.load(
             rs->arena, 
             vk_gfx,
+            assets::shaders::screen_vert,
+            rs->get_frame_data().postprocess_pass.descriptor_layouts,
+            rs->get_frame_data().postprocess_pass.descriptor_count
+        );
+        rs->shader_cache.load(
+            rs->arena, 
+            vk_gfx,
+            assets::shaders::invert_frag,
+            rs->get_frame_data().postprocess_pass.descriptor_layouts,
+            rs->get_frame_data().postprocess_pass.descriptor_count
+        );
+        rs->shader_cache.load(
+            rs->arena, 
+            vk_gfx,
+            assets::shaders::tonemap_frag,
+            rs->get_frame_data().postprocess_pass.descriptor_layouts,
+            rs->get_frame_data().postprocess_pass.descriptor_count
+        );
+
+        rs->shader_cache.load(
+            rs->arena, 
+            vk_gfx,
             assets::shaders::gui_vert,
             game_state->gui_pipeline->descriptor_set_layouts,
             game_state->gui_pipeline->descriptor_count
@@ -458,6 +481,13 @@ app_init_graphics(game_memory_t* game_memory) {
             rs->arena, 
             vk_gfx,
             assets::shaders::skybox_frag,
+            game_state->sky_pipeline->descriptor_set_layouts,
+            game_state->sky_pipeline->descriptor_count
+        );
+        rs->shader_cache.load(
+            rs->arena, 
+            vk_gfx,
+            assets::shaders::voidsky_frag,
             game_state->sky_pipeline->descriptor_set_layouts,
             game_state->sky_pipeline->descriptor_count
         );
@@ -505,6 +535,7 @@ app_on_init(game_memory_t* game_memory) {
     assets::sounds::load();
     game_state->debug_state = arena_alloc_ctor<debug_state_t>(main_arena, 1, game_memory->input.time);
     game_state->debug_state->arena = arena_sub_arena(main_arena, megabytes(8));
+    game_state->debug_state->watch_arena = arena_sub_arena(main_arena, megabytes(8));
 
 
     gs_debug_state = game_state->debug_state;    
@@ -591,7 +622,7 @@ app_on_init(game_memory_t* game_memory) {
         auto* console = (debug_console_t*)data;
         const auto time = console->last_float();
         if (time) {
-            DEBUG_SET_TIMEOUT(*time);
+            DEBUG_SET_FOCUS_DISTANCE(*time);
             console_log(console, fmt_sv("Setting Debug Focus to {}", *time));
         } else {
             console_log(console, "Parse error", gfx::color::rgba::red);
@@ -697,13 +728,16 @@ camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
 
     const v3f forward = zyy::cam::get_direction(yaw, pitch);
     const v3f right   = glm::cross(forward, axis::up);
+
+    rigidbody->linear_dampening = rigidbody->is_on_surface() ? 9.0f : 3.0f;
+    DEBUG_WATCH(&rigidbody->linear_dampening);
     
     if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
         yaw += head_move.x * dt;
         pitch -= head_move.y * dt;
     }
 
-    const f32 move_speed = 45.0f * (pc.sprint ? 1.75f : 1.0f);
+    const f32 move_speed = 45.0f * (pc.sprint ? 1.75f : 1.0f) * (rigidbody->is_on_surface() ? 1.0f : 0.33f);
 
     if (gs_debug_camera_active) {
         gs_debug_camera.transform.origin += ((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
@@ -797,6 +831,15 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
     if (input->pressed.keys[key_id::F2]) {
         if (auto b = gs_show_console = !gs_show_console) {
             gs_imgui_state->active = "console_text_box"_sid;
+        } else {
+            gs_imgui_state->hot = gs_imgui_state->active = 0;
+        }
+    }
+    if (input->pressed.keys[key_id::F1]) {
+        if (auto b = gs_show_watcher = !gs_show_watcher) {
+            gs_imgui_state->active = "watcher_text_box"_sid;
+        } else {
+            gs_imgui_state->hot = gs_imgui_state->active = 0;
         }
     }
 
@@ -834,7 +877,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
         } else {
             world->player->transform.origin.y = 0.0f;
         }
-        zyy_warn("killz", "Reset players vertical position");
+        // zyy_warn("killz", "Reset players vertical position");
         // game_state->game_memory->input.pressed.keys[key_id::F10] = 1;
     }
 
@@ -871,6 +914,8 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
             if (e->is_alive() == false) {
                 continue;
             }
+
+            DEBUG_WATCH(e);
 
             const bool is_physics_object = e->physics.flags != zyy::PhysicsEntityFlags_None && e->physics.rigidbody;
             const bool is_pickupable = (e->flags & zyy::EntityFlags_Pickupable);
@@ -917,6 +962,17 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input) {
     {
         // TIMED_BLOCK(GameplayLock);
         // lock.lock();
+    }
+
+    { // @debug
+        auto* env = &game_state->render_system->environment_storage_buffer.pool[0];
+        DEBUG_WATCH((v3f*)&env->fog_color);
+        DEBUG_WATCH((v3f*)&env->ambient_color);
+        DEBUG_WATCH(&env->fog_density);
+        DEBUG_WATCH(&env->ambient_strength);
+        DEBUG_WATCH(&env->contrast);
+        DEBUG_WATCH(&env->sun.color);
+        DEBUG_WATCH((v3f*)&env->sun.direction);
     }
 
     TIMED_BLOCK(GameSubmitRenderJobs);
@@ -1119,7 +1175,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
             VkRenderingInfoKHR renderingInfo{};
             renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-            renderingInfo.renderArea = { 0, 0, rs->frame_images[0].width(), rs->frame_images[0].height() };
+            renderingInfo.renderArea = { 0, 0, rs->width, rs->height};
             renderingInfo.layerCount = 1;
             renderingInfo.colorAttachmentCount = 1;
             renderingInfo.pColorAttachments = &colorAttachment;
@@ -1134,9 +1190,10 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 ) : axis::forward;
             rendering::draw_skybox(
                 rs, command_buffer, 
+                // assets::shaders::voidsky_frag.filename,
                 assets::shaders::skybox_frag.filename,
                 game_state->sky_pipeline->pipeline_layout,
-                view_dir, game_state->scene.lighting.directional_light
+                view_dir, rs->environment_storage_buffer.pool[0].sun.direction
             );
 
             auto viewport = gfx::vul::utl::viewport((f32)rs->width, (f32)rs->height, 0.0f, 1.0f);
@@ -1154,7 +1211,6 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
             VkBool32 fb_blend[1] { true };
             ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
             
-
             {
                 VkVertexInputBindingDescription2EXT vertexInputBinding{};
                 vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
@@ -1173,13 +1229,10 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
 
-            build_shader_commands(
-                rs, 
-                command_buffer
-            );
+            build_shader_commands(rs, command_buffer);
         khr.vkCmdEndRenderingKHR(command_buffer);
     
-        {
+        { // UI START
             gfx::vul::utl::insert_image_memory_barrier(
                 command_buffer,
                 vk_gfx.swap_chain_images[imageIndex],
@@ -1237,6 +1290,23 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
             ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_NONE);
             ext.vkCmdSetFrontFaceEXT(command_buffer, VK_FRONT_FACE_CLOCKWISE);
             ext.vkCmdSetPolygonModeEXT(command_buffer, gs_poly_modes[0]);
+
+            ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_FALSE);
+            ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_FALSE);
+
+            {   // tonemap
+                rendering::pp_material_t parameters = rs->postprocess_params;
+                
+                rendering::draw_postprocess(
+                    rs, command_buffer,
+                    assets::shaders::tonemap_frag.filename,
+                    &rs->frame_images[0].texture,
+                    parameters
+                );
+            }
+
+            ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_TRUE);
+            ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
 
             vkCmdBindDescriptorSets(command_buffer, 
                 VK_PIPELINE_BIND_POINT_GRAPHICS, game_state->gui_pipeline->pipeline_layout,
@@ -1328,7 +1398,7 @@ app_on_render(game_memory_t* game_memory) {
     switch (scene_state) {
         case 0:{
     
-            std::lock_guard lock{game_state->render_system->ticket};
+            // std::lock_guard lock{game_state->render_system->ticket};
             entity_editor_render(get_entity_editor(game_memory));
             u32 image_index = wait_for_frame(game_state, ++frame_count);
             game_on_render(game_memory, image_index, frame_count);

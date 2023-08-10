@@ -9,7 +9,6 @@
 
 #include "extensions/PxRigidBodyExt.h"
 
-
 namespace physics {
 
 using namespace physx;
@@ -462,7 +461,7 @@ physx_simulate(api_t* api, f32 dt) {
         auto* rb = api->characters[i];
         if (rb) {
             auto* controller = (physx::PxController*)rb->api_data;
-            rb->integrate(dt, 9.81f * 0.16f);
+            rb->integrate(dt, 9.81f * 0.1f);
             auto& v = rb->velocity;
 
             const PxU32 move_flags = controller->move(

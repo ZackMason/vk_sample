@@ -7,11 +7,11 @@ generate_world_test(arena_t* arena) {
     auto* generator = arena_alloc<world_generator_t>(arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
-       world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.04f;
+       world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f);
-        player->physics.rigidbody->linear_dampening = 9.0f;
+        player->physics.rigidbody->linear_dampening = 3.0f;
     });
     
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
@@ -143,11 +143,11 @@ generate_world_0(arena_t* arena) {
     auto* generator = arena_alloc<world_generator_t>(arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
-       world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.04f;
+       world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f);
-        player->physics.rigidbody->linear_dampening = 9.0f;
+        player->physics.rigidbody->linear_dampening = 3.0f;
     });
     generator->add_step("Placing Weapons", WORLD_STEP_TYPE_LAMBDA(items) {
         auto* shotgun = zyy::spawn(world, world->render_system(),

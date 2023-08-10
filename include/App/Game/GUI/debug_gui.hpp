@@ -1,10 +1,31 @@
 #pragma once
 
+void
+watch_game_state(game_state_t* game_state) {
+    auto* rs = game_state->render_system;
+    auto* time_scale = &game_state->time_scale;
+    DEBUG_WATCH(time_scale);
+    auto* window_size = &game_state->game_memory->config.graphics_config.window_size;
+    DEBUG_WATCH(window_size);
+    DEBUG_WATCH(&gs_imgui_state->theme.shadow_distance);
+
+    auto* pp_tonemap = &rs->postprocess_params.data[0];
+    auto* pp_exposure = &rs->postprocess_params.data[1];
+    auto* pp_contrast = &rs->postprocess_params.data[2];
+    auto* pp_gamma = &rs->postprocess_params.data[3];
+    DEBUG_WATCH(pp_tonemap)->max_f32 = 3.0f;
+    DEBUG_WATCH(pp_exposure)->max_f32 = 2.0f;
+    DEBUG_WATCH(pp_contrast);
+    DEBUG_WATCH(pp_gamma)->max_f32 = 2.5f;
+}
 
 void 
 draw_gui(game_memory_t* game_memory) {
     TIMED_FUNCTION;
     game_state_t* game_state = get_game_state(game_memory);
+
+    watch_game_state(game_state);
+
     auto* render_system = game_state->render_system;
 
     const u64 frame{game_state->gui.frame++};
@@ -19,12 +40,13 @@ draw_gui(game_memory_t* game_memory) {
         &game_state->game_arena,
 #ifdef DEBUG_STATE
         &DEBUG_STATE.arena,
+        &DEBUG_STATE.watch_arena,
 #endif
         &game_state->game_world->arena,
         &game_state->game_world->frame_arena.arena[0],
         &game_state->game_world->frame_arena.arena[1],
-        // &game_state->physics->default_allocator.arena,
-        // &game_state->physics->default_allocator.heap_arena,
+        // &game_state->game_world->physics->default_allocator.arena,
+        // &game_state->game_world->physics->default_allocator.heap_arena,
         &game_state->render_system->arena,
         &game_state->render_system->frame_arena,
         &game_state->render_system->vertices.pool,
@@ -43,6 +65,7 @@ draw_gui(game_memory_t* game_memory) {
         "- Game Arena",
 #ifdef DEBUG_STATE
         "- Debug Arena",
+        "- Debug Watch Arena",
 #endif
         "- World Arena",
         "- World Frame 0",
@@ -97,6 +120,14 @@ draw_gui(game_memory_t* game_memory) {
         },
     };
     gs_imgui_state = &state;
+
+#ifdef DEBUG_STATE 
+        DEBUG_STATE_DRAW(state, render_system->projection, render_system->view, render_system->viewport());
+        if (gs_show_watcher) {
+            DEBUG_STATE_DRAW_WATCH_WINDOW(state);
+        }
+        DEBUG_STATE.begin_frame();
+#endif
 
     // state.theme.bg_color = 
     //    gfx::color::rgba::dark_gray & ( ~(u32(f32(0xff) * gs_panel_opacity) << 24) );
@@ -307,6 +338,7 @@ draw_gui(game_memory_t* game_memory) {
                         im::text(state, fmt_sv("----- Margin: {}", state.theme.margin));
                         im::text(state, fmt_sv("----- Padding: {}", state.theme.padding));
                         im::text(state, fmt_sv("----- Shadow Offset: {}", state.theme.shadow_distance));
+                        im::float_slider(state, &state.theme.shadow_distance, 0.0f, 16.0f);
                         if (im::text(state, "----- Color"sv, &show_colors)) {
                             local_persist gfx::color32* edit_color = &state.theme.fg_color;
 
@@ -457,14 +489,14 @@ draw_gui(game_memory_t* game_memory) {
                 if (im::text(state, "- SkyBox"sv, &show_sky)) { 
                     local_persist bool show_dir = false;
                     local_persist bool show_color = false;
+                    auto* env = &game_state->render_system->environment_storage_buffer.pool[0];
                     if (im::text(state, "--- Sun Color"sv, &show_color)) {
-                        local_persist gfx::color32 sun_color = gfx::color::rgba::light_blue;
-                        im::color_edit(state, &sun_color);
+                        auto color = gfx::color::to_color32(env->sun.color);
+                        im::color_edit(state, &color);
+                        env->sun.color = gfx::color::to_color4(color);
                     }
                     if (im::text(state, "--- Sun Direction"sv, &show_dir)) { 
-                        im::float_slider(state, &game_state->scene.lighting.directional_light.x, -1.0f, 1.0f);
-                        im::float_slider(state, &game_state->scene.lighting.directional_light.y, -1.0f, 1.0f);
-                        im::float_slider(state, &game_state->scene.lighting.directional_light.z, -1.0f, 1.0f);
+                        im::vec3(state, env->sun.direction, -2.0f, 2.0f);
                     }
                 }
             }
@@ -622,10 +654,7 @@ draw_gui(game_memory_t* game_memory) {
             selected_entity->physics.rigidbody->set_transform(selected_entity->global_transform().to_matrix());
         }
 
-#ifdef DEBUG_STATE 
-        DEBUG_STATE_DRAW(state, render_system->projection, render_system->view, render_system->viewport());
-        DEBUG_STATE.begin_frame();
-#endif
+
         draw_game_gui(game_memory);
 
         local_persist viewport_t viewport{};
@@ -637,7 +666,7 @@ draw_gui(game_memory_t* game_memory) {
         // viewport.h_split[0] = 0.5f;
         // viewport.v_split[0] = 0.5f;
 
-        draw_viewport(state, &viewport);
+        // draw_viewport(state, &viewport);
 
         // const math::aabb_t<v2f> screen{v2f{0.0f}, state.ctx.screen_size};
         // im::image(state, 2, math::aabb_t<v2f>{v2f{state.ctx.screen_size.x - 400, 0.0f}, v2f{state.ctx.screen_size.x, 400.0f}});

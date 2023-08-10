@@ -26,6 +26,13 @@ namespace assets::shaders {
         .set_stage(VERT)
         .add_next_stage(FRAG);
 
+    ASSET_SHADER(tonemap_frag)
+        SHADER_PATH("tonemap.frag")
+        .set_stage(FRAG);        
+    ASSET_SHADER(invert_frag)
+        SHADER_PATH("invert.frag")
+        .set_stage(FRAG);        
+
     ASSET_SHADER(gui_vert)
         SHADER_PATH("gui.vert")
         .set_stage(VERT)
@@ -75,6 +82,10 @@ namespace assets::shaders {
         SHADER_PATH("skybox.frag")
         .set_stage(FRAG)
         .add_push_constant(CAMERA_CONSTANTS_SIZE);
+    ASSET_SHADER(voidsky_frag)
+        SHADER_PATH("voidsky.frag")
+        .set_stage(FRAG)
+        .add_push_constant(CAMERA_CONSTANTS_SIZE);
     
     #undef ASSET_SHADER
     #undef SHADER_PATH
@@ -91,13 +102,13 @@ struct sound_description_t {
 namespace assets::sounds {
     #define ASSET_SOUND(name) ASSET_TYPE(name, sound_description_t)
 
-    ASSET_SOUND(unlock){"./res/audio/unlock.wav"};
+    ASSET_SOUND(unlock){"./res/audio/unlock.wav"}; // 0
 
-    ASSET_SOUND(walking_dirt_01){"./res/audio/Steps_dirt-002.wav"};
+    ASSET_SOUND(walking_dirt_01){"./res/audio/Steps_dirt-002.wav"}; // 1
 
-    ASSET_SOUND(reload){"./res/audio/1911-reload.wav"};
-    ASSET_SOUND(pistol_shot){"./res/audio/9mm_firing_01.wav"};
-    ASSET_SOUND(shotgun_shot){"./res/audio/shotgun_firing_01.wav"};
+    ASSET_SOUND(reload){"./res/audio/1911-reload.wav"}; // 2
+    ASSET_SOUND(pistol_shot){"./res/audio/9mm_firing_01.wav"}; // 3
+    ASSET_SOUND(shotgun_shot){"./res/audio/shotgun_firing_01.wav"}; // 4
 
     #undef ASSET_SOUND
 

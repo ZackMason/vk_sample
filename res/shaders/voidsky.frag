@@ -5,6 +5,7 @@
 #include "utl.glsl"
 #include "sky.glsl"
 #include "tonemap.glsl"
+#include "noise.glsl"
 
 layout ( push_constant ) uniform object_constants
 {
@@ -20,26 +21,31 @@ void
 main() {
 	vec3 sun = normalize(ObjectConstants.uDirectionLight.xyz);
 	
-	vec3 color = rayleigh_scatter(vN, sun);
 	vec3 extinction = get_extinction(vN, sun);
  	
 	vec2 uv = vec2(
-		atan(vN.y, vN.x),
-		atan(length(vN.xy)/vN.z)
+		atan(vN.z, vN.x),
+		atan(length(vN.xz)/vN.y)
 	);
 
-	// color.rgb += max(0.0, 1.0-pow(dot(color.rgb,color.rgb),.1250));// * stars(uv, 32, 0.04510, max(0.0, 2.0-length(extinction)));
+	vec3 color = vec3(0.0);
+
+	float b = 0.7;
+	float thr = 1e-1;
+	color = 
+		mix(
+			color, vec3(0.0588, 0.0235, 0.2196),
+			smoothstep(
+				b-thr, b+thr, 1.0-uv.y+noise(uv*4.0)*0.1
+			)
+		);
+
+	// color = vec3(uv.y);
 
 	// ground fade
     if (vN.y < -0.05) {
         color = mix(vec3(1.0), vec3(0.3412, 0.1569, 0.1569), .750-vN.y);
 	}
     
-	color = pow(color, vec3(2.2));
-	color = pow(color, vec3(2.2));
-
-	// color = pow(color * 1.0, vec3(1.0/2.2));
-	// color = vec3(0);
-
 	fFragColor = vec4( color, 1. );
 }

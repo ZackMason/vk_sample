@@ -173,6 +173,23 @@ private:
             }
             return textures[id];
         }
+        link_t& get_(std::string_view name) {
+            u64 hash = sid(name);
+            assert(hash!=1);
+            u64 id = hash % array_count(textures);
+            u64 start = id;
+            // probe
+            while(textures[id].hash && textures[id].hash != hash) {
+                zyy_warn(__FUNCTION__, "probing for texture");
+                id = (id+1) % array_count(textures);
+                if (id == start) {
+                    zyy_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
+                    assert(0);
+                    return textures[0];
+                }
+            }
+            return textures[id];
+        }
 
 public:
         inline static constexpr u64 npos = invalid;
@@ -194,14 +211,23 @@ public:
             return npos;
         }
 
+        gfx::vul::texture_2d_t* operator[](u64 id) {
+            return &textures[id].texture;
+        }
         const gfx::vul::texture_2d_t* operator[](u64 id) const {
             return &textures[id].texture;
         }
         const gfx::vul::texture_2d_t* operator[](std::string_view name) const {
             return get(name);
         }
+        gfx::vul::texture_2d_t* operator[](std::string_view name) {
+            return get(name);
+        }
 
         const gfx::vul::texture_2d_t* get(std::string_view name) const {
+            return &get_(name).texture;
+        }
+        gfx::vul::texture_2d_t* get(std::string_view name) {
             return &get_(name).texture;
         }
 
@@ -245,7 +271,7 @@ public:
         }
 
         // @hash
-        link_t shaders[64]{};
+        link_t shaders[64<<2]{};
 
         void reload_all(
             arena_t arena,
@@ -366,7 +392,7 @@ private:
             u64 start = id;
             // probe
             while(!shaders[id].hash && shaders[id].hash != hash) {
-                zyy_warn(__FUNCTION__, "probing for shader");
+                zyy_warn(__FUNCTION__, "probing for shader ({}), hit {}", name, shaders[id].name);
                 id = (id+1) % array_count(shaders);
                 if (id == start) {
                     zyy_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
@@ -449,18 +475,65 @@ public:
     struct environment_t {
         directional_light_t sun{};
 
-        v4f ambient_color{};
+        v4f ambient_color{0.9569f, 0.8941f, 0.5804f, 1.0f};
 
         v4f fog_color{};
         f32 fog_density{};
 
         // color correction
-        f32 saturation{};
+        f32 ambient_strength{1.0f};
         f32 contrast{};
         u32 light_count{};
         v4f more_padding{};
         
         point_light_t point_lights[512];
+    };
+
+    struct pp_material_t {
+        std::array<f32, 16> data{};
+    };
+
+    struct pp_pass_t {
+        VkPipelineLayout pipeline_layout{};
+        VkDescriptorSet texture_descriptor{};
+        VkDescriptorSet parameters_descriptor{};
+        VkDescriptorSetLayout descriptor_layouts[2];
+        gfx::vul::storage_buffer_t<pp_material_t, 1> parameter_buffer;
+        u32 descriptor_count{2};
+        VkDevice device;
+        pp_material_t parameters{};
+
+        void build_layout(gfx::vul::state_t& vk_state) {
+            utl::memzero(parameters.data.data(), sizeof(f32)*16);
+            device = vk_state.device;
+            pipeline_layout = gfx::vul::create_pipeline_layout(vk_state.device, descriptor_layouts, 1, sizeof(f32) * 16);
+        }
+
+        void build_buffer_sets(gfx::vul::descriptor_builder_t& builder) {
+            VkDescriptorBufferInfo buffer_info[1];
+            u32 i = 0;
+            buffer_info[i].buffer = parameter_buffer.buffer;
+            buffer_info[i].offset = 0; 
+            buffer_info[i++].range = VK_WHOLE_SIZE;
+            
+            using namespace gfx::vul;
+            builder
+                .bind_buffer(0, buffer_info + 0, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(parameters_descriptor, descriptor_layouts[1]);
+            
+        }
+
+        void bind_images(gfx::vul::descriptor_builder_t& builder, gfx::vul::texture_2d_t* texture) {
+            using namespace gfx::vul;
+            VkDescriptorImageInfo vdii[1];
+                vdii[0].imageLayout = texture->image_layout;
+                vdii[0].imageView = texture->image_view;
+                vdii[0].sampler = texture->sampler;
+
+            builder
+                .bind_image(0, vdii, array_count(vdii), (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .build(texture_descriptor, descriptor_layouts[0]);
+        }
     };
 
     struct mesh_pass_t {
@@ -628,6 +701,7 @@ public:
         VkCommandPool command_pool;
         VkCommandBuffer main_command_buffer;
 
+        pp_pass_t postprocess_pass{};
         mesh_pass_t mesh_pass{};
         anim_pass_t anim_pass{};
 
@@ -684,8 +758,8 @@ public:
 
         utl::deque<material_node_t> materials{};
 
-        u64             frame_count{0};
-        frame_data_t    frames[frame_overlap];
+        u64            frame_count{0};
+        frame_data_t                frames[frame_overlap];
 
         gfx::vul::descriptor_allocator_t* permanent_descriptor_allocator{nullptr};
         gfx::vul::descriptor_layout_cache_t* descriptor_layout_cache{nullptr};
@@ -715,6 +789,8 @@ public:
         m44 view{1.0f};
         v3f camera_pos{0.0f};
         u32 width{}, height{};
+
+        pp_material_t postprocess_params{};
 
         lighting::probe_box_t light_probes{.aabb={v3f{-30.0f, -6.0f, -30.0f}, v3f{40.0f}}};
 
@@ -801,6 +877,11 @@ public:
 
         rs->texture_cache.add(state.null_texture, "null");
 
+        rs->postprocess_params.data[0] = 3.0f;
+        rs->postprocess_params.data[1] = 1.0f;
+        rs->postprocess_params.data[2] = 1.0f;
+        rs->postprocess_params.data[3] = 1.0f;
+
         const i32 w = state.swap_chain_extent.width;
         const i32 h = state.swap_chain_extent.height;
         {
@@ -833,6 +914,7 @@ public:
         state.create_storage_buffer(&rs->instance_storage_buffer);
 
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
+        rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{0.5f,0.9f,0.2f}),0.0f};
 
         range_u64(i, 0, array_count(rs->frames)) {
             state.create_storage_buffer(&rs->frames[i].indexed_indirect_storage_buffer, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
@@ -845,10 +927,19 @@ public:
                 rs->material_storage_buffer.buffer,
                 rs->environment_storage_buffer.buffer
             };
-            auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
-            rs->frames[i].mesh_pass.build_buffer_sets(builder, buffers);
-            rs->frames[i].mesh_pass.bind_images(builder, rs->texture_cache);
-            rs->frames[i].mesh_pass.build_layout(state.device);
+            {
+                auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
+                rs->frames[i].mesh_pass.build_buffer_sets(builder, buffers);
+                rs->frames[i].mesh_pass.bind_images(builder, rs->texture_cache);
+                rs->frames[i].mesh_pass.build_layout(state.device);
+            }
+            {
+                auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
+                state.create_storage_buffer(&rs->frames[i].postprocess_pass.parameter_buffer);
+                // rs->frames[i].postprocess_pass.build_buffer_sets(builder);
+                rs->frames[i].postprocess_pass.bind_images(builder, rs->texture_cache["null"]);
+                rs->frames[i].postprocess_pass.build_layout(state);
+            }
         }
 
         range_u64(i, 0, array_count(rs->frames)) {
@@ -1029,7 +1120,6 @@ public:
 
             if (mesh_pass.object_descriptors == VK_NULL_HANDLE) 
             {
-                auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
                 VkBuffer buffers[]{
                     rs->vk_gfx->sporadic_uniform_buffer.buffer,
                     rs->job_storage_buffer().buffer,
@@ -1038,6 +1128,7 @@ public:
                     rs->material_storage_buffer.buffer,
                     rs->environment_storage_buffer.buffer
                 };
+                auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
                 mesh_pass.build_buffer_sets(builder, buffers);
                 mesh_pass.bind_images(builder, rs->texture_cache);
             }
@@ -1543,8 +1634,8 @@ public:
         system_t* rs, 
         VkCommandBuffer command_buffer,
         std::string_view shader_name,
-        VkPipelineLayout layout
-        
+        gfx::vul::texture_2d_t* texture,
+        pp_material_t parameters
     ) {
         TIMED_FUNCTION;
         auto& ext = rs->vk_gfx->ext;
@@ -1559,6 +1650,18 @@ public:
         ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
         // todo bind texture
+        auto& pp_pass = rs->get_frame_data().postprocess_pass;
+        auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
+        // pp_pass.build_buffer_sets(builder);
+        pp_pass.bind_images(builder, texture);
+
+        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pp_pass.pipeline_layout, 0, 1, &pp_pass.texture_descriptor, 0, nullptr);
+        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pp_pass.pipeline_layout, 1, 1, &pp_pass.parameters_descriptor, 0, nullptr);
+
+        vkCmdPushConstants(command_buffer, pp_pass.pipeline_layout,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
+            0, sizeof(pp_material_t), &parameters
+        );
 
         VkShaderEXT shaders[] = {
             *rs->shader_cache[assets::shaders::screen_vert.filename],

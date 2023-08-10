@@ -220,6 +220,8 @@ struct entity_t : node_t<entity_t> {
 
     std::optional<entity_coroutine_t> coroutine{};
 
+    f32 _data[1000];
+
     // entity_update_function on_update{nullptr};
     // entity_interact_function on_interact{nullptr};
 
@@ -275,5 +277,3 @@ player_init(
 }
 
 }; // namespace entity
-
-#include "entity_db.hpp"

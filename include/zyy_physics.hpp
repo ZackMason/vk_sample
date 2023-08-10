@@ -196,6 +196,16 @@ struct rigidbody_t {
 
     //     return *this;
     // }
+
+    bool is_on_ground() const {
+        return flags & rigidbody_flags::IS_ON_GROUND;
+    }
+    bool is_on_wall() const {
+        return flags & rigidbody_flags::IS_ON_WALL;
+    }
+    bool is_on_surface() const {
+        return is_on_ground() || is_on_wall();
+    }
 };
 
 // Todo(Zack): Change to hit result

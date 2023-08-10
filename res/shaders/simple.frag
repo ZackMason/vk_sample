@@ -6,9 +6,6 @@
 #include "pbr.glsl"
 #include "material.glsl"
 
-// Vulkan Sample Program Fragment Shader:
-
-// also, can't specify packing
 layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 {
 	int		uMode;
@@ -34,7 +31,6 @@ layout(std430, set = 1, binding = 2) readonly buffer IndirectBuffer {
 
 layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 
-
 layout( push_constant ) uniform constants
 {
 	mat4		uVP;
@@ -42,7 +38,6 @@ layout( push_constant ) uniform constants
 	uint 		uAlbedoId;
 	uint 		uNormalId;
 } PushConstants;
-
 
 layout ( location = 0 ) in flat uint vMatId;
 layout ( location = 1 ) in vec2 vTexCoord;
@@ -71,7 +66,62 @@ apply_environment(
 	fog = 1.0 - exp(-depth/10.0 * env.fog_density);
 
 	// return lum + env.fog_color.rgb * fog + env.ambient_color.rgb;
-	return mix(lum, env.fog_color.rgb, fog) + env.ambient_color.rgb;
+	return mix(lum, env.fog_color.rgb, fog) + env.ambient_color.rgb * env.ambient_strength;
+}
+
+// St. Peter's Basilica SH
+// https://www.shadertoy.com/view/lt2GRD
+struct SHCoefficients
+{
+	vec3 l00, l1m1, l10, l11, l2m2, l2m1, l20, l21, l22;
+};
+
+// compute here http://www.pauldebevec.com/Probes/
+const SHCoefficients SH_STPETER = SHCoefficients(
+	vec3(0.2314, 0.3216, 0.3608),
+	vec3(0.1759131, 0.1436266, 0.1260569),
+	vec3(-0.0247311, -0.0101254, -0.0010745),
+	vec3(0.0346500, 0.0223184, 0.0101350),
+	vec3(0.0198140, 0.0144073, 0.0043987),
+	vec3(-0.0469596, -0.0254485, -0.0117786),
+	vec3(-0.0898667, -0.0760911, -0.0740964),
+	vec3(0.0050194, 0.0038841, 0.0001374),
+	vec3(-0.0818750, -0.0321501, 0.0033399)
+);
+
+const SHCoefficients SH_GRACE = SHCoefficients(
+    vec3( 0.7953949,  0.4405923,  0.5459412 ),
+    vec3( 0.3981450,  0.3526911,  0.6097158 ),
+    vec3(-0.3424573, -0.1838151, -0.2715583 ),
+    vec3(-0.2944621, -0.0560606,  0.0095193 ),
+    vec3(-0.1123051, -0.0513088, -0.1232869 ),
+    vec3(-0.2645007, -0.2257996, -0.4785847 ),
+    vec3(-0.1569444, -0.0954703, -0.1485053 ),
+    vec3( 0.5646247,  0.2161586,  0.1402643 ),
+    vec3( 0.2137442, -0.0547578, -0.3061700 )
+);
+
+vec3 SHIrradiance(vec3 nrm)
+{
+	const SHCoefficients c = SH_GRACE;
+	// const SHCoefficients c = SH_STPETER;
+	const float c1 = 0.429043;
+	const float c2 = 0.511664;
+	const float c3 = 0.743125;
+	const float c4 = 0.886227;
+	const float c5 = 0.247708;
+	return (
+		c1 * c.l22 * (nrm.x * nrm.x - nrm.y * nrm.y) +
+		c3 * c.l20 * nrm.z * nrm.z +
+		c4 * c.l00 -
+		c5 * c.l20 +
+		2.0 * c1 * c.l2m2 * nrm.x * nrm.y +
+		2.0 * c1 * c.l21  * nrm.x * nrm.z +
+		2.0 * c1 * c.l2m1 * nrm.y * nrm.z +
+		2.0 * c2 * c.l11  * nrm.x +
+		2.0 * c2 * c.l1m1 * nrm.y +
+		2.0 * c2 * c.l10  * nrm.z
+		);
 }
 
 void
@@ -114,7 +164,9 @@ main( )
 	vec3 albedo = rgb;
 
 	float metallic = material.metallic;
-	float roughness = material.roughness * material.roughness;
+	float roughness = material.roughness;
+
+	roughness *= roughness;
 	
 	vec3 F0 = vec3(0.04); 
 	F0 = mix(F0, albedo, metallic);
@@ -123,49 +175,36 @@ main( )
 	vec3 Lc = vec3(0.9686, 0.9765, 0.902);
 
 	vec3 N = normalize(vN);
-	vec3 L = normalize(Lv);
+	vec3 L = normalize(uEnvironment.sun.direction.xyz);
 	vec3 H = normalize(L+V);
 
 	float NoH = saturate(dot(N, H));
 	float LoH = saturate(dot(L, H));
-	float NoL = (dot(N, L));
-	float NoV = saturate(dot(N, V));
+	float NoL = saturate(dot(N, L)) + 0.05; // sus
+	float NoV = abs(dot(N, V)) + 1e-5; // sus
 	float HoV = saturate(dot(V, H));
-
-	vec3 spec = vec3(0.9);
-	float gloss = 32.0;// * material.roughness;
-
-	rgb = max(NoL, 0.3) * rgb * 1.0;
-
-	// float D = filament_DGGX2(NoH, roughness);
-	// vec3  F = filament_Schlick(LoH, F0);
-	// float S = filament_SmithGGXCorrelated(NoV, NoL, roughness);
-
-	// vec3 Fr = D * S * F;
-	// vec3 fD = albedo * filament_DLambert();
-
-	// fD *= 1.0 - metallic;
-
-	// rgb = fD + Fr;
-
-	// vec3 la = vec3(0.4863, 0.6235, 0.8824) * 0.1;
-	// float li = smoothstep(0.0, 0.01, NoL);
-	// vec3 light = Lc * li;
-	// float kR = pow(NoH * li, gloss * gloss);
-	// float skR = smoothstep(0.005, 0.01, kR);
-
-	// float rim_amount = 0.37151;
-	// float rim = (1.0 - dot(V, N)) * NoL;
-	// float rim_intensity = smoothstep(rim_amount - 0.01, rim_amount + 0.01, rim);
-	// vec3 rim_color = vec3(0.7451, 0.8392, 0.8471);
-
-	// rgb = (albedo) * (light + la + skR + rim_intensity * rim_color);
-
-	// rgb = albedo;
-	rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
-	// rgb = pow(rgb, vec3(2.2));
-	// rgb = vec3(1,0,1);
 	
-	rgb = pow(rgb, vec3(2.2));
+	float D = filament_DGGX2(NoH, roughness);
+	vec3  F = filament_Schlick(LoH, F0);
+	float S = filament_SmithGGXCorrelated(NoV, NoL, roughness);
+
+	vec3 r_env = SHIrradiance(reflect(V, N));
+	vec3 env = SHIrradiance(N);
+	// vec3 env = vec3(1.0);
+	// vec3 r_env = vec3(1.0);
+
+	vec3 Fr = (D * S) * F; // specular lobe
+	// vec3 Fd = env * albedo * filament_DLambert(); // diffuse lobe
+	vec3 Fd = env * albedo * filament_Burley(filament_Burley(roughness, NoV, NoL, LoH); // diffuse lobe
+
+	vec3 ec = (vec3(1.0) - F0) * 0.725 + F0 * 0.07;
+
+	rgb = 1.0 * NoL * Fd + Fr * ec * r_env;
+
+	rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
+	
+	// rgb = V;
+	// rgb = N;
+
 	fFragColor = vec4( rgb, 1. );
 }

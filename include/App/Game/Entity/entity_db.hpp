@@ -1,5 +1,4 @@
-#ifndef ENTITY_DB_HPP
-#define ENTITY_DB_HPP
+#pragma once
 
 #include "App/Game/Entity/entity.hpp"
 #include "App/Game/GUI/debug_state.hpp"
@@ -197,7 +196,6 @@ void co_platform(coroutine_t* co, frame_arena_t& frame_arena) {
     // return;
     auto* e = (zyy::entity_t*)co->data;
     auto& y_pos = e->physics.rigidbody->position.y;
-
 
     const auto lerp = tween::generic<f32>(tween::in_out_elastic);
     auto* stack = co_stack(co, frame_arena);
@@ -568,5 +566,3 @@ query(
 }
 
 }; // namespace db
-
-#endif

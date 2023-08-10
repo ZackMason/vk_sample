@@ -560,6 +560,7 @@ main(int argc, char* argv[]) {
 #ifdef MULTITHREAD_ENGINE
     std::atomic_bool reload_flag = false;
     std::atomic_bool rendering_flag = false;
+    utl::spinlock_t rendering_lock{};
     auto render_thread = std::thread([&]{
         while(game_memory.running && !glfwWindowShouldClose(window)) {
             while(reload_flag);
@@ -569,9 +570,10 @@ main(int argc, char* argv[]) {
                 game_memory.input.render_time = (f32)(glfwGetTime());
                 game_memory.input.render_dt = game_memory.input.render_time - last_time;
 
-                rendering_flag = true;
+                // rendering_flag = true;
+                rendering_lock.lock();
                 app_dlls.on_render(&game_memory);
-                rendering_flag = false;
+                rendering_lock.unlock();
             }
         }
     });
@@ -581,33 +583,26 @@ main(int argc, char* argv[]) {
 
     _set_se_translator([](unsigned int u, EXCEPTION_POINTERS *pExp) {
         std::string error = "SE Exception: ";
-        bool want_to_throw = true;
         
         switch (u) {
-        case EXCEPTION_BREAKPOINT: want_to_throw = false; break;
-        case 0xC0000005: 
-            // error += fmt_str("Access Violation at {}", pExp->ExceptionRecord->ExceptionInformation[1]);
-          
-            throw access_violation_exception{ pExp->ExceptionRecord->ExceptionInformation[0], (void*)pExp->ExceptionRecord->ExceptionInformation[1]};
+        case EXCEPTION_BREAKPOINT: break; // ignore
+        case EXCEPTION_ACCESS_VIOLATION: 
+            throw access_violation_exception{ 
+                pExp->ExceptionRecord->ExceptionInformation[0], 
+                (void*)pExp->ExceptionRecord->ExceptionInformation[1]
+            };
 
         default:
             char result[11];
             sprintf_s(result, 11, "0x%08X", u);
             error += result;
+            throw std::runtime_error(error.c_str());
         };
-        if (want_to_throw) throw std::exception(error.c_str());
     });
 
     while(game_memory.running && !glfwWindowShouldClose(window)) {
         utl::profile_t* p = 0;
 
-        if (game_memory.input.pressed.keys[key_id::F7]) {
-            try {
-                int* crash{0}; *crash = 0xf;
-            } catch (std::exception & e) {
-                puts(e.what());
-            };
-        }
         if (game_memory.input.pressed.keys[key_id::F8]) {
             const auto dif = utl::memdif((const u8*)physics_arena.start, (const u8*)restore_physics_arena.start, restore_physics_arena.top);
             const auto undif = restore_physics_arena.top - dif;
@@ -616,8 +611,7 @@ main(int argc, char* argv[]) {
 
         if (game_memory.input.pressed.keys[key_id::F9]) {
 #ifdef MULTITHREAD_ENGINE
-            reload_flag = true;
-            while(rendering_flag);
+            rendering_lock.lock();
 #endif 
             std::memcpy(restore_physics_arena.start, physics_arena.start, physics_arena.top);
             *restore_point.physics = *game_memory.physics;
@@ -633,13 +627,12 @@ main(int argc, char* argv[]) {
             restore_point.arena.top = game_memory.arena.top;
             std::memcpy(&restore_point.input, &game_memory.input, sizeof(app_input_t));
 #ifdef MULTITHREAD_ENGINE
-                reload_flag = false;
+            rendering_lock.unlock();
 #endif 
         }
         if (game_memory.input.pressed.keys[key_id::F10]) {
 #ifdef MULTITHREAD_ENGINE
-            reload_flag = true;
-            while(rendering_flag);
+            rendering_lock.lock();
 #endif 
             std::memcpy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
             *game_memory.physics = *restore_point.physics;
@@ -649,7 +642,7 @@ main(int argc, char* argv[]) {
             game_memory.arena.top = restore_point.arena.top;
             std::memcpy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
 #ifdef MULTITHREAD_ENGINE
-                reload_flag = false;
+            rendering_lock.unlock();
 #endif 
         }
         if (game_memory.input.pressed.keys[key_id::P]) {
@@ -664,12 +657,11 @@ main(int argc, char* argv[]) {
             }
             if (CompareFileTime(&game_time, &gs_game_dll_write_time)) {
 #ifdef MULTITHREAD_ENGINE
-                reload_flag = true;
-                while(rendering_flag);
+                rendering_lock.lock();
 #endif 
                 update_dlls(&app_dlls, &game_memory);
 #ifdef MULTITHREAD_ENGINE
-                reload_flag = false;
+                rendering_lock.unlock();
 #endif 
             }
             first = false;
@@ -685,20 +677,18 @@ main(int argc, char* argv[]) {
                 auto pressed = MessageBox(0, e.what(), 0, MB_ABORTRETRYIGNORE);
                 if (pressed == IDRETRY) {
 #ifdef MULTITHREAD_ENGINE
-            reload_flag = true;
-            while(rendering_flag);
+                    rendering_lock.lock();
 #endif 
-            std::memcpy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
-            *game_memory.physics = *restore_point.physics;
-            physics_arena.top = restore_physics_arena.top;
+                    std::memcpy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
+                    *game_memory.physics = *restore_point.physics;
+                    physics_arena.top = restore_physics_arena.top;
 
-            std::memcpy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
-            game_memory.arena.top = restore_point.arena.top;
-            std::memcpy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
+                    std::memcpy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
+                    game_memory.arena.top = restore_point.arena.top;
+                    std::memcpy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
 #ifdef MULTITHREAD_ENGINE
-                reload_flag = false;
+                    rendering_lock.unlock();
 #endif 
-         
                 }
             } catch (std::exception & e) {
                 zyy_error("exception", "{}", e.what());

@@ -50,7 +50,7 @@ struct Environment {
     float fog_density;
 
     // color correction
-    float saturation;
+    float ambient_strength;
     float contrast;
     uint light_count;
     vec4 more_padding;

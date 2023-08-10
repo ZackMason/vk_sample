@@ -1,6 +1,7 @@
 #pragma once
 
 #include "zyy_core.hpp"
+#include "App/Game/Entity/entity.hpp"
 
 enum struct debug_priority_level {
     LOW, MEDIUM, HIGH
@@ -19,7 +20,7 @@ enum struct debug_watcher_type {
     FLOAT32, FLOAT64,
     VEC2, VEC3,
     AABB, RAY,
-    ENTITY,
+    ENTITY, CSTR,
     COUNT
 };
 
@@ -28,7 +29,6 @@ struct debug_watcher_t {
     std::string_view name{};
 
     debug_watcher_type type{};
-
 
     union {
         char* as_cstr;
@@ -40,9 +40,27 @@ struct debug_watcher_t {
         v2f* as_v2f;
         v3f* as_v3f;
         // math::aabb_t<v3f> as_aabb;
+        zyy::entity_t* as_entt;
         math::ray_t* as_ray;
     };
 
+    union {
+        u32 min_u32;
+        i32 min_i32;
+        f32 min_f32{0.0f};
+        f64 min_f64;
+        v2f min_v2f;
+        v3f min_v3f;
+    };
+
+    union {
+        u32 max_u32;
+        i32 max_i32;
+        f32 max_f32{1.0f};
+        f64 max_f64;
+        v2f max_v2f;
+        v3f max_v3f;
+    };
 };
 
 struct debug_variable_t {
@@ -67,23 +85,89 @@ struct debug_variable_t {
 struct debug_state_t {
     f32& time;
     arena_t arena;
+    arena_t watch_arena;
 
     std::mutex ticket;
 
     f32 timeout{1.0f};
     v3f focus_point{0.0f};
-    f32 focus_distance{10.0f};
+    f32 focus_distance{0.10f};
 
     debug_variable_t* variables{0};
     debug_variable_t* first_free{0};
 
     debug_watcher_t* watcher{0};
-    debug_watcher_t* first_free_watcher{0};
 
-    void begin_frame() { 
-        // variables = nullptr;
+    char watcher_needle[64];
+    size_t watcher_wpos{0};
 
-        // arena_clear(&arena);
+    void begin_frame() {
+        watcher = nullptr;
+
+        arena_clear(&watch_arena);
+    }
+
+    void show_entity(gfx::gui::im::state_t& imgui, debug_watcher_t* var) {
+        using namespace gfx::gui;
+        assert(var->type == debug_watcher_type::ENTITY);
+        auto* entity = var->as_entt;
+
+        im::text(imgui, entity->name.c_data);
+        im::text(imgui, fmt_sv("Tag: {}", entity->tag));
+        im::text(imgui, fmt_sv("Flags: {}", entity->flags));
+
+        im::same_line(imgui);
+        im::text(imgui, "Local Origin: ");
+        im::vec3(imgui, entity->transform.origin);
+    }
+
+    void draw_watch_window(gfx::gui::im::state_t& imgui) {
+        std::lock_guard lock{ticket};
+        using namespace gfx::gui;
+
+        const auto theme = imgui.theme;
+ 
+        if (im::begin_panel(imgui, "Watch Window", imgui.ctx.screen_size*0.2f)) {
+            im::text(imgui, "Watch Window");
+
+            im::text_edit(imgui, watcher_needle, &watcher_wpos, "watcher_text_box"_sid);
+
+            u64 shown = 0;
+            node_for(auto, watcher, var) {
+                if (var->type == debug_watcher_type::CSTR) {
+                    if ((std::strstr(var->as_cstr, watcher_needle) == nullptr) &&
+                        (std::strstr(var->name.data(), watcher_needle) == nullptr)) continue;
+                } else if (var->type == debug_watcher_type::ENTITY) {
+                    if ((std::strstr(var->as_entt->name.c_data, watcher_needle) == nullptr) &&
+                        (std::strstr(var->name.data(), watcher_needle) == nullptr)) continue;
+                } else {
+                    if (std::strstr(var->name.data(), watcher_needle) == nullptr) continue;
+                }
+                if (shown++ > 20) { break; }
+                if (var->type == debug_watcher_type::ENTITY) {
+                    show_entity(imgui, var);
+                    continue;
+                } else {
+                    im::same_line(imgui);
+                    im::text(imgui, fmt_sv("{}: ", var->name));
+                }
+                if (var->type == debug_watcher_type::FLOAT32) {
+                    im::float_slider(imgui, var->as_f32, var->min_f32, var->max_f32);
+                } else if (var->type == debug_watcher_type::CSTR) {
+                    im::text(imgui, var->as_cstr);
+                } else if (var->type == debug_watcher_type::VEC3) {
+                    im::vec3(imgui, *var->as_v3f, var->min_f32, var->max_f32);
+                } else {
+                    im::text(imgui, "Unsupported type");
+                }
+            }
+            
+            imgui.theme.bg_color = 0x0;
+            imgui.theme.fg_color = 0x0;
+            im::end_panel(imgui);
+        }
+
+        imgui.theme = theme;
     }
 
     void draw(gfx::gui::im::state_t& imgui, const m44& proj, const m44& view, const v4f& viewport) {
@@ -173,6 +257,7 @@ struct debug_state_t {
             new (var) debug_variable_t;
         }
         var->name = name;
+        if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_variable_type::ENTITY; }
         if constexpr (std::is_same_v<T, u32>) { var->type = debug_variable_type::UINT32; }
         if constexpr (std::is_same_v<T, i32>) { var->type = debug_variable_type::INT32; }
         if constexpr (std::is_same_v<T, f32>) { var->type = debug_variable_type::FLOAT32; }
@@ -186,6 +271,48 @@ struct debug_state_t {
 
         node_push(var, variables);
         return var;
+    }
+
+    template <typename T>
+    debug_watcher_t* watch_variable(T* val, std::string_view name) {
+        std::lock_guard lock{ticket};
+        auto* var = arena_alloc<debug_watcher_t>(&watch_arena);
+        var->name = name;
+        if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_watcher_type::ENTITY; }
+        if constexpr (std::is_same_v<T, const char>) { var->type = debug_watcher_type::CSTR; }
+        if constexpr (std::is_same_v<T, u32>) { var->type = debug_watcher_type::UINT32; }
+        if constexpr (std::is_same_v<T, i32>) { var->type = debug_watcher_type::INT32; }
+        if constexpr (std::is_same_v<T, f32>) { var->type = debug_watcher_type::FLOAT32; }
+        if constexpr (std::is_same_v<T, f64>) { var->type = debug_watcher_type::FLOAT64; }
+        if constexpr (std::is_same_v<T, v2f>) { var->type = debug_watcher_type::VEC2; }
+        if constexpr (std::is_same_v<T, v3f>) { var->type = debug_watcher_type::VEC3; }
+        if constexpr (std::is_same_v<T, math::ray_t>) { var->type = debug_watcher_type::RAY; }
+        if constexpr (std::is_same_v<T, math::aabb_t<v3f>>) { var->type = debug_watcher_type::AABB; }
+        
+        std::memcpy(&var->as_u32, &val, sizeof(val));
+
+        node_push(var, watcher);
+        return var;
+    }
+
+    template <typename T>
+    void set_watch_variable(T val, std::string_view name) {
+        std::lock_guard lock{ticket};
+        node_for(auto, watcher, n) {
+            if (n->name == name) {
+                if constexpr (std::is_same_v<T, zyy::entity_t>) { assert(n->type == debug_watcher_type::ENTITY); }
+                if constexpr (std::is_same_v<T, const char>) { assert(n->type == debug_watcher_type::CSTR); }
+                if constexpr (std::is_same_v<T, u32>) { assert(n->type == debug_watcher_type::UINT32); }
+                if constexpr (std::is_same_v<T, i32>) { assert(n->type == debug_watcher_type::INT32); }
+                if constexpr (std::is_same_v<T, f32>) { assert(n->type == debug_watcher_type::FLOAT32); }
+                if constexpr (std::is_same_v<T, f64>) { assert(n->type == debug_watcher_type::FLOAT64); }
+                if constexpr (std::is_same_v<T, v2f>) { assert(n->type == debug_watcher_type::VEC2); }
+                if constexpr (std::is_same_v<T, v3f>) { assert(n->type == debug_watcher_type::VEC3); }
+                if constexpr (std::is_same_v<T, math::ray_t>) { assert(n->type == debug_watcher_type::RAY); }
+                if constexpr (std::is_same_v<T, math::aabb_t<v3f>>) { assert(n->type == debug_watcher_type::AABB); }
+                std::memcpy(var->as_u32, &val, sizeof(T));
+            }
+        }
     }
 };
 
@@ -334,17 +461,21 @@ draw_console(
 #define DEBUG_STATE (*gs_debug_state)
 
 #ifdef DEBUG_STATE
+    #define DEBUG_WATCH(var) DEBUG_STATE.watch_variable((var), #var)
     #define DEBUG_ADD_VARIABLE(var) DEBUG_STATE.add_time_variable((var), #var)
     #define DEBUG_ADD_VARIABLE_(var, time) DEBUG_STATE.add_time_variable((var), #var, (time))
     #define DEBUG_SET_FOCUS(point) DEBUG_STATE.focus_point = (point)
     #define DEBUG_SET_FOCUS_DISTANCE(distance) DEBUG_STATE.focus_distance = (distance)
     #define DEBUG_SET_TIMEOUT(time) DEBUG_STATE.timeout = (time)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport) DEBUG_STATE.draw(imgui, proj, view, viewport)
+    #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui) DEBUG_STATE.draw_watch_window(imgui)
 #else
     #define DEBUG_ADD_VARIABLE(var) 
+    #define DEBUG_ADD_VARIABLE(var, time)
     #define DEBUG_SET_FOCUS(point) 
     #define DEBUG_SET_TIMEOUT(timeout)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport)
+    #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui)
 #endif
 
 debug_state_t* gs_debug_state;

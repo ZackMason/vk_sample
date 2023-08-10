@@ -84,7 +84,7 @@ main() {
 	
 	vWorldPos = (M * vec4(vertex, 1.0)).xyz;
 
-	vN = normalize(transpose(inverse(M)) * vec4(aNormal, 0.0)).xyz;
+	vN = normalize(M * vec4(normalize(aNormal), 0.0)).xyz;
 
 	gl_Position = PVM * vec4(vertex, 1. );
 }
