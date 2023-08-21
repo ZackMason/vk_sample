@@ -75,7 +75,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     if (pc.jump && (is_on_ground || is_on_wall)) {
         rigidbody->velocity.y = 0.3f;// 50.0f * dt;
     }
-    // player->camera_controller.transform.origin = player->transform.origin + axis::up * 1.0f;
+    player->camera_controller.transform.origin = player->transform.origin + axis::up * 1.0f;
 
     const auto stepped = player->camera_controller.walk_and_bob(dt * (pc.sprint ? 1.75f : 1.0f), glm::length(swizzle::xz(move)) > 0.0f && is_on_ground, move.x);
     if (stepped) {

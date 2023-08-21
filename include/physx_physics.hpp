@@ -160,6 +160,20 @@ inline static physx_backend_t* get_physx(const api_t* api) {
     return (physx_backend_t*)api->backend;
 }
 
+void physx_rigidbody_set_ccd(rigidbody_t* rb, bool x) {
+    if (rb->type == rigidbody_type::DYNAMIC) {
+        PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
+        
+        actor->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, true);
+    }
+    if (rb->type == rigidbody_type::KINEMATIC) {
+
+    }
+    if (rb->type == rigidbody_type::CHARACTER) {
+        
+    }
+}
+
 void physx_rigidbody_set_gravity(rigidbody_t* rb, bool x) {
     if (rb->type == rigidbody_type::DYNAMIC) {
         PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
@@ -380,6 +394,8 @@ static PxFilterFlags filterShader(
         physx::PxPairFlag::eNOTIFY_TOUCH_FOUND |
         physx::PxPairFlag::eNOTIFY_TOUCH_PERSISTS |
         physx::PxPairFlag::eNOTIFY_TOUCH_LOST |
+        physx::PxPairFlag::eDETECT_DISCRETE_CONTACT |
+        physx::PxPairFlag::eDETECT_CCD_CONTACT |
         physx::PxPairFlag::eNOTIFY_CONTACT_POINTS;
     if (PxFilterObjectIsKinematic(attributes0) && PxFilterObjectIsKinematic(attributes1))
     {

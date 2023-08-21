@@ -67,6 +67,7 @@ init_physx(api_t* api, arena_t* arena) {
     api->rigidbody_add_force_at_point = physx_rigidbody_add_force_at_point;
 
     api->rigidbody_set_gravity = physx_rigidbody_set_gravity;
+    api->rigidbody_set_ccd = physx_rigidbody_set_ccd;
 
     api->
         get_debug_table_size= get_debug_table_size;

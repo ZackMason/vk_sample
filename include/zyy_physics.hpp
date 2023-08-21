@@ -176,6 +176,7 @@ struct rigidbody_t {
     }
 
     void set_gravity(bool x);
+    void set_ccd(bool x);
 
     // rigidbody_t& operator=(const rigidbody_t& o) {
     //     if (this == &o) {return *this;}
@@ -246,6 +247,7 @@ using update_rigidbody_function = void(*)(api_t*, rigidbody_t*);
 using rigidbody_add_force_function = void(*)(rigidbody_t*, const v3f&);
 using rigidbody_add_force_at_point_function = void(*)(rigidbody_t*, const v3f&, const v3f&);
 using rigidbody_set_gravity_function = void(*)(rigidbody_t*, bool);
+using rigidbody_set_ccd_function = void(*)(rigidbody_t*, bool);
 
 struct export_dll api_t {
     backend_type type;
@@ -275,6 +277,7 @@ struct export_dll api_t {
     rigidbody_add_force_function rigidbody_add_force{0};
     rigidbody_add_force_at_point_function rigidbody_add_force_at_point{0};
     rigidbody_set_gravity_function rigidbody_set_gravity{0};
+    rigidbody_set_ccd_function rigidbody_set_ccd{0};
     rigidbody_add_force_function rigidbody_set_velocity{0};
     
 
@@ -350,6 +353,10 @@ void rigidbody_t::add_force_at_point_ex(const v3f& f, const v3f& p) {
 
 void rigidbody_t::set_gravity(bool x) {
     this->api->rigidbody_set_gravity(this, x);
+}
+
+void rigidbody_t::set_ccd(bool x) {
+    this->api->rigidbody_set_ccd(this, x);
 }
 
 };

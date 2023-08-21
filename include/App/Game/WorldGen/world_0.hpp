@@ -175,8 +175,9 @@ generate_world_0(arena_t* arena) {
             co_begin(co);
                 *count = 10;
                 while (*count > 0) {
-                    skull = zyy::spawn(world, world->render_system(), zyy::db::bads::skull, self->global_transform().origin + planes::xz * utl::rng::random_s::randv());
+                    skull = zyy::spawn(world, world->render_system(), zyy::db::bads::skull, self->global_transform().origin + axis::up * 15.0f + planes::xz * utl::rng::random_s::randv());
                     skull->physics.rigidbody->set_gravity(false);
+                    skull->physics.rigidbody->set_ccd(true);
                     *count -= 1;
                     co_yield(co);
                 }

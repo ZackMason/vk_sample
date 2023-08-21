@@ -145,6 +145,7 @@ namespace zyy::wep {
             }
         };
         bullet_entity->physics.rigidbody->add_force(bullet.ray.direction*100.0f/dt);
+        bullet_entity->physics.rigidbody->set_ccd(true);
         bullet_entity->coroutine->start();
         return bullet_entity;
     }

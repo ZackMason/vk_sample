@@ -1029,7 +1029,6 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         // }
     }
 
-
     for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
         auto* e = game_state->game_world->entities + i;
 
@@ -1081,9 +1080,6 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     rendering::begin_frame(game_state->render_system);
     // game_state->debug.debug_vertices.pool.clear();
     
-    game_state->render_system->camera_pos = game_state->game_world->camera.origin;
-    game_state->render_system->set_view(game_state->game_world->camera.inverse().to_matrix(), game_state->width(), game_state->height());
-
     draw_gui(game_state->game_memory);
 
     world->camera.reset_priority();
@@ -1094,9 +1090,12 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         world->player->camera_controller.transform.origin = world->player->transform.origin + 
             axis::up * world->player->camera_controller.head_height + axis::up * world->player->camera_controller.head_offset;
         world->player->camera_controller.translate(v3f{0.0f});
-
+    
         DEBUG_SET_FOCUS(world->player->global_transform().origin);
     }
+    
+    game_state->render_system->camera_pos = game_state->game_world->camera.origin;
+    game_state->render_system->set_view(game_state->game_world->camera.inverse().to_matrix(), game_state->width(), game_state->height());
 
     for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
         auto* e = game_state->game_world->entities + i;
@@ -1246,8 +1245,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
         gfx::vul::utl::insert_image_memory_barrier(
             command_buffer,
-            rs->frame_images[0].texture.image,
-            // vk_gfx.swap_chain_images[imageIndex],
+            rs->frame_images[frame_count%2].texture.image,
             0,
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1258,8 +1256,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
         
         gfx::vul::utl::insert_image_memory_barrier(
             command_buffer,
-            rs->frame_images[1].texture.image,
-            // vk_gfx.depth_stencil_texture.image,
+            rs->frame_images[4 + (frame_count%2)].texture.image,
             0,
             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1273,7 +1270,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
             VkRenderingAttachmentInfoKHR colorAttachment{};
             colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
             // colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
-            colorAttachment.imageView = rs->frame_images[0].texture.image_view;
+            colorAttachment.imageView = rs->frame_images[frame_count%2].texture.image_view;
             colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
             colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1283,7 +1280,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
             // When both are specified separately, the only requirement is that the image view is identical.			
             VkRenderingAttachmentInfoKHR depthStencilAttachment{};
             depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-            depthStencilAttachment.imageView = rs->frame_images[1].texture.image_view;
+            depthStencilAttachment.imageView = rs->frame_images[4+(frame_count%2)].texture.image_view;
             // depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
             depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -1417,7 +1414,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 rendering::draw_postprocess(
                     rs, command_buffer,
                     assets::shaders::tonemap_frag.filename,
-                    &rs->frame_images[0].texture,
+                    &rs->frame_images[frame_count%2].texture,
                     parameters
                 );
             }

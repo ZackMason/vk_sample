@@ -908,16 +908,20 @@ public:
         );
 
         state.create_texture(&rs->frame_images[0].texture, w, h, 4, 0, 0, sizeof(float)*4);
+        state.create_texture(&rs->frame_images[1].texture, w, h, 4, 0, 0, sizeof(float)*4);
         state.create_texture(&rs->frame_images[2].texture, w, h, 4, 0, 0, sizeof(float)*4);
         state.create_texture(&rs->frame_images[3].texture, w, h, 4, 0, 0, sizeof(float)*4);
 
         rs->frame_images[0].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        rs->frame_images[1].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         // rs->frame_images[0].texture.image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         state.load_texture_sampler(&rs->frame_images[0].texture);
+        state.load_texture_sampler(&rs->frame_images[1].texture);
         state.load_texture_sampler(&rs->frame_images[2].texture);
         state.load_texture_sampler(&rs->frame_images[3].texture);
 
-        state.create_depth_stencil_image(&rs->frame_images[1].texture, w, h);
+        state.create_depth_stencil_image(&rs->frame_images[4].texture, w, h);
+        state.create_depth_stencil_image(&rs->frame_images[5].texture, w, h);
 
         state.create_storage_buffer(&rs->job_storage_buffers[0]);
         state.create_storage_buffer(&rs->job_storage_buffers[1]);
