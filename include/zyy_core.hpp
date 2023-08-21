@@ -79,6 +79,8 @@ bool check_for_debugger()
 #include <string>
 #include <string_view>
 
+using namespace std::string_view_literals;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Type Defs
 ///////////////////////////////////////////////////////////////////////////////
@@ -913,6 +915,16 @@ arena_clear(arena_t* arena) {
     arena->top = 0;
 }
 
+inline void
+arena_begin_sweep(arena_t* arena) {
+    arena->top = 0;
+}
+
+inline void arena_sweep_keep(arena_t* arena, std::byte* one_past_end) {
+    umm size = one_past_end - arena->start;
+    arena->top = std::max(size, arena->top);
+}
+
 inline std::byte*
 arena_get_top(arena_t* arena) {
     return arena->start + arena->top;
@@ -1030,16 +1042,17 @@ arena_t* co_stack(coroutine_t* coro, frame_arena_t& frame_arena) {
 }
 
 template <typename T>
-T* co_push_stack_(coroutine_t* coro, arena_t* arena) {
+T* co_push_stack_(coroutine_t* coro, arena_t* arena, umm count = 1) {
     // if (coro->running == false) return 0;
     T* data = (T*)(coro->stack + coro->stack_top);
-    coro->stack_top += sizeof(T);
-    coro->stack_size += sizeof(T);
-    if (arena) { arena_alloc<T>(arena); }
+    coro->stack_top += sizeof(T) * count;
+    coro->stack_size += sizeof(T) * count;
+    if (arena) { arena_alloc<T>(arena, count); }
     return data;
 }
 
 #define co_push_stack(coro, stack, type) co_push_stack_<type>(coro, stack) 
+#define co_push_array_stack(coro, stack, type, count) co_push_stack_<type>(coro, stack, count) 
 
 
 namespace utl {
@@ -1197,7 +1210,9 @@ private:
 
 template <typename T>
 struct pool_t : public arena_t {
-    size_t count{0};
+    size_t count() const {
+        return top/sizeof(T);
+    }
     size_t capacity{0};
 
     pool_t() = default;
@@ -1242,7 +1257,6 @@ struct pool_t : public arena_t {
     }
 
     T* allocate(size_t p_count) {
-        count += p_count;
         return (T*)arena_alloc(this, sizeof(T) * p_count);
     }
 
@@ -1260,7 +1274,6 @@ struct pool_t : public arena_t {
             }
         }
         arena_clear(this);
-        count = 0;
     }    
 };
 
@@ -1753,13 +1766,13 @@ namespace math {
     };
 
     struct sphere_t {
-        v3f origin;
-        f32 radius;
+        v3f origin{0.0f};
+        f32 radius{0.0f};
     };
 
     struct circle_t {
-        v2f origin;
-        f32 radius;
+        v2f origin{0.0f};
+        f32 radius{0.0f};
     };
 
     
@@ -2283,8 +2296,8 @@ struct mesh_builder_t {
         utl::pool_t<gfx::vertex_t>& vertices_,
         utl::pool_t<u32>& indices_
     ) : vertices{vertices_}, indices{indices_} {
-        vertex_start = safe_truncate_u64(vertices_.count);
-        index_start = safe_truncate_u64(indices_.count);
+        vertex_start = safe_truncate_u64(vertices_.count());
+        index_start = safe_truncate_u64(indices_.count());
     }
 
     u32 vertex_start{0};
@@ -2383,7 +2396,7 @@ struct mesh_builder_t {
         return *this;
     }
     mesh_builder_t& add_quad(gfx::vertex_t vertex[4]) {
-        u32 v_start = safe_truncate_u64(vertices.count);
+        u32 v_start = safe_truncate_u64(vertices.count());
         gfx::vertex_t* v = vertices.allocate(6);
         v[0] = vertex[0];
         v[1] = vertex[1];
@@ -2405,20 +2418,24 @@ using color3 = v3f;
 using color32 = u32;
 struct font_t;
 
+static constexpr u32 material_lit = (u32)BIT(0);
+static constexpr u32 material_triplanar = (u32)BIT(1);
+
 struct material_t {
     v4f albedo{};
 
-    f32 ao{};
+    f32 ao{0.5f};
     f32 emission{};
     f32 metallic{};
     f32 roughness{};
 
-    u32 flags{};     // for material effects
+    u32 flags{material_lit};     // for material effects
     u32 opt_flags{}; // for performance
     u32 albedo_id{0};
     u32 normal_id{0};
 
-    u32 padding[4];
+    f32 scale{1.0f};
+    u32 padding[3];
 
     static constexpr material_t plastic(const v4f& color, f32 roughness = 0.8f, u32 albedo_id = 0, u32 normal_id = 0) {
         return material_t {
@@ -2870,7 +2887,7 @@ namespace gui {
         v2f pos, f32 radius,
         u32 color, u32 res = 16, f32 perc = 1.0f, f32 start = 0.0f
     ) {
-        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count());
 
         vertex_t* center = ctx->vertices->allocate(1);
 
@@ -2910,7 +2927,7 @@ namespace gui {
         f32 line_width,
         u32 color
     ) {
-        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count());
         const v2f d{(b-a)/ctx->screen_size};
         const v2f ud{glm::normalize(d)};
         const v2f n{v2f{-ud.y, ud.x}};
@@ -3049,8 +3066,8 @@ namespace gui {
         math::aabb_t<v2f> box,
         std::span<u32, 4> colors
     ) {
-        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
-        const u32 i_start = safe_truncate_u64(ctx->indices->count);
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count());
+        const u32 i_start = safe_truncate_u64(ctx->indices->count());
 
         const v2f p0 = box.min;
         const v2f p1 = v2f{box.min.x, box.max.y};
@@ -3079,8 +3096,8 @@ namespace gui {
         math::aabb_t<v2f> box,
         u32 color
     ) {
-        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
-        const u32 i_start = safe_truncate_u64(ctx->indices->count);
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count());
+        const u32 i_start = safe_truncate_u64(ctx->indices->count());
 
         const v2f p0 = box.min;
         const v2f p1 = v2f{box.min.x, box.max.y};
@@ -3110,8 +3127,8 @@ namespace gui {
         math::aabb_t<v2f> box,
         u32 tex, math::aabb_t<v2f> uvs
     ) {
-        const u32 v_start = safe_truncate_u64(ctx->vertices->count);
-        const u32 i_start = safe_truncate_u64(ctx->indices->count);
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count());
+        const u32 i_start = safe_truncate_u64(ctx->indices->count());
 
         const v2f p0 = box.min;
         const v2f p1 = v2f{box.min.x, box.max.y};
@@ -4156,10 +4173,11 @@ font_render(
     cursor.y += font_get_glyph(font, cursor.x, cursor.y, ';').screen.size().y + 1;
 
     for (const char c : text) {
+        if (c == 0) break;
         if (c > 32 && c < 128) {
             const auto glyph = font_get_glyph(font, cursor.x, cursor.y, c);
 
-            const u32 v_start = safe_truncate_u64(vertices->count);
+            const u32 v_start = safe_truncate_u64(vertices->count());
             gui::vertex_t* v = vertices->allocate(4);            
             u32* i = indices->allocate(6);            
 
@@ -5442,7 +5460,4 @@ auto generic(auto&& fn) {
     };
 }
 
-
-
 };
-

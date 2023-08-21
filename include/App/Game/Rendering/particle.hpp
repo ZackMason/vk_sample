@@ -33,12 +33,12 @@ struct particle_system_t {
 
     math::aabb_t<v3f> aabb{};
 
-    v3f acceleration{axis::down * 0.5f * 9.81f};
+    v3f acceleration{axis::down * 9.81f};
     math::aabb_t<v3f> velocity_random{v3f{0.0f}, v3f{0.0f}};
     math::aabb_t<v3f> angular_velocity_random{v3f{0.0f}, v3f{0.0f}};
     u32 stream_rate{1}; // number of particles spawned before the system picks a new velocity, useful for streams
 
-    f32 spawn_rate{1.0f};
+    f32 spawn_rate{0.0f};
     f32 spawn_timer{spawn_rate};
 
     math::aabb_t<f32> life_random{0.0f, 0.0f};
@@ -152,7 +152,7 @@ inline static void particle_system_spawn(
     
     particle->life_time += system->rng.range(system->life_random);
 
-    if (++system->_stream_count == system->stream_rate) {
+    if (++system->_stream_count >= system->stream_rate) {
         system->_stream_count = 0;
         system->_current_velocity = system->rng.aabb(system->velocity_random);
         switch (system->emitter_type) {
@@ -168,6 +168,16 @@ inline static void particle_system_spawn(
     particle->position += system->_current_position; 
     particle->velocity += system->_current_velocity;
     particle->angular_velocity += system->rng.aabb(system->angular_velocity_random);
+}
+
+inline static void particle_system_kill_particle(
+    particle_system_t* system,
+    u64 i
+) {
+    if (system->live_count) {
+        std::swap(system->particles[i], system->particles[system->live_count-1]);
+        system->live_count--;
+    }
 }
 
 inline static void particle_system_update(
@@ -205,9 +215,9 @@ inline static void particle_system_update(
         particle->orientation = glm::normalize(particle->orientation);
         particle->scale = system->template_particle.scale * system->scale_over_life_time.sample(1.0f-life_alpha);
 
-        if (particle->position.y < 0.0f) {
-            particle->velocity.y = 7.0f;
-        }
+        // if (particle->position.y < 0.0f) {
+        //     particle->velocity.y = 7.0f;
+        // }
         system->aabb.expand(particle->position);
     }
 }

@@ -113,12 +113,20 @@ struct debug_state_t {
         auto* entity = var->as_entt;
 
         im::text(imgui, entity->name.c_data);
-        im::text(imgui, fmt_sv("Tag: {}", entity->tag));
-        im::text(imgui, fmt_sv("Flags: {}", entity->flags));
+        if (im::text(imgui, fmt_sv("- Kill\0{}"sv, entity->id))) {
+            entity->queue_free();
+        }
+        im::text(imgui, fmt_sv("- Tag: {}", entity->tag));
+        im::text(imgui, fmt_sv("- Flags: {}", entity->flags));
 
         im::same_line(imgui);
-        im::text(imgui, "Local Origin: ");
+        im::text(imgui, "- Local Origin: ");
         im::vec3(imgui, entity->transform.origin);
+
+        if (entity->stats.character.health.max > 0.0f) {
+            auto [max, hp] = entity->stats.character.health;
+            im::text(imgui, fmt_sv("- Health: {}/{}", max, hp));
+        }
     }
 
     void draw_watch_window(gfx::gui::im::state_t& imgui) {
@@ -216,7 +224,7 @@ struct debug_state_t {
 
                 auto pos = (math::world_to_screen(proj, view, viewport, var->as_aabb.center()));
                 if (viewable.contains(pos)) {
-                    string_render(&imgui.ctx, var->name, swizzle::xy(pos), gfx::color::rgba::yellow);
+                    // string_render(&imgui.ctx, var->name, swizzle::xy(pos), gfx::color::rgba::yellow);
                 }
                 draw_aabb(&imgui.ctx, var->as_aabb, proj * view, 2.0f, gfx::color::rgba::yellow);
 
@@ -273,9 +281,19 @@ struct debug_state_t {
         return var;
     }
 
+    debug_watcher_t* has_watch_variable(void* ptr) {
+        node_for(auto, watcher, var) {
+            if ((void*)var->as_u32 == ptr) {
+                return var;
+            }
+        }
+        return 0;
+    }
+
     template <typename T>
     debug_watcher_t* watch_variable(T* val, std::string_view name) {
         std::lock_guard lock{ticket};
+        if (auto ovar = has_watch_variable((void*)val)) return ovar;
         auto* var = arena_alloc<debug_watcher_t>(&watch_arena);
         var->name = name;
         if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_watcher_type::ENTITY; }
@@ -310,7 +328,7 @@ struct debug_state_t {
                 if constexpr (std::is_same_v<T, v3f>) { assert(n->type == debug_watcher_type::VEC3); }
                 if constexpr (std::is_same_v<T, math::ray_t>) { assert(n->type == debug_watcher_type::RAY); }
                 if constexpr (std::is_same_v<T, math::aabb_t<v3f>>) { assert(n->type == debug_watcher_type::AABB); }
-                std::memcpy(var->as_u32, &val, sizeof(T));
+                std::memcpy(n->as_u32, &val, sizeof(T));
             }
         }
     }

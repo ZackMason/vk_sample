@@ -7,7 +7,7 @@
 enum world_generation_step_type {
     invalid,
     player, 
-    threat, 
+    bads, 
     boss, 
     items, 
     misc, 

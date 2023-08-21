@@ -35,9 +35,7 @@ struct prefab_t {
                 struct box_t {
                     v3f size{};
                 } box;
-                struct sphere_t {
-                    f32 radius;
-                } sphere;
+                math::sphere_t sphere;
                 struct capsule_t {
                     f32 radius;
                     f32 height;
@@ -55,6 +53,8 @@ struct prefab_t {
         v3f acl{};
     };
     std::optional<particle_emitter_t> emitter{};
+
+    brain_type brain_type = brain_type::invalid;
 
     struct child_t {
         const prefab_t* entity{0};
@@ -134,8 +134,12 @@ teapot {
     },
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Dynamic,
-    #if 0 // use convex
-        .shape = physics::collider_shape_type::CONVEX,
+    #if 1 // use convex
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::CONVEX,
+            },
+        },
     #else 
         .shapes = {
             prefab_t::physics_t::shape_t{
@@ -270,6 +274,28 @@ bullet_hole {
 };
 
 
+DB_ENTRY
+bullet_01 {
+    .type = entity_type::bad,
+    .type_name = "bullet_01",
+    .gfx = {
+        .mesh_name = "res/models/bullet_01.gltf",
+    },
+    .coroutine = co_kill_in_ten,
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Dynamic,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .sphere = {
+                    .radius = 0.1f,
+                },
+            },
+        },
+    },
+};
+
+
 }; //namespace misc
 
 namespace environmental {
@@ -280,6 +306,26 @@ rock_01 {
     .type_name = "rock",
     .gfx = {
         .mesh_name = "res/models/rocks/rock_01.obj",
+        .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+};
+
+DB_ENTRY
+bloodsplat_01 {
+    .type = entity_type::environment,
+    .type_name = "bloodsplat",
+    .gfx = {
+        .mesh_name = "res/models/misc/bloodsplat_01.gltf",
+        .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+};
+
+DB_ENTRY
+blood_01 {
+    .type = entity_type::environment,
+    .type_name = "blood",
+    .gfx = {
+        .mesh_name = "res/models/misc/blood_01.gltf",
         .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
     },
 };
@@ -325,6 +371,53 @@ tree_group {
 };
 
 namespace rooms {
+
+DB_ENTRY
+temple_01 {
+    .type = entity_type::environment,
+    .type_name = "temple_01",
+    .gfx = {
+        .mesh_name = "res/models/rooms/temple_01.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
+    },
+};
+
+DB_ENTRY
+parkcore_01 {
+    .type = entity_type::environment,
+    .type_name = "parkcore_01",
+    .gfx = {
+        .mesh_name = "res/models/rooms/parkcore_01.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
+    },
+};
+DB_ENTRY
+parkcore_02 {
+    .type = entity_type::environment,
+    .type_name = "parkcore_02",
+    .gfx = {
+        .mesh_name = "res/models/rooms/parkcore_02.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
+    },
+};
 
 DB_ENTRY
 tower_01 {
@@ -469,7 +562,42 @@ pistol {
     .weapon = wep::create_pistol(),
 };
 
+
+
 }; // namespace weapons
+
+namespace bads {
+
+DB_ENTRY
+skull {
+    .type = entity_type::bad,
+    .type_name = "skull",
+    .gfx = {
+        .mesh_name = "res/models/entities/skull.gltf",
+    },    
+    .stats = character_stats_t {
+        .health = {
+            6.0f
+        },
+        .movement = {
+            .move_speed = 90.0f,
+        },
+    },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Dynamic,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .sphere = {
+                    .radius = 1.0f,
+                },
+            },
+        },
+    },
+    .brain_type = brain_type::flyer,
+};
+
+}; // namespace bads
 
 // Character Class Definitions
 
@@ -508,6 +636,7 @@ soldier {
         //     },
         // },
     },
+    .brain_type = brain_type::player,
 };
 
 DB_ENTRY
@@ -537,6 +666,7 @@ assassin {
             },
         },
     },
+    .brain_type = brain_type::player,
 };
 
 }; // namespace characters

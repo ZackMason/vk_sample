@@ -55,7 +55,8 @@ keyboard_controller(app_input_t* input) {
     player_controller_t pc{};
     pc.move_input = v3f{
         f32(input->keys['D']) - f32(input->keys['A']),
-        f32(input->keys['Q']) - f32(input->keys['E']),
+        0.0f,
+        // f32(input->keys['Q']) - f32(input->keys['E']),
         f32(input->keys['W']) - f32(input->keys['S'])
     };
 
@@ -67,11 +68,11 @@ keyboard_controller(app_input_t* input) {
     }) + v2f {
         f32(input->keys['L']) - f32(input->keys['J']),
         f32(input->keys['I']) - f32(input->keys['K'])
-    });
+    } * 1.50f);
 
     pc.fire1 = input->keys['F'] || input->mouse.buttons[0];
     pc.iron_sight = input->mouse.buttons[1];
-    pc.jump = input->pressed.keys[key_id::SPACE];
+    pc.jump = input->keys[key_id::SPACE];
     pc.sprint = input->keys[key_id::LEFT_SHIFT];
     return pc;
 }

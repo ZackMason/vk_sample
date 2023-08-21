@@ -7,6 +7,7 @@
 #include "App/Game/Util/camera.hpp"
 #include "App/Game/Weapons/base_weapon.hpp"
 #include "App/Game/Entity/entity_concept.hpp"
+#include "App/Game/Entity/brain.hpp"
 #include "App/Game/Rendering/particle.hpp"
 
 #include <variant>
@@ -38,7 +39,7 @@ enum struct entity_type {
     environment,
 
     player,
-    enemy,
+    bad,
 
     weapon,
     weapon_part,
@@ -52,15 +53,15 @@ enum struct entity_type {
 };
 
 struct health_t {
-    f32 max{};
-    f32 current{};
+    f32 max{0.0f};
+    f32 current{0.0f};
 
     bool damage(f32 x) {
         current -= x;
         return current <= 0.0f;
     }
 
-    constexpr health_t(f32 v = 100.0f) noexcept
+    constexpr health_t(f32 v = 0.0f) noexcept
         : max{v}, current{v} {}
 };
 
@@ -122,6 +123,7 @@ struct entity_t : node_t<entity_t> {
     entity_t*   parent{nullptr};
     entity_t*   next_id_hash{nullptr};
 
+    brain_id    brain_id{uid::invalid_id};
 
     math::transform_t   transform;
     math::aabb_t<v3f>        aabb;
@@ -149,7 +151,7 @@ struct entity_t : node_t<entity_t> {
         {
             struct {
                 m44* dynamic_instance_buffer;
-                m44* buffer;
+                m44* buffer; // non moving buffer
             };
             m44* instance_buffer;
         };
@@ -174,15 +176,23 @@ struct entity_t : node_t<entity_t> {
             render_flags |= dynamic ? RenderFlag_DynamicInstance : RenderFlag_Instance;
             render_flags &= !dynamic ? ~RenderFlag_DynamicInstance : ~RenderFlag_Instance;
 
-            instance_buffer_offset = safe_truncate_u64(pool.count);
+            instance_buffer_offset = safe_truncate_u64(pool.count());
 
             if (dynamic) {
                 dynamic_instance_buffer = pool.allocate(count * 2);
                 buffer = dynamic_instance_buffer;
             } else {
-                instance_buffer = pool.allocate(count);
+                buffer = instance_buffer = pool.allocate(count);
             }
             _instance_count = count;
+        }
+
+        std::byte* instance_end() {
+            if (render_flags & RenderFlag_DynamicInstance) {
+                return (std::byte*)(buffer + _instance_count * 2);
+            } else {
+                return (std::byte*)(buffer + _instance_count);
+            }
         }
 
         u32 instance_offset() {
@@ -196,7 +206,7 @@ struct entity_t : node_t<entity_t> {
         }
 
         u32 instance_count() {
-            return _instance_count - (particle_system ? particle_system->max_count - particle_system->live_count : 0); 
+            return (particle_system ? particle_system->live_count : _instance_count); 
         }
         
     } gfx;
@@ -207,10 +217,8 @@ struct entity_t : node_t<entity_t> {
     } physics;
 
     struct stats_t {
-        // union {
-        character_stats_t character;
+        character_stats_t character{};
         wep::base_weapon_t weapon{};
-        // };
     } stats;
 
     entity_ref_t primary_weapon{0};
@@ -220,7 +228,7 @@ struct entity_t : node_t<entity_t> {
 
     std::optional<entity_coroutine_t> coroutine{};
 
-    f32 _data[1000];
+    // f32 _data[1000];
 
     // entity_update_function on_update{nullptr};
     // entity_interact_function on_interact{nullptr};

@@ -4,7 +4,7 @@ void
 watch_game_state(game_state_t* game_state) {
     auto* rs = game_state->render_system;
     auto* time_scale = &game_state->time_scale;
-    DEBUG_WATCH(time_scale);
+    DEBUG_WATCH(time_scale)->max_f32 = 5.0f;
     auto* window_size = &game_state->game_memory->config.graphics_config.window_size;
     DEBUG_WATCH(window_size);
     DEBUG_WATCH(&gs_imgui_state->theme.shadow_distance);
@@ -28,7 +28,7 @@ draw_gui(game_memory_t* game_memory) {
 
     auto* render_system = game_state->render_system;
 
-    const u64 frame{game_state->gui.frame++};
+    const u64 frame{game_state->gui.ctx.frame+1};
     auto string_mark = arena_get_mark(&game_state->string_arena);
 
     arena_t* display_arenas[] = {
@@ -171,7 +171,7 @@ draw_gui(game_memory_t* game_memory) {
             const auto theme = state.theme;
             state.theme.text_color = gfx::color::rgba::green;
             auto* step = generator->first_step;
-            for (size_t i = 0; i < generator->completed_count; i++) {
+            for (size_t i = 0; i < generator->completed_count && step; i++) {
                 im::text(state, fmt_sv("Step {}: {}", i, step->name));
                 node_next(step);
             }
@@ -473,6 +473,11 @@ draw_gui(game_memory_t* game_memory) {
                             gfx::color32 color = gfx::color::to_color32(mat->albedo);
                             im::color_edit(state, &color);
                             mat->albedo = gfx::color::to_color4(color);
+
+                            im::same_line(state);
+                            im::text(state, "Ambient: ");
+                            im::float_slider(state, &mat->ao);
+
                             im::same_line(state);
                             im::text(state, "Metallic: ");
                             im::float_slider(state, &mat->metallic);
@@ -525,8 +530,8 @@ draw_gui(game_memory_t* game_memory) {
                 }
             }
 
-            if (im::text(state, "Player"sv, &show_player)) {
-                auto* player = game_state->game_world->player;
+            auto* player = game_state->game_world->player;
+            if (player && im::text(state, "Player"sv, &show_player)) {
                 const bool on_ground = game_state->game_world->player->physics.rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
                 const bool on_wall = game_state->game_world->player->physics.rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
                 im::text(state, fmt_sv("- On Ground: {}", on_ground?"true":"false"));
@@ -535,6 +540,7 @@ draw_gui(game_memory_t* game_memory) {
                 const auto p = player->global_transform().origin;
                 im::text(state, fmt_sv("- Position: {}", p));
                 im::text(state, fmt_sv("- Velocity: {}", v));
+                im::text(state, fmt_sv("- Speed: {}", glm::length(v)));
             }
 
             im::end_panel(state);

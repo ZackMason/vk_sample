@@ -84,7 +84,8 @@ struct first_person_controller_t {
         head_offset = tween::damp(head_offset, 0.0f, 0.95f + (walking ? 0.0f : 3.0f), dt);
 
         right_offset += dt * walking_right * 0.05f;
-        static constexpr f32 MAX_RIGHT_OFFSET = 0.1f;
+        local_persist f32 MAX_RIGHT_OFFSET = 0.1f;
+
         right_offset = glm::clamp(right_offset, -MAX_RIGHT_OFFSET, MAX_RIGHT_OFFSET);
         right_offset = tween::damp(right_offset, 0.0f, 0.95f + (walking ? 0.0f : 3.0f), dt);
 

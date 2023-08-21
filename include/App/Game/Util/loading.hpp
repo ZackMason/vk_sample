@@ -33,8 +33,8 @@ load_bin_mesh_data(
         const size_t vertex_count = blob.deserialize<u64>();
         const size_t vertex_bytes = sizeof(gfx::vertex_t) * vertex_count;
 
-        const u32 vertex_start = safe_truncate_u64(vertices->count);
-        const u32 index_start = safe_truncate_u64(indices->count);
+        const u32 vertex_start = safe_truncate_u64(vertices->count());
+        const u32 index_start = safe_truncate_u64(indices->count());
 
         results.meshes[i].vertex_count = safe_truncate_u64(vertex_count);
         results.meshes[i].vertex_start = vertex_start;

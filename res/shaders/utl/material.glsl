@@ -9,6 +9,9 @@ struct IndirectIndexedDraw {
     uint     object_id;
 };
 
+#define MATERIAL_LIT 1
+#define MATERIAL_TRIPLANAR 2
+
 struct Material {
 	vec4 albedo;
 
@@ -22,7 +25,9 @@ struct Material {
     
     uint albedo_texture_id;
     uint normal_texture_id;
-    uint padding[4];
+
+    float scale;
+    uint padding[3];
 };
 
 layout(std430, set = 2, binding = 0) readonly buffer MaterialBuffer {

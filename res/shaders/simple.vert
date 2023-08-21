@@ -71,7 +71,7 @@ main() {
 		M = M * uInstanceData.instances[gl_InstanceIndex + instance_offset].model;
 
 		vec3 world_pos = (M * vec4(vertex, 1.0)).xyz;
-		vertex.xz += max(vertex.y, 0.0) * sin(Sporadic.uTime * 0.1 + world_pos.x) * 0.05 + cos(Sporadic.uTime * 0.12 + world_pos.z)*0.1;
+		// vertex.xz += max(vertex.y, 0.0) * sin(Sporadic.uTime * 0.1 + world_pos.x) * 0.05 + cos(Sporadic.uTime * 0.12 + world_pos.z)*0.1;
 	}
 	mat4 PVM = PushConstants.uVP * M;
 

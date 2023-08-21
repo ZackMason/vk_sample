@@ -39,6 +39,7 @@ layout( push_constant ) uniform constants
 	uint 		uNormalId;
 } PushConstants;
 
+
 layout ( location = 0 ) in flat uint vMatId;
 layout ( location = 1 ) in vec2 vTexCoord;
 layout ( location = 2 ) in vec3 vN;
@@ -103,8 +104,8 @@ const SHCoefficients SH_GRACE = SHCoefficients(
 
 vec3 SHIrradiance(vec3 nrm)
 {
-	const SHCoefficients c = SH_GRACE;
-	// const SHCoefficients c = SH_STPETER;
+	// const SHCoefficients c = SH_GRACE;
+	const SHCoefficients c = SH_STPETER;
 	const float c1 = 0.429043;
 	const float c2 = 0.511664;
 	const float c3 = 0.743125;
@@ -124,17 +125,38 @@ vec3 SHIrradiance(vec3 nrm)
 		);
 }
 
+vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)
+{
+    vec3 blending = abs(n);
+    blending = normalize(max(blending, 0.00001));
+    
+    // normalized total value to 1.0
+    float b = (blending.x + blending.y + blending.z);
+    blending /= b;
+    
+    vec4 xaxis = texture(tex, p.yz);
+    vec4 yaxis = texture(tex, p.xz);
+    vec4 zaxis = texture(tex, p.xy);
+    
+    // blend the results of the 3 planar projections.
+    return vec4((xaxis * blending.x + yaxis * blending.y + zaxis * blending.z).rgb, 1.0);
+}
+
+
 void
 main( )
 {
 	vec3 rgb = vec3(0.0);
 	Material material = uMaterialBuffer.materials[vMatId];
 
+	uint lit_material = material.flags & MATERIAL_LIT;
+	uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;
+
 	int mode = Sporadic.uMode;
 
 	mode = mode == 1 && vAlbedoId == (0xffffffff % 4096) ? 0 : mode;
 
-	switch( mode )
+	switch(mode)
 	{
 		case 0:
 			rgb = material.albedo.rgb;
@@ -142,7 +164,9 @@ main( )
 
 		case 1:
 			// rgb = texture( uSampler[1797], vTexCoord ).rgb;
-			vec4 albedo = texture( uSampler[vAlbedoId], vTexCoord ).rgba;
+			vec4 albedo = (triplanar_material > 0) ? 
+				texture_triplanar(uSampler[vAlbedoId], vWorldPos * 0.5, vN).rgba :
+				texture( uSampler[vAlbedoId], vTexCoord ).rgba;
 			if (albedo.a < 0.5) { discard; }
 			rgb = albedo.rgb;
 			break;
@@ -194,12 +218,15 @@ main( )
 	// vec3 r_env = vec3(1.0);
 
 	vec3 Fr = (D * S) * F; // specular lobe
-	// vec3 Fd = env * albedo * filament_DLambert(); // diffuse lobe
-	vec3 Fd = env * albedo * filament_Burley(filament_Burley(roughness, NoV, NoL, LoH); // diffuse lobe
+	vec3 Fd = env * albedo * filament_Burley(roughness, NoV, NoL, LoH); // diffuse lobe
 
-	vec3 ec = (vec3(1.0) - F0) * 0.725 + F0 * 0.07;
+	vec3 ec = (vec3(1.0) - F0) * 0.725 + F0 * 0.07; // @hardcoded no idea what these should be
 
-	rgb = 1.0 * NoL * Fd + Fr * ec * r_env;
+	if (lit_material > 0) {
+		rgb = 10.0 * max(NoL, material.ao) * (Fd + Fr * ec * r_env);
+	} else {
+		rgb = albedo * material.emission;
+	}
 
 	rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
 	

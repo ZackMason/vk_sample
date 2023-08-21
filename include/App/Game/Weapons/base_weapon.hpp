@@ -1,13 +1,13 @@
 #pragma once
 
 #include "zyy_core.hpp"
+#include "bullet.hpp"
 
 namespace zyy::item {
     struct effect_t;
 };
 
 namespace zyy::wep {
-
     enum struct weapon_part_type {
         HANDLE, BODY, SIGHT,
         TRIGGER, CHAMBER, MAGAZINE,
@@ -61,19 +61,6 @@ namespace zyy::wep {
         f32 spread{};
     };
 
-    enum struct bullet_type {
-        PELLET, LASER, ROCKET, GRENADE, SIZE
-    };
-
-    struct bullet_t {
-        // math::ray_t ray{};
-        f32 damage{};
-        f32 spread{};
-
-        item::effect_t* effects{};
-
-        bullet_type type{bullet_type::SIZE};
-    };
 
     struct weapon_action_t {
         f32 fire_time{};
@@ -106,7 +93,7 @@ namespace zyy::wep {
             }
             action.chamber_time += dt;
             if (action.chamber_time > chamber_speed) {
-                Platform.audio.play_sound(sound_effects.reload);
+                // Platform.audio.play_sound(sound_effects.reload);
                 action.chamber_time = 0.0f;
                 clip.current -= chamber_max;
                 chamber_count += chamber_max;
@@ -120,7 +107,7 @@ namespace zyy::wep {
             if (action.reload_time > load_speed) {
                 action.reload_time = 0.0f;
                 clip.current = clip.max;
-                Platform.audio.play_sound(sound_effects.reload);
+                // Platform.audio.play_sound(sound_effects.reload);
                 return true;
             }
             return false;
@@ -149,7 +136,7 @@ namespace zyy::wep {
                 action.fire_time += fire_rate;
                 chamber_count -= 1;
                 if (Platform.audio.play_sound) {
-                    Platform.audio.play_sound(sound_effects.fire);
+                    // Platform.audio.play_sound(sound_effects.fire);
                 }
 
                 for (size_t bullet = 0; bullet < chamber_mult; bullet++) {

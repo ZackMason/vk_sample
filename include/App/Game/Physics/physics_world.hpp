@@ -1,7 +1,5 @@
 #pragma once
 
-
-#include "PxPhysics.h"
 #include "PxPhysicsAPI.h"
 #include "PxRigidActor.h"
 #include "PxActor.h"
@@ -206,14 +204,18 @@ namespace physics {
         scene_desc.filterShader = filter_shader;
         scene_desc.cpuDispatcher = state->dispatcher;
         scene_desc.simulationEventCallback = sim_callback;
-        scene_desc.flags =  physx::PxSceneFlag::eENABLE_CCD |  physx::PxSceneFlag::eENABLE_ACTIVE_ACTORS;
+        scene_desc.flags =  physx::PxSceneFlag::eENABLE_CCD | physx::PxSceneFlag::eENABLE_ACTIVE_ACTORS;
         world->scene = state->physics->createScene(scene_desc);
+
+        scene_desc.kineKineFilteringMode = physx::PxPairFilteringMode::eKEEP;
+        scene_desc.staticKineFilteringMode = physx::PxPairFilteringMode::eKEEP;
 
         if (world->controller_manager) {
             world->controller_manager->release();
             world->controller_manager = nullptr;
         }
         world->controller_manager = PxCreateControllerManager(*world->scene);
+
         assert(world->controller_manager);
     }
 

@@ -28,9 +28,12 @@ struct collider_trimesh_info_t {
     std::byte*  mesh;
     size_t      size;
 };
+
 struct collider_sphere_info_t {
     f32 radius;
+    v3f origin;
 };
+
 struct collider_box_info_t {
     v3f size;
 };
@@ -108,6 +111,7 @@ struct rigidbody_t {
     rigidbody_on_collision_function on_collision{0};
     rigidbody_on_collision_function on_collision_end{0};
     
+    inline void set_velocity(const v3f& vel);
     inline void add_force_ex(const v3f& force);
     inline void add_force_at_point_ex(const v3f& force, const v3f& point);
 
@@ -170,6 +174,8 @@ struct rigidbody_t {
         torque = v3f{0.0f};
 
     }
+
+    void set_gravity(bool x);
 
     // rigidbody_t& operator=(const rigidbody_t& o) {
     //     if (this == &o) {return *this;}
@@ -239,6 +245,7 @@ using get_debug_table_size_function = size_t(*)(void);
 using update_rigidbody_function = void(*)(api_t*, rigidbody_t*);
 using rigidbody_add_force_function = void(*)(rigidbody_t*, const v3f&);
 using rigidbody_add_force_at_point_function = void(*)(rigidbody_t*, const v3f&, const v3f&);
+using rigidbody_set_gravity_function = void(*)(rigidbody_t*, bool);
 
 struct export_dll api_t {
     backend_type type;
@@ -267,6 +274,9 @@ struct export_dll api_t {
 
     rigidbody_add_force_function rigidbody_add_force{0};
     rigidbody_add_force_at_point_function rigidbody_add_force_at_point{0};
+    rigidbody_set_gravity_function rigidbody_set_gravity{0};
+    rigidbody_add_force_function rigidbody_set_velocity{0};
+    
 
     // TODO(Zack): Add hashes
     std::array<rigidbody_t, PHYSICS_MAX_RIGIDBODY_COUNT> rigidbodies;
@@ -330,8 +340,16 @@ void rigidbody_t::set_transform(const m44& transform) {
 void rigidbody_t::add_force_ex(const v3f& f) {
     this->api->rigidbody_add_force(this, f);
 }
+void rigidbody_t::set_velocity(const v3f& v) {
+    this->velocity = v;
+    this->api->rigidbody_set_velocity(this, v);
+}
 void rigidbody_t::add_force_at_point_ex(const v3f& f, const v3f& p) {
     this->api->rigidbody_add_force_at_point(this, f, p);
+}
+
+void rigidbody_t::set_gravity(bool x) {
+    this->api->rigidbody_set_gravity(this, x);
 }
 
 };

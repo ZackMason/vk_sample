@@ -160,6 +160,20 @@ inline static physx_backend_t* get_physx(const api_t* api) {
     return (physx_backend_t*)api->backend;
 }
 
+void physx_rigidbody_set_gravity(rigidbody_t* rb, bool x) {
+    if (rb->type == rigidbody_type::DYNAMIC) {
+        PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
+        
+        actor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, !x);
+    }
+}
+
+void physx_rigidbody_set_velocity(rigidbody_t* rb, const v3f& v) {
+    if (rb->type == rigidbody_type::DYNAMIC) {
+        PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
+        actor->setLinearVelocity(pvec(v));
+    }
+}
 
 void physx_rigidbody_add_force(rigidbody_t* rb, const v3f& v) {
     if (rb->type == rigidbody_type::DYNAMIC) {
@@ -333,6 +347,7 @@ physx_create_collider_impl(
             col->shape = physx::PxRigidActorExt::createExclusiveShape(
                 *(physx::PxRigidActor*)rigidbody->api_data,
                 physx::PxSphereGeometry(ci->radius), *material);
+            ((physx::PxShape*)col->shape)->setLocalPose(physx::PxTransform(physx::PxVec3(ci->origin.x, ci->origin.y, ci->origin.z)));
             ((physx::PxShape*)col->shape)->userData = col;
         }   break;
         case collider_shape_type::BOX: {
@@ -355,10 +370,27 @@ static PxFilterFlags filterShader(
     const void* constantBlock,
     PxU32 constantBlockSize)
 {
-    pairFlags = PxPairFlag::eCONTACT_DEFAULT;
-    pairFlags |= PxPairFlag::eNOTIFY_TOUCH_FOUND;
-    pairFlags |= PxPairFlag::eNOTIFY_TOUCH_LOST;
-    pairFlags |= PxPairFlag::eDETECT_DISCRETE_CONTACT;
+    if (PxFilterObjectIsTrigger(attributes0) || PxFilterObjectIsTrigger(attributes1))
+    {
+        pairFlags = physx::PxPairFlag::eTRIGGER_DEFAULT;
+        return physx::PxFilterFlag::eDEFAULT;
+    }
+    pairFlags =
+        physx::PxPairFlag::eCONTACT_DEFAULT |
+        physx::PxPairFlag::eNOTIFY_TOUCH_FOUND |
+        physx::PxPairFlag::eNOTIFY_TOUCH_PERSISTS |
+        physx::PxPairFlag::eNOTIFY_TOUCH_LOST |
+        physx::PxPairFlag::eNOTIFY_CONTACT_POINTS;
+    if (PxFilterObjectIsKinematic(attributes0) && PxFilterObjectIsKinematic(attributes1))
+    {
+        pairFlags.clear(physx::PxPairFlag::eSOLVE_CONTACT);
+    }
+
+    // generate callbacks for collisions between kinematic and dynamic objects
+    if (PxFilterObjectIsKinematic(attributes0) != PxFilterObjectIsKinematic(attributes1))
+    {
+        // return physx::PxFilterFlag::eCALLBACK;
+    }
     
     return PxFilterFlag::eDEFAULT;
 }
@@ -419,6 +451,7 @@ raycast_result_t
 physx_raycast_world(const api_t* api, v3f ro, v3f rd) {
     TIMED_FUNCTION;
     auto* ps = get_physx(api);
+    auto dist = glm::length(rd);
     rd = glm::normalize(rd);
     const physx::PxVec3 pro{ ro.x, ro.y, ro.z };
     const physx::PxVec3 prd{ rd.x, rd.y, rd.z };
@@ -427,7 +460,7 @@ physx_raycast_world(const api_t* api, v3f ro, v3f rd) {
     PxQueryFilterData filter_data(PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC);
 
     raycast_result_t result{};
-    result.hit = ps->world->scene->raycast(pro, prd, 1000.0f, hit, PxHitFlag::eDEFAULT, filter_data);
+    result.hit = ps->world->scene->raycast(pro, prd, dist, hit, PxHitFlag::eDEFAULT, filter_data);
     if (result.hit) {
         if (hit.block.actor->userData) {
             result.user_data = hit.block.actor->userData;
@@ -452,6 +485,23 @@ auto dampen(auto currentValue, auto targetValue, float dampingFactor, float delt
     return currentValue;
 }
 
+struct move_filter : public PxQueryFilterCallback
+{
+	PxQueryHitType::Enum preFilter(
+    const PxFilterData& filterData, const PxShape* shape, const PxRigidActor* actor, PxHitFlags& queryFlags) {
+        return PxQueryHitType::Enum::eBLOCK;
+        // return PxQueryHitType::Enum::eNONE;
+    }
+
+
+	virtual PxQueryHitType::Enum postFilter(const PxFilterData& filterData, const PxQueryHit& hit, const PxShape* shape, const PxRigidActor* actor)
+	{
+        return PxQueryHitType::Enum::eBLOCK;
+        // return PxQueryHitType::Enum::eNONE;
+	}
+} gs_move_filter;
+
+
 void
 physx_simulate(api_t* api, f32 dt) {
     TIMED_FUNCTION;
@@ -461,28 +511,35 @@ physx_simulate(api_t* api, f32 dt) {
         auto* rb = api->characters[i];
         if (rb) {
             auto* controller = (physx::PxController*)rb->api_data;
-            rb->integrate(dt, 9.81f * 0.1f);
+            auto* transform = (math::transform_t*)((u8*)rb->user_data + api->entity_transform_offset);
+            // rb->integrate(dt, 9.81f * 0.1f * 0.0f);
             auto& v = rb->velocity;
+            f32 vm = glm::length(v);
+            const auto [lpx,lpy,lpz] = controller->getPosition();
 
             const PxU32 move_flags = controller->move(
-                {v.x, v.y, v.z}, 0.0f, dt, {}
+                {v.x, v.y, v.z}, 0.0f, dt, {0, &gs_move_filter}
             );
+            const auto [px,py,pz] = controller->getPosition();
 
             if(move_flags & PxControllerCollisionFlag::eCOLLISION_DOWN) {
                 rb->flags |= rigidbody_flags::IS_ON_GROUND;
-                // v.y = 0.0f;
 			} else {
                 rb->flags &= ~rigidbody_flags::IS_ON_GROUND;
             }
             if(move_flags & PxControllerCollisionFlag::eCOLLISION_SIDES) {
+                rb->velocity = (v3f{px,py,pz} - v3f{lpx, lpy, lpz});
                 rb->flags |= rigidbody_flags::IS_ON_WALL;
             } else {
+                if(move_flags & PxControllerCollisionFlag::eCOLLISION_UP) {
+                    rb->velocity = (v3f{px,py,pz} - v3f{lpx, lpy, lpz});
+                }
                 rb->flags &= ~rigidbody_flags::IS_ON_WALL;
             }
+            if (glm::length(rb->velocity) > vm) { rb->velocity = glm::normalize(rb->velocity) * vm; }
 
-            v = tween::damp(v, v3f{0.0f}, rb->linear_dampening, dt);
+            // v = tween::damp(v, v3f{0.0f}, rb->linear_dampening, dt);
 
-            const auto [px,py,pz] = controller->getPosition();
             rb->position = v3f{px,py,pz};
         }
     }
@@ -504,18 +561,20 @@ physx_simulate(api_t* api, f32 dt) {
         PxActor** active_actors = ps->world->scene->getActiveActors(nb_active_actors);
         range_u64(i, 0, nb_active_actors) {
             auto* body = (rigidbody_t*)active_actors[i]->userData;
-            if (!body) {
-                zyy_warn(__FUNCTION__, "Simulated rigidbody is null");
-                continue;
-            }
+            assert(body);
             auto* transform = (math::transform_t*)((u8*)body->user_data + api->entity_transform_offset);
             if (body->type == rigidbody_type::DYNAMIC) {
-                if (auto* rb = active_actors[i]->is<physx::PxRigidActor>()) {
+                if (auto* rb = active_actors[i]->is<physx::PxRigidBody>()) {
                     auto t = rb->getGlobalPose();
-                    transform->origin = v3f{t.p.x, t.p.y, t.p.z};
-                    transform->basis = glm::toMat3(quat{t.q.w, t.q.x, t.q.y, t.q.z});
+                    body->position = transform->origin = v3f{t.p.x, t.p.y, t.p.z};
+                    transform->basis = glm::toMat3(body->orientation = quat{t.q.w, t.q.x, t.q.y, t.q.z});
+                    const auto [vx,vy,vz] = rb->getLinearVelocity();
+                    const auto [ax,ay,az] = rb->getAngularVelocity();
+                    body->velocity = v3f{vx,vy,vz};
+                    body->angular_velocity = v3f{ax,ay,az};
                 }
             } else if (body->type == rigidbody_type::CHARACTER) {
+                // if you are wondering, yes we actually make it to here
                 if (auto* cct = ((physx::PxController*)body->api_data)) {
                     auto [x,y,z] = cct->getPosition();
                     transform->origin = v3f{x,y,z};

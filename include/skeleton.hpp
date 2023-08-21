@@ -65,6 +65,40 @@ struct keyframe {
 template <typename T>
 using anim_pool_t = keyframe<T>[512];
 
+template <typename T>
+inline T
+anim_pool_get_time_value(anim_pool_t<T>& pool, u64 count, f32 time) {
+    if (count == 0) {
+        return T{};
+    } else if (count == 1) {
+        return pool[0].value;
+    }
+
+    if (time <= 0.0f) {
+        return pool[0].value;
+    } else if (time >= pool[count-1].time) {
+        return pool[count-1].value;
+    }
+
+    for (size_t i = 0; i < count - 1; i++) {
+        if (pool[i].time <= time && time <= pool[i+1].time) {
+            const f32 d = (pool[i+1].time - pool[i].time);
+            const f32 p = time - pool[i].time;
+            if constexpr (std::is_same_v<T, glm::quat>) {
+                return glm::slerp(pool[i].value, pool[i+1].value, p/d);
+            } else {
+                return glm::mix(
+                    pool[i].value,
+                    pool[i+1].value,
+                    p/d
+                );
+            }
+        }
+    }
+
+    return T{};
+}
+
 struct bone_timeline_t {
     u64 position_count{0};
     u64 rotation_count{0};
@@ -77,7 +111,12 @@ struct bone_timeline_t {
     char name[1024]{};
     bone_id_t id{};
 
-    // bone_timeline_t(std::string_view pname, bone_id_t pID, const aiNodeAnim* channel);
+    m44 update(f32 time) {
+        m44 translation = glm::translate(m44{1.0f}, anim_pool_get_time_value(positions, position_count, time));
+        m44 rotation = glm::toMat4(anim_pool_get_time_value(rotations, rotation_count, time));
+        m44 scale = glm::scale(m44{1.0f}, anim_pool_get_time_value(scales, scale_count, time));
+        return transform = translation * rotation * scale;
+    }
 
     size_t get_index(auto& pool, size_t pool_count, f32 time) const {
         for (size_t i = 0; i < pool_count; i++) {
@@ -107,51 +146,46 @@ struct animation_t {
 };
 
 struct animator_t {
-    utl::pool_t<m44> matrices;
+    f32 time{0.0f};
+    animation_t* animation{nullptr};
+    std::array<m44, skeleton_t::max_bones_()> matrices;
 
+    void update(float dt) {
+        if (animation) {
+            time += dt * animation->ticks_per_second;
+            time = fmod(time, animation->duration-1.0f);
+
+            for (auto& node : animation->nodes) {
+                const auto& bone_transform = node.bone ? node.bone->update(time) : node.transform;
+                const auto& parent_transform = (node.parent >= 0) ?
+                    animation->nodes[node.parent].transform : m44(1.0f);
+                node.transform = parent_transform * bone_transform;
+                if(node.bone) {
+                    const auto index = node.bone->id;
+                    assert(index < matrices.size() && "Too many bones");
+                    matrices[index] =  node.transform * node.offset;
+                }
+            }
+        }
+    }
+
+    void play_animation(animation_t* p_animation) {
+		animation = p_animation;
+        std::fill(matrices.begin(), matrices.end(), m44(1.0f));
+		time = 0.0f;
+	}
 };
 
 template <typename T>
 inline void
-anim_pool_add_time_value(anim_pool_t<T>* pool, size_t* pool_size, f32 time, T val) {
-    auto* time_value = pool[0][(*pool_size)++];
+anim_pool_add_time_value(anim_pool_t<T>& pool, size_t* pool_size, f32 time, T val) {
+    auto* time_value = pool[(*pool_size)++];
     *time_value = keyframe<T>{
         .time = time,
         .value = val
     };
 }
 
-template <typename T>
-inline T
-anim_pool_get_time_value(anim_pool_t<T>* pool, f32 time) {
-    if (pool->count == 0) {
-        return T{0.0f};
-    }
-
-    if (time <= 0.0f) {
-        return (*pool)[0].value;
-    } else if (time >= (*pool)[pool->count-1].time) {
-        return (*pool)[pool->count-1].value;
-    }
-
-    for (size_t i = 0; i < pool->count - 1; i++) {
-        if (pool->data()[i].time <= time && time <= pool->data()[i+1].time) {
-            const auto d = (pool->data()[i+1].time - pool->data()[i].time);
-            const auto p = time - pool->data()[i].time;
-            if constexpr (std::is_same_v<T, glm::quat>) {
-                return glm::slerp(pool[0][i], pool[0][i+1], p/d);
-            } else {
-                return glm::mix(
-                    pool->data()[i].value,
-                    pool->data()[i+1].value,
-                    p/d
-                );
-            }
-        }
-    }
-
-    return T{};
-}
 
 }; // namespace anim
 

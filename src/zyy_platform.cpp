@@ -184,10 +184,15 @@ update_input(game_memory_t* game_memory, GLFWwindow* window) {
     app_input_t last_input;
     std::memcpy(&last_input, &game_memory->input, sizeof(app_input_t));
 
-    app_input_reset(&game_memory->input);
+    app_input_reset(&game_memory->input); // CLEARS ENTIRE INPUT STRUCT (!INCLUDING TIME!!!!!!)
 
-    game_memory->input.time = (f32)(glfwGetTime());
-    game_memory->input.dt = std::min(game_memory->input.time - last_input.time, 0.5f);
+    local_persist f32 last_time = (f32)(glfwGetTime());
+    local_persist f32 time_accum = 0.0f;
+    f32 time = (f32)(glfwGetTime());
+
+    game_memory->input.dt = std::min(time - last_time, 0.5f);
+    game_memory->input.time = time_accum += game_memory->input.dt;
+    last_time = time;
 
     f64 mouse_temp[2];
     glfwGetCursorPos(window, mouse_temp+0, mouse_temp+1);
@@ -558,12 +563,12 @@ main(int argc, char* argv[]) {
     app_dlls.on_init(&game_memory);
 
 #ifdef MULTITHREAD_ENGINE
-    std::atomic_bool reload_flag = false;
-    std::atomic_bool rendering_flag = false;
+    // std::atomic_bool reload_flag = false;
+    // std::atomic_bool rendering_flag = false;
     utl::spinlock_t rendering_lock{};
     auto render_thread = std::thread([&]{
         while(game_memory.running && !glfwWindowShouldClose(window)) {
-            while(reload_flag);
+            // while(reload_flag);
             if (app_dlls.on_render) {
                 f32 last_time = game_memory.input.render_time;
                 
@@ -602,6 +607,11 @@ main(int argc, char* argv[]) {
 
     while(game_memory.running && !glfwWindowShouldClose(window)) {
         utl::profile_t* p = 0;
+        if (game_memory.input.pressed.keys[key_id::O]) {
+            local_persist bool captured = false;
+            glfwSetInputMode(window, GLFW_CURSOR, captured ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+            captured = !captured;
+        }
 
         if (game_memory.input.pressed.keys[key_id::F8]) {
             const auto dif = utl::memdif((const u8*)physics_arena.start, (const u8*)restore_physics_arena.start, restore_physics_arena.top);
@@ -667,7 +677,10 @@ main(int argc, char* argv[]) {
             first = false;
         }
         // limit gameplay fps
-        while((f32)(glfwGetTime())-game_memory.input.time<1.0f/60.0f);
+        // while((f32)(glfwGetTime())-game_memory.input.time<1.0f/60.0f);
+        local_persist f64 last_time = glfwGetTime();
+        if (glfwGetTime() - last_time >= 1.0f/60.0f) {
+        last_time = glfwGetTime();
         update_input(&game_memory, window);
         if (app_dlls.on_update) {
             try {
@@ -689,9 +702,12 @@ main(int argc, char* argv[]) {
 #ifdef MULTITHREAD_ENGINE
                     rendering_lock.unlock();
 #endif 
+                } else {
+                    std::terminate();
                 }
             } catch (std::exception & e) {
                 zyy_error("exception", "{}", e.what());
+                std::terminate();
             }
         }
 #ifndef MULTITHREAD_ENGINE
@@ -699,6 +715,7 @@ main(int argc, char* argv[]) {
             app_dlls.on_render(&game_memory);
         }
 #endif 
+        }
 
         glfwPollEvents();
 

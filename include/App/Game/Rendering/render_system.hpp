@@ -74,13 +74,14 @@ namespace rendering {
         // @hash
         link_t textures[4096]{};
 
-        void insert(std::string_view name, gfx::vul::texture_2d_t texture) {
+        u64 insert(std::string_view name, gfx::vul::texture_2d_t texture) {
             u64 hash = sid(name);
             u64 index = hash % array_count(textures);
             assert(textures[index].is_dead());
             textures[index].name = name;
             textures[index].hash = hash;
             textures[index].texture = texture;
+            return index;
         }
 
         void reload_all(
@@ -230,7 +231,9 @@ public:
         gfx::vul::texture_2d_t* get(std::string_view name) {
             return &get_(name).texture;
         }
-
+        u64 get_id(std::string_view name) {
+            return get_(name).hash % array_count(textures);
+        }
 
         const gfx::vul::texture_2d_t* get(u64 id) const {
             assert(textures[id].hash);
@@ -644,23 +647,23 @@ public:
             VkDescriptorBufferInfo buffer_info[5];
             buffer_info[0].buffer = buffers[0];
             buffer_info[0].offset = 0; 
-            buffer_info[0].range = sizeof(gfx::vul::sporadic_buffer_t);
+            buffer_info[0].range = VK_WHOLE_SIZE;// sizeof(gfx::vul::sporadic_buffer_t);
 
             buffer_info[1].buffer = buffers[1];
             buffer_info[1].offset = 0; 
-            buffer_info[1].range = (sizeof(m44) + sizeof(u32) * 4 * 4) * 10'000; // hardcoded
+            buffer_info[1].range = VK_WHOLE_SIZE;// (sizeof(m44) + sizeof(u32) * 4 * 4) * 10'000; // hardcoded
             
             buffer_info[2].buffer = buffers[2];
             buffer_info[2].offset = 0; 
-            buffer_info[2].range = sizeof(gfx::material_t) * 100; // hardcoded
+            buffer_info[2].range = VK_WHOLE_SIZE;// sizeof(gfx::material_t) * 100; // hardcoded
 
             buffer_info[3].buffer = buffers[3];
             buffer_info[3].offset = 0; 
-            buffer_info[3].range = sizeof(rendering::environment_t);
+            buffer_info[3].range = VK_WHOLE_SIZE;// sizeof(rendering::environment_t);
 
             buffer_info[4].buffer = buffers[4];
             buffer_info[4].offset = 0; 
-            buffer_info[4].range = sizeof(m44) * 256;
+            buffer_info[4].range = VK_WHOLE_SIZE;// sizeof(m44) * 256;
 
             using namespace gfx::vul;
             builder
@@ -677,7 +680,7 @@ public:
                 .build(enviornment_descriptor, descriptor_layouts[3]);
             builder
                 .bind_buffer(0, buffer_info + 4, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_VERTEX_BIT)
-                .build(animation_descriptor, descriptor_layouts[4]);
+                .build(animation_descriptor, descriptor_layouts[5]);
         }
 
         void bind_images(gfx::vul::descriptor_builder_t& builder, gfx::vul::texture_2d_t* texture) {
@@ -730,10 +733,12 @@ public:
 
     
     struct system_t {
-        inline static constexpr size_t  frame_arena_size = megabytes(64);
+        inline static constexpr umm  frame_arena_size = megabytes(64);
         inline static constexpr u32     frame_overlap = 2;
-        inline static constexpr size_t max_scene_vertex_count{10'000'000};
-        inline static constexpr size_t max_scene_index_count{30'000'000};
+        inline static constexpr umm max_scene_vertex_count{10'000'000};
+        inline static constexpr umm max_scene_index_count{30'000'000};
+        inline static constexpr umm max_scene_skinned_vertex_count{1'000'000};
+        inline static constexpr umm max_scene_skinned_index_count{3'000'000};
 
         system_t(arena_t _arena) : arena{_arena} {}
 
@@ -746,7 +751,7 @@ public:
         std::mutex ticket{};
 
         // utl::deque<render_job_t> render_jobs{};
-        render_job_t* render_jobs{};
+        render_job_t* render_jobs[2]{};
         size_t render_job_count{};
         u32 total_instance_count{0};
 
@@ -759,7 +764,7 @@ public:
         utl::deque<material_node_t> materials{};
 
         u64            frame_count{0};
-        frame_data_t                frames[frame_overlap];
+        frame_data_t   frames[frame_overlap];
 
         gfx::vul::descriptor_allocator_t* permanent_descriptor_allocator{nullptr};
         gfx::vul::descriptor_layout_cache_t* descriptor_layout_cache{nullptr};
@@ -774,9 +779,12 @@ public:
         gfx::vul::vertex_buffer_t<gfx::vertex_t, max_scene_vertex_count> vertices;
         gfx::vul::index_buffer_t<max_scene_index_count> indices;
 
+        gfx::vul::vertex_buffer_t<gfx::skinned_vertex_t, max_scene_skinned_vertex_count> skinned_vertices;
+        gfx::vul::index_buffer_t<max_scene_skinned_index_count> skinned_indices;
+
         gfx::vul::storage_buffer_t<render_data_t, 1'000'000>   job_storage_buffers[2];
         gfx::vul::storage_buffer_t<render_data_t, 1'000'000>&  job_storage_buffer() {
-            return job_storage_buffers[frame_count&1];
+            return job_storage_buffers[frame_count%frame_overlap];
         }
 
         gfx::vul::storage_buffer_t<gfx::material_t, 100>    material_storage_buffer;
@@ -867,7 +875,8 @@ public:
         rs->vk_gfx = &state;
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
-        rs->render_jobs = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
+        rs->render_jobs[0] = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
+        rs->render_jobs[1] = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
 
         rs->permanent_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device); 
         range_u64(i, 0, array_count(rs->frames)) {
@@ -899,10 +908,14 @@ public:
         );
 
         state.create_texture(&rs->frame_images[0].texture, w, h, 4, 0, 0, sizeof(float)*4);
+        state.create_texture(&rs->frame_images[2].texture, w, h, 4, 0, 0, sizeof(float)*4);
+        state.create_texture(&rs->frame_images[3].texture, w, h, 4, 0, 0, sizeof(float)*4);
 
         rs->frame_images[0].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         // rs->frame_images[0].texture.image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         state.load_texture_sampler(&rs->frame_images[0].texture);
+        state.load_texture_sampler(&rs->frame_images[2].texture);
+        state.load_texture_sampler(&rs->frame_images[3].texture);
 
         state.create_depth_stencil_image(&rs->frame_images[1].texture, w, h);
 
@@ -970,6 +983,11 @@ public:
             VK_OK(vkAllocateCommandBuffers(state.device, &cmdAllocInfo, &rs->frames[i].main_command_buffer));
         }
 
+        state.create_vertex_buffer(&rs->vertices);
+        state.create_index_buffer(&rs->indices);
+        state.create_vertex_buffer(&rs->skinned_vertices);
+        state.create_index_buffer(&rs->skinned_indices);
+    
         lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
         return rs;
@@ -980,8 +998,7 @@ public:
         rs->stats.reset();
         rs->render_job_count = 0;
         rs->frame_count++;
-        rs->get_frame_data().dynamic_descriptor_allocator->reset_pools();
-        rs->get_frame_data().mesh_pass.object_descriptors = VK_NULL_HANDLE;
+        rs->get_frame_data().dynamic_descriptor_allocator->reset_pools();        
         rs->job_storage_buffer().pool.clear();
         rs->get_frame_data().indexed_indirect_storage_buffer.pool.clear();
 
@@ -999,7 +1016,7 @@ public:
     ) {
         TIMED_FUNCTION;
 
-        auto* job = rs->render_jobs + rs->render_job_count++;
+        auto* job = rs->render_jobs[rs->frame_count%rs->frame_overlap] + rs->render_job_count++;
         job->meshes = &rs->mesh_cache.get(mesh_id);
         job->material = mat_id;
         job->instance_count = instance_count;
@@ -1096,7 +1113,7 @@ public:
         const VkShaderEXT* last_shader = VK_NULL_HANDLE;
 
         if (rs->render_job_count==0) return;
-        render_job_t* job = rs->render_jobs;
+        render_job_t* job = rs->render_jobs[rs->frame_count%rs->frame_overlap];
 
         const auto* material = rs->materials[job->material];
 
@@ -1153,7 +1170,7 @@ public:
         last_shader = material->shaders[1];
 
 
-        auto draw_count = rs->get_frame_data().indexed_indirect_storage_buffer.pool.count;
+        auto draw_count = rs->get_frame_data().indexed_indirect_storage_buffer.pool.count();
         vkCmdDrawIndexedIndirect(command_buffer, rs->get_frame_data().indexed_indirect_storage_buffer.buffer, 0, (u32)draw_count, sizeof(gfx::indirect_indexed_draw_t));
     }
 
@@ -1169,7 +1186,7 @@ public:
         const VkShaderEXT* last_shader = VK_NULL_HANDLE;
 
         for (size_t i = 0; i < rs->render_job_count; i++) {
-            render_job_t* job = rs->render_jobs + i;
+            render_job_t* job = rs->render_jobs[rs->frame_count%rs->frame_overlap] + i;
 
             const auto* material = rs->materials[job->material];
 
@@ -1262,7 +1279,7 @@ public:
         const material_node_t* last_material{0};
 
         for (size_t i = 0; i < rs->render_job_count; i++) {
-            render_job_t* job = rs->render_jobs + i;
+            render_job_t* job = rs->render_jobs[rs->frame_count%rs->frame_overlap] + i;
             
             const material_node_t* mat = rs->materials[job->material];
 
@@ -1656,7 +1673,7 @@ public:
         pp_pass.bind_images(builder, texture);
 
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pp_pass.pipeline_layout, 0, 1, &pp_pass.texture_descriptor, 0, nullptr);
-        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pp_pass.pipeline_layout, 1, 1, &pp_pass.parameters_descriptor, 0, nullptr);
+        // vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pp_pass.pipeline_layout, 1, 1, &pp_pass.parameters_descriptor, 0, nullptr);
 
         vkCmdPushConstants(command_buffer, pp_pass.pipeline_layout,
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
