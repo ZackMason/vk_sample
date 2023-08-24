@@ -522,10 +522,33 @@ shotgun {
     .type = entity_type::weapon,
     .type_name = "shotgun",
     .gfx = {
-        .mesh_name = "res/models/shotgun.fbx",
+        .mesh_name = "res/models/guns/shotgun_01.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_shotgun(),
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .flags = 1,
+                .sphere = {
+                    .radius = 1.0f,
+                },
+            },
+        },
+    },
+};
+
+DB_ENTRY
+smg {
+    .type = entity_type::weapon,
+    .type_name = "shotgun",
+    .gfx = {
+        .mesh_name = "res/models/guns/smg_01.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
+    },
+    .weapon = wep::create_rifle(),
     .physics = prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
