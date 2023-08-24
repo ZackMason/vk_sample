@@ -179,9 +179,9 @@ namespace zyy::wep {
     constexpr inline base_weapon_t 
     create_rifle() noexcept {
         base_weapon_t rifle{
-            .fire_rate = 1.0f,
-            .load_speed = 0.1f,
-            .chamber_speed = 0.1f,
+            .fire_rate = 0.1f,
+            .load_speed = 1.0f,
+            .chamber_speed = 0.05f,
             .chamber_count = 1,
             .chamber_max = 1,
             .chamber_mult = 1,

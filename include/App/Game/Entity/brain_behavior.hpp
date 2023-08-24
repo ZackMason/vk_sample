@@ -64,7 +64,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
 
     if(player->primary_weapon.entity) {
         player->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
-        player->primary_weapon.entity->transform.set_scale(v3f{3.0f});
+        // player->primary_weapon.entity->transform.set_scale(v3f{3.0f});
         player->primary_weapon.entity->transform.origin =
             player->global_transform().origin +
             forward + axis::up * 0.3f;
