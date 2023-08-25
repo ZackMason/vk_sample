@@ -19,24 +19,7 @@ layout ( location = 0 ) out vec4 fFragColor;
 void
 main() {
 	vec3 sun = normalize(ObjectConstants.uDirectionLight.xyz);
-	
-	vec3 color = rayleigh_scatter(vN, sun);
-	vec3 extinction = get_extinction(vN, sun);
- 	
-	vec2 uv = vec2(
-		atan(vN.y, vN.x),
-		atan(length(vN.xy)/vN.z)
-	);
-
-	// color.rgb += max(0.0, 1.0-pow(dot(color.rgb,color.rgb),.1250));// * stars(uv, 32, 0.04510, max(0.0, 2.0-length(extinction)));
-
-	// ground fade
-    if (vN.y < -0.05) {
-        color = mix(vec3(1.0), vec3(0.3412, 0.1569, 0.1569), .750-vN.y);
-	}
-    
-	color = pow(color, vec3(2.2));
-	color = pow(color, vec3(2.2));
+	vec3 color = sky_color(vN, sun);
 
 	// color = pow(color * 1.0, vec3(1.0/2.2));
 	// color = vec3(0);

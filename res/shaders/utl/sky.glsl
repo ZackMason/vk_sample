@@ -26,3 +26,24 @@ vec3 rayleigh_scatter(vec3 normal, vec3 sun) {
     
     return rayleigh * mie * extinction;
 }
+
+vec3 sky_color(vec3 v, vec3 sun) {
+	vec3 color = rayleigh_scatter(v, sun);
+	vec3 extinction = get_extinction(v, sun);
+ 	
+	vec2 uv = vec2(
+		atan(v.y, v.x),
+		atan(length(v.xy)/v.z)
+	);
+
+	// color.rgb += max(0.0, 1.0-pow(dot(color.rgb,color.rgb),.1250));// * stars(uv, 32, 0.04510, max(0.0, 2.0-length(extinction)));
+
+	// ground fade
+    if (v.y < -0.05) {
+        color = mix(vec3(1.0), vec3(0.3412, 0.1569, 0.1569), .750-v.y);
+	}
+    
+	color = pow(color, vec3(2.2));
+	color = pow(color, vec3(2.2));
+    return color;
+}

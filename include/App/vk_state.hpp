@@ -233,6 +233,7 @@ struct state_t {
     VkSampleCountFlagBits msaa_samples = VK_SAMPLE_COUNT_1_BIT;
 
     u32 graphics_index;
+    u32 compute_index;
 
     VkQueue gfx_queue;
     VkQueue compute_queue;
@@ -251,10 +252,15 @@ struct state_t {
 
     VkCommandPool command_pool;
     VkCommandBuffer command_buffer[2];
+
+    VkCommandPool compute_command_pool;
+    VkCommandBuffer compute_command_buffer[2];
  
     VkSemaphore image_available_semaphore[2];
     VkSemaphore render_finished_semaphore[2];
     VkFence in_flight_fence[2];
+
+    VkFence compute_fence[2];
 
     uniform_buffer_t<sporadic_buffer_t> sporadic_uniform_buffer;
 
@@ -350,7 +356,7 @@ struct state_t {
 
     void load_texture(texture_2d_t* texture, std::span<u8> data, arena_t* arena = 0);
     void load_texture(texture_2d_t* texture, std::string_view path, arena_t* arena);
-    void load_texture_sampler(texture_2d_t* texture);
+    void load_texture_sampler(texture_2d_t* texture, bool storage = false);
     void load_texture_sampler(texture_2d_t* texture, std::string_view path, arena_t* arena);
     void load_font_sampler(arena_t* arena, texture_2d_t* texture, font_t* font);
 
@@ -439,12 +445,13 @@ create_pipeline_layout(
     VkDevice device,
     VkDescriptorSetLayout* descriptor_set_layouts,
     u32 descriptor_set_count = 1,
-    u32 push_constant_size = 0
+    u32 push_constant_size = 0,
+    u32 stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
 ) {
     VkPushConstantRange vpcr{};
         vpcr.offset = 0;
 	    vpcr.size = push_constant_size;
-        vpcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        vpcr.stageFlags = stages;
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -540,12 +547,12 @@ inline VkDescriptorSetAllocateInfo descriptor_set_allocate_info(
     descriptorSetAllocateInfo.descriptorSetCount = descriptorSetCount;
     return descriptorSetAllocateInfo;
 }
-inline VkImageMemoryBarrier image_memory_barrier()
+inline VkImageMemoryBarrier image_memory_barrier(u32 srcQueueFamily = VK_QUEUE_FAMILY_IGNORED, u32 dstQueueFamily = VK_QUEUE_FAMILY_IGNORED)
 {
     VkImageMemoryBarrier imageMemoryBarrier {};
     imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.srcQueueFamilyIndex = srcQueueFamily;
+    imageMemoryBarrier.dstQueueFamilyIndex = dstQueueFamily;
     return imageMemoryBarrier;
 }
 inline VkMemoryAllocateInfo memory_allocate_info()
@@ -779,9 +786,11 @@ void insert_image_memory_barrier(
     VkImageLayout newImageLayout,
     VkPipelineStageFlags srcStageMask,
     VkPipelineStageFlags dstStageMask,
-    VkImageSubresourceRange subresourceRange)
+    VkImageSubresourceRange subresourceRange, 
+    u32 srcIndex = VK_QUEUE_FAMILY_IGNORED,
+    u32 dstIndex = VK_QUEUE_FAMILY_IGNORED)
 {
-    VkImageMemoryBarrier imageMemoryBarrier = image_memory_barrier();
+    VkImageMemoryBarrier imageMemoryBarrier = image_memory_barrier(srcIndex, dstIndex);
     imageMemoryBarrier.srcAccessMask = srcAccessMask;
     imageMemoryBarrier.dstAccessMask = dstAccessMask;
     imageMemoryBarrier.oldLayout = oldImageLayout;

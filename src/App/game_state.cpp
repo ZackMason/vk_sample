@@ -82,28 +82,6 @@ draw_game_gui(game_memory_t* game_memory) {
 
 #include "App/Game/GUI/debug_gui.hpp"
 
-
-void teapot_on_collision(
-    physics::rigidbody_t* teapot,
-    physics::rigidbody_t* other
-) {
-    // zyy_info(__FUNCTION__, "teapot hit: {} - id", teapot->id);
-    // auto* teapot_entity = (zyy::entity_t*) teapot->user_data;
-    // teapot->add_relative_impulse(teapot->inverse_transform_direction(axis::up) * 10.0f, gs_dt);
-    
-    // teapot->flags = physics::rigidbody_flags::SKIP_SYNC;
-}
-
-void player_on_collision(
-    physics::rigidbody_t* player,
-    physics::rigidbody_t* other
-) {
-    auto* other_entity = (zyy::entity_t*) other->user_data;
-    // zyy_info(__FUNCTION__, "player hit: {} - id", other_entity->id);
-}
-
-
-
 inline static gfx::vul::texture_2d_t*
 make_grid_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size, v3f c1, v3f c2, f32 grid_count = 10.0f) {
     *tex = {};
@@ -419,6 +397,15 @@ app_init_graphics(game_memory_t* game_memory) {
     { //@test loading shader objects
         auto& mesh_pass = rs->frames[0].mesh_pass;
         auto& anim_pass = rs->frames[0].anim_pass;
+        auto& rt_compute_pass = rs->frames[0].rt_compute_pass;
+
+        rs->shader_cache.load(
+            game_state->main_arena, 
+            vk_gfx,
+            assets::shaders::rt_comp,
+            rt_compute_pass.descriptor_layouts,
+            rt_compute_pass.descriptor_count
+        );
 
         rs->shader_cache.load(
             game_state->main_arena, 
@@ -1079,7 +1066,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     TIMED_BLOCK(GameSubmitRenderJobs);
     rendering::begin_frame(game_state->render_system);
     // game_state->debug.debug_vertices.pool.clear();
-    
+
     draw_gui(game_state->game_memory);
 
     world->camera.reset_priority();
@@ -1119,11 +1106,17 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             particle_system_build_matrices(e->gfx.particle_system, e->gfx.dynamic_instance_buffer, e->gfx.instance_count());
         }
 
+        v3f size = e->aabb.size()*0.5f;
+        v4f bounds{e->aabb.center(), glm::max(glm::max(size.x, size.y), size.z) };
+
+        if (e->type == zyy::entity_type::player) continue;
+
         rendering::submit_job(
             game_state->render_system, 
             e->gfx.mesh_id, 
             e->gfx.material_id, // todo make material per mesh
             e->global_transform().to_matrix(),
+            bounds,
             e->gfx.instance_count(),
             e->gfx.instance_offset()
         );
@@ -1221,11 +1214,70 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
     game_state->scene.sporadic_buffer.time = game_state->input().time;
     *vk_gfx.sporadic_uniform_buffer.data = game_state->scene.sporadic_buffer;
-    auto& command_buffer = vk_gfx.command_buffer[frame_count%2];
-
-    vkResetCommandBuffer(command_buffer, 0);
 
     {
+        auto* rs = game_state->render_system;
+        auto& command_buffer = vk_gfx.compute_command_buffer[frame_count%2];
+
+        vkResetCommandBuffer(command_buffer, 0);
+        auto command_buffer_begin_info = gfx::vul::utl::command_buffer_begin_info();
+
+        VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
+
+        if (vk_gfx.compute_index != vk_gfx.graphics_index) {
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                rs->frame_images[6].texture.image,
+                0,
+                VK_ACCESS_SHADER_WRITE_BIT,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+                vk_gfx.graphics_index,
+                vk_gfx.compute_index
+            );
+        }
+
+        rendering::begin_rt_pass(game_state->render_system, command_buffer);
+
+        if (vk_gfx.compute_index != vk_gfx.graphics_index) {
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                rs->frame_images[6].texture.image,
+                VK_ACCESS_SHADER_WRITE_BIT,
+                0,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+                vk_gfx.compute_index,
+                vk_gfx.graphics_index
+            );
+        }
+
+        VK_OK(vkEndCommandBuffer(command_buffer));
+
+        auto& queue = vk_gfx.compute_queue;
+        auto& device = vk_gfx.device;
+        auto& compute_fence = vk_gfx.compute_fence[frame_count%2];
+
+        vkWaitForFences(device, 1, &compute_fence, VK_TRUE, UINT64_MAX);
+        vkResetFences(device, 1, &compute_fence);
+
+        VkSubmitInfo csi = gfx::vul::utl::submit_info();
+        csi.commandBufferCount = 1;
+        csi.pCommandBuffers = &command_buffer;
+
+        VK_OK(vkQueueSubmit(queue, 1, &csi, compute_fence));
+    }
+
+    {
+        auto& command_buffer = vk_gfx.command_buffer[frame_count%2];
+        vkResetCommandBuffer(command_buffer, 0);
+
         auto* rs = game_state->render_system;
         auto& khr = vk_gfx.khr;
         auto& ext = vk_gfx.ext;
@@ -1343,10 +1395,38 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
 
-            build_shader_commands(rs, command_buffer);
+            // build_shader_commands(rs, command_buffer);
         khr.vkCmdEndRenderingKHR(command_buffer);
     
         { // UI START
+            if (vk_gfx.compute_index != vk_gfx.graphics_index) {
+                gfx::vul::utl::insert_image_memory_barrier(
+                    command_buffer,
+                    rs->frame_images[6].texture.image,
+                    0,
+                    VK_ACCESS_SHADER_READ_BIT,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                    VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+                    vk_gfx.compute_index,
+                    vk_gfx.graphics_index
+                );
+            } else {
+                gfx::vul::utl::insert_image_memory_barrier(
+                    command_buffer,
+                    rs->frame_images[6].texture.image,
+                    VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_ACCESS_SHADER_READ_BIT,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                    VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+                );
+            }
+
             gfx::vul::utl::insert_image_memory_barrier(
                 command_buffer,
                 vk_gfx.swap_chain_images[imageIndex],
@@ -1414,7 +1494,8 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 rendering::draw_postprocess(
                     rs, command_buffer,
                     assets::shaders::tonemap_frag.filename,
-                    &rs->frame_images[frame_count%2].texture,
+                    // &rs->frame_images[frame_count%2].texture,
+                    &rs->frame_images[6].texture,
                     parameters
                 );
             }

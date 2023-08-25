@@ -30,9 +30,6 @@ struct Material {
     uint padding[3];
 };
 
-layout(std430, set = 2, binding = 0) readonly buffer MaterialBuffer {
-	Material materials[];
-} uMaterialBuffer;
 
 struct DirectionalLight {
     vec4 direction;
@@ -62,6 +59,10 @@ struct Environment {
     
     PointLight point_lights[512];
 };
+
+layout(std430, set = 2, binding = 0) readonly buffer MaterialBuffer {
+	Material materials[];
+} uMaterialBuffer;
 
 layout(std430, set = 3, binding = 0) readonly buffer EnvironmentBuffer {
 	Environment uEnvironment;

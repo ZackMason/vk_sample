@@ -21,6 +21,11 @@ namespace assets::shaders {
     constexpr u32 GEOM = VK_SHADER_STAGE_GEOMETRY_BIT;
     constexpr u32 COMP = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    ASSET_SHADER(rt_comp)
+        SHADER_PATH("rt_compute.comp")
+        .add_push_constant(CAMERA_CONSTANTS_SIZE + sizeof(u32) * 2)
+        .set_stage(COMP);        
+
     ASSET_SHADER(screen_vert)
         SHADER_PATH("screen.vert")
         .set_stage(VERT)

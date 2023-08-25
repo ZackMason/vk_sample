@@ -1991,6 +1991,17 @@ intersect(const ray_t& ray, const triangle_t& tri, f32& t) noexcept {
 }
 
 
+bool intersect_aabb_slab( const ray_t& ray, const v3f bmin, const v3f bmax )
+{
+    float tx1 = (bmin.x - ray.O.x) / ray.D.x, tx2 = (bmax.x - ray.O.x) / ray.D.x;
+    float tmin = min( tx1, tx2 ), tmax = max( tx1, tx2 );
+    float ty1 = (bmin.y - ray.O.y) / ray.D.y, ty2 = (bmax.y - ray.O.y) / ray.D.y;
+    tmin = max( tmin, min( ty1, ty2 ) ), tmax = min( tmax, max( ty1, ty2 ) );
+    float tz1 = (bmin.z - ray.O.z) / ray.D.z, tz2 = (bmax.z - ray.O.z) / ray.D.z;
+    tmin = max( tmin, min( tz1, tz2 ) ), tmax = min( tmax, max( tz1, tz2 ) );
+    return tmax >= tmin && tmin < ray.t && tmax > 0;
+}
+
 inline hit_result_t          //<u64> 
 intersect(const ray_t& ray, const aabb_t<v3f>& aabb) {
     const v3f inv_dir = 1.0f / ray.direction;
@@ -2194,16 +2205,17 @@ end_statistic(statistic_t& stat) {
 
 
 namespace gfx {
-
 // note(zack): this is in core because it will probably be loaded 
 // in a work thread in platform layer, so that we dont have to worry
 // about halting the thread when we reload the dll
+// #pragma pack(push, 1)
 struct vertex_t {
     v3f pos;
     v3f nrm;
     v3f col;
     v2f tex;
 };
+// #pragma pack(pop)
 
 struct skinned_vertex_t {
     v3f pos;
@@ -2412,6 +2424,58 @@ struct mesh_builder_t {
     }
 };
 
+struct bvh_node_t {
+    v3f min;
+    u32 left_first;
+
+    v3f max;
+    u32 tri_count;
+};
+
+struct bvh_tree_t {
+    u32* index_remap{0};
+    u64 index_count{0};
+    bvh_node_t* nodes{0};
+    u64 node_count{0};
+    u64 root{0};
+    u64 nodes_used{1};
+    vertex_t* vertices{0};
+    u64 vertex_count{0};
+    u32* indices{0};
+    u64 index_count{0};
+};
+
+void update_node_bounds(bvh_tree_t* tree, u64 id) {
+    auto* node = &tree->nodes[id];
+    node->min = v3f{1e30f};
+    node->max = v3f{-1e30f};
+    range_u64(i, node->left_first, node->tri_count) {
+        auto* t = tree->indices + i * 3;
+        auto* v = tree->vertices;
+        v3f tri[3];
+        tri[0] = v[t[0]];
+        tri[1] = v[t[1]];
+        tri[2] = v[t[2]];
+        node->min = glm::min(v[t[0]], node->min);
+        node->max = glm::max(v[t[0]], node->max);
+        node->min = glm::min(v[t[1]], node->min);
+        node->max = glm::max(v[t[1]], node->max);
+        node->min = glm::min(v[t[2]], node->min);
+        node->max = glm::max(v[t[2]], node->max);
+    }
+}
+
+void build_bvh(
+    bvh_tree_t* tree,
+) {
+    auto* root = &tree->nodes[tree->root];
+    root->left_first = 0;
+    root->tri_count = index_count/3;
+
+    update_node_bounds(tree, tree->root);
+    subdivide(tree, tree->root);
+}
+
 
 using color4 = v4f;
 using color3 = v3f;
@@ -2462,9 +2526,9 @@ struct material_t {
 
 struct shader_description_t {
     std::string_view filename{};
-    u32                 stage{};
-    u32           next_stages{};
-    u32    push_constant_size{};
+    u32                 stage{0};
+    u32           next_stages{0};
+    u32    push_constant_size{0};
     // Note(Zack): Add stuff for descriptor sets
 
     struct uniform_t {

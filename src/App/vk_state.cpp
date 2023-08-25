@@ -618,6 +618,14 @@ void state_t::create_command_buffer() {
         zyy_error("vulkan", "failed to allocate command buffers!");
         std::terminate();
     }
+
+    allocInfo.commandPool = compute_command_pool;
+    allocInfo.commandBufferCount = 2;
+
+    if (vkAllocateCommandBuffers(device, &allocInfo, compute_command_buffer) != VK_SUCCESS) {
+        zyy_error("vulkan", "failed to allocate command buffers!");
+        std::terminate();
+    }
 }
 
 void state_t::create_sync_objects() {
@@ -632,6 +640,8 @@ void state_t::create_sync_objects() {
         vkCreateSemaphore(device, &semaphoreInfo, nullptr, &image_available_semaphore[1]) != VK_SUCCESS ||
         vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_finished_semaphore[0]) != VK_SUCCESS ||
         vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_finished_semaphore[1]) != VK_SUCCESS ||
+        vkCreateFence(device, &fenceInfo, nullptr, &compute_fence[0]) != VK_SUCCESS ||
+        vkCreateFence(device, &fenceInfo, nullptr, &compute_fence[1]) != VK_SUCCESS ||
         vkCreateFence(device, &fenceInfo, nullptr, &in_flight_fence[0]) != VK_SUCCESS ||
         vkCreateFence(device, &fenceInfo, nullptr, &in_flight_fence[1]) != VK_SUCCESS
     ) {
@@ -640,7 +650,6 @@ void state_t::create_sync_objects() {
     }
 
 }
-
 
 void state_t::create_command_pool() {
 
@@ -652,6 +661,13 @@ void state_t::create_command_pool() {
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphics_family.value();
 
     if (vkCreateCommandPool(device, &poolInfo, nullptr, &command_pool) != VK_SUCCESS) {
+        zyy_error("vulkan", "failed to create command pool!");
+        std::terminate();
+    }
+
+    poolInfo.queueFamilyIndex = queueFamilyIndices.compute_family.value();
+
+    if (vkCreateCommandPool(device, &poolInfo, nullptr, &compute_command_pool) != VK_SUCCESS) {
         zyy_error("vulkan", "failed to create command pool!");
         std::terminate();
     }
@@ -938,6 +954,7 @@ void state_t::create_logical_device() {
     }
 
     graphics_index = indices.graphics_family.value();
+    compute_index = indices.compute_family.value();
 
     vkGetDeviceQueue(device, indices.graphics_family.value(), 0, &gfx_queue);
     vkGetDeviceQueue(device, indices.compute_family.value(), 0, &compute_queue);
@@ -1028,7 +1045,7 @@ void create_shader_objects(
     VkPushConstantRange vpcr{};
         vpcr.offset = 0;
 	    vpcr.size = push_constant_size;
-        vpcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        vpcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 
     range_u64(i, 0, shader_count) {
         shader_create_info[i].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
@@ -1734,6 +1751,12 @@ state_t::transition_image_layout(
 
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_GENERAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -2004,7 +2027,7 @@ state_t::create_texture(
     texture->size[0] = w;
     texture->size[1] = h;
     texture->channels= c;
-    texture->pixels = arena? (u8*)arena_alloc(arena, w*h*c) : nullptr;
+    texture->pixels = arena ? (u8*)arena_alloc(arena, w*h*c) : nullptr;
     if (arena && data) {
         std::memcpy(texture->pixels, data, w*h*c*pixel_size);
     } else if (data) {
@@ -2158,7 +2181,8 @@ state_t::load_texture_sampler(
 
 void 
 state_t::load_texture_sampler(
-    texture_2d_t* texture
+    texture_2d_t* texture,
+    bool storage
 ) {
     auto image_size = texture->size[0] * texture->size[1] * 4; // @hardcoded 4 channels
     if (texture->format == VK_FORMAT_R32G32B32A32_SFLOAT) {
@@ -2214,14 +2238,15 @@ state_t::load_texture_sampler(
         image_info.arrayLayers = 1;
 
         image_info.format = texture->format;
-        image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+        image_info.tiling = !storage ? VK_IMAGE_TILING_OPTIMAL : VK_IMAGE_TILING_LINEAR;
         image_info.initialLayout = texture->image_layout;
 
         image_info.usage = 
-            VK_IMAGE_USAGE_TRANSFER_DST_BIT | 
-            VK_IMAGE_USAGE_TRANSFER_SRC_BIT | 
+            (!storage ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
+            (!storage ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
             VK_IMAGE_USAGE_SAMPLED_BIT | 
-            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+            VK_IMAGE_USAGE_STORAGE_BIT | 
+            (!storage ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0);
         image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
         image_info.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -2245,12 +2270,19 @@ state_t::load_texture_sampler(
 
     transition_image_layout(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copy_buffer_to_image(&staging_buffer, texture);
+
+    if (storage) {
+        if (texture->image_layout != VK_IMAGE_LAYOUT_GENERAL) {
+            transition_image_layout(texture, VK_IMAGE_LAYOUT_GENERAL);
+        }
+    } else {
+
     if (texture->mip_levels > 1) {
         generate_mipmaps(this, texture);
     } else if (texture->image_layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        
         transition_image_layout(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     // }
+    }
     }
 
     vkDestroyBuffer(device, staging_buffer.buffer, nullptr);

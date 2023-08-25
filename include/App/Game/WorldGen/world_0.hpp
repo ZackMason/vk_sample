@@ -147,6 +147,71 @@ generate_particle_test(arena_t* arena) {
 }
 
 world_generator_t*
+generate_world_1(arena_t* arena) {
+    auto* generator = arena_alloc<world_generator_t>(arena);
+    generator->arena = arena;
+    generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
+       world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
+    });
+    generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
+        auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 150.0f);
+        player->physics.rigidbody->linear_dampening = 3.0f;
+    });
+    generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
+        // zyy::spawn(world, world->render_system(), zyy::db::rooms::sponza);
+        zyy::spawn(world, world->render_system(), zyy::db::misc::platform_1000, axis::down);
+        
+        auto enemy_room = zyy::db::rooms::parkcore_02;
+        enemy_room.coroutine = [](coroutine_t* co, frame_arena_t& frame_arena) {
+            auto* self = (zyy::entity_t*)co->data;
+            auto* world = (zyy::world_t*)self->physics.rigidbody->api->user_world; // fix this shit wtf
+            zyy::entity_t* skull = 0;
+            auto* stack = co_stack(co, frame_arena);
+            i8* count = co_push_stack(co, stack, i8);
+
+            co_begin(co);
+                *count = 10;
+                while (*count > 0) {
+                    skull = zyy::spawn(world, world->render_system(), zyy::db::bads::skull, self->global_transform().origin + axis::up * 15.0f + planes::xz * utl::rng::random_s::randv());
+                    skull->physics.rigidbody->set_gravity(false);
+                    skull->physics.rigidbody->set_ccd(true);
+                    *count -= 1;
+                    co_yield(co);
+                }
+
+            co_end(co);
+        };
+        enemy_room.physics = zyy::db::prefab_t::physics_t {
+            .flags = zyy::PhysicsEntityFlags_Static,
+            .shapes = {
+                zyy::db::prefab_t::physics_t::shape_t{
+                    .shape = physics::collider_shape_type::TRIMESH,
+                },
+                zyy::db::prefab_t::physics_t::shape_t{
+                    .shape = physics::collider_shape_type::SPHERE,
+                    .flags = 1,
+                    .sphere = {
+                        .radius = 10.0f,
+                    },
+                },
+            },
+        };
+        auto* e_room = zyy::spawn(world, world->render_system(), enemy_room, axis::forward * 150.0f);
+            e_room->gfx.material_id = 1;
+            e_room->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+                auto* self = (zyy::entity_t*)trigger->user_data;
+                auto* o = (zyy::entity_t*)other->user_data;
+                auto* world = (zyy::world_t*)trigger->api->user_world;
+                if (o->type == zyy::entity_type::player) 
+                {
+                    self->coroutine->start();
+                }
+            };
+    });
+    return generator;
+}
+
+world_generator_t*
 generate_world_0(arena_t* arena) {
     auto* generator = arena_alloc<world_generator_t>(arena);
     generator->arena = arena;

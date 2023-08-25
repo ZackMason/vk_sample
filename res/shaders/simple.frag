@@ -17,8 +17,10 @@ layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 struct ObjectData {
 	mat4 model;
 
+	vec4 bounds;
+
 	uint material_id;
-	uint padding[3 + 4*3];
+	uint padding[3 + 4*2];
 };
 
 layout(std430, set = 1, binding = 0) readonly buffer ObjectBuffer {

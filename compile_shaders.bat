@@ -1,5 +1,7 @@
 
-set IncFlags=-Ires/shaders/utl
+set IncFlags=-Ires/shaders/utl -Ires/shaders/rt
+
+glslc %IncFlags% res/shaders/rt_compute.comp -o res/shaders/bin/rt_compute.comp.spv
 
 glslc %IncFlags% res/shaders/screen.vert -o res/shaders/bin/screen.vert.spv
 

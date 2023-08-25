@@ -426,6 +426,8 @@ public:
         }
     };
 
+#include "raytracing.hpp"
+
     struct material_node_t : public gfx::material_t, node_t<material_node_t> {
         using gfx::material_t::material_t;
 
@@ -707,6 +709,7 @@ public:
         pp_pass_t postprocess_pass{};
         mesh_pass_t mesh_pass{};
         anim_pass_t anim_pass{};
+        rt_compute_pass_t rt_compute_pass{};
 
         gfx::vul::descriptor_allocator_t* dynamic_descriptor_allocator{nullptr};
 
@@ -715,8 +718,9 @@ public:
 
     struct render_data_t {
         m44 model;
+        v4f bounds;
         u32 mat_id;
-        u32 padding[3+4*3];
+        u32 padding[3+4*2];
     };
 
     struct frame_image_t {
@@ -731,6 +735,18 @@ public:
         }
     };
 
+
+    struct padded_vertex_t {
+        v3f p;
+        float p0;
+        v3f n;
+        float p1;
+        v3f c;
+        float p2;
+        v2f t;
+        float p3;
+        float p4;
+    };
     
     struct system_t {
         inline static constexpr umm  frame_arena_size = megabytes(64);
@@ -791,6 +807,9 @@ public:
         gfx::vul::storage_buffer_t<environment_t, 1>        environment_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 256>                animation_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 2'000'000>          instance_storage_buffer;
+
+        gfx::vul::storage_buffer_t<padded_vertex_t, max_scene_vertex_count> vertex_storage_buffer;
+        gfx::vul::storage_buffer_t<u32, max_scene_index_count> index_storage_buffer;
 
         m44 vp{1.0f};
         m44 projection{1.0f};
@@ -914,6 +933,7 @@ public:
 
         rs->frame_images[0].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         rs->frame_images[1].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        rs->frame_images[6].texture.format = VK_FORMAT_R8G8B8A8_UNORM;
         // rs->frame_images[0].texture.image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         state.load_texture_sampler(&rs->frame_images[0].texture);
         state.load_texture_sampler(&rs->frame_images[1].texture);
@@ -923,12 +943,28 @@ public:
         state.create_depth_stencil_image(&rs->frame_images[4].texture, w, h);
         state.create_depth_stencil_image(&rs->frame_images[5].texture, w, h);
 
+        {
+            arena_t ta = rs->arena; // temp arena
+            u32* pixels = arena_alloc<u32>(&ta, w * h);
+            range_u64(x, 0, w) {
+                range_u64(y, 0, h) {
+                    pixels[y*w+x] = (u32)utl::rng::random_s::rand();
+                }
+            }
+            state.create_texture(&rs->frame_images[6].texture, w, h, 4, 0, (u8*)pixels);
+            state.load_texture_sampler(&rs->frame_images[6].texture, true);
+        }
+
         state.create_storage_buffer(&rs->job_storage_buffers[0]);
         state.create_storage_buffer(&rs->job_storage_buffers[1]);
         state.create_storage_buffer(&rs->material_storage_buffer);
         state.create_storage_buffer(&rs->environment_storage_buffer);
         state.create_storage_buffer(&rs->animation_storage_buffer);
         state.create_storage_buffer(&rs->instance_storage_buffer);
+        
+        // rt vertices
+        state.create_storage_buffer(&rs->vertex_storage_buffer);
+        state.create_storage_buffer(&rs->index_storage_buffer);
 
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
         rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{0.5f,0.9f,0.2f}),0.0f};
@@ -944,6 +980,22 @@ public:
                 rs->material_storage_buffer.buffer,
                 rs->environment_storage_buffer.buffer
             };
+            VkBuffer rt_buffers[]{
+                state.sporadic_uniform_buffer.buffer,
+                rs->job_storage_buffer().buffer,
+                rs->instance_storage_buffer.buffer,
+                rs->frames[i].indexed_indirect_storage_buffer.buffer,
+                rs->material_storage_buffer.buffer,
+                rs->environment_storage_buffer.buffer,
+                rs->vertex_storage_buffer.buffer,
+                rs->index_storage_buffer.buffer,
+            };
+            {
+                auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
+                rs->frames[i].rt_compute_pass.build_buffer_sets(builder, rt_buffers);
+                rs->frames[i].rt_compute_pass.bind_images(builder, rs->texture_cache, &rs->frame_images[6].texture);
+                rs->frames[i].rt_compute_pass.build_layout(state.device);
+            }
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
                 rs->frames[i].mesh_pass.build_buffer_sets(builder, buffers);
@@ -1015,6 +1067,7 @@ public:
         u64 mesh_id,
         u32 mat_id, // todo(zack): remove this
         m44 transform,
+        v4f bounds,
         u32 instance_count = 1,
         u32 instance_offset = 0
     ) {
@@ -1042,6 +1095,7 @@ public:
         auto* gpu_job = rs->job_storage_buffer().pool.allocate(1);
         gpu_job->model = transform;
         gpu_job->mat_id = mat_id;
+        gpu_job->bounds = bounds;
         // gpu_job->padding[0] = mat->padding[0];
         // gpu_job->padding[1] = mat->padding[1];
         gpu_job->padding[2] = instance_offset; // instance offset
@@ -1694,6 +1748,9 @@ public:
 
         vkCmdDraw(command_buffer, 3, 1, 0, 0);
     };
+
+    #include "raytrace_pass.hpp"
+
 };
 
 
