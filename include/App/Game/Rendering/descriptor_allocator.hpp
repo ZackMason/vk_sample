@@ -43,7 +43,7 @@ struct descriptor_allocator_t {
     VkDescriptorPool used_pools[MAX_DESCRIPTOR_POOLS];
     VkDescriptorPool free_pools[MAX_DESCRIPTOR_POOLS];
 
-    pool_size_t descriptor_sizes[11]{
+    pool_size_t descriptor_sizes[12]={
         { VK_DESCRIPTOR_TYPE_SAMPLER, 0.5f },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4.f },
         { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4.f },
@@ -54,7 +54,8 @@ struct descriptor_allocator_t {
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2.f },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1.f },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1.f },
-        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0.5f }
+        { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1.f},
+        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0.5f },
     };
 };
 
@@ -265,7 +266,7 @@ struct descriptor_builder_t {
         };
     }
 
-    descriptor_builder_t& bind_buffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
+    descriptor_builder_t& bind_buffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlags, void* next = nullptr);
     descriptor_builder_t& bind_image(uint32_t binding, VkDescriptorImageInfo* imageInfo, u32 image_count, VkDescriptorType type, VkShaderStageFlags stageFlags);
 
     bool build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
@@ -282,7 +283,8 @@ descriptor_builder_t& descriptor_builder_t::bind_buffer(
     uint32_t binding, 
     VkDescriptorBufferInfo* bufferInfo, 
     VkDescriptorType type, 
-    VkShaderStageFlags stageFlags
+    VkShaderStageFlags stageFlags,
+    void* next  // for rtx ext
 ) {
     //create the descriptor binding for the layout
     VkDescriptorSetLayoutBinding newBinding{};
@@ -298,7 +300,7 @@ descriptor_builder_t& descriptor_builder_t::bind_buffer(
     //create the descriptor write
     VkWriteDescriptorSet newWrite{};
     newWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    newWrite.pNext = nullptr;
+    newWrite.pNext = next;
 
     newWrite.descriptorCount = 1;
     newWrite.descriptorType = type;

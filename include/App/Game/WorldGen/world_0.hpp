@@ -73,7 +73,7 @@ generate_crash_test(arena_t* arena) {
     auto* generator = generate_world_test(arena);
 
     generator->add_step("Placing Weapons", WORLD_STEP_TYPE_LAMBDA(items) {
-        SPAWN_GUN(zyy::db::weapons::shotgun, axis::right * 30.0f);        
+        SPAWN_GUN(zyy::db::weapons::shotgun, axis::right * 30.0f + axis::up * 2.0f);
     });
 
     return generator;
@@ -224,7 +224,7 @@ generate_world_0(arena_t* arena) {
     });
     generator->add_step("Placing Weapons", WORLD_STEP_TYPE_LAMBDA(items) {
         SPAWN_GUN(zyy::db::weapons::shotgun, axis::right * 135.0f + axis::up * 3.0f);
-        SPAWN_GUN(zyy::db::weapons::smg, axis::right * 125.0f + axis::up * 3.0f);
+        // SPAWN_GUN(zyy::db::weapons::smg, axis::right * 125.0f + axis::up * 3.0f);
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         // zyy::spawn(world, world->render_system(), zyy::db::rooms::sponza);

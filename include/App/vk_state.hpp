@@ -224,6 +224,12 @@ end_render_pass(
     vkCmdEndRenderPass(cmd);
 }
 
+struct scratch_buffer_t {
+    u64 device_address;
+    VkBuffer buffer;
+    VkDeviceMemory memory;
+};
+
 struct state_t {
     VkInstance instance;
     VkPhysicalDevice gpu_device;
@@ -267,8 +273,11 @@ struct state_t {
     texture_2d_t null_texture;
     texture_2d_t depth_stencil_texture;
     
-
     VkDebugUtilsMessengerEXT debug_messenger;
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR enabled_acceleration_structure_features_KHR{};
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabled_ray_tracing_pipeline_features_KHR{};
+    VkPhysicalDeviceBufferDeviceAddressFeaturesKHR enabled_buffer_device_address_features_KHR{};
 
     VkPhysicalDeviceShaderObjectFeaturesEXT enabled_shader_object_features_EXT{};
 	VkPhysicalDeviceDynamicRenderingFeaturesKHR enabled_dynamic_rendering_features_KHR{};
@@ -277,6 +286,17 @@ struct state_t {
         // VK_EXT_shader_objects requires render passes to be dynamic
         PFN_vkCmdBeginRenderingKHR vkCmdBeginRenderingKHR;
         PFN_vkCmdEndRenderingKHR vkCmdEndRenderingKHR;
+
+        PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+
+        PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+        PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+        PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+        PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+        PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+        PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
+        PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+        PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
     } khr;
 
     struct ext_functions_t {
@@ -360,6 +380,8 @@ struct state_t {
     void load_texture_sampler(texture_2d_t* texture, std::string_view path, arena_t* arena);
     void load_font_sampler(arena_t* arena, texture_2d_t* texture, font_t* font);
 
+    VkPipelineShaderStageCreateInfo load_shader(std::string_view name, VkShaderStageFlagBits stage);
+
     template <typename T>
     VkResult create_uniform_buffer(uniform_buffer_t<T>* buffer) {
         const auto r = create_data_buffer(sizeof(T), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, buffer);
@@ -381,7 +403,7 @@ struct state_t {
 
     template <typename T, size_t N>
     VkResult create_vertex_buffer(vertex_buffer_t<T, N>* buffer) {
-        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, buffer);
+        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer);
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(T) * N, 0, &gpu_ptr);
         buffer->pool = utl::pool_t<T>{(T*)gpu_ptr, N};
@@ -398,6 +420,7 @@ struct state_t {
     }
 
     VkResult create_data_buffer(VkDeviceSize size, VkBufferUsageFlags usage, gpu_buffer_t* buffer);
+    VkResult map_data_buffer(gpu_buffer_t* buffer, void*& data);
     VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data);
     VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data, size_t size);
 
@@ -415,6 +438,23 @@ struct state_t {
         VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags props,
         texture_2d_t* texture
     );
+
+    scratch_buffer_t create_scratch_buffer(VkDeviceSize size);
+    void destroy_scratch_buffer(scratch_buffer_t& buffer) {
+        if (buffer.memory != VK_NULL_HANDLE) {
+            vkFreeMemory(device, buffer.memory, 0);
+        }
+        if (buffer.buffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, buffer.buffer, 0);
+        }
+    }
+    
+    u64 get_buffer_device_address(VkBuffer buffer) {
+        VkBufferDeviceAddressInfoKHR vbdai{};
+        vbdai.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        vbdai.buffer = buffer;
+        return khr.vkGetBufferDeviceAddressKHR(device, &vbdai);
+    }
 };
 
 struct quick_cmd_raii_t {

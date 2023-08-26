@@ -193,11 +193,19 @@ void main() {
 
     if (best_hit.dist < RAY_MAX) {
         Ray bounce2;
+        Ray light_bounce = bounce;
         best_hit = CreateRayHit();
         // bounce.direction = L;
-        // direct *= vec3(1.0) - trace_scene(bounce, bounce2);
         direct += trace_scene(bounce, best_hit, bounce2) * 0.5;
+        // light_bounce.direction = L;
+        // light_bounce.direction = mix(light_bounce.direction, hemisphere_random(light_bounce.direction, Sporadic.uTime * dot(uv,uv)), 0.01);
+        // best_hit = CreateRayHit();
+        
+        // trace_scene(light_bounce, best_hit, bounce2);
+        // direct *= //vec3(1.0) - 
+        // (best_hit.dist < RAY_MAX ? 0.0 : 1.0);
         resultColor.rgb = direct;
+        // resultColor.rgb = min(resultColor.rgb, direct);
         // resultColor.rgb = max(resultColor.rgb, direct);
     }
 

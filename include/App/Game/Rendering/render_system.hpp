@@ -49,7 +49,7 @@ namespace rendering {
             return meshes.size() - 1;
         }
 
-        const gfx::mesh_list_t& get(u64 id) const {
+        gfx::mesh_list_t& get(u64 id) {
             assert(id < meshes.size() && "Mesh is not loaded");
             return meshes[id]->mesh;
         }
@@ -453,6 +453,7 @@ public:
 
         m44                         transform{1.0f};
         u32                         instance_count{1};
+        u32                         blas_id{0};
     };
 
     struct render_pass_t {
@@ -825,6 +826,8 @@ public:
 
         RenderingStats stats{};
 
+        rt_cache_t* rt_cache{0};
+
         v4f viewport() const {
             return v4f{0,0,(f32)width, (f32)height};
         }
@@ -969,6 +972,8 @@ public:
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
         rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{0.5f,0.9f,0.2f}),0.0f};
 
+        rs->rt_cache = arena_alloc_ctor<rt_cache_t>(&rs->arena, 1, state);
+
         range_u64(i, 0, array_count(rs->frames)) {
             state.create_storage_buffer(&rs->frames[i].indexed_indirect_storage_buffer, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
             
@@ -995,6 +1000,13 @@ public:
                 rs->frames[i].rt_compute_pass.build_buffer_sets(builder, rt_buffers);
                 rs->frames[i].rt_compute_pass.bind_images(builder, rs->texture_cache, &rs->frame_images[6].texture);
                 rs->frames[i].rt_compute_pass.build_layout(state.device);
+                rs->frames[i].rt_compute_pass.build_descriptors(
+                    state,
+                    rs->texture_cache,
+                    &rs->rt_cache->mesh_data_buffer,
+                    gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator),
+                    &rs->frame_images[6].texture
+                );
             }
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
@@ -1046,6 +1058,8 @@ public:
     
         lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
+        rs->rt_cache->init(state, rs->frames[0].rt_compute_pass.descriptor_set_layouts[0]);
+
         return rs;
     }
 
@@ -1057,6 +1071,9 @@ public:
         rs->get_frame_data().dynamic_descriptor_allocator->reset_pools();        
         rs->job_storage_buffer().pool.clear();
         rs->get_frame_data().indexed_indirect_storage_buffer.pool.clear();
+
+        rs->get_frame_data().rt_compute_pass.instance_count = 0;
+
 
         arena_clear(&rs->frame_arena);
     }
@@ -1079,6 +1096,13 @@ public:
         job->instance_count = instance_count;
 
         for (size_t i = 0; i < job->meshes->count; i++) {
+            rs->get_frame_data().rt_compute_pass.add_to_tlas(
+                *rs->vk_gfx,
+                *rs->rt_cache,
+                job->meshes->meshes[i].blas,
+                transform
+            );
+
             gfx::indirect_indexed_draw_t* draw_cmd = rs->get_frame_data().indexed_indirect_storage_buffer.pool.allocate(1);
             draw_cmd->index_count = job->meshes->meshes[i].index_count;
             draw_cmd->instance_count = std::max(instance_count, 1ui32);
@@ -1436,6 +1460,7 @@ public:
                 loaded_mesh.meshes[m].material.normal_id = (mask&0x2) ? ids[1] : std::numeric_limits<u64>::max();
             }
 
+
             return add_mesh(rs, name, loaded_mesh);
         }
         return id;
@@ -1447,7 +1472,9 @@ public:
         std::string_view name
     ) {
         std::lock_guard lock{rs->ticket};
-        return get_mesh_id(rs, name);
+        u64 id = get_mesh_id(rs, name);
+        rs->rt_cache->build_blas(*rs->vk_gfx, rs->mesh_cache.get(id), &rs->vertices.pool[0], &rs->indices.pool[0]);
+        return id;
     }
 
     inline const gfx::mesh_list_t&

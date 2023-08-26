@@ -1184,7 +1184,7 @@ present_frame(game_state_t* game_state, VkCommandBuffer command_buffer, u32 imag
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[frame_count%2]) != VK_SUCCESS) {
-        zyy_error("vk:submit", "failed to submit draw command buffer!");
+        zyy_error(__FUNCTION__, "failed to submit draw command buffer!");
         std::terminate();
     }
 
@@ -1215,6 +1215,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
     game_state->scene.sporadic_buffer.time = game_state->input().time;
     *vk_gfx.sporadic_uniform_buffer.data = game_state->scene.sporadic_buffer;
 
+    if (0)
     {
         auto* rs = game_state->render_system;
         auto& command_buffer = vk_gfx.compute_command_buffer[frame_count%2];
@@ -1285,6 +1286,8 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
         auto command_buffer_begin_info = gfx::vul::utl::command_buffer_begin_info();
         VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
+
+            rendering::begin_rt_pass(game_state->render_system, command_buffer);
     
         VkBuffer buffers[1] = { game_state->render_system->vertices.buffer };
         VkDeviceSize offsets[1] = { 0 };

@@ -251,6 +251,7 @@ struct _auto_deferer_t {
 #define terabytes(x) (gigabytes(x)*1024ull)
 #define align16(val) ((val + 15) & ~15)
 #define align4(val) ((val + 3) & ~3)
+#define align_2n(val, size) ((val + size-1) & ~(size-1))
 
 
 #define to_secs(x) (f32(x/1000))
@@ -1991,15 +1992,15 @@ intersect(const ray_t& ray, const triangle_t& tri, f32& t) noexcept {
 }
 
 
-bool intersect_aabb_slab( const ray_t& ray, const v3f bmin, const v3f bmax )
+bool intersect_aabb_slab( const ray_t& ray, float t, const v3f bmin, const v3f bmax )
 {
-    float tx1 = (bmin.x - ray.O.x) / ray.D.x, tx2 = (bmax.x - ray.O.x) / ray.D.x;
-    float tmin = min( tx1, tx2 ), tmax = max( tx1, tx2 );
-    float ty1 = (bmin.y - ray.O.y) / ray.D.y, ty2 = (bmax.y - ray.O.y) / ray.D.y;
-    tmin = max( tmin, min( ty1, ty2 ) ), tmax = min( tmax, max( ty1, ty2 ) );
-    float tz1 = (bmin.z - ray.O.z) / ray.D.z, tz2 = (bmax.z - ray.O.z) / ray.D.z;
-    tmin = max( tmin, min( tz1, tz2 ) ), tmax = min( tmax, max( tz1, tz2 ) );
-    return tmax >= tmin && tmin < ray.t && tmax > 0;
+    float tx1 = (bmin.x - ray.origin.x) / ray.direction.x, tx2 = (bmax.x - ray.origin.x) / ray.direction.x;
+    float tmin = glm::min( tx1, tx2 ), tmax = glm::max( tx1, tx2 );
+    float ty1 = (bmin.y - ray.origin.y) / ray.direction.y, ty2 = (bmax.y - ray.origin.y) / ray.direction.y;
+    tmin = glm::max( tmin, glm::min( ty1, ty2 ) ), tmax = glm::min( tmax, glm::max( ty1, ty2 ) );
+    float tz1 = (bmin.z - ray.origin.z) / ray.direction.z, tz2 = (bmax.z - ray.origin.z) / ray.direction.z;
+    tmin = glm::max( tmin, glm::min( tz1, tz2 ) ), tmax = glm::min( tmax, glm::max( tz1, tz2 ) );
+    return tmax >= tmin && tmin < t && tmax > 0;
 }
 
 inline hit_result_t          //<u64> 
@@ -2244,6 +2245,7 @@ struct indirect_indexed_draw_t {
     u32     instance_count{};
     u32     first_index{};
     i32     vertex_offset{};
+
     u32     first_instance{};
     u32     albedo_id{};
     u32     normal_id{};
@@ -2291,6 +2293,10 @@ struct mesh_view_t {
     material_info_t material{};
 
     math::aabb_t<v3f> aabb{};
+
+    // for RTX
+    u32 blas{0};
+    // u32 hit{0};
 };
 
 struct mesh_list_t {
@@ -2433,8 +2439,6 @@ struct bvh_node_t {
 };
 
 struct bvh_tree_t {
-    u32* index_remap{0};
-    u64 index_count{0};
     bvh_node_t* nodes{0};
     u64 node_count{0};
     u64 root{0};
@@ -2443,7 +2447,12 @@ struct bvh_tree_t {
     u64 vertex_count{0};
     u32* indices{0};
     u64 index_count{0};
+    u32* tri_remap{0};
 };
+
+void subdivide(bvh_tree_t* tree, u64 id) {
+
+}
 
 void update_node_bounds(bvh_tree_t* tree, u64 id) {
     auto* node = &tree->nodes[id];
@@ -2452,25 +2461,21 @@ void update_node_bounds(bvh_tree_t* tree, u64 id) {
     range_u64(i, node->left_first, node->tri_count) {
         auto* t = tree->indices + i * 3;
         auto* v = tree->vertices;
-        v3f tri[3];
-        tri[0] = v[t[0]];
-        tri[1] = v[t[1]];
-        tri[2] = v[t[2]];
-        node->min = glm::min(v[t[0]], node->min);
-        node->max = glm::max(v[t[0]], node->max);
-        node->min = glm::min(v[t[1]], node->min);
-        node->max = glm::max(v[t[1]], node->max);
-        node->min = glm::min(v[t[2]], node->min);
-        node->max = glm::max(v[t[2]], node->max);
+        node->min = glm::min(v[t[0]].pos, node->min);
+        node->max = glm::max(v[t[0]].pos, node->max);
+        node->min = glm::min(v[t[1]].pos, node->min);
+        node->max = glm::max(v[t[1]].pos, node->max);
+        node->min = glm::min(v[t[2]].pos, node->min);
+        node->max = glm::max(v[t[2]].pos, node->max);
     }
 }
 
 void build_bvh(
-    bvh_tree_t* tree,
+    bvh_tree_t* tree
 ) {
     auto* root = &tree->nodes[tree->root];
     root->left_first = 0;
-    root->tri_count = index_count/3;
+    root->tri_count = safe_truncate_u64(tree->index_count/3);
 
     update_node_bounds(tree, tree->root);
     subdivide(tree, tree->root);

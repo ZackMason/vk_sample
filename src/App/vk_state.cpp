@@ -49,26 +49,38 @@ std::string error_string(VkResult errorCode) {
 
 void load_extension_functions(state_t& state) {
     auto& device = state.device;
-    state.ext.vkCreateShadersEXT = reinterpret_cast<PFN_vkCreateShadersEXT>(vkGetDeviceProcAddr(device, "vkCreateShadersEXT"));
-    state.ext.vkDestroyShaderEXT = reinterpret_cast<PFN_vkDestroyShaderEXT>(vkGetDeviceProcAddr(device, "vkDestroyShaderEXT"));
-    state.ext.vkCmdBindShadersEXT = reinterpret_cast<PFN_vkCmdBindShadersEXT>(vkGetDeviceProcAddr(device, "vkCmdBindShadersEXT"));
-    state.ext.vkGetShaderBinaryDataEXT = reinterpret_cast<PFN_vkGetShaderBinaryDataEXT>(vkGetDeviceProcAddr(device, "vkGetShaderBinaryDataEXT"));
+#define LOAD_FN(name) name = reinterpret_cast<PFN_ ## name>(vkGetDeviceProcAddr(device, #name));
+    state.ext.LOAD_FN(vkCreateShadersEXT);
+    state.ext.LOAD_FN(vkDestroyShaderEXT);
+    state.ext.LOAD_FN(vkCmdBindShadersEXT);
+    state.ext.LOAD_FN(vkGetShaderBinaryDataEXT);
+    state.khr.LOAD_FN(vkCmdBeginRenderingKHR);
+    state.khr.LOAD_FN(vkCmdEndRenderingKHR);
 
-    state.khr.vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(vkGetDeviceProcAddr(device, "vkCmdBeginRenderingKHR"));
-    state.khr.vkCmdEndRenderingKHR = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(vkGetDeviceProcAddr(device, "vkCmdEndRenderingKHR"));
+    state.khr.LOAD_FN(vkGetBufferDeviceAddressKHR);
+    state.khr.LOAD_FN(vkGetAccelerationStructureBuildSizesKHR);
+    state.khr.LOAD_FN(vkCreateAccelerationStructureKHR);
+    state.khr.LOAD_FN(vkCmdBuildAccelerationStructuresKHR);
+    state.khr.LOAD_FN(vkGetRayTracingShaderGroupHandlesKHR);
+    state.khr.LOAD_FN(vkCreateRayTracingPipelinesKHR);
+    state.khr.LOAD_FN(vkDestroyAccelerationStructureKHR);
+    state.khr.LOAD_FN(vkCmdTraceRaysKHR);
+    state.khr.LOAD_FN(vkGetAccelerationStructureDeviceAddressKHR);
 
-    state.ext.vkCmdSetViewportWithCountEXT = reinterpret_cast<PFN_vkCmdSetViewportWithCountEXT>(vkGetDeviceProcAddr(device, "vkCmdSetViewportWithCountEXT"));;
-    state.ext.vkCmdSetScissorWithCountEXT = reinterpret_cast<PFN_vkCmdSetScissorWithCountEXT>(vkGetDeviceProcAddr(device, "vkCmdSetScissorWithCountEXT"));
-    state.ext.vkCmdSetCullModeEXT = reinterpret_cast<PFN_vkCmdSetCullModeEXT>(vkGetDeviceProcAddr(device, "vkCmdSetCullModeEXT"));
-    state.ext.vkCmdSetDepthCompareOpEXT = reinterpret_cast<PFN_vkCmdSetDepthCompareOpEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthCompareOpEXT"));
-    state.ext.vkCmdSetDepthTestEnableEXT = reinterpret_cast<PFN_vkCmdSetDepthTestEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthTestEnableEXT"));
-    state.ext.vkCmdSetDepthWriteEnableEXT = reinterpret_cast<PFN_vkCmdSetDepthWriteEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetDepthWriteEnableEXT"));
-    state.ext.vkCmdSetFrontFaceEXT = reinterpret_cast<PFN_vkCmdSetFrontFaceEXT>(vkGetDeviceProcAddr(device, "vkCmdSetFrontFaceEXT"));
-    state.ext.vkCmdSetPolygonModeEXT = reinterpret_cast<PFN_vkCmdSetPolygonModeEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPolygonModeEXT"));
-    state.ext.vkCmdSetPrimitiveTopologyEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveTopologyEXT>(vkGetDeviceProcAddr(device, "vkCmdSetPrimitiveTopologyEXT"));
-    state.ext.vkCmdSetVertexInputEXT = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(vkGetDeviceProcAddr(device, "vkCmdSetVertexInputEXT"));
+    state.ext.LOAD_FN(vkCmdSetViewportWithCountEXT);
+    state.ext.LOAD_FN(vkCmdSetScissorWithCountEXT);
+    state.ext.LOAD_FN(vkCmdSetCullModeEXT);
+    state.ext.LOAD_FN(vkCmdSetDepthCompareOpEXT);
+    state.ext.LOAD_FN(vkCmdSetDepthTestEnableEXT);
+    state.ext.LOAD_FN(vkCmdSetDepthWriteEnableEXT);
+    state.ext.LOAD_FN(vkCmdSetFrontFaceEXT);
+    state.ext.LOAD_FN(vkCmdSetPolygonModeEXT);
+    state.ext.LOAD_FN(vkCmdSetPrimitiveTopologyEXT);
+    state.ext.LOAD_FN(vkCmdSetVertexInputEXT);
 
-    state.ext.vkCmdSetColorBlendEnableEXT = reinterpret_cast<PFN_vkCmdSetColorBlendEnableEXT>(vkGetDeviceProcAddr(device, "vkCmdSetColorBlendEnableEXT"));
+    state.ext.LOAD_FN(vkCmdSetColorBlendEnableEXT);
+
+#undef LOAD_FN
 }
 
 VkSampleCountFlagBits get_max_usable_sample_count(VkPhysicalDevice gpu_device) {
@@ -112,7 +124,9 @@ find_memory_by_flag_and_type(VkPhysicalDevice gpu_device, u32 memoryFlagBits, u3
 		{
 			if( ( vmpf & memoryFlagBits ) != 0 )
 			{
+#if !NDEBUG
 				zyy_info("vk", "\n***** Found given memory flag ({}) and type ({}): i = {} *****\n", memoryFlagBits, memoryTypeBits, i );
+#endif
 				return i;
 			}
 		}
@@ -299,9 +313,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VK_KHR_MULTIVIEW_EXTENSION_NAME,
         VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
         VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
-        // VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME,
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
         VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
-        //"VK_NV_shader_module_validation_cache"
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+        VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+        // VK_KHR_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+        // VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME,
     };
 
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
@@ -496,11 +516,44 @@ state_t::end_single_time_commands(VkCommandBuffer cmd_buffer) {
 
     VK_OK(vkQueueSubmit(gfx_queue, 1, &submitInfo, fence));
     
-    VK_OK(vkWaitForFences(device, 1, &fence, VK_TRUE, 100000000000));
+    VK_OK(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
     vkDestroyFence(device, fence, nullptr);
 
     vkFreeCommandBuffers(device, command_pool, 1, &cmd_buffer);
 }
+
+scratch_buffer_t state_t::create_scratch_buffer(VkDeviceSize size) {
+    scratch_buffer_t scratch_buffer{};
+
+    VkBufferCreateInfo buffer_create_info = {};
+	buffer_create_info.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	buffer_create_info.size               = size;
+	buffer_create_info.usage              = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+	VK_OK(vkCreateBuffer(device, &buffer_create_info, nullptr, &scratch_buffer.buffer));
+
+	VkMemoryRequirements memory_requirements = {};
+	vkGetBufferMemoryRequirements(device, scratch_buffer.buffer, &memory_requirements);
+
+	VkMemoryAllocateFlagsInfo memory_allocate_flags_info = {};
+	memory_allocate_flags_info.sType                     = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+	memory_allocate_flags_info.flags                     = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+
+	VkMemoryAllocateInfo memory_allocate_info = {};
+	memory_allocate_info.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memory_allocate_info.pNext                = &memory_allocate_flags_info;
+	memory_allocate_info.allocationSize       = memory_requirements.size;
+	memory_allocate_info.memoryTypeIndex      = find_memory_that_is_device_local(gpu_device, memory_requirements.memoryTypeBits);
+	VK_OK(vkAllocateMemory(device, &memory_allocate_info, nullptr, &scratch_buffer.memory));
+	VK_OK(vkBindBufferMemory(device, scratch_buffer.buffer, scratch_buffer.memory, 0));
+
+	VkBufferDeviceAddressInfoKHR buffer_device_address_info{};
+	buffer_device_address_info.sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	buffer_device_address_info.buffer = scratch_buffer.buffer;
+	scratch_buffer.device_address     = khr.vkGetBufferDeviceAddressKHR(device, &buffer_device_address_info);
+
+    return scratch_buffer;
+}
+
 
 void 
 begin_render_pass(
@@ -929,15 +982,29 @@ void state_t::create_logical_device() {
     createInfo.enabledExtensionCount = safe_truncate_u64(internal::deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = internal::deviceExtensions.data();
     
-    // Note(ZacK): Setting up Shader Objects
-    enabled_shader_object_features_EXT.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT;
-    enabled_shader_object_features_EXT.shaderObject = VK_TRUE;
+    // Note(ZacK): Setting up RTX
+    enabled_acceleration_structure_features_KHR.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    enabled_ray_tracing_pipeline_features_KHR.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+    enabled_buffer_device_address_features_KHR.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
 
+    enabled_acceleration_structure_features_KHR.accelerationStructure = VK_TRUE;
+    enabled_ray_tracing_pipeline_features_KHR.rayTracingPipeline = VK_TRUE;
+    enabled_buffer_device_address_features_KHR.bufferDeviceAddress = VK_TRUE;
+
+    enabled_acceleration_structure_features_KHR.pNext = &enabled_ray_tracing_pipeline_features_KHR;
+    enabled_ray_tracing_pipeline_features_KHR.pNext = &enabled_buffer_device_address_features_KHR;
+    enabled_buffer_device_address_features_KHR.pNext = &enabled_dynamic_rendering_features_KHR;
+
+    // Note(ZacK): Setting up Shader Objects
     enabled_dynamic_rendering_features_KHR.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
     enabled_dynamic_rendering_features_KHR.dynamicRendering = VK_TRUE;
     enabled_dynamic_rendering_features_KHR.pNext = &enabled_shader_object_features_EXT;
 
-    createInfo.pNext = &enabled_dynamic_rendering_features_KHR;
+    enabled_shader_object_features_EXT.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT;
+    enabled_shader_object_features_EXT.shaderObject = VK_TRUE;
+
+    // createInfo.pNext = &enabled_dynamic_rendering_features_KHR;
+    createInfo.pNext = &enabled_acceleration_structure_features_KHR;
 
     if (internal::enable_validation) {
         createInfo.enabledLayerCount = static_cast<uint32_t>(internal::validationLayers.size());
@@ -1107,6 +1174,12 @@ void create_shader_objects_from_files(
 }
 
 VkResult 
+state_t::map_data_buffer(gpu_buffer_t* buffer, void*& data) {
+	vkMapMemory(device, buffer->vdm, 0, VK_WHOLE_SIZE, 0, &data);	// 0 and 0 are offset and flags
+	return VK_SUCCESS;
+}
+
+VkResult 
 state_t::fill_data_buffer(gpu_buffer_t* buffer, void* data, size_t size) {
     void* gpu_ptr;
 	vkMapMemory(device, buffer->vdm, 0, VK_WHOLE_SIZE, 0, &gpu_ptr);	// 0 and 0 are offset and flags
@@ -1144,6 +1217,10 @@ state_t::create_data_buffer(
 	VkMemoryRequirements			vmr;
 	vkGetBufferMemoryRequirements( device, buffer->buffer, &vmr );		// fills vmr
 
+    VkMemoryAllocateFlagsInfo memory_allocate_flags_info = {};
+	memory_allocate_flags_info.sType                     = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+	memory_allocate_flags_info.flags                     = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+
 	#if !NDEBUG
 		zyy_info("vk::create_data_buffer", "Buffer vmr.size = {}", vmr.size );
 		zyy_info("vk::create_data_buffer", "Buffer vmr.alignment = {}", vmr.alignment );
@@ -1152,7 +1229,7 @@ state_t::create_data_buffer(
 
 	VkMemoryAllocateInfo			vmai;
 		vmai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		vmai.pNext = nullptr;
+		vmai.pNext = &memory_allocate_flags_info;
 		vmai.allocationSize = vmr.size;
 		vmai.memoryTypeIndex = find_memory_that_is_host_visable(gpu_device, vmr.memoryTypeBits );
 
@@ -1329,6 +1406,20 @@ state_t::create_pipeline_state_descriptors(
         vdsai.pSetLayouts = pipeline->descriptor_set_layouts;
 
     VK_OK(vkAllocateDescriptorSets(device, &vdsai, pipeline->descriptor_sets));
+}
+
+VkPipelineShaderStageCreateInfo 
+state_t::load_shader(std::string_view name, VkShaderStageFlagBits stage) {
+    auto code = read_bin_file(name);
+    VkShaderModule shader_module = create_shader_module(device, code);
+
+    VkPipelineShaderStageCreateInfo shader_info{};
+    shader_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_info.stage = stage;
+    shader_info.module = shader_module;
+    shader_info.pName = "main";
+
+    return shader_info;
 }
 
 void 
