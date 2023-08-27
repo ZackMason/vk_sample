@@ -1194,6 +1194,20 @@ state_t::fill_data_buffer(gpu_buffer_t* buffer, void* data) {
 }
 
 VkResult
+state_t::destroy_data_buffer(gpu_buffer_t& buffer) {
+        if (buffer.vdm != VK_NULL_HANDLE) {
+            vkFreeMemory(device, buffer.vdm, 0);
+        }
+        if (buffer.buffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, buffer.buffer, 0);
+        }
+        buffer.size = 0;
+        buffer.buffer = 0;
+        buffer.vdm = 0;
+        return VK_SUCCESS;
+    }
+
+VkResult
 state_t::create_data_buffer(
     VkDeviceSize size, 
     VkBufferUsageFlags usage, 

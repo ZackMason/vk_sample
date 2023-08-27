@@ -41,17 +41,20 @@ void main()
     vec3 p = (v0.p * bary.x + v1.p * bary.y + v2.p * bary.z);
     vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
 
+    vec3 wp = (gl_ObjectToWorldEXT * vec4(p, 1.0)).xyz;
+    vec3 wn = (gl_ObjectToWorldEXT * vec4(n, 0.0)).xyz;
+
     vec3 albedo = texture(uTextureCache[nonuniformEXT(mesh.texture_id%4096)], uv).rgb;
     
     data.distance = gl_RayTmaxEXT;
     data.normal = n;
     
-	data.reflector = (mesh.texture_id == -1 ? 1.0f : 0.0f);
+	data.reflector = 1.0;// (mesh.texture_id == -1 ? 1.0f : 0.0f);
     data.color = vec3(tri) / vec3(tri+1);
 
     data.color = bary;
 
-    data.color = n;
+    data.color = wn;
     data.color = albedo;
     // data.color = vec3(0,1,0);
 }

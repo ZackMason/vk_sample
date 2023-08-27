@@ -197,13 +197,15 @@ struct rt_cache_t {
         zyy_warn(__FUNCTION__, "Building BLAS");
         const VkBufferUsageFlags buffer_usage_flags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
-        VkTransformMatrixKHR transform_matrix = {
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f};
+        // VkTransformMatrixKHR transform_matrix = {
+        //     1.0f, 0.0f, 0.0f, 0.0f,
+        //     0.0f, 1.0f, 0.0f, 0.0f,
+        //     0.0f, 0.0f, 1.0f, 0.0f};
 
         range_u64(i, 0, mesh.count) {
             auto& m = mesh.meshes[i];
+            if (m.blas!=0) continue;
+
             zyy_warn(__FUNCTION__, "Building BLAS Mesh: vs {}, vc {}, is {}, ic {}", m.vertex_start, m.vertex_count, m.index_start, m.index_count);
             auto b = blas_count++;
             auto& c_blas = blas[b];
@@ -214,20 +216,20 @@ struct rt_cache_t {
 
             VK_OK(gfx.create_data_buffer(vertex_buffer_size, buffer_usage_flags, &c_blas.vertex_buffer));
             VK_OK(gfx.create_data_buffer(index_buffer_size, buffer_usage_flags, &c_blas.index_buffer));
-            VK_OK(gfx.create_data_buffer(sizeof(transform_matrix), buffer_usage_flags, &c_blas.transform_buffer));
+            // VK_OK(gfx.create_data_buffer(sizeof(transform_matrix), buffer_usage_flags, &c_blas.transform_buffer));
 
-            VK_OK(gfx.fill_data_buffer(&c_blas.transform_buffer, &transform_matrix));
+            // VK_OK(gfx.fill_data_buffer(&c_blas.transform_buffer, &transform_matrix));
             VK_OK(gfx.fill_data_buffer(&c_blas.index_buffer, index_base + m.index_start));
             VK_OK(gfx.fill_data_buffer(&c_blas.vertex_buffer, vertex_base + m.vertex_start));
 
             VkDeviceOrHostAddressConstKHR vertex_buffer_device_address{};
             VkDeviceOrHostAddressConstKHR index_buffer_device_address{};
-            VkDeviceOrHostAddressConstKHR transform_buffer_device_address{};
+            // VkDeviceOrHostAddressConstKHR transform_buffer_device_address{};
 
             rt_data[b].texture_id = u32(m.material.albedo_id);
             rt_data[b].vertex_ptr = vertex_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(c_blas.vertex_buffer.buffer);
             rt_data[b].index_ptr = index_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(c_blas.index_buffer.buffer);
-            transform_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(c_blas.transform_buffer.buffer);
+            // transform_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(c_blas.transform_buffer.buffer);
 
             VkAccelerationStructureGeometryKHR acceleration_structure_geometry{};
             acceleration_structure_geometry.sType                            = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -433,7 +435,6 @@ struct rt_compute_pass_t {
             // .bind_buffer(4, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             // .bind_buffer(5, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .build(descriptor_sets[0], descriptor_set_layouts[0]);
-        
     }
     
 
@@ -444,6 +445,7 @@ struct rt_compute_pass_t {
         m44 t,
         umm transform_count = 1
     ) {
+        TIMED_FUNCTION;
         VkTransformMatrixKHR transform_matrix{};
         t = glm::transpose(t);
         std::memcpy(&transform_matrix, &t, sizeof(transform_matrix));
@@ -489,7 +491,8 @@ struct rt_compute_pass_t {
         acceleration_structure_build_geometry_info.geometryCount = 1;
         acceleration_structure_build_geometry_info.pGeometries   = &acceleration_structure_geometry;
 
-        const uint32_t primitive_count = instance_count;
+        const uint32_t primitive_count = array_count(tlas_instances);
+        // const uint32_t primitive_count = instance_count;
 
         VkAccelerationStructureBuildSizesInfoKHR acceleration_structure_build_sizes_info{};
         acceleration_structure_build_sizes_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
@@ -499,16 +502,28 @@ struct rt_compute_pass_t {
             &primitive_count,
             &acceleration_structure_build_sizes_info);
 
-        gfx.create_data_buffer(acceleration_structure_build_sizes_info.accelerationStructureSize,
-            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, &tlas.buffer);
-        
+
+        // if (update && tlas.buffer.buffer) {
+        //     gfx.destroy_data_buffer(tlas.buffer);
+        // }
+
         if (update == false) {
+            TIMED_BLOCK(build_tlas_CreateBuffer);
+
+            gfx.create_data_buffer(acceleration_structure_build_sizes_info.accelerationStructureSize,
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, &tlas.buffer);
+        
             VkAccelerationStructureCreateInfoKHR acceleration_structure_create_info{};
             acceleration_structure_create_info.sType  = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
             acceleration_structure_create_info.buffer = tlas.buffer.buffer;
             acceleration_structure_create_info.size   = acceleration_structure_build_sizes_info.accelerationStructureSize;
             acceleration_structure_create_info.type   = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
             gfx.khr.vkCreateAccelerationStructureKHR(gfx.device, &acceleration_structure_create_info, nullptr, &tlas.handle);
+
+            VkAccelerationStructureDeviceAddressInfoKHR acceleration_device_address_info{};
+            acceleration_device_address_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+            acceleration_device_address_info.accelerationStructure = tlas.handle;
+            tlas.device_address        = gfx.khr.vkGetAccelerationStructureDeviceAddressKHR(gfx.device, &acceleration_device_address_info);
         }
 
         auto scratch_buffer = gfx.create_scratch_buffer(acceleration_structure_build_sizes_info.buildScratchSize);
@@ -529,23 +544,20 @@ struct rt_compute_pass_t {
         acceleration_structure_build_range_info.primitiveOffset                                          = 0;
         acceleration_structure_build_range_info.firstVertex                                              = 0;
         acceleration_structure_build_range_info.transformOffset                                          = 0;
-        std::vector<VkAccelerationStructureBuildRangeInfoKHR *> acceleration_build_structure_range_infos = {&acceleration_structure_build_range_info};
+        VkAccelerationStructureBuildRangeInfoKHR * acceleration_build_structure_range_infos[] = {&acceleration_structure_build_range_info};
 
         {
+            TIMED_BLOCK(build_tlas_BuildAccelerationStructure);
             gfx::vul::quick_cmd_raii_t c{&gfx};
             VkCommandBuffer command_buffer = c.c();
             gfx.khr.vkCmdBuildAccelerationStructuresKHR(
                 command_buffer,
                 1,
                 &acceleration_build_geometry_info,
-                acceleration_build_structure_range_infos.data());
+                acceleration_build_structure_range_infos);
         }
         gfx.destroy_scratch_buffer(scratch_buffer);
 
-        VkAccelerationStructureDeviceAddressInfoKHR acceleration_device_address_info{};
-        acceleration_device_address_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-        acceleration_device_address_info.accelerationStructure = tlas.handle;
-        tlas.device_address        = gfx.khr.vkGetAccelerationStructureDeviceAddressKHR(gfx.device, &acceleration_device_address_info);
 
     }
 

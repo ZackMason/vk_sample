@@ -18,9 +18,9 @@ using VkDataBuffer = VkBuffer;
 namespace gfx::vul {
 
 struct gpu_buffer_t {
-	VkDataBuffer		buffer;
-	VkDeviceMemory		vdm;
-	VkDeviceSize		size;
+	VkDataBuffer		buffer{VK_NULL_HANDLE};
+	VkDeviceMemory		vdm{0};
+	VkDeviceSize		size{0};
     virtual ~gpu_buffer_t() = default;
 };
 
@@ -423,6 +423,8 @@ struct state_t {
     VkResult map_data_buffer(gpu_buffer_t* buffer, void*& data);
     VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data);
     VkResult fill_data_buffer(gpu_buffer_t* buffer, void* data, size_t size);
+    VkResult destroy_data_buffer(gpu_buffer_t& buffer);
+
 
     void create_pipeline_state(pipeline_state_t* pipeline, pipeline_state_t::create_info_t* create_info, VkRenderPass render_pass);
     void create_pipeline_state_descriptors(pipeline_state_t* pipeline, pipeline_state_t::create_info_t* create_info);

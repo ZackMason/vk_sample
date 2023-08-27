@@ -38,10 +38,11 @@ void main()
 
         traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
 
+        image_color += data.color / pow(2, i);
         if (data.distance < 0.0) {
-            image_color += data.color;
             break;
-        } else if (data.reflector == 1.0) {
+        }
+        else if (data.reflector == 1.0) {
             vec4 h = origin + direction * data.distance;
             origin.xyz = h.xyz + data.normal * 0.001f;
             direction.xyz = reflect(direction.xyz, data.normal);
@@ -49,10 +50,10 @@ void main()
         } else {
             image_color += data.color;
             break;
-        }
+        } 
     }
 
     // data.color.rg = inUV;
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(data.color, 0.0));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(image_color, 0.0));
 }

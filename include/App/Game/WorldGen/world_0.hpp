@@ -85,7 +85,7 @@ generate_sponza(arena_t* arena) {
 
     generator->add_step("Sponza", WORLD_STEP_TYPE_LAMBDA(environment){
         zyy::spawn(world, world->render_system(),
-            zyy::db::rooms::sponza, axis::down);
+            zyy::db::rooms::sponza, axis::up);
     });
 
     return generator;
