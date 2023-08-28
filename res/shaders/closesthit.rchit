@@ -37,14 +37,22 @@ void main()
     Vertex v1 = vertices.v[tri.y];
     Vertex v2 = vertices.v[tri.z];
 
+    vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
+    vec4 albedo = texture(uTextureCache[nonuniformEXT(mesh.texture_id%4096)], uv);
+
+    if (albedo.a < 0.8) {
+        data.normal = data.normal;
+        data.distance = gl_RayTmaxEXT + 0.005;
+        data.reflector = 1.0;
+        return;
+    }
+
     vec3 n = normalize(v0.n * bary.x + v1.n * bary.y + v2.n * bary.z);
     vec3 p = (v0.p * bary.x + v1.p * bary.y + v2.p * bary.z);
-    vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
 
     vec3 wp = (gl_ObjectToWorldEXT * vec4(p, 1.0)).xyz;
     vec3 wn = (gl_ObjectToWorldEXT * vec4(n, 0.0)).xyz;
 
-    vec3 albedo = texture(uTextureCache[nonuniformEXT(mesh.texture_id%4096)], uv).rgb;
     
     data.distance = gl_RayTmaxEXT;
     data.normal = n;
@@ -55,6 +63,6 @@ void main()
     data.color = bary;
 
     data.color = wn;
-    data.color = albedo;
+    data.color = albedo.rgb;
     // data.color = vec3(0,1,0);
 }

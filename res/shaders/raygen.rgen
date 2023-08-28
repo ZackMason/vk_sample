@@ -42,7 +42,7 @@ void main()
         if (data.distance < 0.0) {
             break;
         }
-        else if (data.reflector == 1.0) {
+        else if (data.reflector >= 1.0) {
             vec4 h = origin + direction * data.distance;
             origin.xyz = h.xyz + data.normal * 0.001f;
             direction.xyz = reflect(direction.xyz, data.normal);

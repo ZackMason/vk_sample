@@ -1091,17 +1091,20 @@ public:
         TIMED_FUNCTION;
 
         auto* job = rs->render_jobs[rs->frame_count%rs->frame_overlap] + rs->render_job_count++;
+        auto* instance_buffer = &rs->instance_storage_buffer.pool[0];
         job->meshes = &rs->mesh_cache.get(mesh_id);
         job->material = mat_id;
         job->instance_count = instance_count;
 
         for (size_t i = 0; i < job->meshes->count; i++) {
-            rs->get_frame_data().rt_compute_pass.add_to_tlas(
-                *rs->vk_gfx,
-                *rs->rt_cache,
-                job->meshes->meshes[i].blas,
-                transform
-            );
+            for (size_t j = 0; j < instance_count; j++) {
+                rs->get_frame_data().rt_compute_pass.add_to_tlas(
+                    *rs->vk_gfx,
+                    *rs->rt_cache,
+                    job->meshes->meshes[i].blas,
+                    instance_count == 1 ? transform : transform * instance_buffer[instance_offset + j]
+                );
+            }
 
             gfx::indirect_indexed_draw_t* draw_cmd = rs->get_frame_data().indexed_indirect_storage_buffer.pool.allocate(1);
             draw_cmd->index_count = job->meshes->meshes[i].index_count;
@@ -1460,6 +1463,7 @@ public:
                 loaded_mesh.meshes[m].material.normal_id = (mask&0x2) ? ids[1] : std::numeric_limits<u64>::max();
             }
 
+            rs->rt_cache->build_blas(*rs->vk_gfx, loaded_mesh, &rs->vertices.pool[0], &rs->indices.pool[0]);
 
             return add_mesh(rs, name, loaded_mesh);
         }
@@ -1473,7 +1477,6 @@ public:
     ) {
         std::lock_guard lock{rs->ticket};
         u64 id = get_mesh_id(rs, name);
-        rs->rt_cache->build_blas(*rs->vk_gfx, rs->mesh_cache.get(id), &rs->vertices.pool[0], &rs->indices.pool[0]);
         return id;
     }
 

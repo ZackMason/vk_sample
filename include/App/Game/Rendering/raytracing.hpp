@@ -194,7 +194,7 @@ struct rt_cache_t {
         u32* index_base
     ) {
         TIMED_FUNCTION;
-        zyy_warn(__FUNCTION__, "Building BLAS");
+        // zyy_warn(__FUNCTION__, "Building BLAS");
         const VkBufferUsageFlags buffer_usage_flags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
         // VkTransformMatrixKHR transform_matrix = {
@@ -320,7 +320,7 @@ struct rt_cache_t {
 
             m.blas = safe_truncate_u64(blas_count - 1);
         }
-        zyy_warn(__FUNCTION__, "Finished BLAS build");
+        // zyy_warn(__FUNCTION__, "Finished BLAS build");
     }
 };
 
@@ -491,7 +491,7 @@ struct rt_compute_pass_t {
         acceleration_structure_build_geometry_info.geometryCount = 1;
         acceleration_structure_build_geometry_info.pGeometries   = &acceleration_structure_geometry;
 
-        const uint32_t primitive_count = array_count(tlas_instances);
+        const uint32_t primitive_count = array_count(tlas_instances); // performance gain for this it seems?
         // const uint32_t primitive_count = instance_count;
 
         VkAccelerationStructureBuildSizesInfoKHR acceleration_structure_build_sizes_info{};

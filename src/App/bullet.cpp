@@ -106,7 +106,7 @@ namespace zyy::wep {
         bullet_t bullet,
         f32 dt
     ) {
-        auto* bullet_entity = zyy::spawn(world, world->render_system(), prefab, bullet.ray.origin);
+        auto* bullet_entity = zyy::spawn(world, world->render_system(), prefab, bullet.ray.at(0.5f));
         bullet_entity->gfx.material_id = 2; // unlit material @hardcode
         bullet_entity->stats.weapon.stats.damage = bullet.damage;
         bullet_entity->physics.rigidbody->on_collision = [](physics::rigidbody_t* self, physics::rigidbody_t* other) {
@@ -138,10 +138,10 @@ namespace zyy::wep {
                 self_entity->queue_free();
             }
             if (spawn_hit) {
-                auto* hole = zyy::spawn(world, world->render_system(), zyy::db::misc::bullet_hole, self->position);
+                // auto* hole = zyy::spawn(world, world->render_system(), zyy::db::misc::bullet_hole, self->position);
                 // hit_entity->add_child(hole, true);
-                hole->transform.set_rotation(world->entropy.randnv<v3f>() * 100.0f);
-                hole->coroutine->start();
+                // hole->transform.set_rotation(world->entropy.randnv<v3f>() * 100.0f);
+                // hole->coroutine->start();
             }
         };
         bullet_entity->physics.rigidbody->add_force(bullet.ray.direction*500.0f/dt);

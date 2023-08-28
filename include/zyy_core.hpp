@@ -1863,6 +1863,10 @@ namespace math {
     struct ray_t {
         v3f origin;
         v3f direction;
+
+        v3f at(f32 t) const {
+            return origin + direction * t;
+        }
     };
     
 template <typename T = v3f>
