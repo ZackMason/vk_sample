@@ -403,7 +403,7 @@ struct state_t {
 
     template <typename T, size_t N>
     VkResult create_vertex_buffer(vertex_buffer_t<T, N>* buffer) {
-        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer);
+        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, buffer);
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(T) * N, 0, &gpu_ptr);
         buffer->pool = utl::pool_t<T>{(T*)gpu_ptr, N};
@@ -412,7 +412,7 @@ struct state_t {
 
     template <size_t N>
     VkResult create_index_buffer(index_buffer_t<N>* buffer) {
-        const auto r = create_data_buffer(sizeof(u32) * N, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, buffer);
+        const auto r = create_data_buffer(sizeof(u32) * N, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, buffer);
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(u32) * N, 0, &gpu_ptr);
         buffer->pool = utl::pool_t<u32>{(u32*)gpu_ptr, N};

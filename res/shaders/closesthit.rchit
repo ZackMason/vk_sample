@@ -10,6 +10,7 @@
 
 
 layout(location = 0) rayPayloadInEXT RayData data;
+layout(location = 2) rayPayloadInEXT bool shadowed;
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];
@@ -40,12 +41,7 @@ void main()
     vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
     vec4 albedo = texture(uTextureCache[nonuniformEXT(mesh.texture_id%4096)], uv);
 
-    if (albedo.a < 0.8) {
-        data.normal = data.normal;
-        data.distance = gl_RayTmaxEXT + 0.005;
-        data.reflector = 1.0;
-        return;
-    }
+    vec3 L = normalize(vec3(1,2,3));
 
     vec3 n = normalize(v0.n * bary.x + v1.n * bary.y + v2.n * bary.z);
     vec3 p = (v0.p * bary.x + v1.p * bary.y + v2.p * bary.z);
@@ -64,5 +60,29 @@ void main()
 
     data.color = wn;
     data.color = albedo.rgb;
+
+    float tmin = 0.01;
+    float tmax = 1000.0;
+    vec3 origin = wp + wn * 0.01;
+
+    
+    shadowed = true;
+    traceRayEXT(topLevelAS, 
+        //gl_RayFlagsTerminateOnFirstHitEXT | 
+        //gl_RayFlagsOpaqueEXT | 
+        gl_RayFlagsSkipClosestHitShaderEXT, 
+        0xFF, 
+        0, 
+        0, 
+        1, 
+        origin, 
+        tmin, 
+        L, 
+        tmax, 
+        2);
+	if (shadowed) {
+		data.color *= 0.3;
+	}
+
     // data.color = vec3(0,1,0);
 }

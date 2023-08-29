@@ -1215,7 +1215,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
     game_state->scene.sporadic_buffer.time = game_state->input().time;
     *vk_gfx.sporadic_uniform_buffer.data = game_state->scene.sporadic_buffer;
 
-    if (0)
+    if (1)
     {
         auto* rs = game_state->render_system;
         auto& command_buffer = vk_gfx.compute_command_buffer[frame_count%2];
@@ -1287,7 +1287,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
         auto command_buffer_begin_info = gfx::vul::utl::command_buffer_begin_info();
         VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
 
-            rendering::begin_rt_pass(game_state->render_system, command_buffer);
+            // rendering::begin_rt_pass(game_state->render_system, command_buffer);
     
         VkBuffer buffers[1] = { game_state->render_system->vertices.buffer };
         VkDeviceSize offsets[1] = { 0 };

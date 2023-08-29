@@ -79,54 +79,30 @@ struct rt_cache_t {
 
     void add_closest_hit_shader(gfx::vul::state_t& gfx, std::string_view name) {
         shader_stages[shader_stage_count++] = gfx.load_shader(name, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        shader_stages[shader_stage_count++] = gfx.load_shader("res/shaders/bin/anyhit.rahit.spv", VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
 		VkRayTracingShaderGroupCreateInfoKHR raygen_group_ci{};
 		raygen_group_ci.sType              = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
 		raygen_group_ci.type               = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 		raygen_group_ci.generalShader      = VK_SHADER_UNUSED_KHR;
-		raygen_group_ci.closestHitShader   = static_cast<u32>(shader_stage_count) - 1;
-		raygen_group_ci.anyHitShader       = VK_SHADER_UNUSED_KHR;
+		raygen_group_ci.closestHitShader   = static_cast<u32>(shader_stage_count) - 2;
+		raygen_group_ci.anyHitShader       = static_cast<u32>(shader_stage_count) - 1;
 		raygen_group_ci.intersectionShader = VK_SHADER_UNUSED_KHR;
 		shader_groups[shader_group_count++] = (raygen_group_ci);
     }
 
+    // void add_any_hit_shader(gfx::vul::state_t& gfx, std::string_view name) {
+    //     shader_stages[shader_stage_count++] = gfx.load_shader(name, VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+	// 	VkRayTracingShaderGroupCreateInfoKHR raygen_group_ci{};
+	// 	raygen_group_ci.sType              = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+	// 	raygen_group_ci.type               = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+	// 	raygen_group_ci.generalShader      = VK_SHADER_UNUSED_KHR;
+	// 	raygen_group_ci.closestHitShader   = VK_SHADER_UNUSED_KHR;
+	// 	raygen_group_ci.anyHitShader       = static_cast<u32>(shader_stage_count) - 1;
+	// 	raygen_group_ci.intersectionShader = VK_SHADER_UNUSED_KHR;
+	// 	shader_groups[shader_group_count++] = (raygen_group_ci);
+    // }
+
     void build_pipeline(gfx::vul::state_t& gfx, VkDescriptorSetLayout& descriptor_set_layout) {
-        // VkDescriptorSetLayoutBinding acceleration_structure_layout_binding{};
-        // acceleration_structure_layout_binding.binding         = 0;
-        // acceleration_structure_layout_binding.descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        // acceleration_structure_layout_binding.descriptorCount = 1;
-        // acceleration_structure_layout_binding.stageFlags      = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-
-        // VkDescriptorSetLayoutBinding result_image_layout_binding{};
-        // result_image_layout_binding.binding         = 1;
-        // result_image_layout_binding.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        // result_image_layout_binding.descriptorCount = 1;
-        // result_image_layout_binding.stageFlags      = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-
-        // VkDescriptorSetLayoutBinding texture_cache_layout_binding{};
-        // result_image_layout_binding.binding         = 2;
-        // result_image_layout_binding.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER;
-        // result_image_layout_binding.descriptorCount = 4096;
-        // result_image_layout_binding.stageFlags      = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-
-        // VkDescriptorSetLayoutBinding uniform_buffer_binding{};
-        // uniform_buffer_binding.binding         = 3;
-        // uniform_buffer_binding.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        // uniform_buffer_binding.descriptorCount = 1;
-        // uniform_buffer_binding.stageFlags      = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-
-        // std::vector<VkDescriptorSetLayoutBinding> bindings = {
-        //     acceleration_structure_layout_binding,
-        //     result_image_layout_binding,
-        //     texture_cache_layout_binding,
-        //     uniform_buffer_binding,
-        // };
-
-        // VkDescriptorSetLayoutCreateInfo layout_info{};
-        // layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        // layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
-        // layout_info.pBindings    = bindings.data();
-        // VK_OK(vkCreateDescriptorSetLayout(gfx.device, &layout_info, nullptr, &descriptor_set_layout));
-
         VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
         pipeline_layout_create_info.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipeline_layout_create_info.setLayoutCount = 1;
@@ -141,7 +117,7 @@ struct rt_cache_t {
         
         add_gen_shader(gfx, "res/shaders/bin/raygen.rgen.spv");
         add_miss_shader(gfx, "res/shaders/bin/miss.rmiss.spv");
-        // add_miss_shader(gfx, "res/shaders/bin/shadow.rmiss.spv");
+        add_miss_shader(gfx, "res/shaders/bin/shadow.rmiss.spv");
         add_closest_hit_shader(gfx, "res/shaders/bin/closesthit.rchit.spv");
 
         /*
@@ -174,33 +150,27 @@ struct rt_cache_t {
         VkBufferUsageFlags sbt_buffer_usage_flags =  VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
         gfx.create_data_buffer(handle_size, sbt_buffer_usage_flags, &raygen_shader_binding_table);
-        gfx.create_data_buffer(handle_size, sbt_buffer_usage_flags, &miss_shader_binding_table);
+        gfx.create_data_buffer(handle_size_aligned*2, sbt_buffer_usage_flags, &miss_shader_binding_table);
         gfx.create_data_buffer(handle_size, sbt_buffer_usage_flags, &hit_shader_binding_table);
 
         std::vector<uint8_t> shader_handle_storage(sbt_size);
 	    VK_OK(gfx.khr.vkGetRayTracingShaderGroupHandlesKHR(gfx.device, pipeline, 0, group_count, sbt_size, shader_handle_storage.data()));
 
         gfx.fill_data_buffer(&raygen_shader_binding_table, shader_handle_storage.data(), handle_size);
-        gfx.fill_data_buffer(&miss_shader_binding_table, shader_handle_storage.data() + handle_size_aligned, handle_size);
-        gfx.fill_data_buffer(&hit_shader_binding_table, shader_handle_storage.data() + handle_size_aligned * 2, handle_size);
-
-
+        gfx.fill_data_buffer(&miss_shader_binding_table, shader_handle_storage.data() + handle_size_aligned, handle_size_aligned * 2);
+        gfx.fill_data_buffer(&hit_shader_binding_table, shader_handle_storage.data() + handle_size_aligned * 3, handle_size * 1);
     }
 
+    template <umm VSize, umm ISize>
     void build_blas(
         gfx::vul::state_t& gfx, 
         gfx::mesh_list_t& mesh, 
-        gfx::vertex_t* vertex_base, 
-        u32* index_base
+        gfx::vul::vertex_buffer_t<gfx::vertex_t, VSize>& vertex_buffer,
+        gfx::vul::index_buffer_t<ISize>& index_buffer
     ) {
         TIMED_FUNCTION;
         // zyy_warn(__FUNCTION__, "Building BLAS");
         const VkBufferUsageFlags buffer_usage_flags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-
-        // VkTransformMatrixKHR transform_matrix = {
-        //     1.0f, 0.0f, 0.0f, 0.0f,
-        //     0.0f, 1.0f, 0.0f, 0.0f,
-        //     0.0f, 0.0f, 1.0f, 0.0f};
 
         range_u64(i, 0, mesh.count) {
             auto& m = mesh.meshes[i];
@@ -214,27 +184,18 @@ struct rt_cache_t {
             auto vertex_buffer_size = sizeof(gfx::vertex_t) * m.vertex_count;
             auto index_buffer_size = sizeof(u32) * m.index_count;
 
-            VK_OK(gfx.create_data_buffer(vertex_buffer_size, buffer_usage_flags, &c_blas.vertex_buffer));
-            VK_OK(gfx.create_data_buffer(index_buffer_size, buffer_usage_flags, &c_blas.index_buffer));
-            // VK_OK(gfx.create_data_buffer(sizeof(transform_matrix), buffer_usage_flags, &c_blas.transform_buffer));
-
-            // VK_OK(gfx.fill_data_buffer(&c_blas.transform_buffer, &transform_matrix));
-            VK_OK(gfx.fill_data_buffer(&c_blas.index_buffer, index_base + m.index_start));
-            VK_OK(gfx.fill_data_buffer(&c_blas.vertex_buffer, vertex_base + m.vertex_start));
 
             VkDeviceOrHostAddressConstKHR vertex_buffer_device_address{};
             VkDeviceOrHostAddressConstKHR index_buffer_device_address{};
-            // VkDeviceOrHostAddressConstKHR transform_buffer_device_address{};
 
             rt_data[b].texture_id = u32(m.material.albedo_id);
-            rt_data[b].vertex_ptr = vertex_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(c_blas.vertex_buffer.buffer);
-            rt_data[b].index_ptr = index_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(c_blas.index_buffer.buffer);
-            // transform_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(c_blas.transform_buffer.buffer);
+            rt_data[b].vertex_ptr = vertex_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(vertex_buffer.buffer) + sizeof(gfx::vertex_t) * m.vertex_start;
+            rt_data[b].index_ptr = index_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(index_buffer.buffer) + sizeof(u32) * m.index_start;
 
             VkAccelerationStructureGeometryKHR acceleration_structure_geometry{};
             acceleration_structure_geometry.sType                            = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
             acceleration_structure_geometry.geometryType                     = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
-            acceleration_structure_geometry.flags                            = VK_GEOMETRY_OPAQUE_BIT_KHR;
+            acceleration_structure_geometry.flags                            = 0;
             acceleration_structure_geometry.geometry.triangles.sType         = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
             acceleration_structure_geometry.geometry.triangles.vertexFormat  = VK_FORMAT_R32G32B32_SFLOAT;
             acceleration_structure_geometry.geometry.triangles.vertexData    = vertex_buffer_device_address;
@@ -243,7 +204,7 @@ struct rt_cache_t {
             acceleration_structure_geometry.geometry.triangles.indexType     = VK_INDEX_TYPE_UINT32;
             acceleration_structure_geometry.geometry.triangles.indexData     = index_buffer_device_address;
 
-            acceleration_structure_geometry.geometry.triangles.transformData = {};// transform_buffer_device_address;
+            acceleration_structure_geometry.geometry.triangles.transformData = {};
 
             const uint32_t primitive_count = m.index_count/3;
 
@@ -251,7 +212,6 @@ struct rt_cache_t {
             acceleration_structure_build_geometry_info.sType         = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
             acceleration_structure_build_geometry_info.type          = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
             acceleration_structure_build_geometry_info.flags         = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-            // acceleration_structure_build_geometry_info.mode          = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
             acceleration_structure_build_geometry_info.geometryCount = 1;
             acceleration_structure_build_geometry_info.pGeometries   = &acceleration_structure_geometry;
 
@@ -308,7 +268,6 @@ struct rt_cache_t {
                     &acceleration_build_geometry_info,
                     acceleration_build_structure_range_infos.data());
             }
-            // get_device().flush_command_buffer(command_buffer, queue);
 
             gfx.destroy_scratch_buffer(scratch_buffer);
 
@@ -318,7 +277,7 @@ struct rt_cache_t {
             acceleration_device_address_info.accelerationStructure = c_blas.handle;
             c_blas.device_address     = gfx.khr.vkGetAccelerationStructureDeviceAddressKHR(gfx.device, &acceleration_device_address_info);
 
-            m.blas = safe_truncate_u64(blas_count - 1);
+            m.blas = safe_truncate_u64(b);
         }
         // zyy_warn(__FUNCTION__, "Finished BLAS build");
     }
@@ -429,9 +388,9 @@ struct rt_compute_pass_t {
         builder
             .bind_buffer(0, buffer_info + 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, &descriptor_acceleration_structure_info)
             .bind_image(1, ovdii, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
-            .bind_image(2, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_image(2, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
             .bind_buffer(3, buffer_info + 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
-            .bind_buffer(4, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(4, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
             // .bind_buffer(4, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             // .bind_buffer(5, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .build(descriptor_sets[0], descriptor_set_layouts[0]);

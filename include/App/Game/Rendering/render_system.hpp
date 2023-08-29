@@ -1463,7 +1463,7 @@ public:
                 loaded_mesh.meshes[m].material.normal_id = (mask&0x2) ? ids[1] : std::numeric_limits<u64>::max();
             }
 
-            rs->rt_cache->build_blas(*rs->vk_gfx, loaded_mesh, &rs->vertices.pool[0], &rs->indices.pool[0]);
+            rs->rt_cache->build_blas(*rs->vk_gfx, loaded_mesh, rs->vertices, rs->indices);
 
             return add_mesh(rs, name, loaded_mesh);
         }

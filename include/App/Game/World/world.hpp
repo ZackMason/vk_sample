@@ -341,7 +341,7 @@ namespace zyy {
     ) {
         rendering::submit_job(
             world->render_system(), 
-            rendering::get_mesh_id(world->render_system(), "res/models/misc/bloodsplat_01.gltf"),
+            rendering::get_mesh_id(world->render_system(), "res/models/misc/bloodsplat_02.gltf"),
             3, // todo make material per mesh
             m44{1.0f},
             v4f{0.0f},

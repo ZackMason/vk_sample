@@ -4,6 +4,8 @@ set OptFlags=--target-env=vulkan1.3 --target-spv=spv1.6 -O
 
 glslc %OptFlags% %IncFlags% res/shaders/closesthit.rchit -o res/shaders/bin/closesthit.rchit.spv
 glslc %OptFlags% %IncFlags% res/shaders/miss.rmiss -o res/shaders/bin/miss.rmiss.spv
+glslc %OptFlags% %IncFlags% res/shaders/anyhit.rahit -o res/shaders/bin/anyhit.rahit.spv
+glslc %OptFlags% %IncFlags% res/shaders/shadow.rmiss -o res/shaders/bin/shadow.rmiss.spv
 glslc %OptFlags% %IncFlags% res/shaders/raygen.rgen -o res/shaders/bin/raygen.rgen.spv
 
 glslc %OptFlags% %IncFlags% res/shaders/rt_compute.comp -o res/shaders/bin/rt_compute.comp.spv

@@ -80,6 +80,32 @@ generate_crash_test(arena_t* arena) {
 }
 
 world_generator_t*
+generate_forest(arena_t* arena) {
+    auto* generator = generate_world_test(arena);
+
+    generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
+        // zyy::spawn(world, world->render_system(),
+        //     zyy::db::rooms::sponza, axis::up);
+    });
+
+    generator->add_step("Planting Trees", WORLD_STEP_TYPE_LAMBDA(environment) {
+        auto* tree = zyy::spawn(world, world->render_system(), zyy::db::environmental::tree_01, axis::down);
+        constexpr u32 tree_count = 400;
+        tree->gfx.instance(world->render_system()->instance_storage_buffer.pool, tree_count);
+        
+        for (size_t i = 0; i < tree_count; i++) {
+            // tree->gfx.dynamic_instance_buffer[i + tree_count] = 
+            tree->gfx.dynamic_instance_buffer[i] = 
+                math::transform_t{}
+                    .translate(200.0f * planes::xz * (world->entropy.randv<v3f>() * 2.0f - 1.0f))
+                    .rotate(axis::up, utl::rng::random_s::randf() * 10000.0f)
+                    .to_matrix();
+        }
+    });
+
+    return generator;
+}
+world_generator_t*
 generate_sponza(arena_t* arena) {
     auto* generator = generate_world_test(arena);
 

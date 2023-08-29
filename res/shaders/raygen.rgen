@@ -14,6 +14,7 @@ layout(binding = 3, set = 0) uniform CameraProperties
 } cam;
 
 layout(location = 0) rayPayloadEXT RayData data;
+layout(location = 2) rayPayloadEXT bool shadowed;
 
 void main() 
 {
@@ -25,9 +26,8 @@ void main()
 	vec4 target = cam.projInverse * vec4(d.x, d.y, 1, 1) ;
 	vec4 direction = cam.viewInverse*vec4(normalize(target.xyz), 0) ;
 
-	float tmin = 0.001;
+	float tmin = 0.1;
 	float tmax = 10000.0;
-
 
     data.normal= direction.xyz;
     data.color = vec3(0.0);
@@ -36,9 +36,22 @@ void main()
 
     for (int i = 0; i < 3; i++) {
 
-        traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
+        traceRayEXT(topLevelAS, 
+            gl_RayFlagsNoneEXT, 
+            // gl_RayFlagsOpaqueEXT, 
+            0xff, 
+            0, 
+            0, 
+            0, 
+            origin.xyz, 
+            tmin, 
+            direction.xyz, 
+            tmax, 
+            0);
 
         image_color += data.color / pow(2, i);
+        // break;
+
         if (data.distance < 0.0) {
             break;
         }
