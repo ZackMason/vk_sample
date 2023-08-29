@@ -23,7 +23,7 @@
 #include "App/Game/Util/loading.hpp"
 
 global_variable gfx::gui::im::state_t* gs_imgui_state = 0;
-global_variable f32 gs_dt;
+// global_variable f32 gs_dt;
 global_variable f32 gs_reload_time = 0.0f;
 
 global_variable b32 gs_show_console=false;
@@ -50,6 +50,8 @@ global_variable VkPolygonMode gs_poly_modes[] = {
     VK_POLYGON_MODE_POINT,
 };
 global_variable u32 gs_poly_mode;
+
+global_variable u32 gs_rtx_on = 0;
 
 inline game_state_t*
 get_game_state(game_memory_t* mem) {
@@ -751,141 +753,7 @@ app_on_reload(game_memory_t* game_memory) {
 }
 
 void 
-camera_input(game_state_t* game_state, player_controller_t pc, f32 dt) {
-    auto* world = game_state->game_world;
-    auto* physics = game_state->game_world->physics;
-    auto* player = world->player;
-    auto* rigidbody = player->physics.rigidbody;
-    const bool is_on_ground = rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
-    const bool is_on_wall = rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
-
-    player->camera_controller.transform = 
-        game_state->game_world->player->transform;
-    
-    const v3f move = pc.move_input;
-    const v2f head_move = pc.look_input;
-
-    auto& yaw = gs_debug_camera_active ? gs_debug_camera.yaw : player->camera_controller.yaw;
-    auto& pitch = gs_debug_camera_active ? gs_debug_camera.pitch : player->camera_controller.pitch;
-
-    const v3f forward = zyy::cam::get_direction(yaw, pitch);
-    const v3f right   = glm::cross(forward, axis::up);
-
-    if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
-        yaw += head_move.x * dt;
-        pitch -= head_move.y * dt;
-    }
-
-    const f32 move_speed = 45.0f * (pc.sprint ? 1.75f : 1.0f) * (rigidbody->is_on_surface() ? 1.0f : 0.33f);
-
-    if (gs_debug_camera_active) {
-        gs_debug_camera.transform.origin += ((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
-        return;
-    } else {
-        v3f move_xz = move != v3f{0.0f} ? glm::normalize(planes::xz * move) : move;
-        v3f wishdir = forward * move_xz.z + right * move_xz.x;
-        auto movement = is_on_ground ? quake_ground_move : quake_air_move;
-        local_persist f32 max_ground_speed = 3.60f; DEBUG_WATCH(&max_ground_speed)->max_f32 = 10.0f;
-        local_persist f32 max_air_speed = 0.3f; DEBUG_WATCH(&max_air_speed)->max_f32 = 1.0f;
-        local_persist f32 ground_accel = 1.0f; DEBUG_WATCH(&ground_accel)->max_f32 = 6.0f; // source 5.6 default
-        local_persist f32 air_accel = 0.1f; DEBUG_WATCH(&air_accel)->max_f32 = 1.0f;
-        local_persist f32 friction = 4.0f; DEBUG_WATCH(&friction)->max_f32 = 10.0f;
-        
-        f32 max_speed = is_on_ground ? max_ground_speed : max_air_speed;
-        f32 accel = is_on_ground ? ground_accel : air_accel;
-        
-        rigidbody->velocity = movement(wishdir, rigidbody->velocity, friction, accel, max_speed, dt);
-        if (is_on_ground == false) {
-            rigidbody->velocity.y -= 9.81f * 0.1f * dt;
-        }
-        // rigidbody->force += ((glm::normalize(planes::xz * forward) * move.z + right * move.x) * dt * move_speed);
-    }
-
-    if(player->primary_weapon.entity) {
-        player->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
-        player->primary_weapon.entity->transform.set_scale(v3f{3.0f});
-        player->primary_weapon.entity->transform.origin =
-            forward + axis::up * 0.3f;
-            //  0.5f * (right + axis::up);
-    }
-    rigidbody->angular_velocity = v3f{0.0f};
-
-    if (pc.jump && (is_on_ground || is_on_wall)) {
-        rigidbody->velocity.y = .3f;
-    }
-    player->camera_controller.transform.origin = player->transform.origin + axis::up * 1.0f;
-
-    const auto stepped = player->camera_controller.walk_and_bob(dt * (pc.sprint ? 1.75f : 1.0f), glm::length(swizzle::xz(move)) > 0.0f && is_on_ground, move.x);
-    if (stepped) {
-        Platform.audio.play_sound(0x1);
-    }
-
-    if (player->primary_weapon.entity) {
-        player->primary_weapon.entity->stats.weapon.update(dt);
-    }
-    if (pc.fire1 && player->primary_weapon.entity && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
-
-        temp_arena_t fire_arena = world->frame_arena.get();
-        u64 fired{0};
-        auto* bullets = player->primary_weapon.entity->stats.weapon.fire(&fire_arena, dt, &fired);
-
-        range_u64(bullet, 0, fired) {
-            auto ro = player->camera_controller.transform.origin + forward * 1.7f;
-            auto r_angle = utl::rng::random_s::randf() * 1000.0f;
-            auto r_radius = utl::rng::random_s::randf() * bullets[bullet].spread;
-            v2f polar{math::from_polar(r_angle, r_radius)};
-            auto rd = glm::normalize(forward * 10.0f + right * polar.x + axis::up * polar.y);
-        
-            if (auto ray = physics->raycast_world(physics, ro, rd); ray.hit) {
-                auto* rb = (physics::rigidbody_t*)ray.user_data;
-                math::ray_t gun_shot{ro, rd};
-                DEBUG_ADD_VARIABLE(gun_shot);
-                if (rb == player->physics.rigidbody) {
-                    zyy_warn(__FUNCTION__, "player shot them self");
-                }
-                auto hp = (ray.point);
-                zyy::entity_t* hit_entity=0;
-                if (rb->type == physics::rigidbody_type::DYNAMIC ||
-                    rb->type == physics::rigidbody_type::KINEMATIC
-                ) {
-                    // rb->inverse_transform_direction
-                    // auto f = rb->inverse_transform_direction(rd);
-                    // rb->add_force(rd*1.0f);
-                    hit_entity = (zyy::entity_t*)rb->user_data;
-                    rb->add_force_at_point(rd*50.0f, hp);
-                    math::ray_t force{hp, rd};
-                    DEBUG_ADD_VARIABLE(force);
-                } else {
-                    DEBUG_ADD_VARIABLE(ray.point);
-                }
-                auto* hole = zyy::spawn(world, world->render_system(), zyy::db::misc::bullet_hole, hp);
-                hole->transform.set_rotation(world->entropy.randnv<v3f>() * 100.0f);
-                hole->coroutine->start();
-                if (hit_entity) {
-                    if (hit_entity->stats.character.health.max) {
-                        if (hit_entity->stats.character.health.damage(bullets[bullet].damage)) {
-                            hit_entity->queue_free();
-                        }
-                    }
-                    // auto local_pos = hole->global_transform().origin - hit_entity->global_transform().origin;
-                    hit_entity->add_child(hole, true);
-                    hole->transform.origin = hit_entity->global_transform().inv_xform(hp);
-                }
-            }
-        }
-    }
-}
-
-void 
 app_on_input(game_state_t* game_state, app_input_t* input) {
-    // if (game_state->game_world->player) {
-    //     camera_input(game_state, 
-    //         input->gamepads->is_connected ? 
-    //         gamepad_controller(input) : keyboard_controller(input),
-    //         input->dt
-    //     );
-    // }
-
     if (input->pressed.keys[key_id::F2]) {
         if (auto b = gs_show_console = !gs_show_console) {
             gs_imgui_state->active = "console_text_box"_sid;
@@ -957,7 +825,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
                 continue;
             }
 
-            // DEBUG_WATCH(e);
+            DEBUG_WATCH(e);
 
             const bool is_physics_object = e->physics.flags != zyy::PhysicsEntityFlags_None && e->physics.rigidbody;
             const bool is_pickupable = (e->flags & zyy::EntityFlags_Pickupable);
@@ -997,11 +865,12 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
     zyy::world_update_kinematic_physics(game_state->game_world);
 
-    local_persist f32 accum = 0.0f;
-    const u32 sub_steps = 1;
-    const f32 step = 1.0f/(60.0f*sub_steps);
+    // local_persist f32 accum = 0.0f;
+    // const u32 sub_steps = 1;
+    // const f32 step = 1.0f/(60.0f*sub_steps);
 
-    accum += f32(dt > 0.0f) * std::min(dt, step*15);
+    // accum += f32(dt > 0.0f) * std::min(dt, step*15);
+    // if (dt > 0.0f)
     {
         TIMED_BLOCK(PhysicsStep);
 
@@ -1132,7 +1001,7 @@ void
 game_on_update(game_memory_t* game_memory) {
     // utl::profile_t p{"on_update"};
     game_state_t* game_state = get_game_state(game_memory);
-    gs_dt = game_memory->input.dt;
+
     auto* world_generator = game_state->game_world->world_generator;
     if (world_generator && world_generator->is_done() == false) {
         world_generator->execute(game_state->game_world, [&](){draw_gui(game_memory);});
@@ -1215,7 +1084,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
     game_state->scene.sporadic_buffer.time = game_state->input().time;
     *vk_gfx.sporadic_uniform_buffer.data = game_state->scene.sporadic_buffer;
 
-    if (1)
+    if (0)
     {
         auto* rs = game_state->render_system;
         auto& command_buffer = vk_gfx.compute_command_buffer[frame_count%2];
@@ -1228,7 +1097,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
         if (vk_gfx.compute_index != vk_gfx.graphics_index) {
             gfx::vul::utl::insert_image_memory_barrier(
                 command_buffer,
-                rs->frame_images[6].texture.image,
+                rs->frame_images[frame_count%2].texture.image,
                 0,
                 VK_ACCESS_SHADER_WRITE_BIT,
                 VK_IMAGE_LAYOUT_GENERAL,
@@ -1241,12 +1110,12 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
             );
         }
 
-        rendering::begin_rt_pass(game_state->render_system, command_buffer);
+        rendering::begin_rt_pass(game_state->render_system, command_buffer, frame_count);
 
         if (vk_gfx.compute_index != vk_gfx.graphics_index) {
             gfx::vul::utl::insert_image_memory_barrier(
                 command_buffer,
-                rs->frame_images[6].texture.image,
+                rs->frame_images[frame_count%2].texture.image,
                 VK_ACCESS_SHADER_WRITE_BIT,
                 0,
                 VK_IMAGE_LAYOUT_GENERAL,
@@ -1287,72 +1156,73 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
         auto command_buffer_begin_info = gfx::vul::utl::command_buffer_begin_info();
         VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
 
-            // rendering::begin_rt_pass(game_state->render_system, command_buffer);
-    
-        VkBuffer buffers[1] = { game_state->render_system->vertices.buffer };
-        VkDeviceSize offsets[1] = { 0 };
+        if (gs_rtx_on){
+            rendering::begin_rt_pass(game_state->render_system, command_buffer, frame_count);
+        } else {
+            VkBuffer buffers[1] = { game_state->render_system->vertices.buffer };
+            VkDeviceSize offsets[1] = { 0 };
 
-        vkCmdBindVertexBuffers(command_buffer, 0, 1, buffers, offsets);
+            vkCmdBindVertexBuffers(command_buffer, 0, 1, buffers, offsets);
 
-        vkCmdBindIndexBuffer(command_buffer,
-            game_state->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
-        );
+            vkCmdBindIndexBuffer(command_buffer,
+                game_state->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+            );
 
-        gfx::vul::utl::insert_image_memory_barrier(
-            command_buffer,
-            rs->frame_images[frame_count%2].texture.image,
-            0,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-        
-        gfx::vul::utl::insert_image_memory_barrier(
-            command_buffer,
-            rs->frame_images[4 + (frame_count%2)].texture.image,
-            0,
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                rs->frame_images[frame_count%2].texture.image,
+                0,
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+            
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                rs->frame_images[4 + (frame_count%2)].texture.image,
+                0,
+                VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
 
-        {
-            // New structures are used to define the attachments used in dynamic rendering
-            VkRenderingAttachmentInfoKHR colorAttachment{};
-            colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-            // colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
-            colorAttachment.imageView = rs->frame_images[frame_count%2].texture.image_view;
-            colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-            colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
+            {
+                // New structures are used to define the attachments used in dynamic rendering
+                VkRenderingAttachmentInfoKHR colorAttachment{};
+                colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+                // colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
+                colorAttachment.imageView = rs->frame_images[frame_count%2].texture.image_view;
+                colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+                colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+                colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
 
-            // A single depth stencil attachment info can be used, but they can also be specified separately.
-            // When both are specified separately, the only requirement is that the image view is identical.			
-            VkRenderingAttachmentInfoKHR depthStencilAttachment{};
-            depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-            depthStencilAttachment.imageView = rs->frame_images[4+(frame_count%2)].texture.image_view;
-            // depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
-            depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-            depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            depthStencilAttachment.clearValue.depthStencil = { 1.0f,  0 };
+                // A single depth stencil attachment info can be used, but they can also be specified separately.
+                // When both are specified separately, the only requirement is that the image view is identical.			
+                VkRenderingAttachmentInfoKHR depthStencilAttachment{};
+                depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+                depthStencilAttachment.imageView = rs->frame_images[4+(frame_count%2)].texture.image_view;
+                // depthStencilAttachment.imageView = vk_gfx.depth_stencil_texture.image_view;
+                depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+                depthStencilAttachment.clearValue.depthStencil = { 1.0f,  0 };
 
-            VkRenderingInfoKHR renderingInfo{};
-            renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-            renderingInfo.renderArea = { 0, 0, rs->width, rs->height};
-            renderingInfo.layerCount = 1;
-            renderingInfo.colorAttachmentCount = 1;
-            renderingInfo.pColorAttachments = &colorAttachment;
-            renderingInfo.pDepthAttachment = &depthStencilAttachment;
-            renderingInfo.pStencilAttachment = &depthStencilAttachment;
-
-            khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
-        }
+                VkRenderingInfoKHR renderingInfo{};
+                renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+                renderingInfo.renderArea = { 0, 0, rs->width, rs->height};
+                renderingInfo.layerCount = 1;
+                renderingInfo.colorAttachmentCount = 1;
+                renderingInfo.pColorAttachments = &colorAttachment;
+                renderingInfo.pDepthAttachment = &depthStencilAttachment;
+                renderingInfo.pStencilAttachment = &depthStencilAttachment;
+            
+                khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
+            }
             auto view_dir = game_state->game_world->player ? zyy::cam::get_direction(
                     game_state->game_world->player->camera_controller.yaw,
                     game_state->game_world->player->camera_controller.pitch
@@ -1398,14 +1268,15 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
 
-            // build_shader_commands(rs, command_buffer);
-        khr.vkCmdEndRenderingKHR(command_buffer);
+            build_shader_commands(rs, command_buffer);
+            khr.vkCmdEndRenderingKHR(command_buffer);
+        }
     
         { // UI START
             if (vk_gfx.compute_index != vk_gfx.graphics_index) {
                 gfx::vul::utl::insert_image_memory_barrier(
                     command_buffer,
-                    rs->frame_images[6].texture.image,
+                    rs->frame_images[frame_count%2].texture.image,
                     0,
                     VK_ACCESS_SHADER_READ_BIT,
                     VK_IMAGE_LAYOUT_GENERAL,
@@ -1419,7 +1290,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
             } else {
                 gfx::vul::utl::insert_image_memory_barrier(
                     command_buffer,
-                    rs->frame_images[6].texture.image,
+                    rs->frame_images[frame_count%2].texture.image,
                     VK_ACCESS_SHADER_WRITE_BIT,
                     VK_ACCESS_SHADER_READ_BIT,
                     VK_IMAGE_LAYOUT_GENERAL,
@@ -1497,8 +1368,8 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 rendering::draw_postprocess(
                     rs, command_buffer,
                     assets::shaders::tonemap_frag.filename,
-                    // &rs->frame_images[frame_count%2].texture,
-                    &rs->frame_images[6].texture,
+                    &rs->frame_images[frame_count%2].texture,
+                    // &rs->frame_images[6].texture,
                     parameters
                 );
             }
@@ -1529,7 +1400,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
             }
 
             const u64 gui_frame = game_state->gui.frame;
-
+            VkDeviceSize offsets[1] = { 0 };
             vkCmdBindVertexBuffers(command_buffer,
                 0, 1, &game_state->gui.vertices[!(gui_frame&1)].buffer, offsets);
 

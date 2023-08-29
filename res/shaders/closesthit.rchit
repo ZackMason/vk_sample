@@ -7,6 +7,7 @@
 #extension GL_EXT_buffer_reference2 : require
 
 #include "raycommon.glsl"
+#include "rng.glsl"
 
 
 layout(location = 0) rayPayloadInEXT RayData data;
@@ -53,7 +54,7 @@ void main()
     data.distance = gl_RayTmaxEXT;
     data.normal = n;
     
-	data.reflector = 1.0;// (mesh.texture_id == -1 ? 1.0f : 0.0f);
+	data.reflector = 0.0;// (mesh.texture_id == -1 ? 1.0f : 0.0f);
     data.color = vec3(tri) / vec3(tri+1);
 
     data.color = bary;
@@ -65,24 +66,31 @@ void main()
     float tmax = 1000.0;
     vec3 origin = wp + wn * 0.01;
 
-    
-    shadowed = true;
-    traceRayEXT(topLevelAS, 
-        //gl_RayFlagsTerminateOnFirstHitEXT | 
-        //gl_RayFlagsOpaqueEXT | 
-        gl_RayFlagsSkipClosestHitShaderEXT, 
-        0xFF, 
-        0, 
-        0, 
-        1, 
-        origin, 
-        tmin, 
-        L, 
-        tmax, 
-        2);
-	if (shadowed) {
-		data.color *= 0.3;
-	}
+    float shadow = 1.0;
+    int shadow_count = 1;
+    // for (int i = 0; i < shadow_count; i++) {
+        shadowed = true;
+
+        // vec3 SL = normalize(3.0*L + hemisphere_random(L, float(tri.x + i)));
+
+        traceRayEXT(topLevelAS, 
+            // gl_RayFlagsTerminateOnFirstHitEXT | 
+            // gl_RayFlagsOpaqueEXT | 
+            gl_RayFlagsSkipClosestHitShaderEXT, 
+            0xFF, 
+            0, 
+            0, 
+            1, 
+            origin, 
+            tmin, 
+            L, 
+            tmax, 
+            2);
+        if (shadowed) {
+            shadow -= 0.3 * 1.0 / float(shadow_count);
+            data.color *= shadow;
+        }
+    // }
 
     // data.color = vec3(0,1,0);
 }

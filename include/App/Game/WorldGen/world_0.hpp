@@ -348,8 +348,8 @@ generate_world_0(arena_t* arena) {
         }
     });
     generator->add_step("Teapots", WORLD_STEP_TYPE_LAMBDA(environment) {
-        return;
-        loop_iota_u64(i, 500) {
+        // return;
+        loop_iota_u64(i, 50) {
             auto* e = zyy::spawn(
                 world, 
                 world->render_system(),

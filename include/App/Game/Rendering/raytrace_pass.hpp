@@ -3,7 +3,8 @@
 static void 
 begin_rt_pass(
     system_t* rs,
-    VkCommandBuffer command_buffer
+    VkCommandBuffer command_buffer,
+    u32 frame_count 
 ) {
     TIMED_FUNCTION;
     auto& gfx = *rs->vk_gfx;
@@ -52,7 +53,15 @@ begin_rt_pass(
             pass.tlas.buffer.buffer != VK_NULL_HANDLE
         );
 
-        pass.build_descriptors(gfx, rs->texture_cache, &cache.mesh_data_buffer, gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator),&rs->frame_images[6].texture);
+        pass.build_descriptors(
+            gfx, 
+            rs->texture_cache, 
+            &cache.mesh_data_buffer, 
+            gfx::vul::descriptor_builder_t::begin(
+                rs->descriptor_layout_cache, 
+                rs->get_frame_data().dynamic_descriptor_allocator
+            ),
+            &rs->frame_images[frame_count%2].texture);
         vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline);
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline_layout, 0, 1, &pass.descriptor_sets[0], 0, 0);
 

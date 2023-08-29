@@ -433,7 +433,7 @@ namespace zyy {
     static void
     world_update_kinematic_physics(world_t* world) {
         TIMED_FUNCTION;
-        const auto* input = &world->game_state->game_memory->input;
+        // const auto* input = &world->game_state->game_memory->input;
         for (size_t i{0}; i < world->entity_count; i++) {
             auto* e = world->entities + i;
             if (e->physics.rigidbody && e->physics.flags & zyy::PhysicsEntityFlags_Kinematic) {

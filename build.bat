@@ -33,7 +33,7 @@ if "%OptLevel%"=="slow" (
 )
 
 set IncludeFlags=/I ..\include /I ..\include\vendor /I..\include\vendor\SDL /I %VULKAN_SDK%/include 
-set CompilerFlags=-nologo -FC -WX -W4 -wd4100 -wd4201 -wd4505 -wd4702 -wd4701 -wd4189 -MD -EHa /std:c++20
+set CompilerFlags=-nologo -FC -WX -W4 -wd4127 -wd4100 -wd4201 -wd4505 -wd4702 -wd4701 -wd4189 -MD -EHa /std:c++20
 set SDLLinkFlags=SDL2.lib SDL2_mixer.lib SDL2main.lib
 set LinkFlags=-incremental:no -opt:ref user32.lib gdi32.lib shell32.lib /LIBPATH:%VULKAN_SDK%/lib /LIBPATH:..\lib\debug vulkan-1.lib
 set PhysicsLinkFlags=-opt:ref user32.lib gdi32.lib shell32.lib /LIBPATH:%PhysXCompiler%/%PhysXOpt% %PhysXLinkLibs%

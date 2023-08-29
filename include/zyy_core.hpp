@@ -3728,16 +3728,17 @@ namespace gui {
         ) {
             draw_rect(&imgui.ctx, screen, bind_index, uv);
         }
-
+ 
         inline void
-        float_slider(
+        float_slider_id(
             state_t& imgui,
+            u64 id,
             f32* val,
             f32 min = 0.0f,
             f32 max = 1.0f,
             v2f size = v2f{64.0f, 16.0f}
         ) {
-            const u64 sld_id = (u64)val;
+            const u64 sld_id = id;
 
             v2f tmp_cursor = imgui.panel->draw_cursor;
             v2f save_draw = tmp_cursor;
@@ -3794,6 +3795,19 @@ namespace gui {
                 imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
             }
         }
+
+        inline void
+        float_slider(
+            state_t& imgui,
+            f32* val,
+            f32 min = 0.0f,
+            f32 max = 1.0f,
+            v2f size = v2f{64.0f, 16.0f}
+        ) {
+            const u64 sld_id = (u64)val;
+            float_slider_id(imgui, sld_id, val, min, max, size);
+        }
+       
 
         inline bool
         text(

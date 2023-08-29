@@ -31,6 +31,14 @@ layout(std430, set = 1, binding = 2) readonly buffer IndirectBuffer {
 	IndirectIndexedDraw draw[];
 } uIndirectBuffer;
 
+layout(std430, set = 2, binding = 0) readonly buffer MaterialBuffer {
+	Material materials[];
+} uMaterialBuffer;
+
+layout(std430, set = 3, binding = 0) readonly buffer EnvironmentBuffer {
+	Environment uEnvironment;
+};
+
 layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 
 layout( push_constant ) uniform constants

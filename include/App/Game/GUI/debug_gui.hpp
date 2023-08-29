@@ -8,6 +8,7 @@ watch_game_state(game_state_t* game_state) {
     auto* window_size = &game_state->game_memory->config.graphics_config.window_size;
     DEBUG_WATCH(window_size);
     DEBUG_WATCH(&gs_imgui_state->theme.shadow_distance);
+    DEBUG_WATCH(&gs_rtx_on)->max_u32 = 2;
 
     auto* pp_tonemap = &rs->postprocess_params.data[0];
     auto* pp_exposure = &rs->postprocess_params.data[1];

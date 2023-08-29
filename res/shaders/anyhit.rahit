@@ -35,7 +35,7 @@ void main()
     vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
     vec4 albedo = texture(uTextureCache[nonuniformEXT(mesh.texture_id%4096)], uv);
 
-    if (albedo.a < 0.9) {
+    if (albedo.a < 0.0996) {
         ignoreIntersectionEXT;
     }
 

@@ -1005,7 +1005,7 @@ public:
                     rs->texture_cache,
                     &rs->rt_cache->mesh_data_buffer,
                     gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator),
-                    &rs->frame_images[6].texture
+                    &rs->frame_images[0].texture
                 );
             }
             {

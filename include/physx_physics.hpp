@@ -129,6 +129,7 @@ public:
             {
                 const PxTransform globalPose = actor->getGlobalPose();
                 const PxVec3 localPos = globalPose.transformInv(toVec3(hit.worldPos));
+                // bug with hit.length I believe
                 PxRigidBodyExt::addForceAtLocalPos(*actor, hit.dir*hit.length*1000.0f, localPos, PxForceMode::eFORCE);
             }
         }
@@ -523,20 +524,23 @@ physx_simulate(api_t* api, f32 dt) {
     TIMED_FUNCTION;
     const auto* ps = get_physx(api);
 
+    zyy_info(__FUNCTION__, "dt: {}", dt);
+
     range_u64(i, 0, api->character_count) {
         auto* rb = api->characters[i];
         if (rb) {
             auto* controller = (physx::PxController*)rb->api_data;
             auto* transform = (math::transform_t*)((u8*)rb->user_data + api->entity_transform_offset);
             // rb->integrate(dt, 9.81f * 0.1f * 0.0f);
-            auto& v = rb->velocity;
+            auto v = rb->velocity * dt * 100.0f;
             f32 vm = glm::length(v);
             const auto [lpx,lpy,lpz] = controller->getPosition();
 
             const PxU32 move_flags = controller->move(
-                {v.x, v.y, v.z}, 0.0f, dt, {0, &gs_move_filter}
+                {v.x, v.y, v.z}, 0.01f, 0.0f, {0, &gs_move_filter}
             );
             const auto [px,py,pz] = controller->getPosition();
+            rb->position = v3f{px,py,pz};
 
             if(move_flags & PxControllerCollisionFlag::eCOLLISION_DOWN) {
                 rb->flags |= rigidbody_flags::IS_ON_GROUND;
@@ -544,19 +548,16 @@ physx_simulate(api_t* api, f32 dt) {
                 rb->flags &= ~rigidbody_flags::IS_ON_GROUND;
             }
             if(move_flags & PxControllerCollisionFlag::eCOLLISION_SIDES) {
-                rb->velocity = (v3f{px,py,pz} - v3f{lpx, lpy, lpz});
+                // rb->velocity = (rb->position - v3f{lpx, lpy, lpz});
                 rb->flags |= rigidbody_flags::IS_ON_WALL;
             } else {
                 if(move_flags & PxControllerCollisionFlag::eCOLLISION_UP) {
-                    rb->velocity = (v3f{px,py,pz} - v3f{lpx, lpy, lpz});
+                    // rb->velocity = (v3f{px,py,pz} - v3f{lpx, lpy, lpz});
                 }
                 rb->flags &= ~rigidbody_flags::IS_ON_WALL;
             }
-            if (glm::length(rb->velocity) > vm) { rb->velocity = glm::normalize(rb->velocity) * vm; }
+            // if (glm::length(rb->velocity) > vm) { rb->velocity = glm::normalize(rb->velocity) * vm; }
 
-            // v = tween::damp(v, v3f{0.0f}, rb->linear_dampening, dt);
-
-            rb->position = v3f{px,py,pz};
         }
     }
 

@@ -161,6 +161,10 @@ struct debug_state_t {
                 }
                 if (var->type == debug_watcher_type::FLOAT32) {
                     im::float_slider(imgui, var->as_f32, var->min_f32, var->max_f32);
+                } else if (var->type == debug_watcher_type::UINT32) {
+                    f32 t = (f32)*var->as_u32;
+                    im::float_slider_id(imgui, (u64)var->as_u32, &t, (f32)var->min_u32, (f32)var->max_u32);
+                    *var->as_u32 = (u32)t;
                 } else if (var->type == debug_watcher_type::CSTR) {
                     im::text(imgui, var->as_cstr);
                 } else if (var->type == debug_watcher_type::VEC3) {
