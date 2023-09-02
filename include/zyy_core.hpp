@@ -8,7 +8,8 @@
 #include <fmt/format.h>
 
 #define fmt_str(...) (fmt::format(__VA_ARGS__))
-#define fmt_sv(...) (std::string_view{fmt::format(__VA_ARGS__)})
+// #define fmt_sv(...) (std::string_view{fmt::format(__VA_ARGS__)})
+#define fmt_sv fmt::format
 #define println(...) do { fmt::print(__VA_ARGS__); } while(0)
 #define zyy_info(cat, str, ...) do { fmt::print(fg(fmt::color::white) | fmt::emphasis::bold, fmt_str("[info][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
 #define zyy_warn(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::yellow) | fmt::emphasis::bold, fmt_str("[warn][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)

@@ -976,7 +976,6 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
     world->camera.reset_priority();
 
-    arena_begin_sweep(&world->render_system()->instance_storage_buffer.pool);
 
     if (world->player) {
         world->player->camera_controller.transform.origin = world->player->transform.origin + 
@@ -989,6 +988,9 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     game_state->render_system->camera_pos = game_state->game_world->camera.origin;
     game_state->render_system->set_view(game_state->game_world->camera.inverse().to_matrix(), game_state->width(), game_state->height());
 
+    // make sure not to allocate from buffer during sweep
+    
+    arena_begin_sweep(&world->render_system()->instance_storage_buffer.pool);
     for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
         auto* e = game_state->game_world->entities + i;
         const bool is_not_renderable = !e->is_renderable();

@@ -329,8 +329,9 @@ load_dlls(app_dll_t* app_dlls) {
 
 void
 update_dlls(app_dll_t* app_dlls, game_memory_t* game_memory) {
-    bool need_reload = !std::filesystem::exists("./build/lock.tmp");
-    if (need_reload) {
+    // bool need_reload = !std::filesystem::exists("./build/lock.tmp");
+    // if (1) 
+    {
         utl::profile_t p{"dll reload time"};
         zyy_warn("win32", "Game DLL Reload Detected");
         app_dlls->on_unload(game_memory);

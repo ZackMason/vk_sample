@@ -129,7 +129,7 @@ public:
             {
                 const PxTransform globalPose = actor->getGlobalPose();
                 const PxVec3 localPos = globalPose.transformInv(toVec3(hit.worldPos));
-                // bug with hit.length I believe
+                // framerate bug with hit.length I believe
                 PxRigidBodyExt::addForceAtLocalPos(*actor, hit.dir*hit.length*1000.0f, localPos, PxForceMode::eFORCE);
             }
         }
@@ -208,6 +208,16 @@ void physx_rigidbody_set_velocity(rigidbody_t* rb, const v3f& v) {
         actor->setLinearVelocity(pvec(v));
     }
 }
+
+void physx_rigidbody_add_impulse(rigidbody_t* rb, const v3f& v) {
+    if (rb->type == rigidbody_type::DYNAMIC) {
+        PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
+        
+        const PxVec3 pos = pvec(v3f{0.0});
+        PxRigidBodyExt::addForceAtLocalPos(*actor, pvec(v), pos, PxForceMode::eIMPULSE);
+    }
+}
+
 
 void physx_rigidbody_add_force(rigidbody_t* rb, const v3f& v) {
     if (rb->type == rigidbody_type::DYNAMIC) {

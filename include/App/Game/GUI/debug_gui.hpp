@@ -417,7 +417,7 @@ draw_gui(game_memory_t* game_memory) {
                 local_persist bool show_sky = false;
             if (im::text(state, "Graphics"sv, &show_gfx)) { 
                 if (im::text(state, "- Reload Shaders"sv)) {
-                    std::system("compile_shaders");
+                    std::system("ninja");
                     game_state->render_system->shader_cache.reload_all(
                         game_state->render_system->arena,
                         game_state->gfx
@@ -567,10 +567,11 @@ draw_gui(game_memory_t* game_memory) {
             bool opened = false;
             if ((show_entities || is_selected) && im::begin_panel_3d(state, 
                 e->name.c_data ? 
-                fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e) :
-                fmt_sv("Entity: {}", (void*)e),
+                std::string_view{fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e)}:
+                std::string_view{fmt_sv("Entity: {}", (void*)e)},
                 vp, e->global_transform().origin
             )) {
+
                 opened = true;
                 im::text(state, 
                     e->name.c_data ? 

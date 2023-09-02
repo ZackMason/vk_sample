@@ -28,7 +28,7 @@ struct particle_system_t {
 
     particle_t* particles;
     u32 max_count{1024};
-    u32 live_count{};
+    u32 live_count{0};
     u32 instance_offset{0};
 
     math::aabb_t<v3f> aabb{};
@@ -205,8 +205,8 @@ inline static void particle_system_update(
 
         // Note(Zack): kill particle and restart loop
         if (particle->life_time <= 0.0f) {
-            std::swap(*particle, system->particles[system->live_count-1]);
             if (0 != --system->live_count) {
+                std::swap(*particle, system->particles[system->live_count]);
                 goto restart_particle_update;
             }
         }
@@ -233,14 +233,16 @@ particle_system_build_matrices(
 ) {
     assert(system->live_count <= matrix_count);
 
+
     range_u32(i, 0, system->live_count) {
         auto* particle = system->particles + i;
         matrix[i] = math::transform_t{}
             .translate(particle->position)
             .rotate_quat(particle->orientation)
-            .set_scale(v3f{particle->scale})
+            .scale(v3f{particle->scale})
             .to_matrix();
     }
+
 }
 
 inline static particle_system_t*
@@ -255,6 +257,7 @@ particle_system_create(
 
     system->max_count = max_particle_count;
     system->live_count = 0;
+    system->spawn_timer = 0.0f;
 
     if (seed) system->rng.seed(seed);
 

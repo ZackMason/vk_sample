@@ -96,24 +96,24 @@ namespace zyy {
         TIMED_FUNCTION;
         assert(world);
         assert(world->entity_capacity < array_count(world->entities));
+        entity_t* e{0};
 
         if (world->free_entities) {
-            entity_t* e{0};
             node_pop(e, world->free_entities);
             world->entity_count++;
             assert(e);
             new (e) entity_t;
             e->id = world->next_entity_id++;
             add_entity_to_id_hash(world, e);
-            return e;
         } else {
-            auto* e = world->entities + world->entity_capacity++;
+            e = world->entities + world->entity_capacity++;
             world->entity_count++;
             assert(e);
             e->id = world->next_entity_id++;
             add_entity_to_id_hash(world, e);
-            return e;
         }
+        e->gfx.particle_system = 0;
+        return e;
     }
 
     static brain_id

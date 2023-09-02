@@ -50,7 +50,6 @@ void main()
     vec3 wp = (gl_ObjectToWorldEXT * vec4(p, 1.0)).xyz;
     vec3 wn = (gl_ObjectToWorldEXT * vec4(n, 0.0)).xyz;
 
-    
     data.distance = gl_RayTmaxEXT;
     data.normal = wn;
     

@@ -180,9 +180,11 @@ struct entity_t : node_t<entity_t> {
 
             if (dynamic) {
                 dynamic_instance_buffer = pool.allocate(count * 2);
+                std::fill(dynamic_instance_buffer, dynamic_instance_buffer+count*2+1, m44{1.0f});
                 buffer = dynamic_instance_buffer;
             } else {
                 buffer = instance_buffer = pool.allocate(count);
+                std::fill(buffer, buffer+count+1, m44{1.0f});
             }
             _instance_count = count;
         }

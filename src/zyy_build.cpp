@@ -8,6 +8,7 @@
 
 platform_api_t Platform;
 
+
 #include "App/bullet.cpp"
 #include "App/game_state.cpp"
 #include "App/vk_state.cpp"
