@@ -4,11 +4,14 @@ void
 watch_game_state(game_state_t* game_state) {
     auto* rs = game_state->render_system;
     auto* time_scale = &game_state->time_scale;
-    DEBUG_WATCH(time_scale)->max_f32 = 5.0f;
+    DEBUG_WATCH(time_scale)->max_f32 = 2.0f;
     auto* window_size = &game_state->game_memory->config.graphics_config.window_size;
     DEBUG_WATCH(window_size);
     DEBUG_WATCH(&gs_imgui_state->theme.shadow_distance);
+
     DEBUG_WATCH(&gs_rtx_on)->max_u32 = 2;
+    auto* rtx_super_sample = &game_state->render_system->rt_cache->super_sample;
+    DEBUG_WATCH(rtx_super_sample)->max_u32 = 2;
 
     auto* pp_tonemap = &rs->postprocess_params.data[0];
     auto* pp_exposure = &rs->postprocess_params.data[1];
@@ -29,7 +32,7 @@ draw_gui(game_memory_t* game_memory) {
 
     auto* render_system = game_state->render_system;
 
-    const u64 frame{game_state->gui.ctx.frame+1};
+    const u64 frame{++game_state->gui.ctx.frame};
     auto string_mark = arena_get_mark(&game_state->string_arena);
 
     arena_t* display_arenas[] = {
@@ -83,7 +86,7 @@ draw_gui(game_memory_t* game_memory) {
     };
 
     // std::lock_guard lock{game_state->render_system->ticket};
-    gfx::gui::ctx_clear(&game_state->gui.ctx, &game_state->gui.vertices[frame&1].pool, &game_state->gui.indices[frame&1].pool);
+    gfx::gui::ctx_clear(&game_state->gui.ctx, &game_state->gui.vertices[(frame&1)].pool, &game_state->gui.indices[frame&1].pool);
     
     const auto dt = game_memory->input.dt;
 
@@ -633,6 +636,64 @@ draw_gui(game_memory_t* game_memory) {
                     e->flags ^= zyy::EntityFlags_Breakpoint;
                 }
 
+                if (e->gfx.particle_system) {
+                    auto* ps = e->gfx.particle_system;
+                    im::text(state, fmt_sv("Particle System - {} / {}", ps->live_count, ps->max_count));
+                    im::text(state, "- Particle Template");
+                    im::same_line(state);
+                    im::text(state, "--- life_time: ");
+                    im::float_slider(state, &ps->template_particle.life_time, 0.0f, 2.0f);
+                    im::same_line(state);
+                    im::text(state, "--- velocity: ");
+                    im::vec3(state, ps->template_particle.velocity, -1.0f, 1.0f);
+
+                    im::same_line(state);
+                    im::text(state, "- acceleration: ");
+                    im::vec3(state, ps->acceleration, -1.0f, 1.0f);
+
+                    im::same_line(state);
+                    im::text(state, "- spawn_rate: ");
+                    im::float_slider(state, &ps->spawn_rate, 0.0f, 1.0f);
+
+                    im::same_line(state);
+                    im::text(state, "- scale_over_life_time.min: ");
+                    im::float_slider(state, &ps->scale_over_life_time.min, 0.0f, 4.0f);
+                    
+                    im::same_line(state);
+                    im::text(state, "- scale_over_life_time.max: ");
+                    im::float_slider(state, &ps->scale_over_life_time.max, 0.0f, 4.0f);
+
+                    im::same_line(state);
+                    im::text(state, "- velocity_random.min: ");
+                    im::vec3(state, ps->velocity_random.min, -1.0f, 1.0f);
+                    
+                    im::same_line(state);
+                    im::text(state, "- velocity_random.max: ");
+                    im::vec3(state, ps->velocity_random.max, -1.0f, 1.0f);
+
+
+                    bool is_box = ps->emitter_type == particle_emitter_type::box;
+                    im::same_line(state);
+                    im::text(state, "- emitter_type == box: ");
+                    im::checkbox(state, &is_box);
+                    ps->emitter_type = is_box ? particle_emitter_type::box : particle_emitter_type::sphere;
+                    if (is_box) {
+                        im::same_line(state);
+                        im::text(state, "--- min: ");
+                        im::vec3(state, ps->box.min, -4.0f, 4.0f);
+                        im::same_line(state);
+                        im::text(state, "--- max: ");
+                        im::vec3(state, ps->box.max, -4.0f, 4.0f);
+                    } else {
+                        im::same_line(state);
+                        im::text(state, "--- origin: ");
+                        im::vec3(state, ps->sphere.origin, -4.0f, 4.0f);
+                        im::same_line(state);
+                        im::text(state, "--- radius: ");
+                        im::float_slider(state, &ps->sphere.radius, 0.0f, 10.0f, v2f{128.0f, 16.0f});
+                    }
+                }
+                    
                 im::end_panel(state);
             }
             if (!opened && (not_player && im::draw_hiding_circle_3d(

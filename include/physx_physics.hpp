@@ -161,6 +161,25 @@ inline static physx_backend_t* get_physx(const api_t* api) {
     return (physx_backend_t*)api->backend;
 }
 
+void physx_rigidbody_set_collision_flags(rigidbody_t* rb) {
+    PxFilterData filter{};
+    filter.word0 = rb->layer;
+    filter.word1 = rb->group;
+        
+    for (u32 i = 0; i < rb->collider_count; i++) {
+        ((PxShape*)rb->colliders[i].shape)->setQueryFilterData(filter);
+        ((PxShape*)rb->colliders[i].shape)->setSimulationFilterData(filter);
+    }
+}
+
+void physx_rigidbody_set_mass(rigidbody_t* rb, f32 x) {
+    if (rb->type == rigidbody_type::DYNAMIC) {
+        PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
+        
+        actor->setMass(x);
+    }
+}
+
 void physx_rigidbody_set_ccd(rigidbody_t* rb, bool x) {
     if (rb->type == rigidbody_type::DYNAMIC) {
         PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
@@ -271,7 +290,8 @@ physx_create_rigidbody_impl(
     const auto* ps = get_physx(api);
     assert(api->rigidbody_count < PHYSICS_MAX_RIGIDBODY_COUNT);
     rigidbody_t* rb = &api->rigidbodies[api->rigidbody_count++];
-    *rb = {};
+    *rb = {api};
+    
     const auto t = cast_transform(math::transform_t{position, orientation});
     switch (rb->type = type) {
         case rigidbody_type::KINEMATIC:
@@ -374,6 +394,12 @@ physx_create_collider_impl(
         }   break;
         case_invalid_default;
     }
+    PxFilterData filter{};
+    filter.word0 = rigidbody->layer;
+    filter.word1 = rigidbody->group;
+        
+    ((PxShape*)col->shape)->setQueryFilterData(filter);
+    ((PxShape*)col->shape)->setSimulationFilterData(filter);
 }
 
 static PxFilterFlags filterShader(
@@ -390,23 +416,26 @@ static PxFilterFlags filterShader(
         pairFlags = physx::PxPairFlag::eTRIGGER_DEFAULT;
         return physx::PxFilterFlag::eDEFAULT;
     }
-    pairFlags =
-        physx::PxPairFlag::eCONTACT_DEFAULT |
-        physx::PxPairFlag::eNOTIFY_TOUCH_FOUND |
-        physx::PxPairFlag::eNOTIFY_TOUCH_PERSISTS |
-        physx::PxPairFlag::eNOTIFY_TOUCH_LOST |
-        physx::PxPairFlag::eDETECT_DISCRETE_CONTACT |
-        physx::PxPairFlag::eDETECT_CCD_CONTACT |
-        physx::PxPairFlag::eNOTIFY_CONTACT_POINTS;
-    if (PxFilterObjectIsKinematic(attributes0) && PxFilterObjectIsKinematic(attributes1))
-    {
-        pairFlags.clear(physx::PxPairFlag::eSOLVE_CONTACT);
-    }
+    if ((filterData0.word0 & filterData1.word1) && (filterData1.word0 & filterData0.word1)) {
+        pairFlags =
+            physx::PxPairFlag::eCONTACT_DEFAULT |
+            physx::PxPairFlag::eNOTIFY_TOUCH_FOUND |
+            physx::PxPairFlag::eNOTIFY_TOUCH_PERSISTS |
+            physx::PxPairFlag::eNOTIFY_TOUCH_LOST |
+            physx::PxPairFlag::eDETECT_DISCRETE_CONTACT |
+            physx::PxPairFlag::eDETECT_CCD_CONTACT |
+            physx::PxPairFlag::eNOTIFY_CONTACT_POINTS;
 
-    // generate callbacks for collisions between kinematic and dynamic objects
-    if (PxFilterObjectIsKinematic(attributes0) != PxFilterObjectIsKinematic(attributes1))
-    {
-        // return physx::PxFilterFlag::eCALLBACK;
+        if (PxFilterObjectIsKinematic(attributes0) && PxFilterObjectIsKinematic(attributes1))
+        {
+            pairFlags.clear(physx::PxPairFlag::eSOLVE_CONTACT);
+        }
+
+        // generate callbacks for collisions between kinematic and dynamic objects
+        if (PxFilterObjectIsKinematic(attributes0) != PxFilterObjectIsKinematic(attributes1))
+        {
+            // return physx::PxFilterFlag::eCALLBACK;
+        }
     }
     
     return PxFilterFlag::eDEFAULT;
@@ -469,20 +498,22 @@ physx_raycast_world(const api_t* api, v3f ro, v3f rd) {
     TIMED_FUNCTION;
     auto* ps = get_physx(api);
     auto dist = glm::length(rd);
-    rd = glm::normalize(rd);
+    if (dist == 0.0f) {
+        zyy_warn(__FUNCTION__, "Ray direction is zero");
+    } else {
+        rd = glm::normalize(rd);
+    }
     const physx::PxVec3 pro{ ro.x, ro.y, ro.z };
     const physx::PxVec3 prd{ rd.x, rd.y, rd.z };
-    physx::PxRaycastBuffer hit;
+    physx::PxRaycastBuffer hit{};
 
     PxQueryFilterData filter_data(PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC);
 
     raycast_result_t result{};
     result.hit = ps->world->scene->raycast(pro, prd, dist, hit, PxHitFlag::eDEFAULT, filter_data);
     if (result.hit) {
-        if (hit.block.actor->userData) {
-            result.user_data = hit.block.actor->userData;
-        }
-
+        result.user_data = hit.block.actor->userData;
+        
         const auto [nx,ny,nz] = hit.block.normal;
         const auto [px,py,pz] = hit.block.position;
         result.distance = hit.block.distance;
@@ -518,13 +549,12 @@ struct move_filter : public PxQueryFilterCallback
 	}
 } gs_move_filter;
 
-
 void
 physx_simulate(api_t* api, f32 dt) {
     TIMED_FUNCTION;
     const auto* ps = get_physx(api);
 
-    zyy_info(__FUNCTION__, "dt: {}", dt);
+    // zyy_info(__FUNCTION__, "dt: {}", dt);
 
     range_u64(i, 0, api->character_count) {
         auto* rb = api->characters[i];
@@ -533,11 +563,11 @@ physx_simulate(api_t* api, f32 dt) {
             auto* transform = (math::transform_t*)((u8*)rb->user_data + api->entity_transform_offset);
             // rb->integrate(dt, 9.81f * 0.1f * 0.0f);
             auto v = rb->velocity * dt * 100.0f;
-            f32 vm = glm::length(v);
+            f32 vm = glm::length(rb->velocity);
             const auto [lpx,lpy,lpz] = controller->getPosition();
 
             const PxU32 move_flags = controller->move(
-                {v.x, v.y, v.z}, 0.01f, 0.0f, {0, &gs_move_filter}
+                {v.x, v.y, v.z}, 0.0f, 0.0f, {0, &gs_move_filter}
             );
             const auto [px,py,pz] = controller->getPosition();
             rb->position = v3f{px,py,pz};
@@ -548,15 +578,16 @@ physx_simulate(api_t* api, f32 dt) {
                 rb->flags &= ~rigidbody_flags::IS_ON_GROUND;
             }
             if(move_flags & PxControllerCollisionFlag::eCOLLISION_SIDES) {
-                // rb->velocity = (rb->position - v3f{lpx, lpy, lpz});
+                rb->velocity = (rb->position - v3f{lpx, lpy, lpz});
                 rb->flags |= rigidbody_flags::IS_ON_WALL;
             } else {
                 if(move_flags & PxControllerCollisionFlag::eCOLLISION_UP) {
-                    // rb->velocity = (v3f{px,py,pz} - v3f{lpx, lpy, lpz});
+                    rb->velocity = (v3f{px,py,pz} - v3f{lpx, lpy, lpz});
+                    rb->velocity.y = 0.0f;
                 }
                 rb->flags &= ~rigidbody_flags::IS_ON_WALL;
             }
-            // if (glm::length(rb->velocity) > vm) { rb->velocity = glm::normalize(rb->velocity) * vm; }
+            if (glm::length(rb->velocity) > vm) { rb->velocity = glm::normalize(rb->velocity) * vm; }
 
         }
     }

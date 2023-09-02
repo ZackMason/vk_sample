@@ -39,6 +39,7 @@ global_variable gfx::anim::animator_t gs_animator;
 global_variable gfx::mesh_list_t gs_skinned_mesh;
 
 global_variable VkCullModeFlagBits gs_cull_modes[] = {
+    VK_CULL_MODE_NONE,
     VK_CULL_MODE_BACK_BIT,
     VK_CULL_MODE_FRONT_BIT,
 };
@@ -135,12 +136,21 @@ texture_add_border(gfx::vul::texture_2d_t* texture, v3f c1, u32 size) {
 inline static gfx::vul::texture_2d_t*
 make_error_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size) {
     // auto* tex = arena_alloc<gfx::vul::texture_2d_t>(arena);
-    return make_grid_texture(arena, tex, size, gfx::color::v3::black, gfx::color::v3::purple);
+    return make_grid_texture(arena,
+							 tex,
+							 size,
+							 gfx::color::v3::black,
+							 gfx::color::v3::purple);
 }
+
 inline static gfx::vul::texture_2d_t*
 make_error_texture(arena_t* arena, u32 size) {
     auto* tex = arena_alloc<gfx::vul::texture_2d_t>(arena);
-    return make_grid_texture(arena, tex, size, gfx::color::v3::black, gfx::color::v3::purple);
+    return make_grid_texture(arena,
+							 tex,
+							 size,
+							 gfx::color::v3::black,
+							 gfx::color::v3::purple);
 }
 
 inline static gfx::vul::texture_2d_t*
@@ -150,7 +160,7 @@ make_noise_texture(arena_t* arena, u32 size) {
 
     tex->size[0] = tex->size[1] = size;
     tex->channels = 4;
-    tex->pixels = arena_alloc_ctor<u8>(arena, size*size*4);
+    tex->pixels = arena_alloc<u8>(arena, size*size*4);
     // tex->format = VK_FORMAT_R8G8B8A8_SRGB;
     u64 i = 0;
     range_u64(x, 0, size) {
@@ -181,7 +191,9 @@ app_init_graphics(game_memory_t* game_memory) {
     // texture_add_border(&vk_gfx.null_texture, gfx::color::v3::yellow, 4);
     // texture_add_border(&vk_gfx.null_texture, v3f{0.2f}, 4);
 
-    make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.7f, 0.7f, 0.7f}, v3f{0.66f, 0.66f, 0.66f}, 2.0f);
+    // make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.7f, 0.7f, 0.7f}, v3f{0.66f, 0.66f, 0.66f}, 2.0f);
+    make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.98f}, v3f{0.66f, 0.66f, 0.66f}, 2.0f);
+
     // make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.7f, 0.13f, 0.13f}, v3f{0.79f, 0.16f, 0.16f}, 2.0f);
     texture_add_border(&vk_gfx.null_texture, v3f{0.2f}, 4);
 
@@ -469,6 +481,30 @@ app_init_graphics(game_memory_t* game_memory) {
             //unlit_mat.emission = 10.0f;
 
             make_material("blood", unlit_mat);
+        }
+        {
+            auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::yellowish);
+            unlit_mat.flags = gfx::material_billboard;
+            unlit_mat.roughness = 1.0f;
+            unlit_mat.emission = 10.0f;
+
+            make_material("particle", unlit_mat);
+        }
+        {
+            auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::reddish);
+            unlit_mat.flags = gfx::material_billboard;
+            unlit_mat.roughness = 1.0f;
+            unlit_mat.emission = 10.0f;
+
+            make_material("particle-red", unlit_mat);
+        }
+        {
+            auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::orange);
+            unlit_mat.flags = gfx::material_billboard;
+            unlit_mat.roughness = 1.0f;
+            unlit_mat.emission = 10.0f;
+
+            make_material("particle-orange", unlit_mat);
         }
         make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
         make_material("gold-metal", gfx::material_t::plastic(gfx::color::v4::yellow));
@@ -904,15 +940,15 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         //     // e->transform.set_rotation(orientation);
         // }
 
-        // if(e->primary_weapon.entity) {
-        //     auto forward = -e->primary_weapon.entity->transform.basis[2];
-        // //     e->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
-        // //     e->primary_weapon.entity->transform.set_scale(v3f{3.0f});
-        //     e->primary_weapon.entity->transform.origin =
-        //         e->global_transform().origin +
-        //         forward + axis::up * 0.3f;
-        // //         //  0.5f * (right + axis::up);
-        // }
+        if(e->primary_weapon.entity) {
+            auto forward = -e->primary_weapon.entity->transform.basis[2];
+        //     e->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
+        //     e->primary_weapon.entity->transform.set_scale(v3f{3.0f});
+            e->primary_weapon.entity->transform.origin =
+                e->global_transform().origin +
+                forward + axis::up * 0.3f;
+        //         //  0.5f * (right + axis::up);
+        }
     }
 
     std::lock_guard lock{game_state->render_system->ticket};
@@ -1001,6 +1037,7 @@ void
 game_on_update(game_memory_t* game_memory) {
     // utl::profile_t p{"on_update"};
     game_state_t* game_state = get_game_state(game_memory);
+    game_state->time += game_memory->input.dt * game_state->time_scale;
 
     auto* world_generator = game_state->game_world->world_generator;
     if (world_generator && world_generator->is_done() == false) {
@@ -1112,21 +1149,21 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
         rendering::begin_rt_pass(game_state->render_system, command_buffer, frame_count);
 
-        if (vk_gfx.compute_index != vk_gfx.graphics_index) {
-            gfx::vul::utl::insert_image_memory_barrier(
-                command_buffer,
-                rs->frame_images[frame_count%2].texture.image,
-                VK_ACCESS_SHADER_WRITE_BIT,
-                0,
-                VK_IMAGE_LAYOUT_GENERAL,
-                VK_IMAGE_LAYOUT_GENERAL,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                vk_gfx.compute_index,
-                vk_gfx.graphics_index
-            );
-        }
+        // if (vk_gfx.compute_index != vk_gfx.graphics_index) {
+        //     gfx::vul::utl::insert_image_memory_barrier(
+        //         command_buffer,
+        //         rs->frame_images[frame_count%2].texture.image,
+        //         VK_ACCESS_SHADER_WRITE_BIT,
+        //         0,
+        //         VK_IMAGE_LAYOUT_GENERAL,
+        //         VK_IMAGE_LAYOUT_GENERAL,
+        //         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        //         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        //         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+        //         vk_gfx.compute_index,
+        //         vk_gfx.graphics_index
+        //     );
+        // }
 
         VK_OK(vkEndCommandBuffer(command_buffer));
 
@@ -1146,7 +1183,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
     {
         auto& command_buffer = vk_gfx.command_buffer[frame_count%2];
-        vkResetCommandBuffer(command_buffer, 0);
+        VK_OK(vkResetCommandBuffer(command_buffer, 0));
 
         auto* rs = game_state->render_system;
         auto& khr = vk_gfx.khr;
@@ -1156,9 +1193,12 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
         auto command_buffer_begin_info = gfx::vul::utl::command_buffer_begin_info();
         VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
 
-        if (gs_rtx_on){
+        rendering::memory_barriers(rs, command_buffer);
+        
+        if (gs_rtx_on) {
             rendering::begin_rt_pass(game_state->render_system, command_buffer, frame_count);
         } else {
+            game_state->render_system->rt_cache->frame = 0;
             VkBuffer buffers[1] = { game_state->render_system->vertices.buffer };
             VkDeviceSize offsets[1] = { 0 };
 
@@ -1247,9 +1287,17 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
             ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
             ext.vkCmdSetDepthCompareOpEXT(command_buffer, VK_COMPARE_OP_LESS_OR_EQUAL);
             ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+            VkColorBlendEquationEXT blend_fn[1];
+            blend_fn[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+            blend_fn[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            blend_fn[0].colorBlendOp = VK_BLEND_OP_ADD;
+            blend_fn[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            blend_fn[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            blend_fn[0].alphaBlendOp = VK_BLEND_OP_ADD;
+            ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
             VkBool32 fb_blend[1] { true };
             ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
-            
+            ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
             {
                 VkVertexInputBindingDescription2EXT vertexInputBinding{};
                 vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
@@ -1273,10 +1321,11 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
         }
     
         { // UI START
-            if (vk_gfx.compute_index != vk_gfx.graphics_index) {
+            // if (vk_gfx.compute_index != vk_gfx.graphics_index) {
+            if (gs_rtx_on) {
                 gfx::vul::utl::insert_image_memory_barrier(
                     command_buffer,
-                    rs->frame_images[frame_count%2].texture.image,
+                    rs->frame_images[6].texture.image,
                     0,
                     VK_ACCESS_SHADER_READ_BIT,
                     VK_IMAGE_LAYOUT_GENERAL,
@@ -1287,19 +1336,20 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                     vk_gfx.compute_index,
                     vk_gfx.graphics_index
                 );
-            } else {
-                gfx::vul::utl::insert_image_memory_barrier(
-                    command_buffer,
-                    rs->frame_images[frame_count%2].texture.image,
-                    VK_ACCESS_SHADER_WRITE_BIT,
-                    VK_ACCESS_SHADER_READ_BIT,
-                    VK_IMAGE_LAYOUT_GENERAL,
-                    VK_IMAGE_LAYOUT_GENERAL,
-                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                    VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
-                );
             }
+            // } else {
+            //     gfx::vul::utl::insert_image_memory_barrier(
+            //         command_buffer,
+            //         rs->frame_images[frame_count%2].texture.image,
+            //         VK_ACCESS_SHADER_WRITE_BIT,
+            //         VK_ACCESS_SHADER_READ_BIT,
+            //         VK_IMAGE_LAYOUT_GENERAL,
+            //         VK_IMAGE_LAYOUT_GENERAL,
+            //         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            //         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            //         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+            //     );
+            // }
 
             gfx::vul::utl::insert_image_memory_barrier(
                 command_buffer,
@@ -1368,8 +1418,9 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 rendering::draw_postprocess(
                     rs, command_buffer,
                     assets::shaders::tonemap_frag.filename,
+                    gs_rtx_on ?
+                    &rs->frame_images[6].texture :
                     &rs->frame_images[frame_count%2].texture,
-                    // &rs->frame_images[6].texture,
                     parameters
                 );
             }
@@ -1399,13 +1450,14 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
 
-            const u64 gui_frame = game_state->gui.frame;
+            const u64 gui_frame = game_state->gui.ctx.frame&1;
+            auto& gui_vertices = game_state->gui.vertices[gui_frame];
+            auto& gui_indices = game_state->gui.indices[gui_frame];
+            gui_vertices.insert_memory_barrier(command_buffer);
+            gui_indices.insert_memory_barrier(command_buffer);
             VkDeviceSize offsets[1] = { 0 };
-            vkCmdBindVertexBuffers(command_buffer,
-                0, 1, &game_state->gui.vertices[!(gui_frame&1)].buffer, offsets);
-
-            vkCmdBindIndexBuffer(command_buffer,
-                game_state->gui.indices[!(gui_frame&1)].buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(command_buffer, 0, 1, &gui_vertices.buffer, offsets);
+            vkCmdBindIndexBuffer(command_buffer, gui_indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 
             VkShaderEXT gui_shaders[2] {
                 *rs->shader_cache.get("./res/shaders/bin/gui.vert.spv"),

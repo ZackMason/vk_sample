@@ -268,7 +268,6 @@ struct coroutine_t {
     u64 stack_top{0};
 };
 
-
 #define co_begin(coro) switch (coro->line) {case 0: coro->line = 0; coro->running=1;
 #define co_yield(coro) do { coro->line = __LINE__; return; case __LINE__:;} while(0)
 #define co_yield_until(coro, condition) while (!(condition)) { co_yield(coro); }
@@ -2298,6 +2297,7 @@ struct mesh_view_t {
 
     math::aabb_t<v3f> aabb{};
 
+
     // for RTX
     u32 blas{0};
     // u32 hit{0};
@@ -2307,6 +2307,9 @@ struct mesh_list_t {
     gfx::mesh_view_t* meshes{nullptr};
     size_t count{0};
     math::aabb_t<v3f> aabb{};
+
+
+    // mesh_list_t* next_lod{0};
 };
 
 // there should only be one running at a time
@@ -2493,6 +2496,7 @@ struct font_t;
 
 static constexpr u32 material_lit = (u32)BIT(0);
 static constexpr u32 material_triplanar = (u32)BIT(1);
+static constexpr u32 material_billboard = (u32)BIT(2);
 
 struct material_t {
     v4f albedo{};
@@ -2825,11 +2829,14 @@ namespace color {
         static constexpr auto light_gray  = "#d3d3d3ff"_c4;
         static constexpr auto dark_gray   = "#2a2a2aff"_c4;
         static constexpr auto red   = "#ff0000ff"_c4;
+        static constexpr auto reddish = "#fa2222ff"_c4;
         static constexpr auto green = "#00ff00ff"_c4;
         static constexpr auto blue  = "#0000ffff"_c4;
         static constexpr auto purple= "#ff00ffff"_c4;
         static constexpr auto cyan  = "#00ffffff"_c4;
         static constexpr auto yellow= "#ffff00ff"_c4;
+        static constexpr auto yellowish= "#fafa22ff"_c4;
+        static constexpr auto orange  = "#faa522ff"_c4;
         static constexpr auto sand  = "#C2B280ff"_c4;
         static constexpr auto dirt  = "#9b7653ff"_c4;
     };
@@ -2911,7 +2918,7 @@ namespace gui {
         utl::pool_t<vertex_t>* vertices,
         utl::pool_t<u32>* indices
     ) {
-        ctx->frame++; // remove this
+        // ctx->frame++; // remove this
         ctx->vertices = vertices;
         ctx->indices = indices;
         ctx->vertices->clear();

@@ -555,7 +555,7 @@ public:
 
         void build_layout(VkDevice device_) {
             device = device_;
-            pipeline_layout = gfx::vul::create_pipeline_layout(device, descriptor_layouts, 5, sizeof(m44) + sizeof(v4f) + sizeof(u32) * 2);
+            pipeline_layout = gfx::vul::create_pipeline_layout(device, descriptor_layouts, 5, sizeof(m44) * 2);
         }
 
         void build_buffer_sets(gfx::vul::descriptor_builder_t& builder, VkBuffer* buffers) {
@@ -809,9 +809,6 @@ public:
         gfx::vul::storage_buffer_t<m44, 256>                animation_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 2'000'000>          instance_storage_buffer;
 
-        gfx::vul::storage_buffer_t<padded_vertex_t, max_scene_vertex_count> vertex_storage_buffer;
-        gfx::vul::storage_buffer_t<u32, max_scene_index_count> index_storage_buffer;
-
         m44 vp{1.0f};
         m44 projection{1.0f};
         m44 view{1.0f};
@@ -879,8 +876,21 @@ public:
             vkDestroyCommandPool(rs->vk_gfx->device, rs->frames[i].command_pool, 0);
             // vkDestroySemaphore(rs->vk_gfx->device, rs->frames[i].present_semaphore, 0);
             // vkDestroySemaphore(rs->vk_gfx->device, rs->frames[i].render_semaphore, 0);
+            
             rs->frames[i].dynamic_descriptor_allocator->cleanup();
+            rs->vk_gfx->destroy_data_buffer(rs->frames[i].indexed_indirect_storage_buffer);
         }
+
+        rs->vk_gfx->destroy_data_buffer(rs->vertices);
+        rs->vk_gfx->destroy_data_buffer(rs->indices);
+        rs->vk_gfx->destroy_data_buffer(rs->skinned_vertices);
+        rs->vk_gfx->destroy_data_buffer(rs->skinned_indices);
+        rs->vk_gfx->destroy_data_buffer(rs->job_storage_buffers[0]);
+        rs->vk_gfx->destroy_data_buffer(rs->job_storage_buffers[1]);
+        rs->vk_gfx->destroy_data_buffer(rs->material_storage_buffer);
+        rs->vk_gfx->destroy_data_buffer(rs->instance_storage_buffer);
+        rs->vk_gfx->destroy_data_buffer(rs->animation_storage_buffer);
+        rs->vk_gfx->destroy_data_buffer(rs->environment_storage_buffer);
         rs->permanent_descriptor_allocator->cleanup();
     }
 
@@ -929,10 +939,10 @@ public:
             state.depth_stencil_texture.image_view, state.swap_chain_extent.width, state.swap_chain_extent.height
         );
 
-        state.create_texture(&rs->frame_images[0].texture, w, h, 4, 0, 0, sizeof(float)*4);
-        state.create_texture(&rs->frame_images[1].texture, w, h, 4, 0, 0, sizeof(float)*4);
-        state.create_texture(&rs->frame_images[2].texture, w, h, 4, 0, 0, sizeof(float)*4);
-        state.create_texture(&rs->frame_images[3].texture, w, h, 4, 0, 0, sizeof(float)*4);
+        state.create_texture(&rs->frame_images[0].texture, w, h, 4, 0, 0, sizeof(float)*2);
+        state.create_texture(&rs->frame_images[1].texture, w, h, 4, 0, 0, sizeof(float)*2);
+        state.create_texture(&rs->frame_images[2].texture, w, h, 4, 0, 0, sizeof(float)*2);
+        state.create_texture(&rs->frame_images[3].texture, w, h, 4, 0, 0, sizeof(float)*2);
 
         rs->frame_images[0].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         rs->frame_images[1].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -965,10 +975,6 @@ public:
         state.create_storage_buffer(&rs->animation_storage_buffer);
         state.create_storage_buffer(&rs->instance_storage_buffer);
         
-        // rt vertices
-        state.create_storage_buffer(&rs->vertex_storage_buffer);
-        state.create_storage_buffer(&rs->index_storage_buffer);
-
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
         rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{0.5f,0.9f,0.2f}),0.0f};
 
@@ -992,8 +998,8 @@ public:
                 rs->frames[i].indexed_indirect_storage_buffer.buffer,
                 rs->material_storage_buffer.buffer,
                 rs->environment_storage_buffer.buffer,
-                rs->vertex_storage_buffer.buffer,
-                rs->index_storage_buffer.buffer,
+                rs->vertices.buffer,
+                rs->indices.buffer,
             };
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
@@ -1074,8 +1080,19 @@ public:
 
         rs->get_frame_data().rt_compute_pass.instance_count = 0;
 
-
         arena_clear(&rs->frame_arena);
+    }
+
+    void
+    memory_barriers(system_t* rs, VkCommandBuffer command_buffer) {
+        rs->get_frame_data().indexed_indirect_storage_buffer.insert_memory_barrier(command_buffer);
+        rs->vertices.insert_memory_barrier(command_buffer);
+        rs->indices.insert_memory_barrier(command_buffer);
+        rs->material_storage_buffer.insert_memory_barrier(command_buffer);
+        rs->environment_storage_buffer.insert_memory_barrier(command_buffer);
+        rs->instance_storage_buffer.insert_memory_barrier(command_buffer);
+        rs->animation_storage_buffer.insert_memory_barrier(command_buffer);
+        rs->job_storage_buffer().insert_memory_barrier(command_buffer);
     }
 
     inline void
@@ -1097,7 +1114,7 @@ public:
         job->instance_count = instance_count;
 
         for (size_t i = 0; i < job->meshes->count; i++) {
-            for (size_t j = 0; j < instance_count; j++) {
+            for (size_t j = 0; j < instance_count && j < 1'000; j++) { // @hardcoded limit for instancing
                 rs->get_frame_data().rt_compute_pass.add_to_tlas(
                     *rs->vk_gfx,
                     *rs->rt_cache,
@@ -1105,6 +1122,7 @@ public:
                     instance_count == 1 ? transform : transform * instance_buffer[instance_offset + j]
                 );
             }
+
 
             gfx::indirect_indexed_draw_t* draw_cmd = rs->get_frame_data().indexed_indirect_storage_buffer.pool.allocate(1);
             draw_cmd->index_count = job->meshes->meshes[i].index_count;
@@ -1203,13 +1221,12 @@ public:
         const auto* material = rs->materials[job->material];
 
         struct pc_t {
-            m44 vp;
-            v4f cp;
-            u32 albedo;
-            u32 normal;
+            m44 v;
+            m44 p;
         } constants;
-        constants.vp = rs->vp;
-        constants.cp = v4f{rs->camera_pos, 0.0f};
+        constants.v = rs->view;
+        constants.p = rs->projection;
+        
         vkCmdPushConstants(command_buffer, material->pipeline_layout,
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
             0, sizeof(constants), &constants

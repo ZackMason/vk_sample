@@ -51,18 +51,19 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
 
     local_persist f32 max_ground_speed = 3.60f; DEBUG_WATCH(&max_ground_speed)->max_f32 = 10.0f;
     local_persist f32 max_air_speed = 0.3f; DEBUG_WATCH(&max_air_speed)->max_f32 = 4.0f;
-    local_persist f32 ground_accel = 1.0f; DEBUG_WATCH(&ground_accel)->max_f32 = 6.0f; // source engine 5.6 default
-    local_persist f32 air_accel = 0.1f; DEBUG_WATCH(&air_accel)->max_f32 = 8.0f;
-    local_persist f32 friction = 4.0f; DEBUG_WATCH(&friction)->max_f32 = 10.0f;
+    local_persist f32 ground_accel = 2.2f; DEBUG_WATCH(&ground_accel)->max_f32 = 6.0f; // source engine 5.6 default
+    local_persist f32 air_accel = 0.5f; DEBUG_WATCH(&air_accel)->max_f32 = 3.0f;
+    local_persist f32 friction = 9.1f; DEBUG_WATCH(&friction)->max_f32 = 10.0f;
     
     f32 max_speed = is_on_ground ? max_ground_speed : max_air_speed;
     f32 accel = is_on_ground ? ground_accel : air_accel;
     
     auto movement = is_on_ground ? quake_ground_move : quake_air_move;
     rigidbody->velocity = movement(wishdir, rigidbody->velocity, friction, accel, max_speed, dt);
-    if (is_on_ground == false) 
-    {
+    if (is_on_ground == false) {
         rigidbody->velocity.y -= 9.81f * 0.05f * dt;
+    } else {
+        rigidbody->velocity.y = 0.0f;
     }
         // rigidbody->force += ((glm::normalize(planes::xz * forward) * move.z + right * move.x) * dt * move_speed);
     // }

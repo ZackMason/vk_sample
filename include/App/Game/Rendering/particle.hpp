@@ -192,6 +192,10 @@ inline static void particle_system_update(
         if (system->live_count < system->max_count) {
             particle_system_spawn(system);
         }
+        if (system->spawn_rate <= 0.0f) {
+            system->spawn_timer = 0.0f;
+            break; // to stop infinite loop when spawn_rate == 0.0f
+        }
     }
 
     range_u64(i, 0, system->live_count) {

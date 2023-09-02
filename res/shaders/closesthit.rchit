@@ -52,45 +52,47 @@ void main()
 
     
     data.distance = gl_RayTmaxEXT;
-    data.normal = n;
+    data.normal = wn;
     
-	data.reflector = 0.0;// (mesh.texture_id == -1 ? 1.0f : 0.0f);
+	data.reflector = dot(albedo.rgb, albedo.rgb) > 0.9 ? 1.0 : 0.0;// (mesh.texture_id == -1 ? 1.0f : 0.0f);
     data.color = vec3(tri) / vec3(tri+1);
 
     data.color = bary;
 
     data.color = wn;
-    data.color = albedo.rgb;
+    vec3 color = albedo.rgb;
 
-    float tmin = 0.01;
+    float tmin = 0.001;
     float tmax = 1000.0;
     vec3 origin = wp + wn * 0.01;
 
     float shadow = 1.0;
     int shadow_count = 1;
     // for (int i = 0; i < shadow_count; i++) {
-        shadowed = true;
 
         // vec3 SL = normalize(3.0*L + hemisphere_random(L, float(tri.x + i)));
 
-        traceRayEXT(topLevelAS, 
-            // gl_RayFlagsTerminateOnFirstHitEXT | 
-            // gl_RayFlagsOpaqueEXT | 
-            gl_RayFlagsSkipClosestHitShaderEXT, 
-            0xFF, 
-            0, 
-            0, 
-            1, 
-            origin, 
-            tmin, 
-            L, 
-            tmax, 
-            2);
-        if (shadowed) {
-            shadow -= 0.3 * 1.0 / float(shadow_count);
-            data.color *= shadow;
-        }
+    shadowed = true;
+    traceRayEXT(topLevelAS, 
+        // gl_RayFlagsTerminateOnFirstHitEXT | 
+        // gl_RayFlagsOpaqueEXT | 
+        gl_RayFlagsSkipClosestHitShaderEXT, 
+        0xFF, 
+        0, 
+        0, 
+        1, 
+        origin, 
+        tmin, 
+        L, 
+        tmax, 
+        2);
+    if (shadowed) {
+        // shadow -= 0.3 * 1.0 / float(shadow_count);
+        color *= 0.3;
+    }
     // }
+
+    data.color = color;
 
     // data.color = vec3(0,1,0);
 }

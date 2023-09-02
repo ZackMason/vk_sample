@@ -51,7 +51,8 @@ struct rt_cache_t {
 
     gfx::vul::gpu_buffer_t mesh_data_buffer;
 
-
+    u32 frame{0};
+    u32 super_sample{0};
    
     void add_miss_shader(gfx::vul::state_t& gfx, std::string_view name) {
         shader_stages[shader_stage_count++] = gfx.load_shader(name, VK_SHADER_STAGE_MISS_BIT_KHR);
@@ -103,12 +104,15 @@ struct rt_cache_t {
     // }
 
     void build_pipeline(gfx::vul::state_t& gfx, VkDescriptorSetLayout& descriptor_set_layout) {
-        VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
-        pipeline_layout_create_info.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipeline_layout_create_info.setLayoutCount = 1;
-        pipeline_layout_create_info.pSetLayouts    = &descriptor_set_layout;
+        // VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
+        // pipeline_layout_create_info.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        // pipeline_layout_create_info.setLayoutCount = 1;
+        // pipeline_layout_create_info.pSetLayouts    = &descriptor_set_layout;
+        // pipeline_layout_create_info.
 
-        VK_OK(vkCreatePipelineLayout(gfx.device, &pipeline_layout_create_info, nullptr, &pipeline_layout));
+        pipeline_layout = gfx::vul::create_pipeline_layout(gfx.device, &descriptor_set_layout, 1, sizeof(u32), VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+
+        // VK_OK(vkCreatePipelineLayout(gfx.device, &pipeline_layout_create_info, nullptr, &pipeline_layout));
 
         /*
             Setup ray tracing shader groups
@@ -129,7 +133,7 @@ struct rt_cache_t {
         raytracing_pipeline_create_info.pStages                      = shader_stages;
         raytracing_pipeline_create_info.groupCount                   = static_cast<uint32_t>(shader_group_count);
         raytracing_pipeline_create_info.pGroups                      = shader_groups;
-        raytracing_pipeline_create_info.maxPipelineRayRecursionDepth = 3;
+        raytracing_pipeline_create_info.maxPipelineRayRecursionDepth = 8;
         raytracing_pipeline_create_info.layout                       = pipeline_layout;
         VK_OK(gfx.khr.vkCreateRayTracingPipelinesKHR(gfx.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &raytracing_pipeline_create_info, nullptr, &pipeline));
     }
@@ -303,8 +307,8 @@ struct rt_compute_pass_t {
     VkDevice device;
 
     acceleration_structure_t tlas;
-    VkAccelerationStructureInstanceKHR tlas_instances[8096];
-    VkAccelerationStructureBuildGeometryInfoKHR tlas_geometry[8096];
+    VkAccelerationStructureInstanceKHR tlas_instances[8096<<2];
+    VkAccelerationStructureBuildGeometryInfoKHR tlas_geometry[8096<<2];
     u32 instance_count{0};
 
     gfx::vul::gpu_buffer_t instance_buffer;
@@ -422,6 +426,7 @@ struct rt_compute_pass_t {
     void build_tlas(
         gfx::vul::state_t& gfx,
         rt_cache_t& cache,
+        VkCommandBuffer command_buffer,
         bool update = false
     ) {
         TIMED_FUNCTION;
@@ -450,7 +455,7 @@ struct rt_compute_pass_t {
         acceleration_structure_build_geometry_info.geometryCount = 1;
         acceleration_structure_build_geometry_info.pGeometries   = &acceleration_structure_geometry;
 
-        const uint32_t primitive_count = array_count(tlas_instances); // performance gain for this it seems?
+        const uint32_t primitive_count = array_count(tlas_instances); 
         // const uint32_t primitive_count = instance_count;
 
         VkAccelerationStructureBuildSizesInfoKHR acceleration_structure_build_sizes_info{};
@@ -485,7 +490,7 @@ struct rt_compute_pass_t {
             tlas.device_address        = gfx.khr.vkGetAccelerationStructureDeviceAddressKHR(gfx.device, &acceleration_device_address_info);
         }
 
-        auto scratch_buffer = gfx.create_scratch_buffer(acceleration_structure_build_sizes_info.buildScratchSize);
+        local_persist auto scratch_buffer = gfx.create_scratch_buffer(acceleration_structure_build_sizes_info.buildScratchSize);
         
         VkAccelerationStructureBuildGeometryInfoKHR acceleration_build_geometry_info{};
         acceleration_build_geometry_info.sType                     = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -506,18 +511,17 @@ struct rt_compute_pass_t {
         VkAccelerationStructureBuildRangeInfoKHR * acceleration_build_structure_range_infos[] = {&acceleration_structure_build_range_info};
 
         {
+            // this will wait if rendering is slow and using single command, and make it look like this is the slow part
             TIMED_BLOCK(build_tlas_BuildAccelerationStructure);
-            gfx::vul::quick_cmd_raii_t c{&gfx};
-            VkCommandBuffer command_buffer = c.c();
+            // gfx::vul::quick_cmd_raii_t c{&gfx};
+            // VkCommandBuffer command_buffer = c.c();
             gfx.khr.vkCmdBuildAccelerationStructuresKHR(
                 command_buffer,
                 1,
                 &acceleration_build_geometry_info,
                 acceleration_build_structure_range_infos);
         }
-        gfx.destroy_scratch_buffer(scratch_buffer);
-
-
+        // gfx.destroy_scratch_buffer(scratch_buffer);
     }
 
     struct push_constants_t {

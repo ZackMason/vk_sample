@@ -54,6 +54,9 @@ void load_extension_functions(state_t& state) {
     state.ext.LOAD_FN(vkDestroyShaderEXT);
     state.ext.LOAD_FN(vkCmdBindShadersEXT);
     state.ext.LOAD_FN(vkGetShaderBinaryDataEXT);
+    state.ext.LOAD_FN(vkCmdSetColorBlendEquationEXT);
+    state.ext.LOAD_FN(vkCmdSetLogicOpEnableEXT);
+
     state.khr.LOAD_FN(vkCmdBeginRenderingKHR);
     state.khr.LOAD_FN(vkCmdEndRenderingKHR);
 
@@ -292,10 +295,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     
 
 
-#if NDEBUG
-    constexpr bool enable_validation = false;
-#else
+#if !NDEBUG
     constexpr bool enable_validation = true;
+#else
+    constexpr bool enable_validation = false;
 #endif
 
     const std::vector<const char*> validationLayers = {
@@ -501,6 +504,7 @@ state_t::begin_single_time_commands() {
 
 void 
 state_t::end_single_time_commands(VkCommandBuffer cmd_buffer) {
+    // TIMED_FUNCTION;
     vkEndCommandBuffer(cmd_buffer);
 
     VkSubmitInfo submitInfo{};

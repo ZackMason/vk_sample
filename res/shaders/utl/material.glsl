@@ -9,8 +9,9 @@ struct IndirectIndexedDraw {
     uint     object_id;
 };
 
-#define MATERIAL_LIT 1
+#define MATERIAL_LIT       1
 #define MATERIAL_TRIPLANAR 2
+#define MATERIAL_BILLBOARD 4
 
 struct Material {
 	vec4 albedo;
@@ -60,3 +61,20 @@ struct Environment {
     PointLight point_lights[512];
 };
 
+mat4 billboard_matrix(mat4 m, bool cylindical) {
+    
+    m[0][0] = length(m[0].xyz);
+    m[0][1] = 0.0f;
+    m[0][2] = 0.0f;
+
+    if (!cylindical) {
+        m[1][1] = length(m[1].xyz);
+        m[1][0] = 0.0f;
+        m[1][2] = 0.0f;
+    }
+
+    m[2][2] = length(m[2].xyz);
+    m[2][0] = 0.0f;
+    m[2][1] = 0.0f;
+    return m;
+}

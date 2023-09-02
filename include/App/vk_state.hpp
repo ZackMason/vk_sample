@@ -22,6 +22,28 @@ struct gpu_buffer_t {
 	VkDeviceMemory		vdm{0};
 	VkDeviceSize		size{0};
     virtual ~gpu_buffer_t() = default;
+
+    void insert_memory_barrier(VkCommandBuffer command_buffer) const {
+        VkBufferMemoryBarrier buffer_barrier{};
+        buffer_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        buffer_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT; 
+        buffer_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        buffer_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        buffer_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        buffer_barrier.buffer = buffer;
+        buffer_barrier.offset = 0;
+        buffer_barrier.size = VK_WHOLE_SIZE;
+
+        vkCmdPipelineBarrier(
+            command_buffer, 
+            VK_PIPELINE_STAGE_HOST_BIT,
+            VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+            0,
+            0, nullptr,
+            1, &buffer_barrier,
+            0, nullptr
+        );
+    }
 };
 
 template <typename T>
@@ -230,6 +252,69 @@ struct scratch_buffer_t {
     VkDeviceMemory memory;
 };
 
+struct work_queue_t {
+    VkQueue queue{};
+    VkCommandPool command_pool{};
+    u32 index{0};
+    
+    void create(VkDevice device, u32 index_) {
+        index = index_;
+
+        vkGetDeviceQueue(device, index, 0, &queue);
+        VkCommandPoolCreateInfo vcpci{};
+        vcpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        vcpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        vcpci.queueFamilyIndex = index;
+
+        (vkCreateCommandPool(device, &vcpci, 0, &command_pool));
+    }
+
+    void destroy(VkDevice device) {
+        vkDestroyCommandPool(device, command_pool, 0);
+    }
+
+    VkCommandBuffer begin(VkDevice device) {
+        VkCommandBufferAllocateInfo vcbai{};
+        vcbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        vcbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        vcbai.commandPool = command_pool;
+        vcbai.commandBufferCount = 1;
+
+        VkCommandBuffer commandBuffer;
+        vkAllocateCommandBuffers(device, &vcbai, &commandBuffer);
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        return commandBuffer;
+    }
+
+    void submit_queue(VkDevice device, VkCommandBuffer command_buffer) {
+        vkEndCommandBuffer(command_buffer);
+
+        VkSubmitInfo vsi{};
+        vsi.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        vsi.commandBufferCount = 1;
+        vsi.pCommandBuffers = &command_buffer;
+
+        VkFenceCreateInfo vfci{};
+        VkFence fence{};
+        vfci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        vfci.flags = 0;
+        (vkCreateFence(device, &vfci, 0, &fence));
+
+        (vkQueueSubmit(queue, 1, &vsi, fence));
+        
+        (vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
+        vkDestroyFence(device, fence, nullptr);
+
+        vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
+    }
+};
+
 struct state_t {
     VkInstance instance;
     VkPhysicalDevice gpu_device;
@@ -323,6 +408,7 @@ struct state_t {
         PFN_vkCmdSetColorBlendEquationEXT       vkCmdSetColorBlendEquationEXT;
         PFN_vkCmdSetAlphaToOneEnableEXT         vkCmdSetAlphaToOneEnableEXT;
         PFN_vkCmdSetAlphaToCoverageEnableEXT    vkCmdSetAlphaToCoverageEnableEXT;
+        PFN_vkCmdSetLogicOpEnableEXT            vkCmdSetLogicOpEnableEXT;
 
         // VK_EXT_vertex_input_dynamic_state
         PFN_vkCmdSetVertexInputEXT vkCmdSetVertexInputEXT;
@@ -403,7 +489,11 @@ struct state_t {
 
     template <typename T, size_t N>
     VkResult create_vertex_buffer(vertex_buffer_t<T, N>* buffer) {
-        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, buffer);
+        const auto r = create_data_buffer(sizeof(T) * N, 
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | 
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | 
+            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | 
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, buffer);
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(T) * N, 0, &gpu_ptr);
         buffer->pool = utl::pool_t<T>{(T*)gpu_ptr, N};
@@ -412,7 +502,10 @@ struct state_t {
 
     template <size_t N>
     VkResult create_index_buffer(index_buffer_t<N>* buffer) {
-        const auto r = create_data_buffer(sizeof(u32) * N, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, buffer);
+        const auto r = create_data_buffer(sizeof(u32) * N, 
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, buffer);
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(u32) * N, 0, &gpu_ptr);
         buffer->pool = utl::pool_t<u32>{(u32*)gpu_ptr, N};

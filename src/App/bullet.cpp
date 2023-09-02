@@ -32,17 +32,19 @@
             for (i=0; i < ps->live_count; i++) {\
                 if (spawned[i]) {continue;}\
                 v3f ro=e->global_transform().xform(ps->particles[i].position);\
-                v3f rd=e->global_transform().basis * ((ps->particles[i].velocity/60.0f));\
+                v3f rd=e->global_transform().basis * ((ps->particles[i].velocity/20.0f));\
                 math::ray_t blood_ray{ro,rd};\
                 DEBUG_ADD_VARIABLE_(blood_ray, 0.0001f);\
                 if (auto ray = physics->raycast_world(physics, ro, rd); ray.hit) {\
                     auto* rb = (physics::rigidbody_t*)ray.user_data;\
-                    if (rb->type==physics::rigidbody_type::STATIC||rb->type==physics::rigidbody_type::KINEMATIC) {\
+                    if (rb->type==physics::rigidbody_type::STATIC) {\
                         math::transform_t transform{ray.point + ray.normal * 0.01f};\
-                        DEBUG_ADD_VARIABLE(ray.point);\
+                        math::ray_t blood_hit_ray{ray.point, ray.normal};\
+                        DEBUG_ADD_VARIABLE(blood_hit_ray);\
+                        DEBUG_ADD_VARIABLE(blood_ray);\
                         transform.look_at(ray.point + ray.normal);\
                         auto theta = f32(i) * 1000.0f;\
-                        transform.set_rotation(transform.get_orientation() * quat{sinf(theta), 0.0f, 0.0f, cos(theta)});\
+                        transform.set_rotation(transform.get_orientation() * quat{sinf(theta), 0.0f, 0.0f, cosf(theta)});\
                         transform.set_scale(v3f(0.6f));\
                         world_place_bloodsplat(world, transform);\
                         spawned[i] = 1;\
@@ -60,7 +62,43 @@
                         //auto* bs = zyy::spawn(world, world->render_system(), zyy::db::environmental::bloodsplat_01, ray.point + ray.normal * 0.01f);
 
 namespace zyy::wep {
-    
+
+    zyy::entity_t* spawn_puff(
+        zyy::world_t* world,
+        // const zyy::db::prefab_t& prefab,
+        v3f pos,
+        u32 count
+    ) {
+        auto particle_prefab = zyy::db::particle::plasma;
+        particle_prefab.coroutine = co_kill_in_x(4.0f);
+
+        auto* ps = zyy::spawn(world, world->render_system(), particle_prefab, pos);
+        ps->gfx.material_id = 4; // particle material @hardcode
+        ps->coroutine->start();
+        
+        ps->gfx.particle_system = particle_system_create(&world->arena, count);
+        ps->gfx.instance(world->render_system()->instance_storage_buffer.pool, count, 1);
+
+        ps->gfx.particle_system->spawn_rate = 0.005f;
+        ps->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>(.10f, .050f);
+        ps->gfx.particle_system->velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));
+        ps->gfx.particle_system->angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));
+        ps->gfx.particle_system->emitter_type = particle_emitter_type::box;
+        ps->gfx.particle_system->box = math::aabb_t<v3f>(v3f(-0.10f), v3f(0.10f));
+        ps->gfx.particle_system->stream_rate = 
+        ps->gfx.particle_system->_stream_count = 1;
+        
+        ps->gfx.particle_system->template_particle = particle_t {
+            .position = v3f(0.0),
+            .life_time = 10.0f,
+            .color = gfx::color::v4::purple,
+            .scale = 1.0f,
+            .velocity = axis::up * 5.0f,
+        };
+
+        return ps;
+    }
+
     zyy::entity_t* spawn_blood(
         zyy::world_t* world,
         // const zyy::db::prefab_t& prefab,
@@ -106,6 +144,7 @@ namespace zyy::wep {
         bullet_t bullet,
         f32 dt
     ) {
+
         auto* bullet_entity = zyy::spawn(world, world->render_system(), prefab, bullet.ray.at(0.5f));
         bullet_entity->gfx.material_id = 2; // unlit material @hardcode
         bullet_entity->stats.weapon.stats.damage = bullet.damage;
@@ -120,6 +159,7 @@ namespace zyy::wep {
                 spawn_hit = 1;
             }
 
+            // spawn_puff(world, self_entity->global_transform().origin, 10);
             if (hit_entity->stats.character.health.max) {
                 spawn_blood(world, self_entity->global_transform().origin, 30);
                 spawn_blood(world, self_entity->global_transform().origin, 30);
@@ -146,7 +186,13 @@ namespace zyy::wep {
         };
         bullet_entity->physics.rigidbody->add_force(bullet.ray.direction*500.0f/dt);
         bullet_entity->physics.rigidbody->set_ccd(true);
+        bullet_entity->physics.rigidbody->set_mass(0.01f);
+        bullet_entity->physics.rigidbody->set_layer(2ui32);
+        bullet_entity->physics.rigidbody->set_group(~2ui32);
+
         bullet_entity->coroutine->start();
+        bullet_entity->add_child(spawn_puff(world, bullet.ray.origin, 10));
+
         return bullet_entity;
     }
 }

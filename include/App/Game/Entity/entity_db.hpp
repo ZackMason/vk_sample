@@ -298,6 +298,30 @@ bullet_01 {
 
 }; //namespace misc
 
+namespace particle {
+
+DB_ENTRY
+circle {
+    .type = entity_type::environment,
+    .type_name = "circle_particle",
+    .gfx = {
+        .mesh_name = "res/models/particles/particle_01.gltf",
+        .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+};
+
+DB_ENTRY
+plasma {
+    .type = entity_type::environment,
+    .type_name = "circle_particle",
+    .gfx = {
+        .mesh_name = "res/models/particles/particle_02.gltf",
+        .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+};
+
+} // namespace particle
+
 namespace environmental {
 
 DB_ENTRY
@@ -331,11 +355,21 @@ blood_01 {
 };
 
 DB_ENTRY
-grass {
+grass_01 {
     .type = entity_type::environment,
     .type_name = "grass",
     .gfx = {
         .mesh_name = "res/models/grass.gltf",
+        .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+};
+
+DB_ENTRY
+grass_02 {
+    .type = entity_type::environment,
+    .type_name = "grass",
+    .gfx = {
+        .mesh_name = "res/models/environment/grass_01.gltf",
         .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
     },
 };
@@ -371,6 +405,22 @@ tree_group {
 };
 
 namespace rooms {
+
+DB_ENTRY
+city_test_01 {
+    .type = entity_type::environment,
+    .type_name = "city_test_01",
+    .gfx = {
+        .mesh_name = "res/models/city_test_01.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
+    },
+};
 
 DB_ENTRY
 temple_01 {

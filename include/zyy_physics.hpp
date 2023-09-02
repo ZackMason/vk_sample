@@ -80,7 +80,8 @@ struct rigidbody_t {
     rigidbody_type  type;
     rigidbody_id    id{uid::invalid_id};
     u64             flags{0};
-    u64             layer{0};
+    u32             layer{0}; // collision layer
+    u32             group{0xffffffff}; // what you collide with
     api_t*          api{0};
 
     f32 mass{1.0f};
@@ -110,7 +111,14 @@ struct rigidbody_t {
 
     rigidbody_on_collision_function on_collision{0};
     rigidbody_on_collision_function on_collision_end{0};
+
+    explicit rigidbody_t(api_t* api_=0) : api{api_}, layer{1}, group{~0x0ui32} {
+        if (api) set_group(group);
+    }
     
+    void set_layer(u32 l);
+    void set_group(u32 g);
+
     inline void set_velocity(const v3f& vel);
     inline void add_force_ex(const v3f& force);
     inline void add_force_at_point_ex(const v3f& force, const v3f& point);
@@ -177,6 +185,7 @@ struct rigidbody_t {
 
     void set_gravity(bool x);
     void set_ccd(bool x);
+    void set_mass(f32 x);
 
     // rigidbody_t& operator=(const rigidbody_t& o) {
     //     if (this == &o) {return *this;}
@@ -248,6 +257,8 @@ using rigidbody_add_force_function = void(*)(rigidbody_t*, const v3f&);
 using rigidbody_add_force_at_point_function = void(*)(rigidbody_t*, const v3f&, const v3f&);
 using rigidbody_set_gravity_function = void(*)(rigidbody_t*, bool);
 using rigidbody_set_ccd_function = void(*)(rigidbody_t*, bool);
+using rigidbody_set_mass_function = void(*)(rigidbody_t*, f32);
+using rigidbody_set_collision_flags_function = void(*)(rigidbody_t*);
 
 struct export_dll api_t {
     backend_type type;
@@ -278,8 +289,10 @@ struct export_dll api_t {
     rigidbody_add_force_at_point_function rigidbody_add_force_at_point{0};
     rigidbody_set_gravity_function rigidbody_set_gravity{0};
     rigidbody_set_ccd_function rigidbody_set_ccd{0};
+    rigidbody_set_mass_function rigidbody_set_mass{0};
     rigidbody_add_force_function rigidbody_set_velocity{0};
-    
+
+    rigidbody_set_collision_flags_function rigidbody_set_collision_flags{0};
 
     // TODO(Zack): Add hashes
     std::array<rigidbody_t, PHYSICS_MAX_RIGIDBODY_COUNT> rigidbodies;
@@ -355,6 +368,18 @@ void rigidbody_t::set_gravity(bool x) {
     this->api->rigidbody_set_gravity(this, x);
 }
 
+void rigidbody_t::set_layer(u32 l) {
+    layer = l;
+    this->api->rigidbody_set_collision_flags(this);
+}
+void rigidbody_t::set_group(u32 g) {
+    group = g;
+    this->api->rigidbody_set_collision_flags(this);
+}
+
+void rigidbody_t::set_mass(f32 x) {
+    this->api->rigidbody_set_mass(this, x);
+}
 void rigidbody_t::set_ccd(bool x) {
     this->api->rigidbody_set_ccd(this, x);
 }

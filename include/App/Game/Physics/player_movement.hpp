@@ -22,7 +22,7 @@ quake_ground_move(v3f wishdir, v3f velocity, float friction, float accel, float 
         velocity *= glm::max(speed-drop, 0.0f) / speed;
     }
     velocity = quake_accelerate(wishdir, velocity, accel, max_velocity, dt);
-    velocity.y = fall_speed;
+    // velocity.y = fall_speed;
     return velocity;
 }
 

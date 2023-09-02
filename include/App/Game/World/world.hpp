@@ -177,7 +177,7 @@ namespace zyy {
         if (def.coroutine) {
             entity->coroutine.emplace(
                 zyy::entity_coroutine_t{
-                    .coroutine={world->game_state->game_memory->input.time, (void*)entity}, 
+                    .coroutine={world->game_state->time, (void*)entity}, 
                     .func=def.coroutine
                 }
             );
@@ -339,15 +339,17 @@ namespace zyy {
     void world_render_bloodsplat(
         world_t* world
     ) {
-        rendering::submit_job(
-            world->render_system(), 
-            rendering::get_mesh_id(world->render_system(), "res/models/misc/bloodsplat_02.gltf"),
-            3, // todo make material per mesh
-            m44{1.0f},
-            v4f{0.0f},
-            (u32)glm::min(world->effects.blood_splat_count, world->effects.blood_splat_max),
-            0
-        );
+        if (world->effects.blood_splat_count) {
+            rendering::submit_job(
+                world->render_system(), 
+                rendering::get_mesh_id(world->render_system(), "res/models/misc/bloodsplat_02.gltf"),
+                3, // todo make material per mesh
+                m44{1.0f},
+                v4f{0.0f},
+                (u32)glm::min(world->effects.blood_splat_count, world->effects.blood_splat_max),
+                0
+            );
+        } 
     }
 
     // static world_t* 

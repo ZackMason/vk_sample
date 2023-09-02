@@ -45,13 +45,10 @@ layout(std430, set = 3, binding = 0) readonly buffer EnvironmentBuffer {
 	Environment uEnvironment;
 };
 
-
 layout( push_constant ) uniform constants
 {
-	mat4		uVP;
-	vec4		uCamPos;
-	uint 		uAlbedoId;
-	uint 		uNormalId;
+	mat4 uV;
+	mat4 uP;
 } PushConstants;
 
 layout( location = 0 ) in vec3 aVertex;
@@ -67,16 +64,18 @@ layout ( location = 4 ) out vec3 vViewPos;
 layout ( location = 5 ) out vec3 vViewNormal;
 layout ( location = 6 ) out flat uint vAlbedoId;
 layout ( location = 7 ) out flat uint vNormalId;
+layout ( location = 8 ) out vec3 vCameraPos;
 
 void
 main() {
 	IndirectIndexedDraw draw = uIndirectBuffer.draw[gl_DrawID];
 	uint object_id = draw.object_id;
 
+	vCameraPos = (inverse(PushConstants.uV) * vec4(0,0,0,1)).xyz;
+
 	mat4   M = uObjectBuffer.objects[object_id].model;
 	vec3 vertex = aVertex;
 	uint instance_offset = uObjectBuffer.objects[object_id].padding[2];
-
 
 	if (draw.instance_count > 1) {
 		M = M * uInstanceData.instances[gl_InstanceIndex + instance_offset].model;
@@ -84,9 +83,13 @@ main() {
 		vec3 world_pos = (M * vec4(vertex, 1.0)).xyz;
 		// vertex.xz += max(vertex.y, 0.0) * sin(Sporadic.uTime * 0.1 + world_pos.x) * 0.05 + cos(Sporadic.uTime * 0.12 + world_pos.z)*0.1;
 	}
-	mat4 PVM = PushConstants.uVP * M;
-
 	vMatId = uObjectBuffer.objects[object_id].material_id;
+	Material material = uMaterialBuffer.materials[vMatId];
+	bool is_billboard = (material.flags & MATERIAL_BILLBOARD) != 0;
+	mat4 PVM = PushConstants.uP * 
+		(is_billboard ? 
+			billboard_matrix(PushConstants.uV * M, false) : 
+			PushConstants.uV * M);
 
 	vAlbedoId = uIndirectBuffer.draw[gl_DrawID].albedo_id;
 	vNormalId = uIndirectBuffer.draw[gl_DrawID].normal_id;

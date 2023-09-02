@@ -95,7 +95,23 @@ generate_forest(arena_t* arena) {
         
         for (size_t i = 0; i < tree_count; i++) {
             // tree->gfx.dynamic_instance_buffer[i + tree_count] = 
-            tree->gfx.dynamic_instance_buffer[i] = 
+            tree->gfx.instance_buffer[i] = 
+                math::transform_t{}
+                    .translate(200.0f * planes::xz * (world->entropy.randv<v3f>() * 2.0f - 1.0f))
+                    .rotate(axis::up, utl::rng::random_s::randf() * 10000.0f)
+                    .to_matrix();
+        }
+    });
+
+    generator->add_step("Planting Grass", WORLD_STEP_TYPE_LAMBDA(environment) {
+        auto* grass = zyy::spawn(world, world->render_system(), zyy::db::environmental::grass_02);
+        constexpr u32 grass_count = 90'000;
+        grass->gfx.instance(world->render_system()->instance_storage_buffer.pool, grass_count);
+        grass->gfx.material_id = 4;
+        
+        for (size_t i = 0; i < grass_count; i++) {
+            // tree->gfx.dynamic_instance_buffer[i + tree_count] = 
+            grass->gfx.instance_buffer[i] = 
                 math::transform_t{}
                     .translate(200.0f * planes::xz * (world->entropy.randv<v3f>() * 2.0f - 1.0f))
                     .rotate(axis::up, utl::rng::random_s::randf() * 10000.0f)
@@ -116,10 +132,36 @@ generate_sponza(arena_t* arena) {
 
     return generator;
 }
+
+#define SPAWN_FIRE_PARTICLE(pos, mat, size)\
+    {auto* ps = zyy::spawn(world, world->render_system(), zyy::db::particle::plasma, pos);\
+    ps->gfx.particle_system = particle_system_create(&world->arena, 64);\
+    ps->gfx.instance(world->render_system()->instance_storage_buffer.pool, 64, 1);\
+    ps->gfx.material_id = mat;\
+    ps->gfx.particle_system->acceleration = v3f{axis::up*9.81f*0.1f};\
+    ps->gfx.particle_system->spawn_rate = 0.02f;\
+    ps->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>(0.06f * size, 0.01f * size);\
+    ps->gfx.particle_system->velocity_random = math::aabb_t<v3f>(planes::xz*-.0050f, v3f(.0050f));\
+    ps->gfx.particle_system->angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));\
+    ps->gfx.particle_system->emitter_type = particle_emitter_type::box;\
+    ps->gfx.particle_system->box = math::aabb_t<v3f>(v3f(-.030f), v3f(.030f));\
+    ps->gfx.particle_system->stream_rate = 1;\
+    ps->gfx.particle_system->template_particle = particle_t {\
+        .position = v3f(0.0),\
+        .life_time = 1.0f,\
+        .color = gfx::color::v4::purple,\
+        .scale = 1.0f,\
+        .velocity = axis::up * 0.10f,\
+    };}
+
 world_generator_t*
 generate_particle_test(arena_t* arena) {
     auto* generator = generate_world_test(arena);
 
+    generator->add_step("Fire Particle", WORLD_STEP_TYPE_LAMBDA(environment) {
+        SPAWN_FIRE_PARTICLE(5.0f*axis::right + axis::up, 5, 1.0f);
+        SPAWN_FIRE_PARTICLE(5.0f*axis::right + axis::up, 4, 1.0f);
+    });
     generator->add_step("Particle Spawner", WORLD_STEP_TYPE_LAMBDA(environment) {
         constexpr zyy::db::prefab_t spawner_p{
             .type = zyy::entity_type::environment,
@@ -250,7 +292,7 @@ generate_world_0(arena_t* arena) {
     });
     generator->add_step("Placing Weapons", WORLD_STEP_TYPE_LAMBDA(items) {
         SPAWN_GUN(zyy::db::weapons::shotgun, axis::right * 135.0f + axis::up * 3.0f);
-        // SPAWN_GUN(zyy::db::weapons::smg, axis::right * 125.0f + axis::up * 3.0f);
+        SPAWN_GUN(zyy::db::weapons::smg, axis::right * 125.0f + axis::up * 3.0f);
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         // zyy::spawn(world, world->render_system(), zyy::db::rooms::sponza);
@@ -329,6 +371,7 @@ generate_world_0(arena_t* arena) {
         };
     });
     generator->add_step("Platforms", WORLD_STEP_TYPE_LAMBDA(environment) {
+        return;
         range_f32(x, -10, 10) {
             range_f32(y, -10, 10) {
                 auto* platform = zyy::spawn(world, world->render_system(),

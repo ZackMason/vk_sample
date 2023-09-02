@@ -6,12 +6,12 @@
 
 
 #include "App/Game/Entity/entity.hpp"
+#include "App/Game/Entity/entity_db.hpp"
 #include "App/Game/Items/base_item.hpp"
 #include "App/Game/Weapons/base_weapon.hpp"
 #include "App/Game/Entity/script_v2.hpp"
 
 #include "uid.hpp"
-
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -19,8 +19,6 @@
 #include "commdlg.h"
 #undef near
 #undef far
-
-
 
 static size_t tests_run = 0;
 static size_t tests_passed = 0;
@@ -59,6 +57,7 @@ struct access_violation_exception : test_failed {
         return error.c_str();
     }
 };
+
 constexpr auto throw_assert(const bool b, std::string&& text, u64 line_number) -> auto {
     if (!b) throw test_failed(std::move(text), line_number);
     asserts_passed++;
@@ -768,6 +767,31 @@ int main(int argc, char** argv) {
         }
         for (size_t i = 0; i < shotgun_bullet_count; i++) {
             TEST_ASSERT(shotgun.stats.damage == shotgun_bullets[i].damage);
+        }
+    });
+
+    RUN_TEST("dlist")
+        struct test_t {
+            u32 x{0};
+            test_t* next{0};
+            test_t* prev{0};
+        };
+
+        test_t* head{new test_t{0}};
+        zyy_info("dlist", "init");
+        dlist_init(head);
+        zyy_info("dlist", "insert start");
+        for (u32 i = 1; i < 10; i++) {
+            auto* n = new test_t{i};
+            dlist_insert_as_last(head, n);
+        }
+        zyy_info("dlist", "insert end");
+
+        for(test_t* c = head; 
+            c->next != head;
+            c = c->next
+        ) {
+            zyy_info("dlist", "{}", c->x);
         }
     });
 

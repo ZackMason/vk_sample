@@ -41,12 +41,11 @@ layout(std430, set = 3, binding = 0) readonly buffer EnvironmentBuffer {
 
 layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 
+
 layout( push_constant ) uniform constants
 {
-	mat4		uVP;
-	vec4		uCamPos;
-	uint 		uAlbedoId;
-	uint 		uNormalId;
+	mat4 uV;
+	mat4 uP;
 } PushConstants;
 
 
@@ -57,6 +56,7 @@ layout ( location = 3 ) in vec3 vWorldPos;
 
 layout ( location = 6 ) in flat uint vAlbedoId;
 layout ( location = 7 ) in flat uint vNormalId;
+layout ( location = 8 ) in vec3 vCameraPos;
 
 layout ( location = 0 ) out vec4 fFragColor;
 
@@ -165,7 +165,7 @@ main( )
 	int mode = Sporadic.uMode;
 
 	mode = mode == 1 && vAlbedoId == (0xffffffff % 4096) ? 0 : mode;
-
+	float alpha = 1.0f;
 	switch(mode)
 	{
 		case 0:
@@ -178,7 +178,8 @@ main( )
 				texture_triplanar(uSampler[vAlbedoId], vWorldPos * 0.5, vN).rgba :
 				texture( uSampler[vAlbedoId], vTexCoord ).rgba;
 			if (albedo.a < 0.5) { discard; }
-			rgb = albedo.rgb;
+			rgb = albedo.rgb * material.albedo.rgb;
+			alpha = albedo.a * material.albedo.a;
 			break;
 
 		case 2:
@@ -192,8 +193,8 @@ main( )
 			rgb = vec3( 1., 1., 0. );
 	}
 
-	float depth = length(PushConstants.uCamPos.xyz - vWorldPos);
-	vec3 V = normalize(PushConstants.uCamPos.xyz - vWorldPos);
+	float depth = length(vCameraPos.xyz - vWorldPos);
+	vec3 V = normalize(vCameraPos.xyz - vWorldPos);
 	
 	vec3 albedo = rgb;
 
@@ -238,10 +239,10 @@ main( )
 		rgb = albedo * material.emission;
 	}
 
-	rgb = apply_environment(rgb, depth, PushConstants.uCamPos.xyz, V, uEnvironment);
+	rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
 	
 	// rgb = V;
 	// rgb = N;
 
-	fFragColor = vec4( rgb, 1. );
+	fFragColor = vec4( rgb, alpha * alpha * alpha );
 }

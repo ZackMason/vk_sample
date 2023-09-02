@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PxPhysics.h"
+//#include "PxPhysics.h"
 #include "PxPhysicsAPI.h"
 #include "PxRigidActor.h"
 #include "PxActor.h"

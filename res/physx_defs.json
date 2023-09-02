@@ -12,6 +12,7 @@
         "res/models/rooms/parkcore_01.gltf",
         "res/models/rooms/parkcore_02.gltf",
         "res/models/rooms/temple_01.gltf",
+        "res/models/city_test_01.gltf",
         "res/models/rooms/homebase.gltf"
     ],
     "convex": [

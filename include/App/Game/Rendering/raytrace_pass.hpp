@@ -49,9 +49,21 @@ begin_rt_pass(
         Dispatch the ray tracing commands
     */
     if (pass.instance_count > 0) {
-        pass.build_tlas(*rs->vk_gfx, *rs->rt_cache, 
+        // VkFence tlasBuildFence;
+        // VkFenceCreateInfo fenceInfo = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr, 0};
+        // vkCreateFence(device, &fenceInfo, nullptr, &tlasBuildFence);
+
+        pass.build_tlas(*rs->vk_gfx, *rs->rt_cache, command_buffer,
             pass.tlas.buffer.buffer != VK_NULL_HANDLE
         );
+
+        // vkWaitForFences(device, 1, &tlasBuildFence, VK_TRUE, UINT64_MAX);
+        // vkResetFences(device, 1, &tlasBuildFence);
+
+        VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+        VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+        VkMemoryBarrier barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, 0, 0};
+        vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 
         pass.build_descriptors(
             gfx, 
@@ -61,9 +73,15 @@ begin_rt_pass(
                 rs->descriptor_layout_cache, 
                 rs->get_frame_data().dynamic_descriptor_allocator
             ),
-            &rs->frame_images[frame_count%2].texture);
+            &rs->frame_images[6].texture);
         vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline);
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline_layout, 0, 1, &pass.descriptor_sets[0], 0, 0);
+
+        vkCmdPushConstants(command_buffer, 
+            cache.pipeline_layout,
+            VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+            0, sizeof(u32)*2, &cache.frame
+        );
 
         gfx.khr.vkCmdTraceRaysKHR(
             command_buffer,
@@ -74,26 +92,10 @@ begin_rt_pass(
             width,
             height,
             1);
+        
+        cache.frame++;
     }
     return;
-        
-    { // copy vertex buffers
-        u32 count = (u32)rs->vertices.pool.count();
-        range_u64(i, 0, count) {
-            rs->vertex_storage_buffer.pool[i].p = rs->vertices.pool[i].pos;
-            rs->vertex_storage_buffer.pool[i].n = rs->vertices.pool[i].nrm;
-            rs->vertex_storage_buffer.pool[i].c = rs->vertices.pool[i].col;
-            rs->vertex_storage_buffer.pool[i].t = rs->vertices.pool[i].tex;
-        }
-        // std::memcpy(
-        //     sizeof(gfx::vertex_t) * rs->vertices.pool.count()
-        // );
-        std::memcpy(
-            &rs->index_storage_buffer.pool[0],
-            &rs->indices.pool[0],
-            sizeof(u32) * rs->indices.pool.count()
-        );
-    }
 
     VkBuffer buffers[]{
         rs->vk_gfx->sporadic_uniform_buffer.buffer,
@@ -102,8 +104,8 @@ begin_rt_pass(
         rs->get_frame_data().indexed_indirect_storage_buffer.buffer,                    
         rs->material_storage_buffer.buffer,
         rs->environment_storage_buffer.buffer,
-        rs->vertex_storage_buffer.buffer,
-        rs->index_storage_buffer.buffer,
+        rs->vertices.buffer,
+        rs->indices.buffer,
     };
     auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
     rs->get_frame_data().rt_compute_pass.build_buffer_sets(builder, buffers);

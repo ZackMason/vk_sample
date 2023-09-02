@@ -68,6 +68,8 @@ init_physx(api_t* api, arena_t* arena) {
 
     api->rigidbody_set_gravity = physx_rigidbody_set_gravity;
     api->rigidbody_set_ccd = physx_rigidbody_set_ccd;
+    api->rigidbody_set_mass = physx_rigidbody_set_mass;
+    api->rigidbody_set_collision_flags = physx_rigidbody_set_collision_flags;
 
     api->
         get_debug_table_size= get_debug_table_size;
