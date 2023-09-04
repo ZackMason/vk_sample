@@ -1,6 +1,7 @@
 #version 460
 #extension GL_ARB_separate_shader_objects  : enable
 #extension GL_ARB_shading_language_420pack : enable
+#extension GL_EXT_scalar_block_layout : enable
 
 #include "utl.glsl"
 #include "pbr.glsl"
@@ -41,6 +42,13 @@ layout(std430, set = 3, binding = 0) readonly buffer EnvironmentBuffer {
 
 layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 
+layout(std430, set = 5, binding = 0, scalar) readonly buffer ProbeBuffer {
+	LightProbe probes[];
+};
+
+layout(std430, set = 5, binding = 1, scalar) readonly buffer ProbeSettingsBuffer {
+	LightProbeSettings probe_settings;
+};
 
 layout( push_constant ) uniform constants
 {
@@ -88,7 +96,7 @@ struct SHCoefficients
 };
 
 // compute here http://www.pauldebevec.com/Probes/
-const SHCoefficients SH_STPETER = SHCoefficients(
+const SH9Irradiance SH_STPETER = SH9Irradiance(
 	vec3(0.2314, 0.3216, 0.3608),
 	vec3(0.1759131, 0.1436266, 0.1260569),
 	vec3(-0.0247311, -0.0101254, -0.0010745),
@@ -100,7 +108,19 @@ const SHCoefficients SH_STPETER = SHCoefficients(
 	vec3(-0.0818750, -0.0321501, 0.0033399)
 );
 
-const SHCoefficients SH_GRACE = SHCoefficients(
+
+const SH9Irradiance SH_GRACE = SH9Irradiance(
+    vec3( 0.7953949,  0.4405923,  0.5459412 ),
+    vec3( 0.3981450,  0.3526911,  0.6097158 ),
+    vec3(-0.3424573, -0.1838151, -0.2715583 ),
+    vec3(-0.2944621, -0.0560606,  0.0095193 ),
+    vec3(-0.1123051, -0.0513088, -0.1232869 ),
+    vec3(-0.2645007, -0.2257996, -0.4785847 ),
+    vec3(-0.1569444, -0.0954703, -0.1485053 ),
+    vec3( 0.5646247,  0.2161586,  0.1402643 ),
+    vec3( 0.2137442, -0.0547578, -0.3061700 )
+);
+const SHCoefficients SH_GRACEC = SHCoefficients(
     vec3( 0.7953949,  0.4405923,  0.5459412 ),
     vec3( 0.3981450,  0.3526911,  0.6097158 ),
     vec3(-0.3424573, -0.1838151, -0.2715583 ),
@@ -112,10 +132,15 @@ const SHCoefficients SH_GRACE = SHCoefficients(
     vec3( 0.2137442, -0.0547578, -0.3061700 )
 );
 
+
+// Equation 13 Ramamoorthi
 vec3 SHIrradiance(vec3 nrm)
 {
-	// const SHCoefficients c = SH_GRACE;
-	const SHCoefficients c = SH_STPETER;
+	return sh9_to_irradiance(nrm, SH_STPETER);
+	return sh9_to_irradiance(nrm, SH_GRACE);
+	const SHCoefficients c = SH_GRACEC;
+	// const SHCoefficients c = SH_STPETER;
+	
 	const float c1 = 0.429043;
 	const float c2 = 0.511664;
 	const float c3 = 0.743125;
@@ -153,6 +178,36 @@ vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)
 }
 
 
+vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbeSettings settings) {
+	// return light_probe_local_pos_normalized(settings, p);
+    ivec3 min_index = light_probe_probe_index(settings, p);
+
+
+
+
+
+
+	LightProbe neighbors[8];
+
+    neighbors[0] = probes[index_3d(settings.dim, min_index)];
+    neighbors[1] = probes[index_3d(settings.dim, min_index+ivec3(1,0,0))];
+    neighbors[2] = probes[index_3d(settings.dim, min_index+ivec3(1,1,1))];
+    neighbors[3] = probes[index_3d(settings.dim, min_index+ivec3(1,1,0))];
+    neighbors[4] = probes[index_3d(settings.dim, min_index+ivec3(1,0,1))];
+    neighbors[5] = probes[index_3d(settings.dim, min_index+ivec3(0,1,0))];
+    neighbors[6] = probes[index_3d(settings.dim, min_index+ivec3(0,1,1))];
+    neighbors[7] = probes[index_3d(settings.dim, min_index+ivec3(0,0,1))];
+    // return abs(vec3(min_index))*0.2;
+    // return abs(neighbors[0].p);
+
+    return (stupid_light_probe_irradiance(p, n, neighbors, probe_settings));
+}
+
+
+
+
+
+
 void
 main( )
 {
@@ -160,6 +215,8 @@ main( )
 	Material material = uMaterialBuffer.materials[vMatId];
 
 	uint lit_material = material.flags & MATERIAL_LIT;
+
+
 	uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;
 
 	int mode = Sporadic.uMode;
@@ -181,6 +238,8 @@ main( )
 			rgb = albedo.rgb * material.albedo.rgb;
 			alpha = albedo.a * material.albedo.a;
 			break;
+
+
 
 		case 2:
 			rgb = material.albedo.rgb;
@@ -225,6 +284,14 @@ main( )
 
 	vec3 r_env = SHIrradiance(reflect(V, N));
 	vec3 env = SHIrradiance(N);
+
+	r_env = vec3(1.0);
+	// env = light_probe_irradiance(vWorldPos, probe_settings);
+
+
+
+	env = light_probe_irradiance(vWorldPos, N, probe_settings);
+
 	// vec3 env = vec3(1.0);
 	// vec3 r_env = vec3(1.0);
 
@@ -232,6 +299,8 @@ main( )
 	vec3 Fd = env * albedo * filament_Burley(roughness, NoV, NoL, LoH); // diffuse lobe
 
 	vec3 ec = (vec3(1.0) - F0) * 0.725 + F0 * 0.07; // @hardcoded no idea what these should be
+	Fr *= 0.0;
+
 
 	if (lit_material > 0) {
 		rgb = 10.0 * max(NoL, material.ao) * (Fd + Fr * ec * r_env);
@@ -244,5 +313,26 @@ main( )
 	// rgb = V;
 	// rgb = N;
 
-	fFragColor = vec4( rgb, alpha * alpha * alpha );
+
+
+
+	// rgb = env;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	fFragColor = vec4( rgb, alpha * alpha * alpha);
 }

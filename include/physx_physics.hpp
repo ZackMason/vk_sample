@@ -593,7 +593,7 @@ physx_simulate(api_t* api, f32 dt) {
             } else {
                 if(move_flags & PxControllerCollisionFlag::eCOLLISION_UP) {
                     rb->velocity = (v3f{px,py,pz} - v3f{lpx, lpy, lpz});
-                    rb->velocity.y = 0.0f;
+                    // rb->velocity.y = 0.0f;
                 }
                 rb->flags &= ~rigidbody_flags::IS_ON_WALL;
             }

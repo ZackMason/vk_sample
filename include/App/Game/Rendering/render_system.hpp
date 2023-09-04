@@ -34,6 +34,7 @@ REFLECT_TYPE(RenderingStats) {REFLECT_TYPE_INFO(RenderingStats)}
     .REFLECT_PROP(RenderingStats, texture_count);
 };
 
+
 namespace rendering {
     struct mesh_cache_t {
         struct link_t : node_t<link_t> {
@@ -549,17 +550,18 @@ public:
         VkDescriptorSet material_descriptor{};
         VkDescriptorSet enviornment_descriptor{};
         VkDescriptorSet texture_descriptor{};
-        VkDescriptorSetLayout descriptor_layouts[5];
-        u32 descriptor_count{5};
+        VkDescriptorSet light_probe_descriptor{};
+        VkDescriptorSetLayout descriptor_layouts[6];
+        u32 descriptor_count{6};
         VkDevice device;
 
         void build_layout(VkDevice device_) {
             device = device_;
-            pipeline_layout = gfx::vul::create_pipeline_layout(device, descriptor_layouts, 5, sizeof(m44) * 2);
+            pipeline_layout = gfx::vul::create_pipeline_layout(device, descriptor_layouts, descriptor_count, sizeof(m44) * 2);
         }
 
         void build_buffer_sets(gfx::vul::descriptor_builder_t& builder, VkBuffer* buffers) {
-            VkDescriptorBufferInfo buffer_info[6];
+            VkDescriptorBufferInfo buffer_info[8];
             u32 i = 0;
             buffer_info[i].buffer = buffers[i];
             buffer_info[i].offset = 0; 
@@ -585,6 +587,14 @@ public:
             buffer_info[i].offset = 0; 
             buffer_info[i++].range = VK_WHOLE_SIZE;//sizeof(rendering::environment_t);
 
+            buffer_info[i].buffer = buffers[i];
+            buffer_info[i].offset = 0; 
+            buffer_info[i++].range = VK_WHOLE_SIZE;
+
+            buffer_info[i].buffer = buffers[i];
+            buffer_info[i].offset = 0; 
+            buffer_info[i++].range = VK_WHOLE_SIZE;
+
             using namespace gfx::vul;
             builder
                 .bind_buffer(0, buffer_info + 0, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Uniform, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
@@ -600,6 +610,10 @@ public:
             builder
                 .bind_buffer(0, buffer_info + 5, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .build(enviornment_descriptor, descriptor_layouts[3]);
+            builder
+                .bind_buffer(0, buffer_info + 6, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(1, buffer_info + 7, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .build(light_probe_descriptor, descriptor_layouts[5]);
         }
 
         void bind_images(gfx::vul::descriptor_builder_t& builder, texture_cache_t& texture_cache) {
@@ -817,7 +831,9 @@ public:
 
         pp_material_t postprocess_params{};
 
-        lighting::probe_box_t light_probes{.aabb={v3f{-30.0f, -6.0f, -30.0f}, v3f{40.0f}}};
+        lighting::probe_buffer_t<10000> probe_storage_buffer;
+        gfx::vul::storage_buffer_t<lighting::probe_settings_t, 1> light_probe_settings_buffer;
+        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, -1.0f, -15.0f}, v3f{20.0f, 20.0f, 15.0f}}};
 
         frame_image_t frame_images[8]{};
 
@@ -974,9 +990,12 @@ public:
         state.create_storage_buffer(&rs->environment_storage_buffer);
         state.create_storage_buffer(&rs->animation_storage_buffer);
         state.create_storage_buffer(&rs->instance_storage_buffer);
-        
+        state.create_storage_buffer(&rs->probe_storage_buffer);
+        state.create_storage_buffer(&rs->light_probe_settings_buffer);
+
+       
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
-        rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{0.5f,0.9f,0.2f}),0.0f};
+        rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{1.f,2.f,3.f}),0.0f};
 
         rs->rt_cache = arena_alloc_ctor<rt_cache_t>(&rs->arena, 1, state);
 
@@ -989,7 +1008,9 @@ public:
                 rs->instance_storage_buffer.buffer,
                 rs->frames[i].indexed_indirect_storage_buffer.buffer,
                 rs->material_storage_buffer.buffer,
-                rs->environment_storage_buffer.buffer
+                rs->environment_storage_buffer.buffer,
+                rs->probe_storage_buffer.buffer,
+                rs->light_probe_settings_buffer.buffer,
             };
             VkBuffer rt_buffers[]{
                 state.sporadic_uniform_buffer.buffer,
@@ -1010,6 +1031,8 @@ public:
                     state,
                     rs->texture_cache,
                     &rs->rt_cache->mesh_data_buffer,
+                    &rs->probe_storage_buffer,
+                    &rs->light_probe_settings_buffer,
                     gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator),
                     &rs->frame_images[0].texture
                 );
@@ -1062,7 +1085,9 @@ public:
         state.create_vertex_buffer(&rs->skinned_vertices);
         state.create_index_buffer(&rs->skinned_indices);
     
-        lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
+        lighting::set_probes(*rs->vk_gfx, &rs->light_probes, 0, &rs->probe_storage_buffer.pool[0]);
+        rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
+        // lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
         rs->rt_cache->init(state, rs->frames[0].rt_compute_pass.descriptor_set_layouts[0]);
 
@@ -1245,7 +1270,9 @@ public:
                     rs->instance_storage_buffer.buffer,
                     rs->get_frame_data().indexed_indirect_storage_buffer.buffer,                    
                     rs->material_storage_buffer.buffer,
-                    rs->environment_storage_buffer.buffer
+                    rs->environment_storage_buffer.buffer,
+                    rs->probe_storage_buffer.buffer,
+                    rs->light_probe_settings_buffer.buffer,
                 };
                 auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
                 mesh_pass.build_buffer_sets(builder, buffers);
@@ -1257,6 +1284,7 @@ public:
             vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 2, 1, &mesh_pass.material_descriptor, 0, nullptr);
             vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 3, 1, &mesh_pass.enviornment_descriptor, 0, nullptr);
             vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 4, 1, &mesh_pass.texture_descriptor, 0, nullptr);
+            vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 5, 1, &mesh_pass.light_probe_descriptor, 0, nullptr);
         }
         last_layout = material->pipeline_layout;
 

@@ -119,7 +119,8 @@ struct rt_cache_t {
             Each shader group points at the corresponding shader in the pipeline
         */
         
-        add_gen_shader(gfx, "res/shaders/bin/raygen.rgen.spv");
+        // add_gen_shader(gfx, "res/shaders/bin/raygen.rgen.spv");
+        add_gen_shader(gfx, "res/shaders/bin/probe_raygen.rgen.spv");
         add_miss_shader(gfx, "res/shaders/bin/miss.rmiss.spv");
         add_miss_shader(gfx, "res/shaders/bin/shadow.rmiss.spv");
         add_closest_hit_shader(gfx, "res/shaders/bin/closesthit.rchit.spv");
@@ -334,6 +335,8 @@ struct rt_compute_pass_t {
         gfx::vul::state_t& gfx, 
         texture_cache_t& texture_cache,
         gfx::vul::gpu_buffer_t* rt_mesh_data,
+        gfx::vul::gpu_buffer_t* probe_data,
+        gfx::vul::gpu_buffer_t* probe_settings,
         gfx::vul::descriptor_builder_t&& builder, 
         gfx::vul::texture_2d_t* texture
     ) {
@@ -348,6 +351,14 @@ struct rt_compute_pass_t {
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
         buffer_info[b].buffer = rt_mesh_data->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = probe_data->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = probe_settings->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
@@ -395,8 +406,8 @@ struct rt_compute_pass_t {
             .bind_image(2, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
             .bind_buffer(3, buffer_info + 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
             .bind_buffer(4, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
-            // .bind_buffer(4, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
-            // .bind_buffer(5, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(5, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(6, buffer_info + 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .build(descriptor_sets[0], descriptor_set_layouts[0]);
     }
     
@@ -421,7 +432,6 @@ struct rt_compute_pass_t {
         acceleration_structure_instance.flags                                  = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
         acceleration_structure_instance.accelerationStructureReference         = cache.blas[blas_id].device_address;
     }
-    
 
     void build_tlas(
         gfx::vul::state_t& gfx,

@@ -480,6 +480,9 @@ struct state_t {
     // todo(zack): need to select proper memory type
     template <typename T, size_t N>
     VkResult create_storage_buffer(storage_buffer_t<T, N>* buffer, u32 additional_usage = 0 ) {
+        if constexpr (N * sizeof(T) > gigabytes(1)) {
+            zyy_warn(__FUNCTION__, "Giant buffer allocated: {} Gb", float(N * sizeof(T)) / float(gigabytes(1)));
+        }
         const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | additional_usage, buffer);
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(T) * N, 0, &gpu_ptr);

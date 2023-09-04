@@ -8,6 +8,7 @@
 
 #include "raycommon.glsl"
 #include "rng.glsl"
+#include "utl.glsl"
 
 
 layout(location = 0) rayPayloadInEXT RayData data;
@@ -42,7 +43,7 @@ void main()
     vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
     vec4 albedo = texture(uTextureCache[nonuniformEXT(mesh.texture_id%4096)], uv);
 
-    vec3 L = normalize(vec3(1,2,3));
+    vec3 L = normalize(vec3(1,30,2));
 
     vec3 n = normalize(v0.n * bary.x + v1.n * bary.y + v2.n * bary.z);
     vec3 p = (v0.p * bary.x + v1.p * bary.y + v2.p * bary.z);
@@ -53,13 +54,13 @@ void main()
     data.distance = gl_RayTmaxEXT;
     data.normal = wn;
     
-	data.reflector = dot(albedo.rgb, albedo.rgb) > 0.9 ? 1.0 : 0.0;// (mesh.texture_id == -1 ? 1.0f : 0.0f);
+	data.reflector = dot(albedo.rgb, albedo.rgb) > 10.9 ? 1.0 : 0.0;// (mesh.texture_id == -1 ? 1.0f : 0.0f);
     data.color = vec3(tri) / vec3(tri+1);
 
     data.color = bary;
 
     data.color = wn;
-    vec3 color = albedo.rgb;
+    vec3 color = albedo.rgb * saturate(dot(wn, L));
 
     float tmin = 0.001;
     float tmax = 1000.0;
@@ -87,8 +88,10 @@ void main()
         2);
     if (shadowed) {
         // shadow -= 0.3 * 1.0 / float(shadow_count);
-        color *= 0.3;
+        color *= 0.0000113;
     }
+
+
     // }
 
     data.color = color;

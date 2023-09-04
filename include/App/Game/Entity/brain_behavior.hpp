@@ -63,7 +63,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     if (is_on_ground == false) {
         rigidbody->velocity.y -= 9.81f * 0.05f * dt;
     } else {
-        rigidbody->velocity.y = 0.0f;
+        // rigidbody->velocity.y = 0.0f;
     }
         // rigidbody->force += ((glm::normalize(planes::xz * forward) * move.z + right * move.x) * dt * move_speed);
     // }

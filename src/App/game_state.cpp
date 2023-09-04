@@ -652,7 +652,7 @@ app_on_init(game_memory_t* game_memory) {
 
     console_add_command(game_state->debug.console, "build", [](void* data) {
         // auto* console = (debug_console_t*)data;
-        std::system("start /B build n game");
+        std::system("start /B ninja");
         
     }, game_state->debug.console);
 
@@ -989,7 +989,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     game_state->render_system->set_view(game_state->game_world->camera.inverse().to_matrix(), game_state->width(), game_state->height());
 
     // make sure not to allocate from buffer during sweep
-    
+
     arena_begin_sweep(&world->render_system()->instance_storage_buffer.pool);
     for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
         auto* e = game_state->game_world->entities + i;
@@ -1037,7 +1037,6 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
 void
 game_on_update(game_memory_t* game_memory) {
-    // utl::profile_t p{"on_update"};
     game_state_t* game_state = get_game_state(game_memory);
     game_state->time += game_memory->input.dt * game_state->time_scale;
 
@@ -1197,10 +1196,11 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
         rendering::memory_barriers(rs, command_buffer);
         
-        if (gs_rtx_on) {
+        // if (gs_rtx_on) 
+        {
             rendering::begin_rt_pass(game_state->render_system, command_buffer, frame_count);
-        } else {
-            game_state->render_system->rt_cache->frame = 0;
+        // } else {
+            // game_state->render_system->rt_cache->frame = 0;
             VkBuffer buffers[1] = { game_state->render_system->vertices.buffer };
             VkDeviceSize offsets[1] = { 0 };
 
@@ -1420,7 +1420,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 rendering::draw_postprocess(
                     rs, command_buffer,
                     assets::shaders::tonemap_frag.filename,
-                    gs_rtx_on ?
+                    gs_rtx_on && 0 ?
                     &rs->frame_images[6].texture :
                     &rs->frame_images[frame_count%2].texture,
                     parameters

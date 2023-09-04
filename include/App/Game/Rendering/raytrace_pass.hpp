@@ -69,6 +69,8 @@ begin_rt_pass(
             gfx, 
             rs->texture_cache, 
             &cache.mesh_data_buffer, 
+            &rs->probe_storage_buffer,
+            &rs->light_probe_settings_buffer,
             gfx::vul::descriptor_builder_t::begin(
                 rs->descriptor_layout_cache, 
                 rs->get_frame_data().dynamic_descriptor_allocator
@@ -83,6 +85,8 @@ begin_rt_pass(
             0, sizeof(u32)*2, &cache.frame
         );
 
+        width = rs->light_probes.probe_count;
+
         gfx.khr.vkCmdTraceRaysKHR(
             command_buffer,
             &raygen_shader_sbt_entry,
@@ -90,8 +94,18 @@ begin_rt_pass(
             &hit_shader_sbt_entry,
             &callable_shader_sbt_entry,
             width,
-            height,
+            1,
             1);
+
+        // gfx.khr.vkCmdTraceRaysKHR(
+        //     command_buffer,
+        //     &raygen_shader_sbt_entry,
+        //     &miss_shader_sbt_entry,
+        //     &hit_shader_sbt_entry,
+        //     &callable_shader_sbt_entry,
+        //     width,
+        //     height,
+        //     1);
         
         cache.frame++;
     }

@@ -4,7 +4,7 @@
         {
             "label": "debug",
             "type": "shell",
-            "command": "build.bat no game"
+            "command": "ninja"
         },
         {
             "label": "debugs",

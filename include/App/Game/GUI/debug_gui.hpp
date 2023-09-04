@@ -442,13 +442,25 @@ draw_gui(game_memory_t* game_memory) {
                 }
 
                 if (im::text(state, "- Probes"sv, &show_probes)) { 
-                    auto& probes = game_state->render_system->light_probes;
-                    range_u64(i, 0, probes.probe_count) {
-                        auto& p = probes.probes[i];
+                    auto* probes = &game_state->render_system->probe_storage_buffer.pool[0];
+                    auto& probe_settings = game_state->render_system->light_probe_settings_buffer.pool[0];
+                    im::text(state, fmt_sv("--- AABB: {} - {}", probe_settings.aabb_min, probe_settings.aabb_max));
+                    im::text(state, fmt_sv("--- Dim: {} x {} x {}", probe_settings.dim.x, probe_settings.dim.y, probe_settings.dim.z));
+                    u32 probe_count = probe_settings.dim.x * probe_settings.dim.y * probe_settings.dim.z;
+                    range_u64(i, 0, probe_count) {
+                        auto& p = probes[i];
+                        // im::text(state, fmt_sv("P[{}].SH[2]: {}", p.id, p.irradiance.h[2]));
+                        // im::text(state, fmt_sv("P[{}].SH[5]: {}", p.id, p.irradiance.h[5]));
+                        
                         if (im::draw_circle_3d(state, vp, p.position, 0.1f, gfx::color::rgba::white)) {
                             auto push_theme = state.theme;
                             state.theme.border_radius = 1.0f;
                             if (im::begin_panel_3d(state, "probe"sv, vp, p.position)) {
+                                im::text(state, fmt_sv("Pos: {}", p.position));
+
+                                range_u64(s, 0, 9) {
+                                    im::text(state, fmt_sv("P[{}].SH[{}]: {}", p.id, s, p.irradiance.h[s]));
+                                }
                                 im::text(state, fmt_sv("Probe ID: {}"sv, p.id));
                                 im::end_panel(state);
                             }
