@@ -69,6 +69,9 @@ void main()
 
 
     if (kSuperSample>0) {
+        for (int i = 0; i < 9; i++) {
+            probes[probe_id].irradiance.irradiance[i] = vec3(0.0);
+        }
         // probes[probe_id].irradiance = sh_identity();
         probes[probe_id].samples = 0;
     }
@@ -91,8 +94,9 @@ void main()
     vec4 direction = vec4(normalize(vec3(r0,r1,r2)), 0);
 
 
-    uint num_samples = 32;
+    uint num_samples = 16;
 
+    
 
 
 
@@ -128,6 +132,7 @@ void main()
             
         if (data.distance < 0.0) {
             color += data.color;
+            // color += vec3(0.9, 0.84, 0.84);
             // break;
         }
         else if (data.reflector >= 1.0) {
@@ -142,6 +147,7 @@ void main()
         image_color += color;
         stupid_radiance_encoding(probes[probe_id].irradiance, direction.xyz, color.rgb, probes[probe_id].samples);
     }
+
 
 
     probes[probe_id].samples += 1;

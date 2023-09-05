@@ -103,6 +103,7 @@ struct SH9Irradiance {
 	vec3 l00, l1m1, l10, l11, l2m2, l2m1, l20, l21, l22;
 };
 
+
 struct SLOL9Irradiance {
 	vec3 irradiance[9];
 };
@@ -309,16 +310,17 @@ mat4 billboard_matrix(mat4 m, bool cylindical) {
 }
 
 const vec3 PROBE_DIRS[9] = {
-              vec3(0.0, 0.0, 0.0),
+             (vec3(0.0, 0.0, 1.0)),
+    normalize(vec3(0.0, 0.0, 0.0)*2.-1.),
     normalize(vec3(0.0, 0.0, 1.0)*2.-1.),
     normalize(vec3(0.0, 1.0, 0.0)*2.-1.),
     normalize(vec3(0.0, 1.0, 1.0)*2.-1.),
     normalize(vec3(1.0, 0.0, 0.0)*2.-1.),
     normalize(vec3(1.0, 0.0, 1.0)*2.-1.),
     normalize(vec3(1.0, 1.0, 0.0)*2.-1.),
-    normalize(vec3(1.0, 0.0, 1.0)*2.-1.),
     normalize(vec3(1.0, 1.0, 1.0)*2.-1.)
 };
+
 
 void stupid_radiance_encoding(inout SLOL9Irradiance encoding, in vec3 N, in vec3 R, in float count) {
     float a = 1./(count+1.);
@@ -333,7 +335,7 @@ vec3 stupid_irradiance_decoding(in SLOL9Irradiance encoding, in vec3 N) {
     vec3 irradiance = encoding.irradiance[0] / 9.0;
 
     for (uint i = 1; i < 9; i++) {
-        float weight = saturate(dot(-N, PROBE_DIRS[i]));
+        float weight = saturate(dot(N, PROBE_DIRS[i]));
         irradiance = mix(irradiance, encoding.irradiance[i], weight);
     }
 
@@ -348,34 +350,36 @@ vec3 stupid_light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightPr
     vec3 cell_rcp = 1. / light_probe_grid_size(settings);
 
     float sigma = 1.;
-    float b0 = exp(-pow(distance(p, probes[0].p), 2.0) / (2.0*sigma*sigma));
-    float b1 = exp(-pow(distance(p, probes[1].p), 2.0) / (2.0*sigma*sigma));
-    float b2 = exp(-pow(distance(p, probes[2].p), 2.0) / (2.0*sigma*sigma));
-    float b3 = exp(-pow(distance(p, probes[3].p), 2.0) / (2.0*sigma*sigma));
-    float b4 = exp(-pow(distance(p, probes[4].p), 2.0) / (2.0*sigma*sigma));
-    float b5 = exp(-pow(distance(p, probes[5].p), 2.0) / (2.0*sigma*sigma));
-    float b6 = exp(-pow(distance(p, probes[6].p), 2.0) / (2.0*sigma*sigma));
-    float b7 = exp(-pow(distance(p, probes[7].p), 2.0) / (2.0*sigma*sigma));
-    // float b0 = saturate(1.-length((p - probes[0].p) * cell_rcp));
-    // float b1 = saturate(1.-length((p - probes[1].p) * cell_rcp));
-    // float b2 = saturate(1.-length((p - probes[2].p) * cell_rcp));
-    // float b3 = saturate(1.-length((p - probes[3].p) * cell_rcp));
-    // float b4 = saturate(1.-length((p - probes[4].p) * cell_rcp));
-    // float b5 = saturate(1.-length((p - probes[5].p) * cell_rcp));
-    // float b6 = saturate(1.-length((p - probes[6].p) * cell_rcp));
-    // float b7 = saturate(1.-length((p - probes[7].p) * cell_rcp));
+    // float b0 = exp(-pow(distance(p, probes[0].p), 2.0) / (2.0*sigma*sigma));
+    // float b1 = exp(-pow(distance(p, probes[1].p), 2.0) / (2.0*sigma*sigma));
+    // float b2 = exp(-pow(distance(p, probes[2].p), 2.0) / (2.0*sigma*sigma));
+    // float b3 = exp(-pow(distance(p, probes[3].p), 2.0) / (2.0*sigma*sigma));
+    // float b4 = exp(-pow(distance(p, probes[4].p), 2.0) / (2.0*sigma*sigma));
+    // float b5 = exp(-pow(distance(p, probes[5].p), 2.0) / (2.0*sigma*sigma));
+    // float b6 = exp(-pow(distance(p, probes[6].p), 2.0) / (2.0*sigma*sigma));
+    // float b7 = exp(-pow(distance(p, probes[7].p), 2.0) / (2.0*sigma*sigma));
+    float b0 = saturate(1.-length((p - probes[0].p) * cell_rcp));
+    float b1 = saturate(1.-length((p - probes[1].p) * cell_rcp));
+    float b2 = saturate(1.-length((p - probes[2].p) * cell_rcp));
+    float b3 = saturate(1.-length((p - probes[3].p) * cell_rcp));
+    float b4 = saturate(1.-length((p - probes[4].p) * cell_rcp));
+    float b5 = saturate(1.-length((p - probes[5].p) * cell_rcp));
+    float b6 = saturate(1.-length((p - probes[6].p) * cell_rcp));
+    float b7 = saturate(1.-length((p - probes[7].p) * cell_rcp));
+
+    // return vec3(b0);
 
     float tb = max(0.01, b0 + b1 + b2 + b3 + b4 + b5 + b6 + b7);
     // tb = 1.;
 
-    vec3 n0 = normalize(probes[0].p - p);
-    vec3 n1 = normalize(probes[1].p - p);
-    vec3 n2 = normalize(probes[2].p - p);
-    vec3 n3 = normalize(probes[3].p - p);
-    vec3 n4 = normalize(probes[4].p - p);
-    vec3 n5 = normalize(probes[5].p - p);
-    vec3 n6 = normalize(probes[6].p - p);
-    vec3 n7 = normalize(probes[7].p - p);
+    vec3 n0 = normalize(probes[0].p - p + n);
+    vec3 n1 = normalize(probes[1].p - p + n);
+    vec3 n2 = normalize(probes[2].p - p + n);
+    vec3 n3 = normalize(probes[3].p - p + n);
+    vec3 n4 = normalize(probes[4].p - p + n);
+    vec3 n5 = normalize(probes[5].p - p + n);
+    vec3 n6 = normalize(probes[6].p - p + n);
+    vec3 n7 = normalize(probes[7].p - p + n);
 
     float bf0 = saturate((dot(n0, n) + 1.) * 0.5);
     float bf1 = saturate((dot(n1, n) + 1.) * 0.5);
@@ -386,14 +390,14 @@ vec3 stupid_light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightPr
     float bf6 = saturate((dot(n6, n) + 1.) * 0.5);
     float bf7 = saturate((dot(n7, n) + 1.) * 0.5);
     
-    irradiance += stupid_irradiance_decoding(probes[0].irradiance, n0) * ((b0 / tb));// * bf0;
-    irradiance += stupid_irradiance_decoding(probes[1].irradiance, n1) * ((b1 / tb));// * bf1;
-    irradiance += stupid_irradiance_decoding(probes[2].irradiance, n2) * ((b2 / tb));// * bf2;
-    irradiance += stupid_irradiance_decoding(probes[3].irradiance, n3) * ((b3 / tb));// * bf3;
-    irradiance += stupid_irradiance_decoding(probes[4].irradiance, n4) * ((b4 / tb));// * bf4;
-    irradiance += stupid_irradiance_decoding(probes[5].irradiance, n5) * ((b5 / tb));// * bf5;
-    irradiance += stupid_irradiance_decoding(probes[6].irradiance, n6) * ((b6 / tb));// * bf6;
-    irradiance += stupid_irradiance_decoding(probes[7].irradiance, n7) * ((b7 / tb));// * bf7;
+    irradiance += stupid_irradiance_decoding(probes[0].irradiance, n0) * ((b0 / tb)) * bf0;
+    irradiance += stupid_irradiance_decoding(probes[1].irradiance, n1) * ((b1 / tb)) * bf1;
+    irradiance += stupid_irradiance_decoding(probes[2].irradiance, n2) * ((b2 / tb)) * bf2;
+    irradiance += stupid_irradiance_decoding(probes[3].irradiance, n3) * ((b3 / tb)) * bf3;
+    irradiance += stupid_irradiance_decoding(probes[4].irradiance, n4) * ((b4 / tb)) * bf4;
+    irradiance += stupid_irradiance_decoding(probes[5].irradiance, n5) * ((b5 / tb)) * bf5;
+    irradiance += stupid_irradiance_decoding(probes[6].irradiance, n6) * ((b6 / tb)) * bf6;
+    irradiance += stupid_irradiance_decoding(probes[7].irradiance, n7) * ((b7 / tb)) * bf7;
 
     return irradiance;
 }

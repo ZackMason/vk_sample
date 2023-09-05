@@ -222,7 +222,7 @@ generate_world_1(arena_t* arena) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
-        auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 150.0f);
+        auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 15.0f);
         player->physics.rigidbody->linear_dampening = 3.0f;
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
@@ -264,7 +264,7 @@ generate_world_1(arena_t* arena) {
                 },
             },
         };
-        auto* e_room = zyy::spawn(world, world->render_system(), enemy_room, axis::forward * 150.0f);
+        auto* e_room = zyy::spawn(world, world->render_system(), enemy_room);
             e_room->gfx.material_id = 1;
             e_room->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
                 auto* self = (zyy::entity_t*)trigger->user_data;
