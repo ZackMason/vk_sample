@@ -111,8 +111,11 @@ struct debug_state_t {
         using namespace gfx::gui;
         assert(var->type == debug_watcher_type::ENTITY);
         auto* entity = var->as_entt;
-
-        im::text(imgui, entity->name.c_data);
+        if (entity->name.c_data) {
+            im::text(imgui, entity->name.c_data);
+        } else {
+            im::text(imgui, fmt_sv("<entity_{}>", (void*)entity));
+        }
         if (im::text(imgui, fmt_sv("- Kill\0{}"sv, entity->id))) {
             entity->queue_free();
         }

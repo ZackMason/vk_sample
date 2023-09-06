@@ -88,7 +88,7 @@ void main()
         2);
     if (shadowed) {
         // shadow -= 0.3 * 1.0 / float(shadow_count);
-        color *= 0.30000113;
+        color *= 0.0000113;
     }
 
 

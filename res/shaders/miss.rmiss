@@ -13,6 +13,7 @@ void main()
     data.color = vec3(0,0,1);
     // data.color = sqrt(sky_color(data.normal, normalize(vec3(1,30,2)))); // breaks light probes
     data.color = vec3(0.8706, 0.8118, 0.6549);
+    data.color = vec3(0.1961, 0.451, 0.9255);
     data.color = vec3(0.99, 0.98, 0.82);
     
     data.distance = -1.0;

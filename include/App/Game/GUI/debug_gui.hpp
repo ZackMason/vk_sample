@@ -161,6 +161,7 @@ draw_gui(game_memory_t* game_memory) {
             WORLD_GUI(world_0);
             WORLD_GUI(world_1);
             WORLD_GUI(forest);
+            WORLD_GUI(probe_test);
             WORLD_GUI(world_test);
             WORLD_GUI(homebase);
             WORLD_GUI(sponza);

@@ -833,7 +833,8 @@ public:
 
         lighting::probe_buffer_t<10000> probe_storage_buffer;
         gfx::vul::storage_buffer_t<lighting::probe_settings_t, 1> light_probe_settings_buffer;
-        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 1.0f, -15.0f}, v3f{20.0f, 20.0f, 15.0f}}};
+        // lighting::probe_box_t light_probes{.aabb={v3f{-200.0f, 1.0f, -100.0f}, v3f{200.0f, 50.0f, 100.0f}}};
+        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 1.0f, -10.0f}, v3f{20.0f, 24.0f, 15.0f}}};
 
         frame_image_t frame_images[8]{};
 
@@ -934,10 +935,10 @@ public:
 
         rs->texture_cache.add(state.null_texture, "null");
 
-        rs->postprocess_params.data[0] = 3.0f;
-        rs->postprocess_params.data[1] = 1.0f;
-        rs->postprocess_params.data[2] = 1.0f;
-        rs->postprocess_params.data[3] = 1.0f;
+        rs->postprocess_params.data[0] = 2.0f; // tonemap
+        rs->postprocess_params.data[1] = 1.0f; // exposure
+        rs->postprocess_params.data[2] = 1.0f; //contrast
+        rs->postprocess_params.data[3] = 1.0f; // gamma
 
         const i32 w = state.swap_chain_extent.width;
         const i32 h = state.swap_chain_extent.height;
@@ -1823,6 +1824,13 @@ public:
 
         vkCmdDraw(command_buffer, 3, 1, 0, 0);
     };
+
+    void
+    update_probe_aabb(system_t* rs, const math::aabb_t<v3f>& aabb) {
+        rs->light_probes.aabb = aabb;
+        lighting::update_probe_positions(&rs->light_probes);
+        rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
+    }
 
     #include "raytrace_pass.hpp"
 

@@ -1,3 +1,4 @@
+
 struct IndirectIndexedDraw {
     uint     index_count;
     uint     instance_count;
@@ -245,28 +246,68 @@ vec3 sh9_to_irradiance(vec3 N, SH9Irradiance color)
 // [0] and [2] are min and max
 vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSettings settings) {
     vec3 irradiance = vec3(0.0);
+    float total_weight = 0.0;
     
-    vec3 alpha = saturate((p - probes[0].p) / light_probe_grid_size(settings));
-
     vec3 cell_rcp = 1. / light_probe_grid_size(settings);
+    vec3 alpha = saturate((p - probes[0].p) * cell_rcp);
+
+
+    for (uint i = 0; i < 8; i++) {
+		uvec3 offset = uvec3(i, i>>1, i>>2) & 1;
+		
+        vec3 r = p - probes[i].p + n * 0.001;
+        vec3 d = normalize(-r);
+
+        vec3 tri = mix(1.0 - alpha, alpha, offset);
+        float weight = 1.0;
+        {
+            vec3 bf = normalize(probes[i].p - p);
+            const float smooth_backface = 1.0;
+            weight *= mix(saturate(dot(d, n)), sqrt(max(0.0001, (dot(bf, n) + 1.0)*0.5))+0.2, smooth_backface);
+        }
+
+        weight = max(0.00001, weight);
+
+        vec3 probe_irradiance = sh9_to_irradiance(n, accumulate_irradiance(sh_identity(), probes[i].irradiance, (3.1415) / float(probes[i].samples + 1)));
+
+        const float crush = 0.2;
+        if (weight < crush) {
+            weight *= weight * weight * (1.0 / sqrt(crush));
+        }
+        weight *= tri.x * tri.y * tri.z;
+
+        // linear
+        // probe_irradiance = sqrt(probe_irradiance);
+
+        irradiance += probe_irradiance * weight;
+        total_weight += weight;
+	}
+
+    if (total_weight > 0.0) {
+        // return sqrt(irradiance / total_weight);
+        return irradiance / total_weight;
+    }
+
+    return vec3(0.0);
+
 
     float sigma = 1.;
-    float b0 = exp(-pow(distance(p, probes[0].p), 2.0) / (2.0*sigma*sigma));
-    float b1 = exp(-pow(distance(p, probes[1].p), 2.0) / (2.0*sigma*sigma));
-    float b2 = exp(-pow(distance(p, probes[2].p), 2.0) / (2.0*sigma*sigma));
-    float b3 = exp(-pow(distance(p, probes[3].p), 2.0) / (2.0*sigma*sigma));
-    float b4 = exp(-pow(distance(p, probes[4].p), 2.0) / (2.0*sigma*sigma));
-    float b5 = exp(-pow(distance(p, probes[5].p), 2.0) / (2.0*sigma*sigma));
-    float b6 = exp(-pow(distance(p, probes[6].p), 2.0) / (2.0*sigma*sigma));
-    float b7 = exp(-pow(distance(p, probes[7].p), 2.0) / (2.0*sigma*sigma));
-    // float b0 = saturate(1.-length((p - probes[0].p + n * .5) * cell_rcp));
-    // float b1 = saturate(1.-length((p - probes[1].p + n * .5) * cell_rcp));
-    // float b2 = saturate(1.-length((p - probes[2].p + n * .5) * cell_rcp));
-    // float b3 = saturate(1.-length((p - probes[3].p + n * .5) * cell_rcp));
-    // float b4 = saturate(1.-length((p - probes[4].p + n * .5) * cell_rcp));
-    // float b5 = saturate(1.-length((p - probes[5].p + n * .5) * cell_rcp));
-    // float b6 = saturate(1.-length((p - probes[6].p + n * .5) * cell_rcp));
-    // float b7 = saturate(1.-length((p - probes[7].p + n * .5) * cell_rcp));
+    // float b0 = exp(-pow(distance(p, probes[0].p), 2.0) / (2.0*sigma*sigma));
+    // float b1 = exp(-pow(distance(p, probes[1].p), 2.0) / (2.0*sigma*sigma));
+    // float b2 = exp(-pow(distance(p, probes[2].p), 2.0) / (2.0*sigma*sigma));
+    // float b3 = exp(-pow(distance(p, probes[3].p), 2.0) / (2.0*sigma*sigma));
+    // float b4 = exp(-pow(distance(p, probes[4].p), 2.0) / (2.0*sigma*sigma));
+    // float b5 = exp(-pow(distance(p, probes[5].p), 2.0) / (2.0*sigma*sigma));
+    // float b6 = exp(-pow(distance(p, probes[6].p), 2.0) / (2.0*sigma*sigma));
+    // float b7 = exp(-pow(distance(p, probes[7].p), 2.0) / (2.0*sigma*sigma));
+    float b0 = saturate(1.-length((p - probes[0].p) * cell_rcp));
+    float b1 = saturate(1.-length((p - probes[1].p) * cell_rcp));
+    float b2 = saturate(1.-length((p - probes[2].p) * cell_rcp));
+    float b3 = saturate(1.-length((p - probes[3].p) * cell_rcp));
+    float b4 = saturate(1.-length((p - probes[4].p) * cell_rcp));
+    float b5 = saturate(1.-length((p - probes[5].p) * cell_rcp));
+    float b6 = saturate(1.-length((p - probes[6].p) * cell_rcp));
+    float b7 = saturate(1.-length((p - probes[7].p) * cell_rcp));
 
     // return vec3(b0);
 

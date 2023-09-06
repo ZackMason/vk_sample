@@ -36,38 +36,29 @@ layout( push_constant ) uniform constants
 
 #define SAMPLE_COUNT 2
 
-
 vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbeSettings settings) {
-	// return light_probe_local_pos_normalized(settings, p);
     ivec3 min_index = light_probe_probe_index(settings, p);
 
-
-
 	LightProbe neighbors[8];
+	for (uint i = 0; i < 8; i++) {
+		uvec3 offset = uvec3(i, i>>1, i>>2) & 1;
+		neighbors[i] = probes[index_3d(settings.dim, min_index + ivec3(offset))];
+	}
 
-    neighbors[0] = probes[index_3d(settings.dim, min_index)];
-    neighbors[1] = probes[index_3d(settings.dim, min_index+ivec3(1,0,0))];
-    neighbors[2] = probes[index_3d(settings.dim, min_index+ivec3(1,1,1))];
-    neighbors[3] = probes[index_3d(settings.dim, min_index+ivec3(1,1,0))];
-    neighbors[4] = probes[index_3d(settings.dim, min_index+ivec3(1,0,1))];
-    neighbors[5] = probes[index_3d(settings.dim, min_index+ivec3(0,1,0))];
-    neighbors[6] = probes[index_3d(settings.dim, min_index+ivec3(0,1,1))];
-    neighbors[7] = probes[index_3d(settings.dim, min_index+ivec3(0,0,1))];
-    // return abs(vec3(min_index))*0.2;
-    // return abs(neighbors[0].p);
+
     return (light_probe_irradiance(p, n, neighbors, settings));
-
-
 }
-
 
 void main() 
 {
-    uint seed = tea(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x, kFrame);
 
     uint probe_id = gl_LaunchIDEXT.x;
-
     LightProbe probe = probes[probe_id];
+    uint seed = tea(probe_id, probe.samples);
+
+
+    // uint seed = tea(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x, kFrame);
+
 
     if (kSuperSample>0) {
         // for (int i = 0; i < 9; i++) {
@@ -90,15 +81,15 @@ void main()
 
     vec3 image_color = vec3(0.0);
 
-    float r0 = rnd(seed) * 2. - 1.;
-    float r1 = rnd(seed) * 2. - 1.;
-    float r2 = rnd(seed) * 2. - 1.;
-    vec4 direction = vec4(normalize(vec3(r0,r1,r2)), 0);
 
 
-    uint num_samples = 1;
+    uint num_samples = max(1, 32 * kSuperSample);
 
     for (uint i = 0; i < num_samples; i++) {
+        float r0 = rnd(seed) * 2. - 1.;
+        float r1 = rnd(seed) * 2. - 1.;
+        float r2 = rnd(seed) * 2. - 1.;
+        vec4 direction = vec4(normalize(vec3(r0,r1,r2)), 0);
         vec3 color=vec3(0.0);
         
         data.normal = direction.xyz;
@@ -120,8 +111,8 @@ void main()
 
         vec3 h = origin.xyz + direction.xyz * data.distance;
 
+        // direction.xyz *= -1.0f;
         // direction.xyz = data.normal.xyz;
-        direction.xyz *= -1.0f;
 
             
         if (data.distance < 0.0) {
@@ -130,29 +121,29 @@ void main()
             // break;
         }
         else if (data.reflector >= 1.0) {
-            color += light_probe_irradiance(h, -direction.xyz, probe_settings);
+            // color += light_probe_irradiance(h, -direction.xyz, probe_settings);
             color += data.color;// / pow(2, i);
             // vec3 h = origin.xyz + direction.xyz * data.distance;
             // direction.xyz = reflect(direction.xyz, data.normal);
             // direction.xyz = data.normal = normalize(direction.xyz + hemisphere_random(direction.xyz, seed) * 0.05);
         } else {
-            color += light_probe_irradiance(h, -direction.xyz, probe_settings);
+            // color += light_probe_irradiance(h, -direction.xyz, probe_settings);
             color += data.color;
             // break;
         } 
-        image_color += color;
+        // image_color += color;
         // stupid_radiance_encoding(probes[probe_id].irradiance, direction.xyz, color.rgb, probes[probe_id].samples);
+
+
+
+        SH9Irradiance irradiance_sample = irradiance_to_sh9(direction.xyz, color.rgb);
+        // probes[probe_id].irradiance = accumulate_irradiance(probes[probe_id].irradiance, irradiance_sample, 1. / float(probes[probe_id].samples + 1));
+        // probes[probe_id].irradiance = mix_irradiance(probes[probe_id].irradiance, irradiance_sample, float(probes[probe_id].samples));
+        probes[probe_id].irradiance = accumulate_irradiance(probes[probe_id].irradiance, irradiance_sample, 1.);
+
+        // probes[probe_id].irradiance = accumulate_irradiance(sh_identity(), probes[probe_id].irradiance, (4.*3.1415) / float(probes[probe_id].samples + 1));
+        probes[probe_id].samples += 1;
     }
-
-
-
-    SH9Irradiance irradiance_sample = irradiance_to_sh9(direction.xyz, image_color.rgb);
-    // probes[probe_id].irradiance = accumulate_irradiance(probes[probe_id].irradiance, irradiance_sample, 1. / float(probes[probe_id].samples + 1));
-    // probes[probe_id].irradiance = mix_irradiance(probes[probe_id].irradiance, irradiance_sample, float(probes[probe_id].samples));
-    probes[probe_id].irradiance = accumulate_irradiance(probes[probe_id].irradiance, irradiance_sample, 1.);
-
-    // probes[probe_id].irradiance = accumulate_irradiance(sh_identity(), probes[probe_id].irradiance, (4.*3.1415) / float(probes[probe_id].samples + 1));
-    probes[probe_id].samples += 1;
 
     
 

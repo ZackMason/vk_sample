@@ -215,6 +215,30 @@ generate_particle_test(arena_t* arena) {
 }
 
 world_generator_t*
+generate_probe_test(arena_t* arena) {
+    auto* generator = arena_alloc<world_generator_t>(arena);
+    generator->arena = arena;
+    generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
+       world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
+    });
+    generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
+        auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 15.0f);
+        player->physics.rigidbody->linear_dampening = 3.0f;
+    });
+    generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
+        zyy::spawn(world, world->render_system(), zyy::db::misc::platform_1000, axis::down);
+        zyy::db::prefab_t prefab {
+            .gfx = {
+                .mesh_name = "res/models/rooms/house_01.gltf"
+            }
+        };
+        zyy::spawn(world, world->render_system(), prefab)->gfx.material_id = 1;
+        rendering::update_probe_aabb(world->render_system(), {v3f{-30.0f, 1, -30.0f}, v3f{30.0f, 25.0f, 30.0f}});
+    });
+    return generator;
+}
+
+world_generator_t*
 generate_world_1(arena_t* arena) {
     auto* generator = arena_alloc<world_generator_t>(arena);
     generator->arena = arena;
@@ -334,7 +358,7 @@ generate_world_0(arena_t* arena) {
                 },
             },
         };
-        auto* e_room = zyy::spawn(world, world->render_system(), enemy_room, axis::forward * 150.0f);
+        auto* e_room = zyy::spawn(world, world->render_system(), enemy_room, axis::forward * 50.0f);
             e_room->gfx.material_id = 1;
             e_room->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
                 auto* self = (zyy::entity_t*)trigger->user_data;

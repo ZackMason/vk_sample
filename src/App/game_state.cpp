@@ -39,9 +39,9 @@ global_variable gfx::anim::animator_t gs_animator;
 global_variable gfx::mesh_list_t gs_skinned_mesh;
 
 global_variable VkCullModeFlagBits gs_cull_modes[] = {
-    VK_CULL_MODE_NONE,
     VK_CULL_MODE_BACK_BIT,
     VK_CULL_MODE_FRONT_BIT,
+    VK_CULL_MODE_NONE,
 };
 global_variable u32 gs_cull_mode;
 
@@ -1016,7 +1016,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         v3f size = e->aabb.size()*0.5f;
         v4f bounds{e->aabb.center(), glm::max(glm::max(size.x, size.y), size.z) };
 
-        if (e->type == zyy::entity_type::player) continue;
+        // if (e->type == zyy::entity_type::player) continue;
 
         rendering::submit_job(
             game_state->render_system, 
@@ -1296,10 +1296,10 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
             blend_fn[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
             blend_fn[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
             blend_fn[0].alphaBlendOp = VK_BLEND_OP_ADD;
-            ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
+            // ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
             VkBool32 fb_blend[1] { true };
             ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
-            ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
+            // ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
             {
                 VkVertexInputBindingDescription2EXT vertexInputBinding{};
                 vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;

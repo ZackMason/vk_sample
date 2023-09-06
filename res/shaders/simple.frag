@@ -7,6 +7,7 @@
 #include "pbr.glsl"
 #include "material.glsl"
 
+
 layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 {
 	int		uMode;
@@ -179,33 +180,25 @@ vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)
 
 
 vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbeSettings settings) {
-	// return light_probe_local_pos_normalized(settings, p);
+	vec3 np = light_probe_local_pos_normalized(settings, p);
+
+	// if (np.x < -0.1 || np.y < -0.1 || np.z < -0.1 || np.x > 1.10 || np.y > 1.10 || np.z > 1.10) {
+		
+	// 	return vec3(1.0);
+	// }
+
     ivec3 min_index = light_probe_probe_index(settings, p);
-
-
-
-
 
 
 	LightProbe neighbors[8];
 
-    neighbors[0] = probes[index_3d(settings.dim, min_index)];
-    neighbors[1] = probes[index_3d(settings.dim, min_index+ivec3(1,0,0))];
-    neighbors[2] = probes[index_3d(settings.dim, min_index+ivec3(1,1,1))];
-    neighbors[3] = probes[index_3d(settings.dim, min_index+ivec3(1,1,0))];
-    neighbors[4] = probes[index_3d(settings.dim, min_index+ivec3(1,0,1))];
-    neighbors[5] = probes[index_3d(settings.dim, min_index+ivec3(0,1,0))];
-    neighbors[6] = probes[index_3d(settings.dim, min_index+ivec3(0,1,1))];
-    neighbors[7] = probes[index_3d(settings.dim, min_index+ivec3(0,0,1))];
-    // return abs(vec3(min_index))*0.2;
-    // return abs(neighbors[0].p);
+	for (uint i = 0; i < 8; i++) {
+		uvec3 offset = uvec3(i, i>>1, i>>2) & 1;
+		neighbors[i] = probes[index_3d(settings.dim, min_index + ivec3(offset))];
+	}
 
+    
     return (light_probe_irradiance(p, n, neighbors, probe_settings));
-
-
-
-
-
 }
 
 
@@ -323,21 +316,10 @@ main( )
 
 	// rgb = env;
 
+
+
+
 	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
