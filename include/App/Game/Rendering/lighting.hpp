@@ -30,7 +30,7 @@ namespace rendering::lighting {
 
     struct probe_box_t {
         math::aabb_t<v3f> aabb;
-        f32 grid_size{2.0f};
+        f32 grid_size{1.50f};
         probe_t* probes{0};
         u32 probe_count{0};
 

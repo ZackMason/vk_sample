@@ -200,7 +200,12 @@ vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbeSettings settings) {
     // return abs(vec3(min_index))*0.2;
     // return abs(neighbors[0].p);
 
-    return (stupid_light_probe_irradiance(p, n, neighbors, probe_settings));
+    return (light_probe_irradiance(p, n, neighbors, probe_settings));
+
+
+
+
+
 }
 
 
@@ -300,7 +305,6 @@ main( )
 
 	vec3 ec = (vec3(1.0) - F0) * 0.725 + F0 * 0.07; // @hardcoded no idea what these should be
 	Fr *= 0.0;
-
 
 	if (lit_material > 0) {
 		rgb = 10.0 * max(NoL, material.ao) * (Fd + Fr * ec * r_env);

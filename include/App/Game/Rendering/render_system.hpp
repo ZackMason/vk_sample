@@ -833,7 +833,7 @@ public:
 
         lighting::probe_buffer_t<10000> probe_storage_buffer;
         gfx::vul::storage_buffer_t<lighting::probe_settings_t, 1> light_probe_settings_buffer;
-        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, -1.0f, -15.0f}, v3f{20.0f, 20.0f, 15.0f}}};
+        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 1.0f, -15.0f}, v3f{20.0f, 20.0f, 15.0f}}};
 
         frame_image_t frame_images[8]{};
 

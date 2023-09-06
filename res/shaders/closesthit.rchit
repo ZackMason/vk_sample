@@ -44,6 +44,7 @@ void main()
     vec4 albedo = texture(uTextureCache[nonuniformEXT(mesh.texture_id%4096)], uv);
 
     vec3 L = normalize(vec3(1,30,2));
+    // vec3 L = normalize(vec3(1,2,3));
 
     vec3 n = normalize(v0.n * bary.x + v1.n * bary.y + v2.n * bary.z);
     vec3 p = (v0.p * bary.x + v1.p * bary.y + v2.p * bary.z);
@@ -52,7 +53,6 @@ void main()
     vec3 wn = (gl_ObjectToWorldEXT * vec4(n, 0.0)).xyz;
 
     data.distance = gl_RayTmaxEXT;
-    data.normal = wn;
     
 	data.reflector = dot(albedo.rgb, albedo.rgb) > 10.9 ? 1.0 : 0.0;// (mesh.texture_id == -1 ? 1.0f : 0.0f);
     data.color = vec3(tri) / vec3(tri+1);
@@ -88,12 +88,13 @@ void main()
         2);
     if (shadowed) {
         // shadow -= 0.3 * 1.0 / float(shadow_count);
-        color *= 0.0000113;
+        color *= 0.30000113;
     }
 
 
     // }
 
+    data.normal = wn;
     data.color = color;
 
     // data.color = vec3(0,1,0);
