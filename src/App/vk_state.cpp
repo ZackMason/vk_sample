@@ -2136,6 +2136,7 @@ state_t::create_texture(
     texture->size[0] = w;
     texture->size[1] = h;
     texture->channels= c;
+    texture->pixel_size = pixel_size;
     texture->pixels = arena ? (u8*)arena_alloc(arena, w*h*c) : nullptr;
     if (arena && data) {
         std::memcpy(texture->pixels, data, w*h*c*pixel_size);
@@ -2197,12 +2198,12 @@ state_t::load_texture(
     );
 }
 
-void generate_mipmaps(state_t* state, texture_2d_t* texture) {
+void generate_mipmaps(state_t* state, texture_2d_t* texture, VkCommandBuffer command_buffer) {
     VkFormatProperties formatProperties;
     vkGetPhysicalDeviceFormatProperties(state->gpu_device, texture->format, &formatProperties);
     assert((formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT));
 
-    quick_cmd_raii_t c{state};
+    // quick_cmd_raii_t c{state};
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -2224,7 +2225,7 @@ void generate_mipmaps(state_t* state, texture_2d_t* texture) {
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 
-        vkCmdPipelineBarrier(c.c(),
+        vkCmdPipelineBarrier(command_buffer,
             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
             0, nullptr,
             0, nullptr,
@@ -2244,7 +2245,7 @@ void generate_mipmaps(state_t* state, texture_2d_t* texture) {
             blit.dstSubresource.baseArrayLayer = 0;
             blit.dstSubresource.layerCount = 1;
 
-            vkCmdBlitImage(c.c(),
+            vkCmdBlitImage(command_buffer,
                 texture->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1, &blit,
@@ -2255,7 +2256,7 @@ void generate_mipmaps(state_t* state, texture_2d_t* texture) {
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
             barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-            vkCmdPipelineBarrier(c.c(),
+            vkCmdPipelineBarrier(command_buffer,
                 VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
                 0, nullptr,
                 0, nullptr,
@@ -2270,7 +2271,7 @@ void generate_mipmaps(state_t* state, texture_2d_t* texture) {
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-    vkCmdPipelineBarrier(c.c(),
+    vkCmdPipelineBarrier(command_buffer,
         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
         0, nullptr,
         0, nullptr,
@@ -2296,9 +2297,10 @@ state_t::load_texture_sampler(
     auto image_size = texture->size[0] * texture->size[1] * 4; // @hardcoded 4 channels
     if (texture->format == VK_FORMAT_R32G32B32A32_SFLOAT) {
         image_size *= 4;
-    }
-    if (texture->format == VK_FORMAT_R16G16B16A16_SFLOAT) {
+    } else if (texture->format == VK_FORMAT_R16G16B16A16_SFLOAT) {
         image_size *= 2;
+    } else {
+        image_size = texture->size[0] * texture->size[1] * texture->channels * (int)texture->pixel_size;
     }
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(gpu_device, &properties);
@@ -2387,7 +2389,7 @@ state_t::load_texture_sampler(
     } else {
 
     if (texture->mip_levels > 1) {
-        generate_mipmaps(this, texture);
+        generate_mipmaps(this, texture, quick_cmd_raii_t{this}.c());
     } else if (texture->image_layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         transition_image_layout(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     // }

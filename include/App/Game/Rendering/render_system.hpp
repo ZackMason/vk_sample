@@ -616,9 +616,15 @@ public:
                 .build(light_probe_descriptor, descriptor_layouts[5]);
         }
 
-        void bind_images(gfx::vul::descriptor_builder_t& builder, texture_cache_t& texture_cache) {
+        void bind_images(
+            gfx::vul::descriptor_builder_t& builder, 
+            texture_cache_t& texture_cache,
+            gfx::vul::texture_2d_t* irradiance_texture,
+            gfx::vul::texture_2d_t* visibility_texture
+        ) {
             using namespace gfx::vul;
             VkDescriptorImageInfo vdii[4096];
+            VkDescriptorImageInfo pvdii[2];
 
             auto* null_texture = texture_cache["null"];
             range_u64(i, 0, array_count(texture_cache.textures)) {
@@ -636,9 +642,18 @@ public:
                 vdii[i].imageView = texture_cache[i]->image_view;
                 vdii[i].sampler = texture_cache[i]->sampler;
             }
+
+            pvdii[0].imageLayout = irradiance_texture->image_layout;
+            pvdii[0].imageView = irradiance_texture->image_view;
+            pvdii[0].sampler = irradiance_texture->sampler;
+
+            pvdii[1].imageLayout = visibility_texture->image_layout;
+            pvdii[1].imageView = visibility_texture->image_view;
+            pvdii[1].sampler = visibility_texture->sampler;
     
             builder
                 .bind_image(0, vdii, array_count(vdii), (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .bind_image(1, pvdii, array_count(pvdii), (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
                 .build(texture_descriptor, descriptor_layouts[4]);
         }
     };
@@ -834,7 +849,7 @@ public:
         lighting::probe_buffer_t<10000> probe_storage_buffer;
         gfx::vul::storage_buffer_t<lighting::probe_settings_t, 1> light_probe_settings_buffer;
         // lighting::probe_box_t light_probes{.aabb={v3f{-200.0f, 1.0f, -100.0f}, v3f{200.0f, 50.0f, 100.0f}}};
-        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 1.0f, -10.0f}, v3f{20.0f, 24.0f, 15.0f}}};
+        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 0.0f, -10.0f}, v3f{20.0f, 24.0f, 15.0f}}};
 
         frame_image_t frame_images[8]{};
 
@@ -949,6 +964,13 @@ public:
             rs->projection[1][1] *= -1.0f;
         }
 
+        state.create_storage_buffer(&rs->probe_storage_buffer);
+        state.create_storage_buffer(&rs->light_probe_settings_buffer);
+        lighting::set_probes(*rs->vk_gfx, &rs->light_probes, 0, &rs->probe_storage_buffer.pool[0]);
+        lighting::init_textures(*rs->vk_gfx, &rs->light_probes);
+        rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
+        
+
         create_render_pass(rs, state.device, state.swap_chain_image_format);
         create_framebuffers(
             rs, &rs->arena, state.device, 
@@ -991,8 +1013,6 @@ public:
         state.create_storage_buffer(&rs->environment_storage_buffer);
         state.create_storage_buffer(&rs->animation_storage_buffer);
         state.create_storage_buffer(&rs->instance_storage_buffer);
-        state.create_storage_buffer(&rs->probe_storage_buffer);
-        state.create_storage_buffer(&rs->light_probe_settings_buffer);
 
        
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
@@ -1035,13 +1055,15 @@ public:
                     &rs->probe_storage_buffer,
                     &rs->light_probe_settings_buffer,
                     gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator),
-                    &rs->frame_images[0].texture
+                    // &rs->frame_images[0].texture
+                    &rs->light_probes.irradiance_texture,
+                    &rs->light_probes.visibility_texture
                 );
             }
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
                 rs->frames[i].mesh_pass.build_buffer_sets(builder, buffers);
-                rs->frames[i].mesh_pass.bind_images(builder, rs->texture_cache);
+                rs->frames[i].mesh_pass.bind_images(builder, rs->texture_cache, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture);
                 rs->frames[i].mesh_pass.build_layout(state.device);
             }
             {
@@ -1086,9 +1108,7 @@ public:
         state.create_vertex_buffer(&rs->skinned_vertices);
         state.create_index_buffer(&rs->skinned_indices);
     
-        lighting::set_probes(*rs->vk_gfx, &rs->light_probes, 0, &rs->probe_storage_buffer.pool[0]);
-        rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
-        // lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
+       // lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
         rs->rt_cache->init(state, rs->frames[0].rt_compute_pass.descriptor_set_layouts[0]);
 
@@ -1277,7 +1297,8 @@ public:
                 };
                 auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
                 mesh_pass.build_buffer_sets(builder, buffers);
-                mesh_pass.bind_images(builder, rs->texture_cache);
+                // mesh_pass.bind_images(builder, rs->texture_cache);
+                mesh_pass.bind_images(builder, rs->texture_cache, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture);
             }
 
             vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 0, 1, &mesh_pass.sporadic_descriptors, 0, nullptr);
@@ -1337,7 +1358,8 @@ public:
                         rs->environment_storage_buffer.buffer
                     };
                     mesh_pass.build_buffer_sets(builder, buffers);
-                    mesh_pass.bind_images(builder, rs->texture_cache);
+                    // mesh_pass.bind_images(builder, rs->texture_cache);
+                    mesh_pass.bind_images(builder, rs->texture_cache, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture);
                 }
 
                 vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 0, 1, &mesh_pass.sporadic_descriptors, 0, nullptr);

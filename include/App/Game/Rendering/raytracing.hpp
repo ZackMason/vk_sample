@@ -338,7 +338,8 @@ struct rt_compute_pass_t {
         gfx::vul::gpu_buffer_t* probe_data,
         gfx::vul::gpu_buffer_t* probe_settings,
         gfx::vul::descriptor_builder_t&& builder, 
-        gfx::vul::texture_2d_t* texture
+        gfx::vul::texture_2d_t* irradiance_texture,
+        gfx::vul::texture_2d_t* visibility_texture
     ) {
         VkDescriptorBufferInfo buffer_info[8];
         u32 b = 0;
@@ -362,21 +363,13 @@ struct rt_compute_pass_t {
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
-        // buffer_info[b].buffer = vertices->buffer;
-        // buffer_info[b].offset = 0; 
-        // buffer_info[b++].range = VK_WHOLE_SIZE;
-
-        // buffer_info[b].buffer = indices->buffer;
-        // buffer_info[b].offset = 0; 
-        // buffer_info[b++].range = VK_WHOLE_SIZE;
-
         VkWriteDescriptorSetAccelerationStructureKHR descriptor_acceleration_structure_info{};
         descriptor_acceleration_structure_info.sType                      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
         descriptor_acceleration_structure_info.accelerationStructureCount = 1;
         descriptor_acceleration_structure_info.pAccelerationStructures    = &tlas.handle;
 
         VkDescriptorImageInfo vdii[4096];
-        VkDescriptorImageInfo ovdii[1];
+        VkDescriptorImageInfo ovdii[2];
 
         auto* null_texture = texture_cache["null"];
         range_u64(i, 0, array_count(texture_cache.textures)) {
@@ -395,14 +388,18 @@ struct rt_compute_pass_t {
             vdii[i].sampler = texture_cache[i]->sampler;
         }
 
-        ovdii[0].imageLayout = texture->image_layout;
-        ovdii[0].imageView = texture->image_view;
-        ovdii[0].sampler = texture->sampler;
+        ovdii[0].imageLayout = irradiance_texture->image_layout;
+        ovdii[0].imageView = irradiance_texture->image_view;
+        ovdii[0].sampler = irradiance_texture->sampler;
+
+        ovdii[1].imageLayout = visibility_texture->image_layout;
+        ovdii[1].imageView = visibility_texture->image_view;
+        ovdii[1].sampler = visibility_texture->sampler;
 
 
         builder
             .bind_buffer(0, buffer_info + 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, &descriptor_acceleration_structure_info)
-            .bind_image(1, ovdii, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+            .bind_image(1, ovdii, 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
             .bind_image(2, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
             .bind_buffer(3, buffer_info + 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
             .bind_buffer(4, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)

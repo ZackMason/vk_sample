@@ -127,7 +127,7 @@ generate_sponza(arena_t* arena) {
 
     generator->add_step("Sponza", WORLD_STEP_TYPE_LAMBDA(environment){
         zyy::spawn(world, world->render_system(),
-            zyy::db::rooms::sponza, axis::up);
+            zyy::db::rooms::sponza, axis::up*1.001f);
     });
 
     return generator;
@@ -222,7 +222,7 @@ generate_probe_test(arena_t* arena) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
-        auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 15.0f);
+        auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::left * 15.0f);
         player->physics.rigidbody->linear_dampening = 3.0f;
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
@@ -232,8 +232,8 @@ generate_probe_test(arena_t* arena) {
                 .mesh_name = "res/models/rooms/house_01.gltf"
             }
         };
-        zyy::spawn(world, world->render_system(), prefab)->gfx.material_id = 1;
-        rendering::update_probe_aabb(world->render_system(), {v3f{-30.0f, 1, -30.0f}, v3f{30.0f, 25.0f, 30.0f}});
+        zyy::spawn(world, world->render_system(), prefab, axis::backward * 10.12310f)->gfx.material_id = 1;
+        rendering::update_probe_aabb(world->render_system(), {v3f{-15.0f, 1, -30.0f}, v3f{25.0f, 25.0f, 20.0f}});
     });
     return generator;
 }

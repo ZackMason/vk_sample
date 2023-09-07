@@ -76,6 +76,7 @@ struct texture_2d_t {
     i32 channels{3};
     u32 mip_levels{1};
     u8* pixels;
+    umm pixel_size=4;
     VkImage image;
     VkImageView image_view;
     VkImageLayout image_layout{VK_IMAGE_LAYOUT_UNDEFINED};
@@ -569,6 +570,8 @@ struct quick_cmd_raii_t {
         _s->end_single_time_commands(command_buffer);
     }
 };
+
+void generate_mipmaps(state_t* state, texture_2d_t* texture, VkCommandBuffer command_buffer);
 
 void 
 begin_render_pass(

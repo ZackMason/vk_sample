@@ -462,6 +462,7 @@ app_init_graphics(game_memory_t* game_memory) {
         };
 
         make_material("default", gfx::material_t::plastic(gfx::color::v4::ray_white));
+        // make_material("default", gfx::material_t::plastic(gfx::color::v4::red));
         {
             auto triplanar_mat = gfx::material_t::plastic(gfx::color::v4::white);
             triplanar_mat.flags = gfx::material_lit | gfx::material_triplanar;

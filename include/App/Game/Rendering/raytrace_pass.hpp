@@ -75,7 +75,10 @@ begin_rt_pass(
                 rs->descriptor_layout_cache, 
                 rs->get_frame_data().dynamic_descriptor_allocator
             ),
-            &rs->frame_images[6].texture);
+            &rs->light_probes.irradiance_texture,
+            &rs->light_probes.visibility_texture
+            // &rs->frame_images[6].texture
+        );
         vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline);
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline_layout, 0, 1, &pass.descriptor_sets[0], 0, 0);
 
@@ -96,6 +99,8 @@ begin_rt_pass(
             width,
             1,
             1);
+
+        generate_mipmaps(&gfx, &rs->light_probes.irradiance_texture, command_buffer);
 
         // gfx.khr.vkCmdTraceRaysKHR(
         //     command_buffer,

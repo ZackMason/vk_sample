@@ -50,17 +50,16 @@ void main()
     vec3 p = (v0.p * bary.x + v1.p * bary.y + v2.p * bary.z);
 
     vec3 wp = (gl_ObjectToWorldEXT * vec4(p, 1.0)).xyz;
-    vec3 wn = (gl_ObjectToWorldEXT * vec4(n, 0.0)).xyz;
+    vec3 wn = normalize((gl_ObjectToWorldEXT * vec4(n, 0.0)).xyz);
 
-    data.distance = gl_RayTmaxEXT;
     
 	data.reflector = dot(albedo.rgb, albedo.rgb) > 10.9 ? 1.0 : 0.0;// (mesh.texture_id == -1 ? 1.0f : 0.0f);
     data.color = vec3(tri) / vec3(tri+1);
 
     data.color = bary;
-
     data.color = wn;
-    vec3 color = albedo.rgb * saturate(dot(wn, L));
+
+    vec3 color = albedo.rgb * max(dot(wn, L), 0.5);
 
     float tmin = 0.001;
     float tmax = 1000.0;
@@ -71,7 +70,7 @@ void main()
     // for (int i = 0; i < shadow_count; i++) {
 
         // vec3 SL = normalize(3.0*L + hemisphere_random(L, float(tri.x + i)));
-
+    
     shadowed = true;
     traceRayEXT(topLevelAS, 
         // gl_RayFlagsTerminateOnFirstHitEXT | 
@@ -88,12 +87,13 @@ void main()
         2);
     if (shadowed) {
         // shadow -= 0.3 * 1.0 / float(shadow_count);
-        color *= 0.0000113;
+        color *= 0.840000113;
     }
 
 
     // }
 
+    data.distance = gl_RayTmaxEXT;
     data.normal = wn;
     data.color = color;
 

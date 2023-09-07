@@ -104,6 +104,9 @@ struct SH9Irradiance {
 	vec3 l00, l1m1, l10, l11, l2m2, l2m1, l20, l21, l22;
 };
 
+struct SH9Depth {
+	vec2 l00, l1m1, l10, l11, l2m2, l2m1, l20, l21, l22;
+};
 
 struct SLOL9Irradiance {
 	vec3 irradiance[9];
@@ -122,10 +125,24 @@ SH9Irradiance sh_identity() {
     r.l22 = vec3(0.0);
     return r;
 }
+SH9Depth sh_depth_identity() {
+    SH9Depth r;
+    r.l00 = vec2(0.0);
+    r.l1m1 = vec2(0.0);
+    r.l10 = vec2(0.0);
+    r.l11 = vec2(0.0);
+    r.l2m2 = vec2(0.0);
+    r.l2m1 = vec2(0.0);
+    r.l20 = vec2(0.0);
+    r.l21 = vec2(0.0);
+    r.l22 = vec2(0.0);
+    return r;
+}
 
 struct LightProbe {
     // SLOL9Irradiance irradiance;
     SH9Irradiance irradiance;
+    SH9Depth depth;
     vec3 p;
     uint id;
     uint samples;
@@ -149,6 +166,27 @@ SH9 coefficients(in vec3 N) {
     result.h[7] = 1.092548f * N.x * N.z;
     result.h[8] = 0.546274f * (N.x * N.x - N.y * N.y);
  
+    return result;
+}
+
+SH9Depth depth_to_sh9(in vec3 N, in float D)
+{
+    SH9 SHCoefficients = coefficients(N);
+    SH9Depth result;
+
+    vec2 depth = vec2(D, D*D);
+
+    {
+        result.l00  = depth * SHCoefficients.h[0];
+        result.l1m1 = depth * SHCoefficients.h[1];
+        result.l10  = depth * SHCoefficients.h[2];
+        result.l11  = depth * SHCoefficients.h[3];
+        result.l2m2 = depth * SHCoefficients.h[4];
+        result.l2m1 = depth * SHCoefficients.h[5];
+        result.l20  = depth * SHCoefficients.h[6];
+        result.l21  = depth * SHCoefficients.h[7];
+        result.l22  = depth * SHCoefficients.h[8];
+    }
     return result;
 }
 
@@ -190,6 +228,21 @@ void irradiance_to_sh9(in vec3 N, in vec3 L, inout SH9Irradiance result)
     // return result;
 }
 
+SH9Depth accumulate_depth(SH9Depth current_depth, SH9Depth new_depth, float weight)
+{
+    SH9Depth result;
+    result.l00 = current_depth.l00 + new_depth.l00 * weight;
+    result.l1m1 = current_depth.l1m1 + new_depth.l1m1 * weight;
+    result.l10 = current_depth.l10 + new_depth.l10 * weight;
+    result.l11 = current_depth.l11 + new_depth.l11 * weight;
+    result.l2m2 = current_depth.l2m2 + new_depth.l2m2 * weight;
+    result.l2m1 = current_depth.l2m1 + new_depth.l2m1 * weight;
+    result.l20 = current_depth.l20 + new_depth.l20 * weight;
+    result.l21 = current_depth.l21 + new_depth.l21 * weight;
+    result.l22 = current_depth.l22 + new_depth.l22 * weight;
+    return result;
+}
+
 SH9Irradiance accumulate_irradiance(SH9Irradiance existingIrradiance, SH9Irradiance additionalIrradiance, float weight)
 {
     SH9Irradiance result;
@@ -221,6 +274,27 @@ SH9Irradiance mix_irradiance(SH9Irradiance existingIrradiance, SH9Irradiance add
 }
 
 // Equation 13 Ramamoorthi
+vec2 sh9_to_depth(vec3 N, SH9Depth depth)
+{
+    const float A0 = 3.141593;
+    const float A1 = 2.094395;
+    const float A2 = 0.785398;
+    const float A3 = 0.0;
+    const float A4 = -0.130900;
+    const float A5 = 0.0;
+    const float A6 = 0.0490;
+ 
+    return depth.l00 * 0.282095f * A0
+        + depth.l1m1 * 0.488603f * N.y * A1
+        + depth.l10 * 0.488603f * N.z * A1
+        + depth.l11 * 0.488603f * N.x * A1
+        + depth.l2m2 * 1.092548f * N.x * N.y * A2
+        + depth.l2m1 * 1.092548f * N.y * N.z * A2
+        + depth.l20 * 0.315392f * (3.0f * N.z * N.z - 1.0f) * A2
+        + depth.l21 * 1.092548f * N.x * N.z * A2
+        + depth.l22 * 0.546274f * (N.x * N.x - N.y * N.y) * A2;
+}
+
 vec3 sh9_to_irradiance(vec3 N, SH9Irradiance color)
 {
     const float A0 = 3.141593;
@@ -243,6 +317,10 @@ vec3 sh9_to_irradiance(vec3 N, SH9Irradiance color)
     return irradiance;
 }
 
+// #define PROBE_USE_SH
+// #define PROBE_USE_IMAGE
+// #define PROBE_USE_SAMPLER
+
 // [0] and [2] are min and max
 vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSettings settings) {
     vec3 irradiance = vec3(0.0);
@@ -251,24 +329,64 @@ vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSett
     vec3 cell_rcp = 1. / light_probe_grid_size(settings);
     vec3 alpha = saturate((p - probes[0].p) * cell_rcp);
 
-
     for (uint i = 0; i < 8; i++) {
 		uvec3 offset = uvec3(i, i>>1, i>>2) & 1;
 		
         vec3 r = p - probes[i].p + n * 0.001;
-        vec3 d = normalize(-r);
+        vec3 d = normalize(-r); 
 
         vec3 tri = mix(1.0 - alpha, alpha, offset);
         float weight = 1.0;
+
         {
             vec3 bf = normalize(probes[i].p - p);
             const float smooth_backface = 1.0;
-            weight *= mix(saturate(dot(d, n)), sqrt(max(0.0001, (dot(bf, n) + 1.0)*0.5))+0.2, smooth_backface);
+            weight *= mix(saturate(dot(d, n)), sqr(max(0.0001, (dot(bf, n) + 1.0) * 0.5)) + 0.2, smooth_backface);
+        }
+
+        if (false)
+        {
+            float dist_to_probe = length(r);
+            
+            uvec3 probe_coord = index_1d(settings.dim, probes[i].id);
+#ifdef PROBE_USE_SH
+            float da = 3.1415 * 4.0 / float(probes[i].samples + 1);
+            vec2 probe_depth = sh9_to_depth(n, accumulate_depth(sh_depth_identity(), probes[i].depth, da));
+#else
+#ifdef PROBE_USE_SAMPLER
+            vec2 depth_size_rcp = 1.0/textureSize(uProbeTexture[1], 0).xy;
+            vec2 probe_depth = texture(uProbeTexture[1], probe_depth_uv(probe_coord, n, settings.dim, 1.0/depth_size_rcp)).rg;
+#else
+#ifdef PROBE_USE_IMAGE
+            vec2 depth_size_rcp = 1.0/imageSize(uProbeTexture[1]).xy;
+            vec2 depth_size = imageSize(uProbeTexture[1]).xy;
+            vec2 probe_depth = imageLoad(uProbeTexture[1], ivec2(probe_depth_uv(probe_coord, n, settings.dim, 1.0/depth_size_rcp) * depth_size)).rg;
+#endif
+#endif
+#endif
+            float mean = probe_depth.x;
+            float variance = abs(sqr(probe_depth.x) - probe_depth.y);
+            float chebyshev = variance / (variance + sqr(max(dist_to_probe-mean,0.0)));
+            chebyshev = max(pow(chebyshev, 3.0), 0.0);
+
+            weight *= (dist_to_probe <= mean) ? 1.0 : chebyshev;
         }
 
         weight = max(0.00001, weight);
-
-        vec3 probe_irradiance = sh9_to_irradiance(n, accumulate_irradiance(sh_identity(), probes[i].irradiance, (3.1415) / float(probes[i].samples + 1)));
+        uvec3 probe_coord = index_1d(settings.dim, probes[i].id);
+        
+		
+#ifdef PROBE_USE_SH
+        vec3 probe_irradiance = sh9_to_irradiance(n, accumulate_irradiance(sh_identity(), probes[i].irradiance, 4.0*3.1415 / float(probes[i].samples + 1)));
+#else
+#ifdef PROBE_USE_SAMPLER
+        vec3 probe_irradiance = texture(uProbeTexture[0], probe_color_uv(probe_coord, n, settings.dim, 1.0/textureSize(uProbeTexture[0],0).xy)).rgb;
+#else        
+#ifdef PROBE_USE_IMAGE
+        vec3 probe_irradiance = imageLoad(uProbeTexture[0], ivec2(probe_color_uv(probe_coord, n, settings.dim, 1.0/imageSize(uProbeTexture[0]).xy) * imageSize(uProbeTexture[0]))).rgb;
+#endif
+#endif
+#endif
 
         const float crush = 0.2;
         if (weight < crush) {
@@ -277,76 +395,21 @@ vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSett
         weight *= tri.x * tri.y * tri.z;
 
         // linear
-        // probe_irradiance = sqrt(probe_irradiance);
+        probe_irradiance = sqrt(probe_irradiance);
 
         irradiance += probe_irradiance * weight;
         total_weight += weight;
 	}
 
     if (total_weight > 0.0) {
-        // return sqrt(irradiance / total_weight);
+        return sqrt(irradiance / total_weight);
+        // return irradiance;
         return irradiance / total_weight;
     }
 
     return vec3(0.0);
-
-
-    float sigma = 1.;
-    // float b0 = exp(-pow(distance(p, probes[0].p), 2.0) / (2.0*sigma*sigma));
-    // float b1 = exp(-pow(distance(p, probes[1].p), 2.0) / (2.0*sigma*sigma));
-    // float b2 = exp(-pow(distance(p, probes[2].p), 2.0) / (2.0*sigma*sigma));
-    // float b3 = exp(-pow(distance(p, probes[3].p), 2.0) / (2.0*sigma*sigma));
-    // float b4 = exp(-pow(distance(p, probes[4].p), 2.0) / (2.0*sigma*sigma));
-    // float b5 = exp(-pow(distance(p, probes[5].p), 2.0) / (2.0*sigma*sigma));
-    // float b6 = exp(-pow(distance(p, probes[6].p), 2.0) / (2.0*sigma*sigma));
-    // float b7 = exp(-pow(distance(p, probes[7].p), 2.0) / (2.0*sigma*sigma));
-    float b0 = saturate(1.-length((p - probes[0].p) * cell_rcp));
-    float b1 = saturate(1.-length((p - probes[1].p) * cell_rcp));
-    float b2 = saturate(1.-length((p - probes[2].p) * cell_rcp));
-    float b3 = saturate(1.-length((p - probes[3].p) * cell_rcp));
-    float b4 = saturate(1.-length((p - probes[4].p) * cell_rcp));
-    float b5 = saturate(1.-length((p - probes[5].p) * cell_rcp));
-    float b6 = saturate(1.-length((p - probes[6].p) * cell_rcp));
-    float b7 = saturate(1.-length((p - probes[7].p) * cell_rcp));
-
-    // return vec3(b0);
-
-    float tb = max(0.01, b0 + b1 + b2 + b3 + b4 + b5 + b6 + b7);
-    // tb = 1.;
-
-    vec3 n0 = normalize(probes[0].p - p);
-    vec3 n1 = normalize(probes[1].p - p);
-    vec3 n2 = normalize(probes[2].p - p);
-    vec3 n3 = normalize(probes[3].p - p);
-    vec3 n4 = normalize(probes[4].p - p);
-    vec3 n5 = normalize(probes[5].p - p);
-    vec3 n6 = normalize(probes[6].p - p);
-    vec3 n7 = normalize(probes[7].p - p);
-
-    float bf0 = saturate((dot(n0, n) + 1.) * 0.5);
-    float bf1 = saturate((dot(n1, n) + 1.) * 0.5);
-    float bf2 = saturate((dot(n2, n) + 1.) * 0.5);
-    float bf3 = saturate((dot(n3, n) + 1.) * 0.5);
-    float bf4 = saturate((dot(n4, n) + 1.) * 0.5);
-    float bf5 = saturate((dot(n5, n) + 1.) * 0.5);
-    float bf6 = saturate((dot(n6, n) + 1.) * 0.5);
-    float bf7 = saturate((dot(n7, n) + 1.) * 0.5);
-    
-    irradiance += sh9_to_irradiance(n0, accumulate_irradiance(sh_identity(), probes[0].irradiance, (3.1415) / float(probes[0].samples + 1))) * ((b0 / tb)) * bf0;
-    irradiance += sh9_to_irradiance(n1, accumulate_irradiance(sh_identity(), probes[1].irradiance, (3.1415) / float(probes[0].samples + 1))) * ((b1 / tb)) * bf1;
-    irradiance += sh9_to_irradiance(n2, accumulate_irradiance(sh_identity(), probes[2].irradiance, (3.1415) / float(probes[0].samples + 1))) * ((b2 / tb)) * bf2;
-    irradiance += sh9_to_irradiance(n3, accumulate_irradiance(sh_identity(), probes[3].irradiance, (3.1415) / float(probes[0].samples + 1))) * ((b3 / tb)) * bf3;
-    irradiance += sh9_to_irradiance(n4, accumulate_irradiance(sh_identity(), probes[4].irradiance, (3.1415) / float(probes[0].samples + 1))) * ((b4 / tb)) * bf4;
-    irradiance += sh9_to_irradiance(n5, accumulate_irradiance(sh_identity(), probes[5].irradiance, (3.1415) / float(probes[0].samples + 1))) * ((b5 / tb)) * bf5;
-    irradiance += sh9_to_irradiance(n6, accumulate_irradiance(sh_identity(), probes[6].irradiance, (3.1415) / float(probes[0].samples + 1))) * ((b6 / tb)) * bf6;
-    irradiance += sh9_to_irradiance(n7, accumulate_irradiance(sh_identity(), probes[7].irradiance, (3.1415) / float(probes[0].samples + 1))) * ((b7 / tb)) * bf7;
-
-    return irradiance;
 }
 
-uint index_3d(uvec3 dim, uvec3 i) {
-    return i.x + i.y * dim.x + i.z * dim.x * dim.y;
-}
 
 mat4 billboard_matrix(mat4 m, bool cylindical) {
     
@@ -401,60 +464,49 @@ vec3 stupid_irradiance_decoding(in SLOL9Irradiance encoding, in vec3 N) {
 
 vec3 stupid_light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSettings settings) {
     vec3 irradiance = vec3(0.0);
+    float total_weight = 0.0;
     
-    vec3 alpha = saturate((p - probes[0].p) / light_probe_grid_size(settings));
-
     vec3 cell_rcp = 1. / light_probe_grid_size(settings);
+    vec3 alpha = saturate((p - probes[0].p) * cell_rcp);
 
-    float sigma = 1.;
-    // float b0 = exp(-pow(distance(p, probes[0].p), 2.0) / (2.0*sigma*sigma));
-    // float b1 = exp(-pow(distance(p, probes[1].p), 2.0) / (2.0*sigma*sigma));
-    // float b2 = exp(-pow(distance(p, probes[2].p), 2.0) / (2.0*sigma*sigma));
-    // float b3 = exp(-pow(distance(p, probes[3].p), 2.0) / (2.0*sigma*sigma));
-    // float b4 = exp(-pow(distance(p, probes[4].p), 2.0) / (2.0*sigma*sigma));
-    // float b5 = exp(-pow(distance(p, probes[5].p), 2.0) / (2.0*sigma*sigma));
-    // float b6 = exp(-pow(distance(p, probes[6].p), 2.0) / (2.0*sigma*sigma));
-    // float b7 = exp(-pow(distance(p, probes[7].p), 2.0) / (2.0*sigma*sigma));
-    float b0 = saturate(1.-length((p - probes[0].p) * cell_rcp));
-    float b1 = saturate(1.-length((p - probes[1].p) * cell_rcp));
-    float b2 = saturate(1.-length((p - probes[2].p) * cell_rcp));
-    float b3 = saturate(1.-length((p - probes[3].p) * cell_rcp));
-    float b4 = saturate(1.-length((p - probes[4].p) * cell_rcp));
-    float b5 = saturate(1.-length((p - probes[5].p) * cell_rcp));
-    float b6 = saturate(1.-length((p - probes[6].p) * cell_rcp));
-    float b7 = saturate(1.-length((p - probes[7].p) * cell_rcp));
 
-    // return vec3(b0);
+    for (uint i = 0; i < 8; i++) {
+		uvec3 offset = uvec3(i, i>>1, i>>2) & 1;
+		
+        vec3 r = p - probes[i].p + n * 0.001;
+        vec3 d = normalize(-r); 
 
-    float tb = max(0.01, b0 + b1 + b2 + b3 + b4 + b5 + b6 + b7);
-    // tb = 1.;
+        vec3 tri = mix(1.0 - alpha, alpha, offset);
+        float weight = 1.0;
 
-    vec3 n0 = normalize(probes[0].p - p + n);
-    vec3 n1 = normalize(probes[1].p - p + n);
-    vec3 n2 = normalize(probes[2].p - p + n);
-    vec3 n3 = normalize(probes[3].p - p + n);
-    vec3 n4 = normalize(probes[4].p - p + n);
-    vec3 n5 = normalize(probes[5].p - p + n);
-    vec3 n6 = normalize(probes[6].p - p + n);
-    vec3 n7 = normalize(probes[7].p - p + n);
+        {
+            vec3 bf = normalize(probes[i].p - p);
+            const float smooth_backface = 1.0;
+            weight *= mix(saturate(dot(d, n)), max(0.001, pow((dot(bf, n) + 1.0)*0.5,2.0))+0.02, smooth_backface);
+        }
 
-    float bf0 = saturate((dot(n0, n) + 1.) * 0.5);
-    float bf1 = saturate((dot(n1, n) + 1.) * 0.5);
-    float bf2 = saturate((dot(n2, n) + 1.) * 0.5);
-    float bf3 = saturate((dot(n3, n) + 1.) * 0.5);
-    float bf4 = saturate((dot(n4, n) + 1.) * 0.5);
-    float bf5 = saturate((dot(n5, n) + 1.) * 0.5);
-    float bf6 = saturate((dot(n6, n) + 1.) * 0.5);
-    float bf7 = saturate((dot(n7, n) + 1.) * 0.5);
-    
-    // irradiance += stupid_irradiance_decoding(probes[0].irradiance, n0) * ((b0 / tb)) * bf0;
-    // irradiance += stupid_irradiance_decoding(probes[1].irradiance, n1) * ((b1 / tb)) * bf1;
-    // irradiance += stupid_irradiance_decoding(probes[2].irradiance, n2) * ((b2 / tb)) * bf2;
-    // irradiance += stupid_irradiance_decoding(probes[3].irradiance, n3) * ((b3 / tb)) * bf3;
-    // irradiance += stupid_irradiance_decoding(probes[4].irradiance, n4) * ((b4 / tb)) * bf4;
-    // irradiance += stupid_irradiance_decoding(probes[5].irradiance, n5) * ((b5 / tb)) * bf5;
-    // irradiance += stupid_irradiance_decoding(probes[6].irradiance, n6) * ((b6 / tb)) * bf6;
-    // irradiance += stupid_irradiance_decoding(probes[7].irradiance, n7) * ((b7 / tb)) * bf7;
+        weight = max(0.00001, weight);
 
-    return irradiance;
+        // vec3 probe_irradiance = stupid_irradiance_decoding(probes[i].irradiance, n);
+
+        const float crush = 0.2;
+        if (weight < crush) {
+            weight *= weight * weight * (1.0 / sqrt(crush));
+        }
+        weight *= tri.x * tri.y * tri.z;
+
+        // linear
+        // probe_irradiance = sqrt(probe_irradiance);
+
+        // irradiance += probe_irradiance * weight;
+        total_weight += weight;
+	}
+
+    if (total_weight > 0.0) {
+        // return sqrt(irradiance / total_weight);
+        // return irradiance;
+        return irradiance / total_weight;
+    }
+
+    return vec3(0.0);
 }
