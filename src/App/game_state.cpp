@@ -1213,10 +1213,10 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
     }
 
     {
-        auto& command_buffer = vk_gfx.command_buffer[frame_count%2];
+        auto* rs = game_state->render_system;
+        auto& command_buffer = rendering::begin_ vk_gfx.command_buffer[frame_count%2];
         VK_OK(vkResetCommandBuffer(command_buffer, 0));
 
-        auto* rs = game_state->render_system;
         auto& khr = vk_gfx.khr;
         auto& ext = vk_gfx.ext;
         rs->get_frame_data().mesh_pass.object_descriptors = VK_NULL_HANDLE;

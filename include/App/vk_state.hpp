@@ -365,6 +365,8 @@ struct state_t {
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabled_ray_tracing_pipeline_features_KHR{};
     VkPhysicalDeviceBufferDeviceAddressFeaturesKHR enabled_buffer_device_address_features_KHR{};
 
+    // VkPhysicalDevicePushDescriptorFeaturesKHR enabled_
+
     VkPhysicalDeviceShaderObjectFeaturesEXT enabled_shader_object_features_EXT{};
 	VkPhysicalDeviceDynamicRenderingFeaturesKHR enabled_dynamic_rendering_features_KHR{};
         
@@ -374,6 +376,8 @@ struct state_t {
         PFN_vkCmdEndRenderingKHR vkCmdEndRenderingKHR;
 
         PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+
+        PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR;
 
         PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
         PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;

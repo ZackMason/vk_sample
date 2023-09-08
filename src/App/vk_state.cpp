@@ -60,6 +60,8 @@ void load_extension_functions(state_t& state) {
     state.khr.LOAD_FN(vkCmdBeginRenderingKHR);
     state.khr.LOAD_FN(vkCmdEndRenderingKHR);
 
+    state.khr.LOAD_FN(vkCmdPushDescriptorSetKHR);
+
     state.khr.LOAD_FN(vkGetBufferDeviceAddressKHR);
     state.khr.LOAD_FN(vkGetAccelerationStructureBuildSizesKHR);
     state.khr.LOAD_FN(vkCreateAccelerationStructureKHR);
@@ -323,6 +325,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
         VK_KHR_SPIRV_1_4_EXTENSION_NAME,
         VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+        VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
         // VK_KHR_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
         // VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME,
     };

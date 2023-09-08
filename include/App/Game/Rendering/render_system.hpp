@@ -780,7 +780,7 @@ public:
     
     struct system_t {
         inline static constexpr umm  frame_arena_size = megabytes(64);
-        inline static constexpr u32     frame_overlap = 2;
+        inline static constexpr u32     frame_overlap = 3;
         inline static constexpr umm max_scene_vertex_count{10'000'000};
         inline static constexpr umm max_scene_index_count{30'000'000};
         inline static constexpr umm max_scene_skinned_vertex_count{1'000'000};
@@ -797,7 +797,7 @@ public:
         std::mutex ticket{};
 
         // utl::deque<render_job_t> render_jobs{};
-        render_job_t* render_jobs[2]{};
+        render_job_t* render_jobs[frame_overlap]{};
         size_t render_job_count{};
         u32 total_instance_count{0};
 
@@ -828,7 +828,7 @@ public:
         gfx::vul::vertex_buffer_t<gfx::skinned_vertex_t, max_scene_skinned_vertex_count> skinned_vertices;
         gfx::vul::index_buffer_t<max_scene_skinned_index_count> skinned_indices;
 
-        gfx::vul::storage_buffer_t<render_data_t, 1'000'000>   job_storage_buffers[2];
+        gfx::vul::storage_buffer_t<render_data_t, 1'000'000>   job_storage_buffers[frame_overlap];
         gfx::vul::storage_buffer_t<render_data_t, 1'000'000>&  job_storage_buffer() {
             return job_storage_buffers[frame_count%frame_overlap];
         }
@@ -940,8 +940,9 @@ public:
         rs->vk_gfx = &state;
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
-        rs->render_jobs[0] = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
-        rs->render_jobs[1] = (render_job_t*)arena_alloc(&rs->frame_arena, 10000);
+        rs->render_jobs[0] = (render_job_t*)arena_alloc(&rs->arena, 10000);
+        rs->render_jobs[1] = (render_job_t*)arena_alloc(&rs->arena, 10000);
+        rs->render_jobs[2] = (render_job_t*)arena_alloc(&rs->arena, 10000);
 
         rs->permanent_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device); 
         range_u64(i, 0, array_count(rs->frames)) {
@@ -1010,6 +1011,7 @@ public:
 
         state.create_storage_buffer(&rs->job_storage_buffers[0]);
         state.create_storage_buffer(&rs->job_storage_buffers[1]);
+        state.create_storage_buffer(&rs->job_storage_buffers[2]);
         state.create_storage_buffer(&rs->material_storage_buffer);
         state.create_storage_buffer(&rs->environment_storage_buffer);
         state.create_storage_buffer(&rs->animation_storage_buffer);
