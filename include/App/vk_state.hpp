@@ -343,16 +343,6 @@ struct state_t {
     VkDescriptorPool descriptor_pool;
 
     VkCommandPool command_pool;
-    VkCommandBuffer command_buffer[2];
-
-    VkCommandPool compute_command_pool;
-    VkCommandBuffer compute_command_buffer[2];
- 
-    VkSemaphore image_available_semaphore[2];
-    VkSemaphore render_finished_semaphore[2];
-    VkFence in_flight_fence[2];
-
-    VkFence compute_fence[2];
 
     uniform_buffer_t<sporadic_buffer_t> sporadic_uniform_buffer;
 
@@ -437,8 +427,7 @@ struct state_t {
     void create_depth_stencil_image(texture_2d_t* texture, int width, int height);
     
     void create_command_pool();
-    void create_command_buffer();
-    void create_sync_objects();
+
     
     void create_descriptor_set_pool();
 

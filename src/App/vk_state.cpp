@@ -462,9 +462,7 @@ void state_t::init(app_config_t* info, arena_t* temp_arena) {
     
     create_descriptor_set_pool();
 
-    create_command_buffer();
-    
-    create_sync_objects();
+
 
     zyy_info("vulkan", "init finished");
 }
@@ -562,155 +560,6 @@ scratch_buffer_t state_t::create_scratch_buffer(VkDeviceSize size) {
 }
 
 
-void 
-begin_render_pass(
-    state_t& state,
-    VkRenderPass p_render_pass,
-    VkFramebuffer framebuffer,
-    VkCommandBuffer command_buffer
-) {
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = p_render_pass;
-    renderPassInfo.framebuffer = framebuffer;
-
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = state.swap_chain_extent;
-
-    VkClearColorValue			vccv;
-		vccv.float32[0] = 1.0f;
-		vccv.float32[1] = 1.0f;
-		vccv.float32[2] = 1.0f;
-		vccv.float32[3] = 1.0f;
-
-	VkClearDepthStencilValue		vcdsv;
-		vcdsv.depth = 1.f;
-		vcdsv.stencil = 0;
-
-    VkClearValue clearColor[2];
-    clearColor[0].color = vccv;
-    clearColor[1].depthStencil = vcdsv;
-
-    renderPassInfo.clearValueCount = 2;
-    renderPassInfo.pClearValues = clearColor;
-    
-    vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    // set viewport and scissor because of dynamic pipeline state
-    VkViewport viewport{vul::utl::viewport(
-        static_cast<float>(state.swap_chain_extent.width),
-        static_cast<float>(state.swap_chain_extent.height),
-        0.0f,
-        1.0f
-    )};
-
-    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = state.swap_chain_extent;
-    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
-}    
-
-void state_t::record_pipeline_commands(
-    VkPipeline p_pipeline, 
-    VkRenderPass p_render_pass,
-    VkFramebuffer framebuffer,
-    VkCommandBuffer buffer, u32 index, std::function<void(void)> user_fn
-) {
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = p_render_pass;
-    renderPassInfo.framebuffer = framebuffer;
-
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = swap_chain_extent;
-
-    VkClearColorValue			vccv;
-		vccv.float32[0] = 0.0f;
-		vccv.float32[1] = 0.0f;
-		vccv.float32[2] = 0.0f;
-		vccv.float32[3] = 1.0f;
-
-	VkClearDepthStencilValue		vcdsv;
-		vcdsv.depth = 1.f;
-		vcdsv.stencil = 0;
-
-    VkClearValue clearColor[2];
-    clearColor[0].color = vccv;
-    clearColor[1].depthStencil = vcdsv;
-
-    renderPassInfo.clearValueCount = 2;
-    renderPassInfo.pClearValues = clearColor;
-    
-    vkCmdBeginRenderPass(buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_pipeline);
-
-    // set viewport and scissor because of dynamic pipeline state
-    VkViewport viewport{vul::utl::viewport(
-        static_cast<float>(swap_chain_extent.width),
-        static_cast<float>(swap_chain_extent.height),
-        0.0f,
-        1.0f
-    )};
-
-    vkCmdSetViewport(buffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = swap_chain_extent;
-    vkCmdSetScissor(buffer, 0, 1, &scissor);
-
-    user_fn();
-
-    vkCmdEndRenderPass(buffer);
-}
-
-void state_t::create_command_buffer() {
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = command_pool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 2;
-
-    if (vkAllocateCommandBuffers(device, &allocInfo, command_buffer) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to allocate command buffers!");
-        std::terminate();
-    }
-
-    allocInfo.commandPool = compute_command_pool;
-    allocInfo.commandBufferCount = 2;
-
-    if (vkAllocateCommandBuffers(device, &allocInfo, compute_command_buffer) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to allocate command buffers!");
-        std::terminate();
-    }
-}
-
-void state_t::create_sync_objects() {
-    VkSemaphoreCreateInfo semaphoreInfo{};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &image_available_semaphore[0]) != VK_SUCCESS ||
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &image_available_semaphore[1]) != VK_SUCCESS ||
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_finished_semaphore[0]) != VK_SUCCESS ||
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_finished_semaphore[1]) != VK_SUCCESS ||
-        vkCreateFence(device, &fenceInfo, nullptr, &compute_fence[0]) != VK_SUCCESS ||
-        vkCreateFence(device, &fenceInfo, nullptr, &compute_fence[1]) != VK_SUCCESS ||
-        vkCreateFence(device, &fenceInfo, nullptr, &in_flight_fence[0]) != VK_SUCCESS ||
-        vkCreateFence(device, &fenceInfo, nullptr, &in_flight_fence[1]) != VK_SUCCESS
-    ) {
-        zyy_error("vulkan", "failed to create semaphores!");
-        std::terminate();
-    }
-
-}
-
 void state_t::create_command_pool() {
 
     auto queueFamilyIndices =  find_queue_families(gpu_device, surface);
@@ -727,10 +576,10 @@ void state_t::create_command_pool() {
 
     poolInfo.queueFamilyIndex = queueFamilyIndices.compute_family.value();
 
-    if (vkCreateCommandPool(device, &poolInfo, nullptr, &compute_command_pool) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to create command pool!");
-        std::terminate();
-    }
+    // if (vkCreateCommandPool(device, &poolInfo, nullptr, &compute_command_pool) != VK_SUCCESS) {
+    //     zyy_error("vulkan", "failed to create command pool!");
+    //     std::terminate();
+    // }
 }
 
 void state_t::create_image_views() {
@@ -1043,13 +892,6 @@ void state_t::cleanup() {
     vkDestroyImage(device, null_texture.image, nullptr);
     vkFreeMemory(device, null_texture.vdm, nullptr);
 
-    vkDestroySemaphore(device, image_available_semaphore[0], nullptr);
-    vkDestroySemaphore(device, image_available_semaphore[1], nullptr);
-    vkDestroySemaphore(device, render_finished_semaphore[0], nullptr);
-    vkDestroySemaphore(device, render_finished_semaphore[1], nullptr);
-    vkDestroyFence(device, in_flight_fence[0], nullptr);
-    vkDestroyFence(device, in_flight_fence[1], nullptr);
-    
     vkDestroyCommandPool(device, command_pool, nullptr);
 
     for (auto image_view : swap_chain_image_views) {

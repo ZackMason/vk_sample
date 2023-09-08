@@ -5,8 +5,8 @@ watch_game_state(game_state_t* game_state) {
     auto* rs = game_state->render_system;
     auto* time_scale = &game_state->time_scale;
     DEBUG_WATCH(time_scale)->max_f32 = 2.0f;
-    auto* window_size = &game_state->game_memory->config.graphics_config.window_size;
-    DEBUG_WATCH(window_size);
+    // auto* window_size = &game_state->game_memory->config.graphics_config.window_size;
+    // DEBUG_WATCH(window_size);
     DEBUG_WATCH(&gs_imgui_state->theme.shadow_distance);
 
     DEBUG_WATCH(&gs_rtx_on)->max_u32 = 2;

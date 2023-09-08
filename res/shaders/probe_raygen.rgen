@@ -149,12 +149,13 @@ void main()
         if (data.distance < 0.0) {
             color += data.color;
         } else {
-            if (kFrame > 512)
+            // if (kFrame > 512)
                 color += light_probe_irradiance(h, bounce_dir, probe_settings) * 0.95;
                         
             // color += 10.0 * data.color / 3.1415;
             // color += 1.0 * data.color;
             color *= 1.0 * data.color / 3.1415;
+
         } 
         // color = pow(color, vec3(2.2));
          
