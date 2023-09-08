@@ -460,6 +460,7 @@ struct state_t {
     );
 
     void create_texture(texture_2d_t* texture, i32 w, i32 h, i32 c, arena_t* arena = 0, u8* data = 0, size_t pixel_size = sizeof(u32));
+    void destroy_texture(texture_2d_t* texture);
 
     void load_texture(texture_2d_t* texture, std::span<u8> data, arena_t* arena = 0);
     void load_texture(texture_2d_t* texture, std::string_view path, arena_t* arena);

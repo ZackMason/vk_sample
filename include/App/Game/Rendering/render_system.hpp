@@ -849,7 +849,8 @@ public:
         lighting::probe_buffer_t<10000> probe_storage_buffer;
         gfx::vul::storage_buffer_t<lighting::probe_settings_t, 1> light_probe_settings_buffer;
         // lighting::probe_box_t light_probes{.aabb={v3f{-200.0f, 1.0f, -100.0f}, v3f{200.0f, 50.0f, 100.0f}}};
-        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 0.0f, -10.0f}, v3f{20.0f, 24.0f, 15.0f}}};
+        // lighting::probe_box_t light_probes{.aabb={v3f{-15.0f, 1, -30.0f}, v3f{25.0f, 25.0f, 20.0f}}};
+        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 1.0f, -10.0f}, v3f{20.0f, 24.0f, 15.0f}}};
 
         frame_image_t frame_images[8]{};
 
@@ -1852,6 +1853,8 @@ public:
         rs->light_probes.aabb = aabb;
         lighting::update_probe_positions(&rs->light_probes);
         rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
+        lighting::destroy_textures(*rs->vk_gfx, &rs->light_probes);
+        lighting::init_textures(*rs->vk_gfx, &rs->light_probes);
     }
 
     #include "raytrace_pass.hpp"

@@ -2198,6 +2198,13 @@ state_t::load_texture(
     );
 }
 
+void state_t::destroy_texture(texture_2d_t* texture) {
+    vkDestroySampler(device, texture->sampler, 0);
+    vkDestroyImageView(device, texture->image_view, 0);
+    vkDestroyImage(device, texture->image, 0);
+    vkFreeMemory(device, texture->vdm, 0);
+}
+
 void generate_mipmaps(state_t* state, texture_2d_t* texture, VkCommandBuffer command_buffer) {
     VkFormatProperties formatProperties;
     vkGetPhysicalDeviceFormatProperties(state->gpu_device, texture->format, &formatProperties);

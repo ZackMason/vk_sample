@@ -110,7 +110,7 @@ struct rt_cache_t {
         // pipeline_layout_create_info.pSetLayouts    = &descriptor_set_layout;
         // pipeline_layout_create_info.
 
-        pipeline_layout = gfx::vul::create_pipeline_layout(gfx.device, &descriptor_set_layout, 1, sizeof(u32), VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+        pipeline_layout = gfx::vul::create_pipeline_layout(gfx.device, &descriptor_set_layout, 1, sizeof(u32) * 2, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 
         // VK_OK(vkCreatePipelineLayout(gfx.device, &pipeline_layout_create_info, nullptr, &pipeline_layout));
 
@@ -317,7 +317,7 @@ struct rt_compute_pass_t {
     bool camera_init = false;
     gfx::vul::uniform_buffer_t<camera_uniforms_t> camera_uniforms;
 
-    VkDescriptorSet descriptor_sets[2];
+    VkDescriptorSet descriptor_sets[2]{0,0};
     VkDescriptorSetLayout descriptor_set_layouts[2];
 
     void set_camera(gfx::vul::state_t& gfx, const m44& v, const m44& p) {

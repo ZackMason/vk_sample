@@ -93,7 +93,7 @@ void main()
 
     // }
 
-    data.distance = gl_RayTmaxEXT;
+    data.distance = gl_RayTminEXT + gl_HitTEXT;
     data.normal = wn;
     data.color = color;
 

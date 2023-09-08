@@ -65,20 +65,32 @@ begin_rt_pass(
         VkMemoryBarrier barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, 0, 0};
         vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 
-        pass.build_descriptors(
-            gfx, 
-            rs->texture_cache, 
-            &cache.mesh_data_buffer, 
-            &rs->probe_storage_buffer,
-            &rs->light_probe_settings_buffer,
-            gfx::vul::descriptor_builder_t::begin(
-                rs->descriptor_layout_cache, 
-                rs->get_frame_data().dynamic_descriptor_allocator
-            ),
-            &rs->light_probes.irradiance_texture,
-            &rs->light_probes.visibility_texture
-            // &rs->frame_images[6].texture
-        );
+        local_persist u32 frame=0;
+        if (frame++ < 3) {
+            zyy_info("rt", "Frame: {}", frame);
+        }
+
+
+        // local_persist b32 once = true;
+        //if (pass.descriptor_sets[0] == VK_NULL_HANDLE) 
+        {
+            // once = false;
+            pass.build_descriptors(
+                gfx, 
+                rs->texture_cache, 
+                &cache.mesh_data_buffer, 
+                &rs->probe_storage_buffer,
+                &rs->light_probe_settings_buffer,
+                gfx::vul::descriptor_builder_t::begin(
+                    rs->descriptor_layout_cache, 
+                    rs->get_frame_data().dynamic_descriptor_allocator
+                ),
+                &rs->light_probes.irradiance_texture,
+                &rs->light_probes.visibility_texture
+                // &rs->frame_images[6].texture
+            );
+        }
+
         vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline);
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline_layout, 0, 1, &pass.descriptor_sets[0], 0, 0);
 
@@ -100,7 +112,9 @@ begin_rt_pass(
             1,
             1);
 
-        generate_mipmaps(&gfx, &rs->light_probes.irradiance_texture, command_buffer);
+        
+        // generate_mipmaps(&gfx, &rs->light_probes.irradiance_texture, command_buffer);
+        // generate_mipmaps(&gfx, &rs->light_probes.visibility_texture, command_buffer);
 
         // gfx.khr.vkCmdTraceRaysKHR(
         //     command_buffer,

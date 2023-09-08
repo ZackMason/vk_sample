@@ -8,7 +8,7 @@ namespace rendering::lighting {
     
     struct sh9_irradiance_t {
         v3f h[9];
-        v2f d[9];
+        // v2f d[9];
     };
 
     struct probe_t {
@@ -31,9 +31,10 @@ namespace rendering::lighting {
 
     struct probe_box_t {
         math::aabb_t<v3f> aabb;
+        // f32 grid_size{4.0f};
         // f32 grid_size{5.0f};
-        // f32 grid_size{1.0f + 1.618033f};
-        f32 grid_size{1.618033f};
+        f32 grid_size{1.0f + 1.618033f};
+        // f32 grid_size{1.618033f};
         probe_t* probes{0};
         u32 probe_count{0};
 
@@ -70,6 +71,12 @@ namespace rendering::lighting {
         gfx.create_texture(&probe_box->visibility_texture, visibility_width, visibility_height, 4, 0, 0, 2*4);
         gfx.load_texture_sampler(&probe_box->irradiance_texture, true);
         gfx.load_texture_sampler(&probe_box->visibility_texture, true);
+    }
+
+    static void 
+    destroy_textures(gfx::vul::state_t& gfx, probe_box_t* probe_box) {
+        gfx.destroy_texture(&probe_box->irradiance_texture);
+        gfx.destroy_texture(&probe_box->visibility_texture);
     }
 
 

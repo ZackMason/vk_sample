@@ -26,6 +26,9 @@ vec3 saturate_min(vec3 a, float mi) {
 float sqr(float x) {
     return x*x;
 }
+vec3 sqr(vec3 x) {
+    return x*x;
+}
 
 const uint PROBE_IRRADIANCE_DIM = 8;
 const uint PROBE_VISIBILITY_DIM = 16;

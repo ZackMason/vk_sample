@@ -85,7 +85,7 @@ FILETIME win32_last_write_time(const char* path){
 #include "SDL_mixer.h"
 #endif
 
-#define MULTITHREAD_ENGINE
+// #define MULTITHREAD_ENGINE
 
 struct audio_cache_t {
 #if USE_SDL
@@ -679,7 +679,7 @@ main(int argc, char* argv[]) {
         }
         // limit gameplay fps
         local_persist f64 last_time = glfwGetTime();
-        while((f32)(glfwGetTime())-last_time<1.0f/60.0f);
+        // while((f32)(glfwGetTime())-last_time<1.0f/60.0f);
         // if (glfwGetTime() - last_time >= 1.0f/60.0f) 
         {
         last_time = glfwGetTime();

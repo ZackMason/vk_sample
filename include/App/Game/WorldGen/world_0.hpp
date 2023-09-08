@@ -233,6 +233,8 @@ generate_probe_test(arena_t* arena) {
             }
         };
         zyy::spawn(world, world->render_system(), prefab, axis::backward * 10.12310f)->gfx.material_id = 1;
+
+        world->render_system()->light_probes.grid_size = 1.0f + 1.6180f;
         rendering::update_probe_aabb(world->render_system(), {v3f{-15.0f, 1, -30.0f}, v3f{25.0f, 25.0f, 20.0f}});
     });
     return generator;

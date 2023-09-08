@@ -93,7 +93,7 @@ vec3 light_probe_local_pos_normalized(LightProbeSettings settings, vec3 p) {
 
 ivec3 light_probe_probe_index(LightProbeSettings settings, vec3 p) {
     vec3 grid = light_probe_grid_size(settings);
-    return ivec3(floor(saturate(light_probe_local_pos_normalized(settings, p + grid*0.)) * (vec3(settings.dim))));
+    return ivec3(floor(saturate(light_probe_local_pos_normalized(settings, p + grid*0.0)) * (vec3(settings.dim))));
 }
 
 struct SH9 {
@@ -142,7 +142,7 @@ SH9Depth sh_depth_identity() {
 struct LightProbe {
     // SLOL9Irradiance irradiance;
     SH9Irradiance irradiance;
-    SH9Depth depth;
+    // SH9Depth depth;
     vec3 p;
     uint id;
     uint samples;
@@ -338,10 +338,11 @@ vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSett
         vec3 tri = mix(1.0 - alpha, alpha, offset);
         float weight = 1.0;
 
+        // if (false)
         {
             vec3 bf = normalize(probes[i].p - p);
-            const float smooth_backface = 1.0;
-            weight *= mix(saturate(dot(d, n)), sqr(max(0.0001, (dot(bf, n) + 1.0) * 0.5)) + 0.2, smooth_backface);
+            const float smooth_backface = 0.0;
+            weight *= mix(saturate(dot(bf, n)), sqr(max(0.0001, (dot(bf, n) + 1.0) * 0.5)) + 0.10, smooth_backface);
         }
 
         if (false)
@@ -349,18 +350,18 @@ vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSett
             float dist_to_probe = length(r);
             
             uvec3 probe_coord = index_1d(settings.dim, probes[i].id);
-#ifdef PROBE_USE_SH
+#ifdef PROBE_USE_SH_DEPTH
             float da = 3.1415 * 4.0 / float(probes[i].samples + 1);
             vec2 probe_depth = sh9_to_depth(n, accumulate_depth(sh_depth_identity(), probes[i].depth, da));
 #else
-#ifdef PROBE_USE_SAMPLER
+#ifdef PROBE_USE_SAMPLER_DEPTH
             vec2 depth_size_rcp = 1.0/textureSize(uProbeTexture[1], 0).xy;
-            vec2 probe_depth = texture(uProbeTexture[1], probe_depth_uv(probe_coord, n, settings.dim, 1.0/depth_size_rcp)).rg;
+            vec2 probe_depth = texture(uProbeTexture[1], probe_depth_uv(probe_coord, -d, settings.dim, depth_size_rcp), 2).rg;
 #else
-#ifdef PROBE_USE_IMAGE
+#ifdef PROBE_USE_IMAGE_DEPTH
             vec2 depth_size_rcp = 1.0/imageSize(uProbeTexture[1]).xy;
             vec2 depth_size = imageSize(uProbeTexture[1]).xy;
-            vec2 probe_depth = imageLoad(uProbeTexture[1], ivec2(probe_depth_uv(probe_coord, n, settings.dim, 1.0/depth_size_rcp) * depth_size)).rg;
+            vec2 probe_depth = imageLoad(uProbeTexture[1], ivec2(probe_depth_uv(probe_coord, -d, settings.dim, depth_size_rcp) * depth_size)).rg;
 #endif
 #endif
 #endif
@@ -369,43 +370,52 @@ vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSett
             float chebyshev = variance / (variance + sqr(max(dist_to_probe-mean,0.0)));
             chebyshev = max(pow(chebyshev, 3.0), 0.0);
 
+            // weight *= chebyshev;
+
             weight *= (dist_to_probe <= mean) ? 1.0 : chebyshev;
         }
 
-        weight = max(0.00001, weight);
+        weight = max(0.001, weight);
         uvec3 probe_coord = index_1d(settings.dim, probes[i].id);
         
 		
-#ifdef PROBE_USE_SH
+#ifdef PROBE_USE_SH_COLOR
         vec3 probe_irradiance = sh9_to_irradiance(n, accumulate_irradiance(sh_identity(), probes[i].irradiance, 4.0*3.1415 / float(probes[i].samples + 1)));
 #else
-#ifdef PROBE_USE_SAMPLER
-        vec3 probe_irradiance = texture(uProbeTexture[0], probe_color_uv(probe_coord, n, settings.dim, 1.0/textureSize(uProbeTexture[0],0).xy)).rgb;
+#ifdef PROBE_USE_SAMPLER_COLOR
+        vec3 probe_irradiance = texture(uProbeTexture[0], probe_color_uv(probe_coord, n, settings.dim, 1.0/textureSize(uProbeTexture[0],0).xy),2).rgb;
 #else        
-#ifdef PROBE_USE_IMAGE
+#ifdef PROBE_USE_IMAGE_COLOR
         vec3 probe_irradiance = imageLoad(uProbeTexture[0], ivec2(probe_color_uv(probe_coord, n, settings.dim, 1.0/imageSize(uProbeTexture[0]).xy) * imageSize(uProbeTexture[0]))).rgb;
 #endif
 #endif
 #endif
-
         const float crush = 0.2;
         if (weight < crush) {
-            weight *= weight * weight * (1.0 / sqrt(crush));
+            weight *= weight * weight * (1.0 / sqr(crush));
         }
         weight *= tri.x * tri.y * tri.z;
 
         // linear
-        probe_irradiance = sqrt(probe_irradiance);
+        // probe_irradiance = (saturate(probe_irradiance));
+        // probe_irradiance = sqrt(saturate(probe_irradiance));
 
         irradiance += probe_irradiance * weight;
         total_weight += weight;
 	}
+    
+    irradiance /= total_weight;
 
-    if (total_weight > 0.0) {
-        return sqrt(irradiance / total_weight);
-        // return irradiance;
-        return irradiance / total_weight;
-    }
+    irradiance.x = isnan(irradiance.x) ? 0.5f : irradiance.x;
+    irradiance.y = isnan(irradiance.y) ? 0.5f : irradiance.y;
+    irradiance.z = isnan(irradiance.z) ? 0.5f : irradiance.z;
+
+    return irradiance * 0.5 * 3.1415;
+
+    // if (total_weight > 0.0) {
+    //     // return sqrt(irradiance / total_weight);
+    //     // return sqr(irradiance / total_weight);
+    // }
 
     return vec3(0.0);
 }

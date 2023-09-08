@@ -1064,6 +1064,9 @@ inline static u32
 wait_for_frame(game_state_t* game_state, u64 frame_count) {
     TIMED_FUNCTION;
     gfx::vul::state_t& vk_gfx = game_state->gfx;
+
+    // vkDeviceWaitIdle(vk_gfx.device);
+
     vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2], VK_TRUE, UINT64_MAX);
     vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2]);
     u32 imageIndex;
@@ -1136,7 +1139,20 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
         if (vk_gfx.compute_index != vk_gfx.graphics_index) {
             gfx::vul::utl::insert_image_memory_barrier(
                 command_buffer,
-                rs->frame_images[frame_count%2].texture.image,
+                rs->light_probes.irradiance_texture.image,
+                0,
+                VK_ACCESS_SHADER_WRITE_BIT,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+                vk_gfx.graphics_index,
+                vk_gfx.compute_index
+            );
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                rs->light_probes.visibility_texture.image,
                 0,
                 VK_ACCESS_SHADER_WRITE_BIT,
                 VK_IMAGE_LAYOUT_GENERAL,
@@ -1151,21 +1167,34 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
         rendering::begin_rt_pass(game_state->render_system, command_buffer, frame_count);
 
-        // if (vk_gfx.compute_index != vk_gfx.graphics_index) {
-        //     gfx::vul::utl::insert_image_memory_barrier(
-        //         command_buffer,
-        //         rs->frame_images[frame_count%2].texture.image,
-        //         VK_ACCESS_SHADER_WRITE_BIT,
-        //         0,
-        //         VK_IMAGE_LAYOUT_GENERAL,
-        //         VK_IMAGE_LAYOUT_GENERAL,
-        //         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        //         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        //         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-        //         vk_gfx.compute_index,
-        //         vk_gfx.graphics_index
-        //     );
-        // }
+        if (vk_gfx.compute_index != vk_gfx.graphics_index) {
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                rs->light_probes.irradiance_texture.image,
+                VK_ACCESS_SHADER_WRITE_BIT,
+                0,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+                vk_gfx.compute_index,
+                vk_gfx.graphics_index
+            );
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                rs->light_probes.visibility_texture.image,
+                VK_ACCESS_SHADER_WRITE_BIT,
+                0,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+                vk_gfx.compute_index,
+                vk_gfx.graphics_index
+            );
+        }
 
         VK_OK(vkEndCommandBuffer(command_buffer));
 
@@ -1196,6 +1225,11 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
         VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
 
         rendering::memory_barriers(rs, command_buffer);
+        const u64 gui_frame = game_state->gui.ctx.frame&1;
+        auto& gui_vertices = game_state->gui.vertices[gui_frame];
+        auto& gui_indices = game_state->gui.indices[gui_frame];
+        gui_vertices.insert_memory_barrier(command_buffer);
+        gui_indices.insert_memory_barrier(command_buffer);
         
         // if (gs_rtx_on) 
         {
@@ -1325,21 +1359,21 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
     
         { // UI START
             // if (vk_gfx.compute_index != vk_gfx.graphics_index) {
-            if (gs_rtx_on) {
-                gfx::vul::utl::insert_image_memory_barrier(
-                    command_buffer,
-                    rs->frame_images[6].texture.image,
-                    0,
-                    VK_ACCESS_SHADER_READ_BIT,
-                    VK_IMAGE_LAYOUT_GENERAL,
-                    VK_IMAGE_LAYOUT_GENERAL,
-                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                    VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                    vk_gfx.compute_index,
-                    vk_gfx.graphics_index
-                );
-            }
+            // if (gs_rtx_on) {
+            //     gfx::vul::utl::insert_image_memory_barrier(
+            //         command_buffer,
+            //         rs->frame_images[6].texture.image,
+            //         0,
+            //         VK_ACCESS_SHADER_READ_BIT,
+            //         VK_IMAGE_LAYOUT_GENERAL,
+            //         VK_IMAGE_LAYOUT_GENERAL,
+            //         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            //         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            //         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+            //         vk_gfx.compute_index,
+            //         vk_gfx.graphics_index
+            //     );
+            // }
             // } else {
             //     gfx::vul::utl::insert_image_memory_barrier(
             //         command_buffer,
@@ -1453,11 +1487,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
                 ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
 
-            const u64 gui_frame = game_state->gui.ctx.frame&1;
-            auto& gui_vertices = game_state->gui.vertices[gui_frame];
-            auto& gui_indices = game_state->gui.indices[gui_frame];
-            gui_vertices.insert_memory_barrier(command_buffer);
-            gui_indices.insert_memory_barrier(command_buffer);
+            
             VkDeviceSize offsets[1] = { 0 };
             vkCmdBindVertexBuffers(command_buffer, 0, 1, &gui_vertices.buffer, offsets);
             vkCmdBindIndexBuffer(command_buffer, gui_indices.buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -1517,6 +1547,9 @@ export_fn(void)
 app_on_render(game_memory_t* game_memory) {
     auto* game_state = get_game_state(game_memory);
     local_persist u32 frame_count = 0;
+    if (frame_count < 3) {
+        zyy_info("frame", "Frame: {}", frame_count);
+    }
     // std::lock_guard lock{game_state->render_system->ticket};
     switch (scene_state) {
         case 0:{
