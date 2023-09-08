@@ -345,7 +345,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSett
             weight *= mix(saturate(dot(bf, n)), sqr(max(0.0001, (dot(bf, n) + 1.0) * 0.5)) + 0.10, smooth_backface);
         }
 
-        if (false)
+        // if (false)
         {
             float dist_to_probe = length(r);
             

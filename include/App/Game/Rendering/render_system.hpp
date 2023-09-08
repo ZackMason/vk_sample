@@ -731,10 +731,10 @@ public:
     struct frame_data_t {
         // these arent being used
         VkSemaphore present_semaphore, render_semaphore;
-        VkFence render_fence;
+        VkFence fence;
 
         VkCommandPool command_pool;
-        VkCommandBuffer main_command_buffer;
+        VkCommandBuffer command_buffer;
 
         pp_pass_t postprocess_pass{};
         mesh_pass_t mesh_pass{};
@@ -744,6 +744,60 @@ public:
         gfx::vul::descriptor_allocator_t* dynamic_descriptor_allocator{nullptr};
 
         gfx::vul::storage_buffer_t<gfx::indirect_indexed_draw_t, 1'000'000> indexed_indirect_storage_buffer{};
+
+        void create_sync_objects(VkDevice device) {
+            VkSemaphoreCreateInfo semaphoreInfo{};
+            semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+            VkFenceCreateInfo fenceInfo{};
+            fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+            fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+            if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &present_semaphore) != VK_SUCCESS ||
+                vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_semaphore) != VK_SUCCESS ||
+                vkCreateFence(device, &fenceInfo, nullptr, &fence) != VK_SUCCESS
+            ) {
+                zyy_error(__FUNCTION__, "failed to create sync objects for frame");
+                std::terminate();
+            }
+        }
+
+        void present_queue(VkQueue queue, VkSwapchainKHR swap_chain, u32 image_index) {
+            VkSubmitInfo submitInfo{};
+            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+            VkSemaphore waitSemaphores[] = {render_semaphore};
+            VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+            submitInfo.waitSemaphoreCount = 1;
+            submitInfo.pWaitSemaphores = waitSemaphores;
+            submitInfo.pWaitDstStageMask = waitStages;
+
+            VkSemaphore signalSemaphores[] = {present_semaphore};
+            submitInfo.signalSemaphoreCount = 1;
+            submitInfo.pSignalSemaphores = signalSemaphores;
+
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &command_buffer;
+
+            if (vkQueueSubmit(queue, 1, &submitInfo, fence) != VK_SUCCESS) {
+                zyy_error(__FUNCTION__, "failed to submit draw command buffer!");
+                std::terminate();
+            }
+
+            VkPresentInfoKHR presentInfo{};
+            presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+            presentInfo.waitSemaphoreCount = 1;
+            presentInfo.pWaitSemaphores = signalSemaphores;
+
+            presentInfo.swapchainCount = 1;
+            presentInfo.pSwapchains = &swap_chain;
+            presentInfo.pImageIndices = &image_index;
+
+            presentInfo.pResults = nullptr; // Optional
+
+            vkQueuePresentKHR(queue, &presentInfo);
+        }
     };
 
     struct render_data_t {
@@ -907,8 +961,9 @@ public:
         }
         range_u64(i, 0, system_t::frame_overlap) {
             vkDestroyCommandPool(rs->vk_gfx->device, rs->frames[i].command_pool, 0);
-            // vkDestroySemaphore(rs->vk_gfx->device, rs->frames[i].present_semaphore, 0);
-            // vkDestroySemaphore(rs->vk_gfx->device, rs->frames[i].render_semaphore, 0);
+            vkDestroyFence(rs->vk_gfx->device, rs->frames[i].fence, 0);
+            vkDestroySemaphore(rs->vk_gfx->device, rs->frames[i].present_semaphore, 0);
+            vkDestroySemaphore(rs->vk_gfx->device, rs->frames[i].render_semaphore, 0);
             
             rs->frames[i].dynamic_descriptor_allocator->cleanup();
             rs->vk_gfx->destroy_data_buffer(rs->frames[i].indexed_indirect_storage_buffer);
@@ -1022,6 +1077,7 @@ public:
         rs->rt_cache = arena_alloc_ctor<rt_cache_t>(&rs->arena, 1, state);
 
         range_u64(i, 0, array_count(rs->frames)) {
+            rs->frames[i].create_sync_objects(state.device);
             state.create_storage_buffer(&rs->frames[i].indexed_indirect_storage_buffer, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
             
             VkBuffer buffers[]{
@@ -1101,7 +1157,7 @@ public:
             //allocate the default command buffer that we will use for rendering
             auto cmdAllocInfo = gfx::vul::utl::command_buffer_allocate_info(rs->frames[i].command_pool, 1);
 
-            VK_OK(vkAllocateCommandBuffers(state.device, &cmdAllocInfo, &rs->frames[i].main_command_buffer));
+            VK_OK(vkAllocateCommandBuffers(state.device, &cmdAllocInfo, &rs->frames[i].command_buffer));
         }
 
         state.create_vertex_buffer(&rs->vertices);
@@ -1140,6 +1196,34 @@ public:
         rs->instance_storage_buffer.insert_memory_barrier(command_buffer);
         rs->animation_storage_buffer.insert_memory_barrier(command_buffer);
         rs->job_storage_buffer().insert_memory_barrier(command_buffer);
+    }
+
+    VkCommandBuffer
+    begin_commands(system_t* rs) {
+        auto& command_buffer = rs->get_frame_data().command_buffer;
+
+        VK_OK(vkResetCommandBuffer(command_buffer, 0));
+
+        auto command_buffer_begin_info = gfx::vul::utl::command_buffer_begin_info();
+        VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
+
+        return command_buffer;
+    }
+
+    u32 wait_for_frame(system_t* rs) {
+        auto device = rs->vk_gfx->device;
+        vkWaitForFences(device, 1, &rs->get_frame_data().fence, VK_TRUE, UINT64_MAX);
+        vkResetFences(device, 1, &rs->get_frame_data().fence);
+        u32 imageIndex;
+        vkAcquireNextImageKHR(device, rs->vk_gfx->swap_chain, UINT64_MAX, 
+            rs->get_frame_data().render_semaphore, VK_NULL_HANDLE, &imageIndex);
+        return imageIndex;
+    }
+
+    void present_frame(system_t* rs, u32 image_index) {
+        auto& gfx = *rs->vk_gfx;
+
+        rs->get_frame_data().present_queue(gfx.present_queue, gfx.swap_chain, image_index);
     }
 
     inline void

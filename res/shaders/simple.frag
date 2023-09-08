@@ -184,6 +184,7 @@ vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)
     vec4 yaxis = texture(tex, p.xz);
     vec4 zaxis = texture(tex, p.xy);
     
+	
     // blend the results of the 3 planar projections.
     return vec4((xaxis * blending.x + yaxis * blending.y + zaxis * blending.z).rgb, 1.0);
 }

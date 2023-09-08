@@ -8,6 +8,7 @@ begin_rt_pass(
 ) {
     TIMED_FUNCTION;
     auto& gfx = *rs->vk_gfx;
+    auto device = gfx.device;
     auto& queue = rs->vk_gfx->compute_queue;
     auto& ext = rs->vk_gfx->ext;
     auto& khr = rs->vk_gfx->khr;
@@ -49,21 +50,14 @@ begin_rt_pass(
         Dispatch the ray tracing commands
     */
     if (pass.instance_count > 0) {
-        // VkFence tlasBuildFence;
-        // VkFenceCreateInfo fenceInfo = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr, 0};
-        // vkCreateFence(device, &fenceInfo, nullptr, &tlasBuildFence);
-
         pass.build_tlas(*rs->vk_gfx, *rs->rt_cache, command_buffer,
             pass.tlas.buffer.buffer != VK_NULL_HANDLE
         );
 
-        // vkWaitForFences(device, 1, &tlasBuildFence, VK_TRUE, UINT64_MAX);
-        // vkResetFences(device, 1, &tlasBuildFence);
-
-        VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
-        VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
-        VkMemoryBarrier barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, 0, 0};
-        vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+        // VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+        // VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+        // VkMemoryBarrier barrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, 0, 0};
+        // vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 
         local_persist u32 frame=0;
         if (frame++ < 3) {
@@ -111,6 +105,12 @@ begin_rt_pass(
             width,
             1,
             1);
+
+        // srcStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+        // dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        
+        // vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+        
 
         
         // generate_mipmaps(&gfx, &rs->light_probes.irradiance_texture, command_buffer);

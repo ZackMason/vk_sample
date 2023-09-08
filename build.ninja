@@ -134,7 +134,7 @@ default res/shaders/bin/anyhit.rahit.spv
 default res/shaders/bin/miss.rmiss.spv
 default res/shaders/bin/shadow.rmiss.spv
 
-default res/shaders/bin/rt_compute.comp.spv
+#default res/shaders/bin/rt_compute.comp.spv
 default res/shaders/bin/screen.vert.spv
 default res/shaders/bin/invert.frag.spv
 default res/shaders/bin/tonemap.frag.spv

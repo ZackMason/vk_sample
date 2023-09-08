@@ -1067,52 +1067,58 @@ wait_for_frame(game_state_t* game_state, u64 frame_count) {
 
     // vkDeviceWaitIdle(vk_gfx.device);
 
-    vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2], VK_TRUE, UINT64_MAX);
-    vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2]);
-    u32 imageIndex;
-    vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
-        vk_gfx.image_available_semaphore[frame_count%2], VK_NULL_HANDLE, &imageIndex);
-    return imageIndex;
+    return rendering::wait_for_frame(game_state->render_system);
+
+    // vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2], VK_TRUE, UINT64_MAX);
+    // vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2]);
+    // u32 imageIndex;
+    // vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
+    //     vk_gfx.image_available_semaphore[frame_count%2], VK_NULL_HANDLE, &imageIndex);
+    // return imageIndex;
 }
 
 inline static void
-present_frame(game_state_t* game_state, VkCommandBuffer command_buffer, u32 imageIndex, u64 frame_count) {
-    gfx::vul::state_t& vk_gfx = game_state->gfx;
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+present_frame(game_state_t* game_state, VkCommandBuffer command_buffer, u32 image_index, u64 frame_count) {
+    
+    rendering::present_frame(game_state->render_system, image_index);
 
-    VkSemaphore waitSemaphores[] = {vk_gfx.image_available_semaphore[frame_count%2]};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
+    // gfx::vul::state_t& vk_gfx = game_state->gfx;
+    // VkSubmitInfo submitInfo{};
+    // submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &command_buffer;
+    // VkSemaphore waitSemaphores[] = {vk_gfx.image_available_semaphore[frame_count%2]};
+    // VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    // submitInfo.waitSemaphoreCount = 1;
+    // submitInfo.pWaitSemaphores = waitSemaphores;
+    // submitInfo.pWaitDstStageMask = waitStages;
 
-    VkSemaphore signalSemaphores[] = {vk_gfx.render_finished_semaphore[frame_count%2]};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
+    // VkSemaphore signalSemaphores[] = {vk_gfx.render_finished_semaphore[frame_count%2]};
+    // submitInfo.signalSemaphoreCount = 1;
+    // submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[frame_count%2]) != VK_SUCCESS) {
-        zyy_error(__FUNCTION__, "failed to submit draw command buffer!");
-        std::terminate();
-    }
+    // submitInfo.commandBufferCount = 1;
+    // submitInfo.pCommandBuffers = &command_buffer;
 
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
+    // if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[frame_count%2]) != VK_SUCCESS) {
+    //     zyy_error(__FUNCTION__, "failed to submit draw command buffer!");
+    //     std::terminate();
+    // }
 
-    VkSwapchainKHR swapChains[] = {vk_gfx.swap_chain};
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
+    // VkPresentInfoKHR presentInfo{};
+    // presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-    presentInfo.pResults = nullptr; // Optional
+    // presentInfo.waitSemaphoreCount = 1;
+    // presentInfo.pWaitSemaphores = signalSemaphores;
 
-    vkQueuePresentKHR(vk_gfx.present_queue, &presentInfo);
+    // VkSwapchainKHR swapChains[] = {vk_gfx.swap_chain};
+    // presentInfo.swapchainCount = 1;
+    // presentInfo.pSwapchains = swapChains;
+    // presentInfo.pImageIndices = &imageIndex;
+
+    // presentInfo.pResults = nullptr; // Optional
+
+    // vkQueuePresentKHR(vk_gfx.present_queue, &presentInfo);
 }
 
 void
@@ -1126,7 +1132,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
     game_state->scene.sporadic_buffer.time = game_state->input().time;
     *vk_gfx.sporadic_uniform_buffer.data = game_state->scene.sporadic_buffer;
 
-    if (0)
+#if 0
     {
         auto* rs = game_state->render_system;
         auto& command_buffer = vk_gfx.compute_command_buffer[frame_count%2];
@@ -1211,19 +1217,16 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
 
         VK_OK(vkQueueSubmit(queue, 1, &csi, compute_fence));
     }
+#endif
 
     {
-        auto& command_buffer = vk_gfx.command_buffer[frame_count%2];
-        VK_OK(vkResetCommandBuffer(command_buffer, 0));
-
         auto* rs = game_state->render_system;
+        auto command_buffer = rendering::begin_commands(rs);
+        
         auto& khr = vk_gfx.khr;
         auto& ext = vk_gfx.ext;
         rs->get_frame_data().mesh_pass.object_descriptors = VK_NULL_HANDLE;
-
-        auto command_buffer_begin_info = gfx::vul::utl::command_buffer_begin_info();
-        VK_OK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
-
+        
         rendering::memory_barriers(rs, command_buffer);
         const u64 gui_frame = game_state->gui.ctx.frame&1;
         auto& gui_vertices = game_state->gui.vertices[gui_frame];
