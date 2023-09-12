@@ -3,8 +3,8 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
 
     float total_weight = 0.0;
 
-    vec3 biased_world_pos = p + (n * 0.02 + dir * 0.62);
-    // vec3 biased_world_pos = p + (n * 0.02);
+    // vec3 biased_world_pos = p + (n * 0.02 + dir * 0.62);
+    vec3 biased_world_pos = p + (n * 0.02);
     uvec3 biased_probe_coord = light_probe_probe_index(settings, biased_world_pos);
     // uint biased_probe_id = index_1d(settings.dim, biased_probe_coord);
     // without offset

@@ -179,7 +179,7 @@ void main() {
         probes[probe_id].ray_count = 0;
         probes[probe_id].backface_count = 0;
         uint seed = kFrame;
-        probes[probe_id].p = sphere_random(seed) * probe_settings.grid_size.x * 0.25;
+        probes[probe_id].p = sphere_random(seed) * probe_settings.grid_size.x * 1.;
     }
 #endif
 
@@ -330,7 +330,7 @@ void main() {
     }
 
     barrier();
-    if (false) 
+    // if (false) 
     {
 #ifdef INTEGRATE_DEPTH
         for (uint i = gl_LocalInvocationIndex; i < 68; i += 16*16) {

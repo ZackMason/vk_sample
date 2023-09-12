@@ -269,10 +269,9 @@ main( )
 	r_env = vec3(1.0);
 	// env = light_probe_irradiance(vWorldPos, probe_settings);
 
-	env = light_probe_irradiance(vWorldPos, V, N, probe_settings) * 10.0;
+	env = light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
 	
 	
-
 
 
 	
