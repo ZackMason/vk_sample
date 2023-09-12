@@ -225,7 +225,7 @@ generate_probe_test(arena_t* arena) {
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
-    //    world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{0.0};
+       world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{-1.0};
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::left * 15.0f);

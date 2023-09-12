@@ -270,6 +270,7 @@ main( )
 	// env = light_probe_irradiance(vWorldPos, probe_settings);
 
 	env = light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
+
 	
 	
 
@@ -302,6 +303,7 @@ main( )
 	// rgb = N;
  
 	// rgb = env;	
+	
 
 
 

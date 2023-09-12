@@ -122,46 +122,49 @@ void main()
     for (uint i = 0; i < uEnvironment.light_count; i++) {
         data.surface = start_surface;
         shadowed = true;
-        shadow = 0.0;
+        shadow = 1.0;
         PointLight light = point_lights[i];
 
-        L = normalize(wp - point_lights[i].pos.xyz);
+        // light to world
+        // world to light
+        L = -normalize(wp - point_lights[i].pos.xyz);
         float dist_to_light = max(0.0, distance(wp, point_lights[i].pos.xyz) - 0.1);
         float r2 = sqr(light.range);
         float d2 = sqr(dist_to_light);
 
-        float nol = dot(-L, wn);
+        float nol = dot(L, wn);
 
-        if (nol > 0.0 ) {
+        if (nol > 0.0) {
             traceRayEXT(topLevelAS, 
+                gl_RayFlagsOpaqueEXT |
                 gl_RayFlagsTerminateOnFirstHitEXT | 
                 gl_RayFlagsSkipClosestHitShaderEXT, 
                 0xFF, 
                 0, 
                 0, 
                 1, 
-                light.pos, 
-                0.0, 
+                wp + wn * 0.03, 
+                0.02, 
                 L, 
                 dist_to_light,
                 2);
+        
+            if (shadowed) {
+                // light_solution.direct.specular += vec3(1000,1000,0);
+                shadow = 0.000000000000000001530000113;
+            // } else {
+                // shadow = 1.0;
+            }
         }
 
-        if (shadowed) {
-            shadow = 0.1530000113;
-        } else {
-            shadow = 1.0;
-        }
-
-        light_solution.direct.diffuse += (30.0 * shadow * light.col.rgb * saturate(nol) * light.power) * point_light_attenuation(d2, r2);
-        // light_solution.direct.diffuse += light.col.rgb * shadow * 10.0;
+        // light_solution.direct.diffuse += (30.0 * shadow * light.col.rgb * saturate(nol) * light.power) * point_light_attenuation(d2, r2);
+        light_solution.direct.diffuse += saturate(nol) * sqr(light.col.rgb) * light.power * shadow * point_light_attenuation(d2, r2);
         // point_light(point_lights[i], start_surface, light_solution, shadow);
 
     }
 
 
-
-    light_solution.direct.diffuse += saturate(light_probe_irradiance(wp, direction.xyz, wn, probe_settings) * 0.0295 * 1.0);
+    light_solution.direct.diffuse += saturate(light_probe_irradiance(wp, direction.xyz, wn, probe_settings) * 0.00295 * 1.0);
 
 
 

@@ -169,17 +169,17 @@ void main() {
 
     uint probe_id = gl_WorkGroupID.x;
 
-    float offset_distance = max(probe_settings.grid_size.x, max(probe_settings.grid_size.y, probe_settings.grid_size.z)) * 0.1;
+    float offset_distance = max(probe_settings.grid_size.x, max(probe_settings.grid_size.y, probe_settings.grid_size.z)) * 0.2;
 #ifdef INTEGRATE_DEPTH
     if (kFrame == 0) {
         probes[probe_id].p = vec3(0.0);
     }
 
     if (probes[probe_id].backface_count  > 5000) {
-        probes[probe_id].ray_count = 0;
-        probes[probe_id].backface_count = 0;
+        probes[probe_id].ray_count >>= 1;
+        probes[probe_id].backface_count >>= 1;
         uint seed = kFrame;
-        probes[probe_id].p = sphere_random(seed) * probe_settings.grid_size.x * 1.;
+        probes[probe_id].p = sphere_random(seed) * probe_settings.grid_size.x * 0.75;
     }
 #endif
 
