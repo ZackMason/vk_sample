@@ -126,8 +126,13 @@ generate_sponza(arena_t* arena) {
     auto* generator = generate_world_test(arena);
 
     generator->add_step("Sponza", WORLD_STEP_TYPE_LAMBDA(environment){
-        zyy::spawn(world, world->render_system(),
-            zyy::db::rooms::sponza, axis::up*1.001f);
+        auto* sponza = zyy::spawn(world, world->render_system(),
+            zyy::db::rooms::sponza, axis::up);
+
+        auto aabb = sponza->global_transform().xform_aabb(sponza->aabb);
+        // world->render_system()->light_probes.grid_size = 3.0f;
+        // world->render_system()->light_probes.grid_size = 2.0f*1.6180f;
+        // rendering::update_probe_aabb(world->render_system(), aabb);
     });
 
     return generator;
@@ -220,6 +225,7 @@ generate_probe_test(arena_t* arena) {
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
+    //    world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{0.0};
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::left * 15.0f);
@@ -232,10 +238,53 @@ generate_probe_test(arena_t* arena) {
                 .mesh_name = "res/models/rooms/house_01.gltf"
             }
         };
+        zyy::db::prefab_t shaderball_prefab {
+            .gfx = {
+                .mesh_name = "res/models/shaderball.obj"
+            }
+        };
         zyy::spawn(world, world->render_system(), prefab, axis::backward * 10.12310f)->gfx.material_id = 1;
+        auto* ball = zyy::spawn(world, world->render_system(), shaderball_prefab); 
+        ball->gfx.material_id = 1;
+        ball->transform.set_scale(v3f{6.0f});
+
+        // rendering::create_point_light(world->render_system(), axis::up*2.0f, 20.0f, v3f{0.8f});
 
         world->render_system()->light_probes.grid_size = 1.0f + 1.6180f;
-        rendering::update_probe_aabb(world->render_system(), {v3f{-15.0f, 1, -30.0f}, v3f{25.0f, 25.0f, 20.0f}});
+        // world->render_system()->light_probes.grid_size = 8.0f;
+        // world->render_system()->light_probes.grid_size = 4.0f;
+        // world->render_system()->light_probes.grid_size = .0f + 1.6180f;
+        // world->render_system()->light_probes.grid_size = 2.0f;
+        rendering::update_probe_aabb(world->render_system(), {v3f{-15.0f, 0.120, -20.0f}, v3f{25.0f, 25.0f, 20.0f}});
+    });
+    return generator;
+}
+
+world_generator_t*
+generate_room_03(arena_t* arena) {
+    auto* generator = arena_alloc<world_generator_t>(arena);
+    generator->arena = arena;
+    generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
+        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
+        //world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{0.0};
+    });
+    generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
+        auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::left * 15.0f);
+        player->physics.rigidbody->linear_dampening = 3.0f;
+    });
+    generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
+        zyy::spawn(world, world->render_system(), zyy::db::misc::platform_1000, axis::down);
+        zyy::db::prefab_t prefab = zyy::db::rooms::room_03;
+        auto* room = zyy::spawn(world, world->render_system(), prefab);
+        room->gfx.material_id = 1;
+
+        // rendering::create_point_light(world->render_system(), axis::up*2.0f, 20.0f, v3f{0.8f});
+        auto aabb = room->global_transform().xform_aabb(room->aabb);
+
+        // world->render_system()->light_probes.grid_size = 1.0f + 1.6180f;
+        // world->render_system()->light_probes.grid_size = .0f + 1.6180f;
+        world->render_system()->light_probes.grid_size = 25.0f;
+        rendering::update_probe_aabb(world->render_system(), aabb);
     });
     return generator;
 }
@@ -315,6 +364,8 @@ generate_world_0(arena_t* arena) {
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 150.0f);
         player->physics.rigidbody->linear_dampening = 3.0f;
+        world->render_system()->light_probes.grid_size = 10.0f;
+        rendering::update_probe_aabb(world->render_system(), {v3f{-200.0f, 1.0f, -100.0f}, v3f{200.0f, 50.0f, 100.0f}});
     });
     generator->add_step("Placing Weapons", WORLD_STEP_TYPE_LAMBDA(items) {
         SPAWN_GUN(zyy::db::weapons::shotgun, axis::right * 135.0f + axis::up * 3.0f);

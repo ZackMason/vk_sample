@@ -54,14 +54,14 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     local_persist f32 ground_accel = 2.2f; DEBUG_WATCH(&ground_accel)->max_f32 = 6.0f; // source engine 5.6 default
     local_persist f32 air_accel = 0.5f; DEBUG_WATCH(&air_accel)->max_f32 = 3.0f;
     local_persist f32 friction = 9.1f; DEBUG_WATCH(&friction)->max_f32 = 10.0f;
-    
+    local_persist f32 gravity_strength = 1.0f; DEBUG_WATCH(&gravity_strength);
     f32 max_speed = is_on_ground ? max_ground_speed : max_air_speed;
     f32 accel = is_on_ground ? ground_accel : air_accel;
     
     auto movement = is_on_ground ? quake_ground_move : quake_air_move;
     rigidbody->velocity = movement(wishdir, rigidbody->velocity, friction, accel, max_speed, dt);
     if (is_on_ground == false) {
-        rigidbody->velocity.y -= 9.81f * 0.05f * dt;
+        rigidbody->velocity.y -= 9.81f * 0.05f * dt * gravity_strength;
     } else {
         // rigidbody->velocity.y = 0.0f;
     }

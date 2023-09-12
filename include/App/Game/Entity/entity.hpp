@@ -9,6 +9,7 @@
 #include "App/Game/Entity/entity_concept.hpp"
 #include "App/Game/Entity/brain.hpp"
 #include "App/Game/Rendering/particle.hpp"
+#include "App/Game/Rendering/lighting.hpp"
 
 #include <variant>
 
@@ -145,6 +146,8 @@ struct entity_t : node_t<entity_t> {
 
         particle_system_id particle_system_id{uid::invalid_id};
         particle_system_t* particle_system{0};
+
+        rendering::lighting::point_light_t* light{0};        
 
         u32 _instance_count{1};
         union

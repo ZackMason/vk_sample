@@ -44,7 +44,8 @@ void main() {
         }
     }
 
-    color.rgba *= voColor.rgba;
+    color.rgba *= voColor.rgba * voColor.rgba;
+    // color.rgba *= voColor.rgba;
 
     fFragColor.rgb = color.rgb;
     

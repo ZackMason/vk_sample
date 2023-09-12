@@ -3,19 +3,20 @@
 #extension GL_ARB_shading_language_420pack : enable
 #extension GL_EXT_scalar_block_layout : enable
 
-#define PROBE_USE_SH_COLOR
-// #define PROBE_USE_SAMPLER_COLOR
-#define PROBE_USE_SAMPLER_DEPTH
-
-
 #include "utl.glsl"
-
 #include "pbr.glsl"
+
+
 
 layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 layout( set = 4, binding = 1 ) uniform sampler2D uProbeTexture[2];
+layout( set = 4, binding = 1 ) uniform sampler2D uProbeSampler[2];
 
 #include "material.glsl"
+layout(std430, set = 5, binding = 0, scalar) readonly buffer ProbeBuffer {
+	LightProbe probes[];
+};
+#include "ddgi.glsl"
 
 layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 {
@@ -48,14 +49,10 @@ layout(std430, set = 2, binding = 0) readonly buffer MaterialBuffer {
 	Material materials[];
 } uMaterialBuffer;
 
-layout(std430, set = 3, binding = 0) readonly buffer EnvironmentBuffer {
+layout(std430, set = 3, binding = 0, scalar) readonly buffer EnvironmentBuffer {
 	Environment uEnvironment;
 };
 
-
-layout(std430, set = 5, binding = 0, scalar) readonly buffer ProbeBuffer {
-	LightProbe probes[];
-};
 
 layout(std430, set = 5, binding = 1, scalar) readonly buffer ProbeSettingsBuffer {
 	LightProbeSettings probe_settings;
@@ -190,52 +187,6 @@ vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)
 }
 
 
-vec3 light_probe_irradiance(vec3 p, vec3 n, LightProbeSettings settings) {
-	vec3 np = light_probe_local_pos_normalized(settings, p);
-
-	// if (np.x < -0.1 || np.y < -0.1 || np.z < -0.1 || np.x > 1.10 || np.y > 1.10 || np.z > 1.10) {
-		
-	// 	return vec3(1.0);
-	// }
-
-    ivec3 min_index = light_probe_probe_index(settings, p);
-
-	LightProbe neighbors[8];
-		
-	for (uint i = 0; i < 8; i++) {
-		uvec3 offset = uvec3(i, i>>1, i>>2) & 1;
-
-		neighbors[i] = probes[index_3d(settings.dim, min_index + ivec3(offset))];
-	}
-
-	// vec3 cell_rcp = 1. / light_probe_grid_size(settings);
-	// vec3 alpha = saturate((p - neighbors[0].p) * cell_rcp);
-	// float weight = 0.0;
-	// vec3 tri_weight = vec3(0.0);
-	
-	// for (uint i = 0; i < 8; i++) {
-	// 	uvec3 offset = uvec3(i, i>>1, i>>2) & 1;
-	// 	vec3 tri = mix(1.0 - alpha, alpha, offset);
-	// 	tri_weight += tri;
-	// 	weight += tri.x * tri.y * tri.z;
-	// 	// return vec3(tri	);
-	// }
-	// return vec3(weight);
-
-	// return vec3(min_index);
-	// return vec3(min_index);
-    
-    // return (stupid_light_probe_irradiance(p, n, neighbors, probe_settings));
-    return (light_probe_irradiance(p, n, neighbors, probe_settings));
-
-
-}
-
-
-
-
-
-
 void
 main( )
 {
@@ -318,15 +269,21 @@ main( )
 	r_env = vec3(1.0);
 	// env = light_probe_irradiance(vWorldPos, probe_settings);
 
+	env = light_probe_irradiance(vWorldPos, V, N, probe_settings) * 10.0;
+	
+	
 
-	env = light_probe_irradiance(vWorldPos, N, probe_settings);
+
+
+	
 
 	// vec3 env = vec3(1.0);
 	// vec3 r_env = vec3(1.0);
 
 
 	vec3 Fr = (D * S) * F; // specular lobe
-	vec3 Fd = 10.0 * env * albedo * max(material.ao, NoL) * filament_Burley(roughness, NoV, NoL, LoH); // diffuse lobe
+	vec3 Fd = env * albedo * max(material.ao, NoL) * filament_Burley(roughness, NoV, NoL, LoH); // diffuse lobe
+
 
 
 	vec3 ec = (vec3(1.0) - F0) * 0.725 + F0 * 0.07; // @hardcoded no idea what these should be
@@ -342,10 +299,29 @@ main( )
 	rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
 	
 	// rgb = V;
+
 	// rgb = N;
  
-	rgb = env;	
-	rgb = env / 2.0f;	
+	// rgb = env;	
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+	// rgb = env / 2.0f;	
 
 	fFragColor = vec4( rgb, alpha * alpha * alpha);
 }

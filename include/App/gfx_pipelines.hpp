@@ -74,7 +74,7 @@ create_mesh_descriptor_set(
 
     buffer_info[3].buffer = buffers[3];
     buffer_info[3].offset = 0; 
-    buffer_info[3].range = sizeof(rendering::environment_t);
+    buffer_info[3].range = VK_WHOLE_SIZE;
 
     descriptor_create_info_t write_info{
         .write_descriptor_sets = {

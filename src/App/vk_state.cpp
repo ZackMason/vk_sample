@@ -2048,6 +2048,8 @@ void state_t::destroy_texture(texture_2d_t* texture) {
     vkDestroyImageView(device, texture->image_view, 0);
     vkDestroyImage(device, texture->image, 0);
     vkFreeMemory(device, texture->vdm, 0);
+
+    *texture = {};
 }
 
 void generate_mipmaps(state_t* state, texture_2d_t* texture, VkCommandBuffer command_buffer) {
@@ -2161,6 +2163,8 @@ state_t::load_texture_sampler(
         vsci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         vsci.pNext = nullptr;
         vsci.flags = 0;
+        // vsci.magFilter = VK_FILTER_NEAREST;
+        // vsci.minFilter = VK_FILTER_NEAREST;
         vsci.magFilter = VK_FILTER_LINEAR;
         vsci.minFilter = VK_FILTER_LINEAR;
         vsci.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;

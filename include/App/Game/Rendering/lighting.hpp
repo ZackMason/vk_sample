@@ -3,8 +3,40 @@
 
 #include "zyy_core.hpp"
 #include "uid.hpp"
+#include "App/vk_state.hpp"
 
 namespace rendering::lighting {
+    struct directional_light_t {
+        v4f direction{};
+        v4f color{};
+    };
+
+    struct point_light_t {
+        v3f pos; // position
+        f32 range;
+        v3f col; // color
+        f32 power{1.0f};
+    };
+    
+    struct environment_t {
+        directional_light_t sun{};
+
+        v4f ambient_color{0.9569f, 0.8941f, 0.5804f, 1.0f};
+
+        v4f fog_color{};
+
+        // point_light_t point_lights[32];
+        
+        f32 fog_density{};
+
+        // color correction
+        f32 ambient_strength{1.0f};
+        f32 contrast{};
+        u32 light_count{};
+        v4f more_padding{};
+        
+    };
+
     
     struct sh9_irradiance_t {
         v3f h[9];
@@ -12,29 +44,36 @@ namespace rendering::lighting {
     };
 
     struct probe_t {
-        sh9_irradiance_t irradiance;
+        // sh9_irradiance_t irradiance;
         v3f position{};
         u32 id{0};
-        u32 samples{0};
+        u32 ray_count{0};
+        u32 backface_count{0};
     };
 
-    template <umm Size>
-    using probe_buffer_t = gfx::vul::storage_buffer_t<probe_t, Size>;
+    struct probe_ray_result_t {
+        v3f radiance;
+        f32 depth;
+        v3f direction;
+    };
 
     struct probe_settings_t {
         v3f aabb_min;
         v3f aabb_max;
         // math::aabb_t<v3f> aabb;
         v3u dim{100,10,100};
+        v3f grid_size{0.0f};
         i32 sample_max{100};
+        f32 hysteresis{0.02f};
+        f32 boost{1.0};
     };
 
     struct probe_box_t {
         math::aabb_t<v3f> aabb;
         // f32 grid_size{4.0f};
-        // f32 grid_size{5.0f};
-        f32 grid_size{1.0f + 1.618033f};
-        // f32 grid_size{1.618033f};
+        // f32 grid_size{15.0f};
+        // f32 grid_size{2.0f * 1.618033f};
+        f32 grid_size{1.618033f};
         probe_t* probes{0};
         u32 probe_count{0};
 
@@ -44,6 +83,19 @@ namespace rendering::lighting {
         gfx::vul::texture_2d_t visibility_texture;
     };
 
+    v3u index_3d(v3u dim, u32 idx) {
+        const u32 z = idx / (dim.x * dim.y);
+        idx -= (z * dim.x * dim.y);
+        const u32 y = idx / dim.x;
+        const u32 x = idx % dim.x;
+        return  v3u(x, y, z);
+    }
+
+    u32 index_1d(v3u dim, v3u idx) {
+        return idx.x + idx.y * dim.x + idx.z * dim.x * dim.y;
+    }
+
+    constexpr u32 PROBE_RAY_MAX = 256;
     constexpr u32 PROBE_MAX_COUNT = 10'000;
     constexpr u32 PROBE_IRRADIANCE_DIM = 8;
     constexpr u32 PROBE_VISIBILITY_DIM = 16;
@@ -60,12 +112,15 @@ namespace rendering::lighting {
 
         // todo: optimization with half texture height and glossy GI
         
-        // const u32 irradiance_width = probe_box->settings.dim.x * probe_box->settings.dim.y * PROBE_IRRADIANCE_TOTAL;
-        // const u32 irradiance_height = probe_box->settings.dim.z * PROBE_IRRADIANCE_TOTAL;
-        const u32 irradiance_width = PROBE_MAX_COUNT_SQRT * PROBE_IRRADIANCE_TOTAL;
-        const u32 irradiance_height = PROBE_MAX_COUNT_SQRT * PROBE_IRRADIANCE_TOTAL;
-        const u32 visibility_width = PROBE_MAX_COUNT_SQRT * PROBE_VISIBILITY_TOTAL;
-        const u32 visibility_height = PROBE_MAX_COUNT_SQRT * PROBE_VISIBILITY_TOTAL;
+        const u32 irradiance_width = probe_box->settings.dim.x * probe_box->settings.dim.y * PROBE_IRRADIANCE_TOTAL;
+        const u32 irradiance_height = probe_box->settings.dim.z * PROBE_IRRADIANCE_TOTAL;
+        
+        const u32 visibility_width = probe_box->settings.dim.x * probe_box->settings.dim.y * PROBE_VISIBILITY_TOTAL;
+        const u32 visibility_height = probe_box->settings.dim.z * PROBE_VISIBILITY_TOTAL;
+        // const u32 irradiance_width = PROBE_MAX_COUNT_SQRT * PROBE_IRRADIANCE_TOTAL;
+        // const u32 irradiance_height = PROBE_MAX_COUNT_SQRT * PROBE_IRRADIANCE_TOTAL;
+        // const u32 visibility_width = PROBE_MAX_COUNT_SQRT * PROBE_VISIBILITY_TOTAL;
+        // const u32 visibility_height = PROBE_MAX_COUNT_SQRT * PROBE_VISIBILITY_TOTAL;
         
         gfx.create_texture(&probe_box->irradiance_texture, irradiance_width, irradiance_height, 4, 0, 0, 2*4);
         gfx.create_texture(&probe_box->visibility_texture, visibility_width, visibility_height, 4, 0, 0, 2*4);
@@ -90,6 +145,7 @@ namespace rendering::lighting {
         probe_box->probe_count = total_probe_count;
         probe_box->settings.aabb_min = probe_box->aabb.min;
         probe_box->settings.aabb_max = probe_box->aabb.max;
+        probe_box->settings.grid_size = v3f{probe_box->grid_size};
 
         zyy_info(__FUNCTION__, "Creating Light Probe Box");
         zyy_info(__FUNCTION__, "-- Total Probe Count: {}", total_probe_count);
@@ -100,6 +156,8 @@ namespace rendering::lighting {
         range_u32(z, 0, probe_count.z) {
             range_u32(y, 0, probe_count.y) {
                 range_u32(x, 0, probe_count.x) {
+                    assert(v3u(x,y,z) == index_3d(probe_count, i));
+                    assert(i == index_1d(probe_count, v3u{x,y,z}));
                     auto* probe = probe_box->probes + i;
                     probe->position = probe_box->aabb.min + step_size * v3f{x,y,z};
                     probe->id = i++;
@@ -116,6 +174,7 @@ namespace rendering::lighting {
         probe_box->probe_count = total_probe_count;
         probe_box->settings.aabb_min = probe_box->aabb.min;
         probe_box->settings.aabb_max = probe_box->aabb.max;
+        probe_box->settings.grid_size = v3f{probe_box->grid_size};
 
 
         zyy_info(__FUNCTION__, "Updating Light Probe Box");
@@ -128,14 +187,25 @@ namespace rendering::lighting {
             range_u32(y, 0, probe_count.y) {
                 range_u32(x, 0, probe_count.x) {
                     auto* probe = probe_box->probes + i;
+                    assert(v3u(x,y,z) == index_3d(probe_count, i));
+                    assert(i == index_1d(probe_count, v3u{x,y,z}));
                     probe->position = probe_box->aabb.min + step_size * v3f{x,y,z};
                     probe->id = i++;
-                    probe->samples = 0;
-                    utl::memzero(&probe->irradiance, sizeof(probe->irradiance));
+                    probe->ray_count = 0;
+                    probe->backface_count = 0;
                 }
             }
         }
     }       
-};
+
+    v3f probe_start_position(v3u probe_coord, v3f grid_size, v3f min_pos) {
+	    return min_pos + grid_size * v3f(probe_coord);
+    }
+    v3f probe_position(probe_box_t* probe_box, probe_t* probe) {
+        return probe->position + probe_start_position(index_3d(probe_box->settings.dim, probe->id), v3f{probe_box->grid_size}, probe_box->aabb.min);
+    }
+}
+
+
 
 #endif

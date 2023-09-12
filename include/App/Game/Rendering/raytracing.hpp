@@ -51,8 +51,11 @@ struct rt_cache_t {
 
     gfx::vul::gpu_buffer_t mesh_data_buffer;
 
-    u32 frame{0};
-    u32 super_sample{0};
+    struct push_constants_t {
+        u32 frame{0};
+        u32 super_sample{0};
+        m33 random_rotation{1.0f};
+    } constants;
    
     void add_miss_shader(gfx::vul::state_t& gfx, std::string_view name) {
         shader_stages[shader_stage_count++] = gfx.load_shader(name, VK_SHADER_STAGE_MISS_BIT_KHR);
@@ -110,7 +113,7 @@ struct rt_cache_t {
         // pipeline_layout_create_info.pSetLayouts    = &descriptor_set_layout;
         // pipeline_layout_create_info.
 
-        pipeline_layout = gfx::vul::create_pipeline_layout(gfx.device, &descriptor_set_layout, 1, sizeof(u32) * 2, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+        pipeline_layout = gfx::vul::create_pipeline_layout(gfx.device, &descriptor_set_layout, 1, sizeof(constants), VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 
         // VK_OK(vkCreatePipelineLayout(gfx.device, &pipeline_layout_create_info, nullptr, &pipeline_layout));
 
@@ -289,22 +292,10 @@ struct rt_cache_t {
 };
 
 struct rt_compute_pass_t {
-    struct camera_uniforms_t {
-        m44 view;
-        m44 proj;
-    } camera_ubo;
 
-    VkPipelineLayout pipeline_layout{};
-    VkDescriptorSet sporadic_descriptors{};
-    VkDescriptorSet object_descriptors{};
-    VkDescriptorSet material_descriptor{};
-    VkDescriptorSet enviornment_descriptor{};
-    VkDescriptorSet texture_descriptor{};
-    VkDescriptorSet output_descriptor{};
-    VkDescriptorSet vertex_descriptor{};
-    VkDescriptorSet index_descriptor{};
-    VkDescriptorSetLayout descriptor_layouts[8];
-    u32 descriptor_count{8};
+
+    VkPipelineLayout pipeline_layout[2]{};
+    
     VkDevice device;
 
     acceleration_structure_t tlas;
@@ -314,22 +305,10 @@ struct rt_compute_pass_t {
 
     gfx::vul::gpu_buffer_t instance_buffer;
     gfx::vul::gpu_buffer_t object_data_buffer;
-    bool camera_init = false;
-    gfx::vul::uniform_buffer_t<camera_uniforms_t> camera_uniforms;
 
-    VkDescriptorSet descriptor_sets[2]{0,0};
-    VkDescriptorSetLayout descriptor_set_layouts[2];
 
-    void set_camera(gfx::vul::state_t& gfx, const m44& v, const m44& p) {
-        camera_ubo.view = glm::inverse(v);
-        camera_ubo.proj = glm::inverse(p);
-        if (!camera_init) {
-            camera_init = true;
-            gfx.create_uniform_buffer(&camera_uniforms);
-        }
-        *camera_uniforms.data = camera_ubo;
-        // gfx.fill_data_buffer(&camera_uniforms, &camera_ubo);
-    }
+    VkDescriptorSet descriptor_sets[3];
+    VkDescriptorSetLayout descriptor_set_layouts[3];
 
     void build_descriptors(
         gfx::vul::state_t& gfx, 
@@ -337,17 +316,16 @@ struct rt_compute_pass_t {
         gfx::vul::gpu_buffer_t* rt_mesh_data,
         gfx::vul::gpu_buffer_t* probe_data,
         gfx::vul::gpu_buffer_t* probe_settings,
+        gfx::vul::gpu_buffer_t* probe_rays,
+        gfx::vul::gpu_buffer_t* environment,
+        gfx::vul::gpu_buffer_t* point_lights,
         gfx::vul::descriptor_builder_t&& builder, 
         gfx::vul::texture_2d_t* irradiance_texture,
         gfx::vul::texture_2d_t* visibility_texture
     ) {
-        VkDescriptorBufferInfo buffer_info[8];
+        VkDescriptorBufferInfo buffer_info[9];
         u32 b = 0;
         buffer_info[b].buffer = tlas.buffer.buffer;
-        buffer_info[b].offset = 0; 
-        buffer_info[b++].range = VK_WHOLE_SIZE;
-
-        buffer_info[b].buffer = camera_uniforms.buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
@@ -360,6 +338,18 @@ struct rt_compute_pass_t {
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
         buffer_info[b].buffer = probe_settings->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = probe_rays->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = environment->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = point_lights->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
@@ -399,12 +389,15 @@ struct rt_compute_pass_t {
 
         builder
             .bind_buffer(0, buffer_info + 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, &descriptor_acceleration_structure_info)
-            .bind_image(1, ovdii, 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+            .bind_image(1, ovdii, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_image(2, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
-            .bind_buffer(3, buffer_info + 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
-            .bind_buffer(4, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
-            .bind_buffer(5, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
-            .bind_buffer(6, buffer_info + 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            // .bind_buffer(3, buffer_info + 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+            .bind_buffer(4, buffer_info + 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
+            .bind_buffer(5, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(6, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(7, buffer_info + 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+            .bind_buffer(8, buffer_info + 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(9, buffer_info + 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .build(descriptor_sets[0], descriptor_set_layouts[0]);
     }
     
@@ -531,112 +524,54 @@ struct rt_compute_pass_t {
         // gfx.destroy_scratch_buffer(scratch_buffer);
     }
 
-    struct push_constants_t {
-        m44 inv_view{1.0f};
-        v4f cam_pos;
-        u32 draw_count;
-        u32 reserved;
-    } push_constants;
 
     void build_layout(VkDevice device_) {
         device = device_;
-        pipeline_layout = gfx::vul::create_pipeline_layout(device, descriptor_layouts, 8, sizeof(m44) + sizeof(v4f) + sizeof(u32) * 2, VK_SHADER_STAGE_COMPUTE_BIT);
+        pipeline_layout[0] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[1], 1, sizeof(u32), VK_SHADER_STAGE_COMPUTE_BIT);
+        pipeline_layout[1] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[2], 1, sizeof(u32), VK_SHADER_STAGE_COMPUTE_BIT);
     }
 
-    void build_buffer_sets(gfx::vul::descriptor_builder_t& builder, VkBuffer* buffers) {
+    void build_integrate_pass(
+        gfx::vul::descriptor_builder_t& builder, 
+        VkBuffer* buffers,
+        gfx::vul::texture_2d_t* irradiance_texture,
+        gfx::vul::texture_2d_t* visibility_texture,
+        bool depth = false
+    ) {
         VkDescriptorBufferInfo buffer_info[8];
         u32 i = 0;
         buffer_info[i].buffer = buffers[i];
         buffer_info[i].offset = 0; 
-        buffer_info[i++].range = VK_WHOLE_SIZE;//sizeof(gfx::vul::sporadic_buffer_t);
+        buffer_info[i++].range = VK_WHOLE_SIZE;
 
         buffer_info[i].buffer = buffers[i];
         buffer_info[i].offset = 0; 
-        buffer_info[i++].range = VK_WHOLE_SIZE;//(sizeof(m44) + sizeof(u32) * 4 * 4) * 10'000; // hardcoded
+        buffer_info[i++].range = VK_WHOLE_SIZE;
+
+        buffer_info[i].buffer = buffers[i];
+        buffer_info[i].offset = 0; 
+        buffer_info[i++].range = VK_WHOLE_SIZE;
         
         buffer_info[i].buffer = buffers[i];
         buffer_info[i].offset = 0; 
-        buffer_info[i++].range = VK_WHOLE_SIZE;// (sizeof(m44)) * 2'000'000; // hardcoded
-
-        buffer_info[i].buffer = buffers[i];
-        buffer_info[i].offset = 0; 
-        buffer_info[i++].range = VK_WHOLE_SIZE;//(sizeof(gfx::indirect_indexed_draw_t)) * 10'000; // hardcoded
-
-        buffer_info[i].buffer = buffers[i];
-        buffer_info[i].offset = 0; 
-        buffer_info[i++].range = VK_WHOLE_SIZE;//sizeof(gfx::material_t) * 100; // hardcoded
-
-        buffer_info[i].buffer = buffers[i];
-        buffer_info[i].offset = 0; 
-        buffer_info[i++].range = VK_WHOLE_SIZE;//sizeof(rendering::environment_t);
-
-        buffer_info[i].buffer = buffers[i];
-        buffer_info[i].offset = 0; 
         buffer_info[i++].range = VK_WHOLE_SIZE;
+        
+        VkDescriptorImageInfo vdii[2];
+        
+        vdii[0].imageLayout = irradiance_texture->image_layout;
+        vdii[0].imageView = irradiance_texture->image_view;
+        vdii[0].sampler = irradiance_texture->sampler;
 
-        buffer_info[i].buffer = buffers[i];
-        buffer_info[i].offset = 0; 
-        buffer_info[i++].range = VK_WHOLE_SIZE;
-
-        using namespace gfx::vul;
-        builder
-            .bind_buffer(0, buffer_info + 0, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Uniform, VK_SHADER_STAGE_COMPUTE_BIT)
-            .build(sporadic_descriptors, descriptor_layouts[0]);
-        builder
-            .bind_buffer(0, buffer_info + 1, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_COMPUTE_BIT)
-            .bind_buffer(1, buffer_info + 2, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_COMPUTE_BIT)
-            .bind_buffer(2, buffer_info + 3, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_COMPUTE_BIT)
-            .build(object_descriptors, descriptor_layouts[1]);
-        builder
-            .bind_buffer(0, buffer_info + 4, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_COMPUTE_BIT)
-            .build(material_descriptor, descriptor_layouts[2]);
-        builder
-            .bind_buffer(0, buffer_info + 5, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_COMPUTE_BIT)
-            .build(enviornment_descriptor, descriptor_layouts[3]);
+        vdii[1].imageLayout = visibility_texture->image_layout;
+        vdii[1].imageView = visibility_texture->image_view;
+        vdii[1].sampler = visibility_texture->sampler;
 
         builder
-            .bind_buffer(0, buffer_info + 6, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_COMPUTE_BIT)
-            .build(vertex_descriptor, descriptor_layouts[6]);
-        builder
-            .bind_buffer(0, buffer_info + 7, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_COMPUTE_BIT)
-            .build(index_descriptor, descriptor_layouts[7]);
-    }
-
-    void bind_images(
-        gfx::vul::descriptor_builder_t& builder,
-        texture_cache_t& texture_cache,
-        gfx::vul::texture_2d_t* output_texture
-    ) {
-        using namespace gfx::vul;
-        VkDescriptorImageInfo vdii[4096];
-        VkDescriptorImageInfo ovdii[1];
-
-        auto* null_texture = texture_cache["null"];
-        range_u64(i, 0, array_count(texture_cache.textures)) {
-            vdii[i].imageLayout = null_texture->image_layout;
-            vdii[i].imageView = null_texture->image_view;
-            vdii[i].sampler = null_texture->sampler;
-        }
-
-        u64 w{0};
-        for(u64 i = texture_cache.first(); 
-            i != texture_cache.end(); 
-            i = texture_cache.next(i)
-        ) {
-            vdii[i].imageLayout = texture_cache[i]->image_layout;
-            vdii[i].imageView = texture_cache[i]->image_view;
-            vdii[i].sampler = texture_cache[i]->sampler;
-        }
-
-        ovdii[0].imageLayout = output_texture->image_layout;
-        ovdii[0].imageView = output_texture->image_view;
-        ovdii[0].sampler = output_texture->sampler;
-
-        builder
-            .bind_image(0, vdii, array_count(vdii), (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_COMPUTE_BIT)
-            .build(texture_descriptor, descriptor_layouts[4]);
-        builder
-            .bind_image(0, ovdii, array_count(ovdii), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-            .build(output_descriptor, descriptor_layouts[5]);
+            .bind_buffer(0, buffer_info + 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+            .bind_image(1, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+            .bind_buffer(2, buffer_info + 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+            .bind_buffer(3, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+            .bind_buffer(4, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+            .build(descriptor_sets[1 + depth], descriptor_set_layouts[1 + depth]);
     }
 };

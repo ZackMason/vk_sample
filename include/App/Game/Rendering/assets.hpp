@@ -24,6 +24,13 @@ namespace assets::shaders {
     ASSET_SHADER(rt_comp)
         SHADER_PATH("rt_compute.comp")
         .add_push_constant(CAMERA_CONSTANTS_SIZE + sizeof(u32) * 2)
+        .set_stage(COMP);
+
+    ASSET_SHADER(probe_integrate_comp)
+        SHADER_PATH("probe_integrate.comp")
+        .set_stage(COMP);
+    ASSET_SHADER(probe_integrate_depth_comp)
+        SHADER_PATH("probe_integrate_depth.comp")
         .set_stage(COMP);        
 
     ASSET_SHADER(screen_vert)

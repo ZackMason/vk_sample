@@ -38,3 +38,6 @@ build/
 !build/SDL2_mixer.dll
 log.txt
 libs.ninja
+.ninja_log
+.ninja_deps
+*.pdb

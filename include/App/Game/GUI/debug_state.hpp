@@ -149,6 +149,7 @@ struct debug_state_t {
                     if ((std::strstr(var->as_cstr, watcher_needle) == nullptr) &&
                         (std::strstr(var->name.data(), watcher_needle) == nullptr)) continue;
                 } else if (var->type == debug_watcher_type::ENTITY) {
+                    if (var->as_entt->name.c_data==nullptr) continue;
                     if ((std::strstr(var->as_entt->name.c_data, watcher_needle) == nullptr) &&
                         (std::strstr(var->name.data(), watcher_needle) == nullptr)) continue;
                 } else {

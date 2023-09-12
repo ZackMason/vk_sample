@@ -787,6 +787,7 @@ struct window_t {
 #define node_next(node) (node = node->next)
 #define node_push(node, list) do { node->next = list; list = node; } while(0)
 #define node_pop(node, list) do { node = list; list = list->next; } while(0)
+#define node_last(list) do { while (list->next && list=list->next);} while(0)
 
 #define node_for(type, node, itr) for(type* itr = (node); (itr); node_next(itr))
 
@@ -1896,6 +1897,20 @@ struct aabb_t {
         return size() * a + min;
     }
 
+    void add(T amount) {
+        aabb_t<T> t;
+        t.expand(min + amount);
+        t.expand(max + amount);
+        *this = t;
+    }
+
+    void scale(T amount) {
+        aabb_t<T> t;
+        t.expand(center() + size() * 0.5f * amount);
+        t.expand(center() - size() * 0.5f * amount);
+        *this = t;
+    }
+
     void expand(const aabb_t<T>& o) {
         expand(o.min);
         expand(o.max);
@@ -2846,6 +2861,7 @@ namespace color {
         static constexpr auto clear = "#00000000"_c3;
         static constexpr auto black = "#000000ff"_c3;
         static constexpr auto white = "#ffffffff"_c3;
+        static constexpr auto ray_white   = "#f1f1f1ff"_c3;
         static constexpr auto gray  = "#333333ff"_c3;
         static constexpr auto red   = "#ff0000ff"_c3;
         static constexpr auto green = "#00ff00ff"_c3;
@@ -4594,6 +4610,9 @@ struct random_s {
     //random float
     static v3f randv() {
         return {randf(), randf(), randf()};
+    }
+    static v3f randnv() {
+        return {randn(), randn(), randn()};
     }
     static float randf() {
         return state.randf();

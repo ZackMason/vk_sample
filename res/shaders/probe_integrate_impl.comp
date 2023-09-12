@@ -1,0 +1,352 @@
+
+#include "utl.glsl"
+#include "rng.glsl"
+
+layout( push_constant ) uniform constants
+{
+	uint 		kFrame;
+};
+
+layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
+{
+	int		uMode;
+	int		uUseLighting;
+	int		uNumInstances;
+	float 	uTime;
+} Sporadic;
+
+layout(binding = 1, set = 0, rgba16f) uniform image2D uProbeTexture[2];
+layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[2];
+
+#include "material.glsl"
+
+
+layout(std430, set = 0, binding = 2, scalar) readonly buffer ProbeSettingsBuffer {
+	LightProbeSettings probe_settings;
+};
+layout(set = 0, binding = 3, scalar) readonly buffer ProbeResultsBuffer {
+    ProbeRayResult probe_results[];
+};
+layout(std430, set = 0, binding = 4, scalar) buffer ProbeBuffer {
+    LightProbe probes[];    
+};
+
+#define CACHE_SIZE 64
+shared vec4 direction_depth[CACHE_SIZE];
+#ifdef INTEGRATE_DEPTH
+layout(local_size_x = PROBE_VISIBILITY_TOTAL, local_size_y = PROBE_VISIBILITY_TOTAL, local_size_z = 1) in;
+#else
+shared vec3 radiance[CACHE_SIZE];
+layout(local_size_x = PROBE_IRRADIANCE_TOTAL, local_size_y = PROBE_IRRADIANCE_TOTAL, local_size_z = 1) in;
+#endif
+
+#ifdef INTEGRATE_DEPTH
+const ivec4 border_offsets[68] = ivec4[](
+    ivec4(16, 1, 1, 0),
+    ivec4(15, 1, 2, 0),
+    ivec4(14, 1, 3, 0),
+    ivec4(13, 1, 4, 0),
+    ivec4(12, 1, 5, 0),
+    ivec4(11, 1, 6, 0),
+    ivec4(10, 1, 7, 0),
+    ivec4(9, 1, 8, 0),
+    ivec4(8, 1, 9, 0),
+    ivec4(7, 1, 10, 0),
+    ivec4(6, 1, 11, 0),
+    ivec4(5, 1, 12, 0),
+    ivec4(4, 1, 13, 0),
+    ivec4(3, 1, 14, 0),
+    ivec4(2, 1, 15, 0),
+    ivec4(1, 1, 16, 0),
+    ivec4(16, 16, 1, 17),
+    ivec4(15, 16, 2, 17),
+    ivec4(14, 16, 3, 17),
+    ivec4(13, 16, 4, 17),
+    ivec4(12, 16, 5, 17),
+    ivec4(11, 16, 6, 17),
+    ivec4(10, 16, 7, 17),
+    ivec4(9, 16, 8, 17),
+    ivec4(8, 16, 9, 17),
+    ivec4(7, 16, 10, 17),
+    ivec4(6, 16, 11, 17),
+    ivec4(5, 16, 12, 17),
+    ivec4(4, 16, 13, 17),
+    ivec4(3, 16, 14, 17),
+    ivec4(2, 16, 15, 17),
+    ivec4(1, 16, 16, 17),
+    ivec4(1, 16, 0, 1),
+    ivec4(1, 15, 0, 2),
+    ivec4(1, 14, 0, 3),
+    ivec4(1, 13, 0, 4),
+    ivec4(1, 12, 0, 5),
+    ivec4(1, 11, 0, 6),
+    ivec4(1, 10, 0, 7),
+    ivec4(1, 9, 0, 8),
+    ivec4(1, 8, 0, 9),
+    ivec4(1, 7, 0, 10),
+    ivec4(1, 6, 0, 11),
+    ivec4(1, 5, 0, 12),
+    ivec4(1, 4, 0, 13),
+    ivec4(1, 3, 0, 14),
+    ivec4(1, 2, 0, 15),
+    ivec4(1, 1, 0, 16),
+    ivec4(16, 16, 17, 1),
+    ivec4(16, 15, 17, 2),
+    ivec4(16, 14, 17, 3),
+    ivec4(16, 13, 17, 4),
+    ivec4(16, 12, 17, 5),
+    ivec4(16, 11, 17, 6),
+    ivec4(16, 10, 17, 7),
+    ivec4(16, 9, 17, 8),
+    ivec4(16, 8, 17, 9),
+    ivec4(16, 7, 17, 10),
+    ivec4(16, 6, 17, 11),
+    ivec4(16, 5, 17, 12),
+    ivec4(16, 4, 17, 13),
+    ivec4(16, 3, 17, 14),
+    ivec4(16, 2, 17, 15),
+    ivec4(16, 1, 17, 16),
+    ivec4(16, 16, 0, 0),
+    ivec4(1, 16, 17, 0),
+    ivec4(16, 1, 0, 17),
+    ivec4(1, 1, 17, 17)
+);
+#else
+const ivec4 border_offsets[36] = ivec4[](
+    ivec4(8, 1, 1, 0),
+    ivec4(7, 1, 2, 0),
+    ivec4(6, 1, 3, 0),
+    ivec4(5, 1, 4, 0),
+    ivec4(4, 1, 5, 0),
+    ivec4(3, 1, 6, 0),
+    ivec4(2, 1, 7, 0),
+    ivec4(1, 1, 8, 0),
+    ivec4(8, 8, 1, 9),
+    ivec4(7, 8, 2, 9),
+    ivec4(6, 8, 3, 9),
+    ivec4(5, 8, 4, 9),
+    ivec4(4, 8, 5, 9),
+    ivec4(3, 8, 6, 9),
+    ivec4(2, 8, 7, 9),
+    ivec4(1, 8, 8, 9),
+    ivec4(1, 8, 0, 1),
+    ivec4(1, 7, 0, 2),
+    ivec4(1, 6, 0, 3),
+    ivec4(1, 5, 0, 4),
+    ivec4(1, 4, 0, 5),
+    ivec4(1, 3, 0, 6),
+    ivec4(1, 2, 0, 7),
+    ivec4(1, 1, 0, 8),
+    ivec4(8, 8, 9, 1),
+    ivec4(8, 7, 9, 2),
+    ivec4(8, 6, 9, 3),
+    ivec4(8, 5, 9, 4),
+    ivec4(8, 4, 9, 5),
+    ivec4(8, 3, 9, 6),
+    ivec4(8, 2, 9, 7),
+    ivec4(8, 1, 9, 8),
+    ivec4(8, 8, 0, 0),
+    ivec4(1, 8, 9, 0),
+    ivec4(8, 1, 0, 9),
+    ivec4(1, 1, 9, 9)
+);
+#endif
+
+// #define SHARED_MEMORY
+
+void main() {
+    uint odd_frame = kFrame % 2;
+    bool adjust_offset = false;
+
+
+#ifdef INTEGRATE_DEPTH
+    bool is_border = (gl_LocalInvocationID.x == 0 || gl_LocalInvocationID.x == (PROBE_VISIBILITY_TOTAL-1)) 
+        || (gl_LocalInvocationID.y == 0 || gl_LocalInvocationID.y == (PROBE_VISIBILITY_TOTAL-1));
+#else
+    bool is_border = (gl_LocalInvocationID.x == 0 || gl_LocalInvocationID.x == (PROBE_IRRADIANCE_TOTAL-1))
+        || (gl_LocalInvocationID.y == 0 || gl_LocalInvocationID.y == (PROBE_IRRADIANCE_TOTAL-1));
+#endif
+
+    uint probe_id = gl_WorkGroupID.x;
+
+    float offset_distance = max(probe_settings.grid_size.x, max(probe_settings.grid_size.y, probe_settings.grid_size.z)) * 0.1;
+#ifdef INTEGRATE_DEPTH
+    if (kFrame == 0) {
+        probes[probe_id].p = vec3(0.0);
+    }
+
+    if (probes[probe_id].backface_count  > 5000) {
+        probes[probe_id].ray_count = 0;
+        probes[probe_id].backface_count = 0;
+        uint seed = kFrame;
+        probes[probe_id].p = sphere_random(seed) * probe_settings.grid_size.x * 0.25;
+    }
+#endif
+
+    // if (probes[probe_id].backface_count  > 200048 && probes[probe_id].backface_count > probes[probe_id].ray_count / 2) 
+    {
+        // probes[probe_id].p = vec3(0.0);
+        // return;
+    }
+    
+    uvec3 probe_coord = index_1d(probe_settings.dim, probe_id);
+
+
+#ifdef INTEGRATE_DEPTH
+    uvec2 pixel_top_left = probe_depth_pixel(probe_coord, probe_settings.dim);
+    uvec2 pixel = pixel_top_left + gl_LocalInvocationID.xy-1; 
+    vec2 oct_norm = DDGIGetNormalizedOctahedralCoordinates(ivec2(pixel), int(PROBE_VISIBILITY_TOTAL));
+    const vec3 texel_dir = decode_oct(((gl_LocalInvocationID.xy + 0.5) / vec2(PROBE_VISIBILITY_TOTAL)) * 2 - 1);
+    // const vec3 texel_dir = decode_oct(normalized_oct_coord(ivec2(pixel)+1, 16));
+#else
+    uvec2 pixel_top_left = probe_color_pixel(probe_coord, probe_settings.dim);
+    uvec2 pixel = pixel_top_left + gl_LocalInvocationID.xy-1; 
+    vec2 oct_norm = DDGIGetNormalizedOctahedralCoordinates(ivec2(pixel), int(PROBE_IRRADIANCE_TOTAL));
+    const vec3 texel_dir = decode_oct(((gl_LocalInvocationID.xy + 0.5) / vec2(PROBE_IRRADIANCE_TOTAL)) * 2 - 1);
+    // const vec3 texel_dir = decode_oct(normalized_oct_coord(ivec2(pixel)+1, 8));
+#endif
+
+    // float offset_distance = 1.0;
+    vec4 result = vec4(0.0);
+
+    vec3 new_offset = vec3(0.0);
+
+// vec3 texel_dir = decode_oct(oct_norm);
+
+    uint remaining_rays = 64;
+    uint offset = 0;
+
+    uint start_index = probe_ray_start(probe_id, odd_frame);
+
+    if (!is_border)
+    {
+
+    #ifdef SHARED_MEMORY
+        while (remaining_rays > 0 && remaining_rays <= PROBE_RAY_MAX) {
+            uint num_rays = min(CACHE_SIZE, remaining_rays);
+            if (gl_LocalInvocationIndex < num_rays) {
+                ProbeRayResult ray = probe_results[start_index + gl_LocalInvocationIndex + offset];
+        #ifdef INTEGRATE_DEPTH
+        #else
+                radiance[gl_LocalInvocationIndex] = ray.radiance;
+        #endif
+                direction_depth[gl_LocalInvocationIndex] = vec4(ray.direction, ray.depth);
+            }
+
+            barrier();
+
+            for (uint ray_index = 0; ray_index < num_rays; ray_index++) {
+                ProbeRayResult ray;
+        #ifdef INTEGRATE_DEPTH
+                ray.depth = direction_depth[ray_index].w;
+        #else
+                ray.radiance = radiance[ray_index];
+        #endif
+                ray.direction = direction_depth[ray_index].xyz;
+    #else
+            uint probe_start_index = probe_ray_start(probe_id, odd_frame);
+            for (uint ray_index = 0; ray_index < remaining_rays; ray_index++) {
+                ProbeRayResult ray = probe_results[probe_start_index + ray_index];
+    #endif
+
+                float weight = 0.0;
+
+
+                weight = saturate(dot(ray.direction, texel_dir));
+
+        #ifdef INTEGRATE_DEPTH
+                if (ray.depth > 0.0 && ray.depth < offset_distance) 
+                {
+                    new_offset -= ray.direction * (offset_distance - ray.depth);
+                }
+        #endif
+
+                if (weight > 0.0001) 
+                {
+
+        #ifdef INTEGRATE_DEPTH
+                    ray.depth = abs(ray.depth);
+                    weight = pow(weight, 64.0);
+                    // weight = pow(weight, 32.0);
+                    // weight = pow(weight, 64.0);
+                    // weight = pow(weight, 64.0);
+                    result += vec4(ray.depth * weight, ray.depth * ray.depth * weight, 1.0, weight);
+        #else
+                    if (ray.depth > 0.0) 
+                    {
+                        result += vec4(ray.radiance * weight, weight);
+                    }
+                    // if (dot(ray.radiance, ray.radiance) < 0.1) continue;
+        #endif
+                }
+            }
+
+    #ifdef SHARED_MEMORY
+            barrier();
+
+            remaining_rays -= num_rays;
+            offset += num_rays;
+
+        }
+    #else
+    #endif
+
+
+        float epsilon = 1e-9f;
+        
+        result.rgb *= 1.0 / (2.0f * max(result.a, epsilon));
+
+    #ifdef INTEGRATE_DEPTH
+        vec3 current = imageLoad(uProbeTexture[1], ivec2(pixel)).rgb;
+        if (kFrame != 0) {
+            result.rgb = saturate(mix(current.rgb, result.rgb, probe_settings.hysteresis));
+        }
+        imageStore(uProbeTexture[1], ivec2(pixel), vec4(result.rgb, 1.0));
+
+        if (adjust_offset && gl_LocalInvocationID.y == 1 && gl_LocalInvocationID.y == 1) {
+            vec3 probe_offset = probes[probe_id].p;
+            vec3 max_offset = vec3(probe_settings.grid_size*0.5);
+            probe_offset = mix(probe_offset, new_offset, 0.01);
+            probe_offset = clamp(probe_offset, -max_offset, max_offset); 
+            probes[probe_id].p = probe_offset;
+        }
+    #else
+        result.rgb = sqrt(result.rgb);
+        vec3 current = imageLoad(uProbeTexture[0], ivec2(pixel)).rgb;
+
+        if (kFrame != 0) {
+            result.rgb = saturate(mix(current.rgb, result.rgb, probe_settings.hysteresis));
+        }
+        // result.rgb = abs(max(vec3(0.0), texel_dir.rgb));
+        // result.rgb = abs(min(vec3(0.0), texel_dir.rgb));
+        // result.rgb = texel_dir.rgb;
+
+        result.x = isnan(result.x) ? 0.0 : result.x;
+        result.y = isnan(result.y) ? 0.0 : result.y;
+        result.z = isnan(result.z) ? 0.0 : result.z;
+            
+        imageStore(uProbeTexture[0], ivec2(pixel), vec4(result.rgb, 1.0));
+    #endif
+    }
+
+    barrier();
+    if (false) 
+    {
+#ifdef INTEGRATE_DEPTH
+        for (uint i = gl_LocalInvocationIndex; i < 68; i += 16*16) {
+            uvec2 src = pixel_top_left - 1 + border_offsets[i].xy;
+            uvec2 dst = pixel_top_left - 1 + border_offsets[i].zw;
+            imageStore(uProbeTexture[1], ivec2(dst), imageLoad(uProbeTexture[1], ivec2(src)));
+        }
+#else
+        for (uint i = gl_LocalInvocationIndex; i < 36; i += 8*8) {
+            uvec2 src = pixel_top_left - 1 + border_offsets[i].xy;
+            uvec2 dst = pixel_top_left - 1 + border_offsets[i].zw;
+            imageStore(uProbeTexture[0], ivec2(dst), imageLoad(uProbeTexture[0], ivec2(src)));
+        }
+#endif
+        // return;
+    }
+    
+
+}

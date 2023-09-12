@@ -9,6 +9,8 @@
 
 hitAttributeEXT vec2 attribs;
 
+#include "utl.glsl"
+#include "lighting.glsl"
 #include "raycommon.glsl"
 
 layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];

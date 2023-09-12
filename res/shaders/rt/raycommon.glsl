@@ -1,4 +1,5 @@
 
+
 struct MeshDesc
 {
     int      texture_id;             // Texture index offset in the array of textures
@@ -17,8 +18,7 @@ struct Vertex
 };
 
 struct RayData {
-    vec3 color;
-    float distance;
-	vec3 normal;
-	float reflector;
+  Surface surface;
+  TotalLight light_solution;
+  float distance;
 };

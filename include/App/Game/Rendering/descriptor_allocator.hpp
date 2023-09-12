@@ -160,7 +160,7 @@ descriptor_allocator_t::reset_pools() {
 }
 
 static constexpr u64 MAX_DESCRIPTOR_LAYOUT_BINDINGS = 32;
-static constexpr u64 MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE = 512;
+static constexpr u64 MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE = 1024;
 
 struct descriptor_layout_cache_t {
     explicit descriptor_layout_cache_t(VkDevice device_) : device{device_} {
@@ -243,7 +243,7 @@ descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCre
     
     while (cache[bucket] != VK_NULL_HANDLE && meta[bucket] != hash) {
         bucket = (bucket + 1) % MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE;
-        zyy_warn(__FUNCTION__, "probe: {}", hash);
+        // zyy_warn(__FUNCTION__, "probe: {}", hash);
     }
 
     if (meta[bucket] == hash) {

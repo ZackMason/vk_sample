@@ -80,7 +80,7 @@ struct texture_2d_t {
     VkImage image;
     VkImageView image_view;
     VkImageLayout image_layout{VK_IMAGE_LAYOUT_UNDEFINED};
-    VkFormat format{VK_FORMAT_R8G8B8A8_SRGB};
+    VkFormat format{VK_FORMAT_R8G8B8A8_UNORM};
     VkSampler sampler;
     VkDeviceMemory vdm;
 

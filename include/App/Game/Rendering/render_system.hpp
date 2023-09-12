@@ -36,6 +36,9 @@ REFLECT_TYPE(RenderingStats) {REFLECT_TYPE_INFO(RenderingStats)}
 
 
 namespace rendering {
+    template <umm Size>
+    using probe_buffer_t = gfx::vul::storage_buffer_t<lighting::probe_t, Size>;
+
     struct mesh_cache_t {
         struct link_t : node_t<link_t> {
             gfx::mesh_list_t mesh;
@@ -467,35 +470,7 @@ public:
         render_pass_t* sources[32]{0};
     };
 
-    struct directional_light_t {
-        v4f direction{};
-        v4f color{};
-    };
-
-    struct point_light_t {
-        v4f pos; // position, w unused
-        v4f col; // color
-        v4f rad; // radiance, w unused
-        v4f pad;
-    };
-
-    struct environment_t {
-        directional_light_t sun{};
-
-        v4f ambient_color{0.9569f, 0.8941f, 0.5804f, 1.0f};
-
-        v4f fog_color{};
-        f32 fog_density{};
-
-        // color correction
-        f32 ambient_strength{1.0f};
-        f32 contrast{};
-        u32 light_count{};
-        v4f more_padding{};
-        
-        point_light_t point_lights[512];
-    };
-
+  
     struct pp_material_t {
         std::array<f32, 16> data{};
     };
@@ -834,7 +809,7 @@ public:
     
     struct system_t {
         inline static constexpr umm  frame_arena_size = megabytes(64);
-        inline static constexpr u32     frame_overlap = 3;
+        inline static constexpr u32     frame_overlap = 2;
         inline static constexpr umm max_scene_vertex_count{10'000'000};
         inline static constexpr umm max_scene_index_count{30'000'000};
         inline static constexpr umm max_scene_skinned_vertex_count{1'000'000};
@@ -888,7 +863,8 @@ public:
         }
 
         gfx::vul::storage_buffer_t<gfx::material_t, 100>    material_storage_buffer;
-        gfx::vul::storage_buffer_t<environment_t, 1>        environment_storage_buffer;
+        gfx::vul::storage_buffer_t<lighting::environment_t, 1> environment_storage_buffer;
+        gfx::vul::storage_buffer_t<lighting::point_light_t, 512> point_light_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 256>                animation_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 2'000'000>          instance_storage_buffer;
 
@@ -900,11 +876,13 @@ public:
 
         pp_material_t postprocess_params{};
 
-        lighting::probe_buffer_t<10000> probe_storage_buffer;
+        probe_buffer_t<10000> probe_storage_buffer;
         gfx::vul::storage_buffer_t<lighting::probe_settings_t, 1> light_probe_settings_buffer;
+        gfx::vul::storage_buffer_t<lighting::probe_ray_result_t, lighting::PROBE_MAX_COUNT * lighting::PROBE_RAY_MAX*2> light_probe_ray_buffer;
         // lighting::probe_box_t light_probes{.aabb={v3f{-200.0f, 1.0f, -100.0f}, v3f{200.0f, 50.0f, 100.0f}}};
         // lighting::probe_box_t light_probes{.aabb={v3f{-15.0f, 1, -30.0f}, v3f{25.0f, 25.0f, 20.0f}}};
-        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 1.0f, -10.0f}, v3f{20.0f, 24.0f, 15.0f}}};
+        
+        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 0.750f, -10.0f}, v3f{20.0f, 24.0f, 15.0f}}};
 
         frame_image_t frame_images[8]{};
 
@@ -973,12 +951,14 @@ public:
         rs->vk_gfx->destroy_data_buffer(rs->indices);
         rs->vk_gfx->destroy_data_buffer(rs->skinned_vertices);
         rs->vk_gfx->destroy_data_buffer(rs->skinned_indices);
-        rs->vk_gfx->destroy_data_buffer(rs->job_storage_buffers[0]);
-        rs->vk_gfx->destroy_data_buffer(rs->job_storage_buffers[1]);
+        range_u64(i,0,rs->frame_overlap)
+            rs->vk_gfx->destroy_data_buffer(rs->job_storage_buffers[i]);
+
         rs->vk_gfx->destroy_data_buffer(rs->material_storage_buffer);
         rs->vk_gfx->destroy_data_buffer(rs->instance_storage_buffer);
         rs->vk_gfx->destroy_data_buffer(rs->animation_storage_buffer);
         rs->vk_gfx->destroy_data_buffer(rs->environment_storage_buffer);
+        rs->vk_gfx->destroy_data_buffer(rs->point_light_storage_buffer);
         rs->permanent_descriptor_allocator->cleanup();
     }
 
@@ -995,12 +975,10 @@ public:
         rs->vk_gfx = &state;
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
-        rs->render_jobs[0] = (render_job_t*)arena_alloc(&rs->arena, 10000);
-        rs->render_jobs[1] = (render_job_t*)arena_alloc(&rs->arena, 10000);
-        rs->render_jobs[2] = (render_job_t*)arena_alloc(&rs->arena, 10000);
 
         rs->permanent_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device); 
         range_u64(i, 0, array_count(rs->frames)) {
+            rs->render_jobs[i] = (render_job_t*)arena_alloc(&rs->arena, 10000);
             rs->frames[i].dynamic_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device);
         }
         rs->descriptor_layout_cache = arena_alloc_ctor<gfx::vul::descriptor_layout_cache_t>(&rs->arena, 1, state.device); 
@@ -1023,9 +1001,10 @@ public:
 
         state.create_storage_buffer(&rs->probe_storage_buffer);
         state.create_storage_buffer(&rs->light_probe_settings_buffer);
+        state.create_storage_buffer(&rs->light_probe_ray_buffer);
         lighting::set_probes(*rs->vk_gfx, &rs->light_probes, 0, &rs->probe_storage_buffer.pool[0]);
-        lighting::init_textures(*rs->vk_gfx, &rs->light_probes);
         rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
+        lighting::init_textures(*rs->vk_gfx, &rs->light_probes);
         
 
         create_render_pass(rs, state.device, state.swap_chain_image_format);
@@ -1064,11 +1043,12 @@ public:
             state.load_texture_sampler(&rs->frame_images[6].texture, true);
         }
 
-        state.create_storage_buffer(&rs->job_storage_buffers[0]);
-        state.create_storage_buffer(&rs->job_storage_buffers[1]);
-        state.create_storage_buffer(&rs->job_storage_buffers[2]);
+        range_u64(i,0,rs->frame_overlap)
+            state.create_storage_buffer(&rs->job_storage_buffers[i]);
+        
         state.create_storage_buffer(&rs->material_storage_buffer);
         state.create_storage_buffer(&rs->environment_storage_buffer);
+        state.create_storage_buffer(&rs->point_light_storage_buffer);
         state.create_storage_buffer(&rs->animation_storage_buffer);
         state.create_storage_buffer(&rs->instance_storage_buffer);
 
@@ -1091,21 +1071,19 @@ public:
                 rs->environment_storage_buffer.buffer,
                 rs->probe_storage_buffer.buffer,
                 rs->light_probe_settings_buffer.buffer,
+                rs->light_probe_ray_buffer.buffer,
             };
             VkBuffer rt_buffers[]{
-                state.sporadic_uniform_buffer.buffer,
-                rs->job_storage_buffer().buffer,
-                rs->instance_storage_buffer.buffer,
-                rs->frames[i].indexed_indirect_storage_buffer.buffer,
-                rs->material_storage_buffer.buffer,
-                rs->environment_storage_buffer.buffer,
-                rs->vertices.buffer,
-                rs->indices.buffer,
+                rs->vk_gfx->sporadic_uniform_buffer.buffer,
+                rs->light_probe_settings_buffer.buffer,
+                rs->light_probe_ray_buffer.buffer,
+                rs->probe_storage_buffer.buffer,
             };
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
-                rs->frames[i].rt_compute_pass.build_buffer_sets(builder, rt_buffers);
-                rs->frames[i].rt_compute_pass.bind_images(builder, rs->texture_cache, &rs->frame_images[6].texture);
+                // rs->frames[i].rt_compute_pass.build_buffer_sets(builder, rt_buffers);
+                rs->frames[i].rt_compute_pass.build_integrate_pass(builder, rt_buffers, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture);
+                rs->frames[i].rt_compute_pass.build_integrate_pass(builder, rt_buffers, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture, true);
                 rs->frames[i].rt_compute_pass.build_layout(state.device);
                 rs->frames[i].rt_compute_pass.build_descriptors(
                     state,
@@ -1113,6 +1091,9 @@ public:
                     &rs->rt_cache->mesh_data_buffer,
                     &rs->probe_storage_buffer,
                     &rs->light_probe_settings_buffer,
+                    &rs->light_probe_ray_buffer,
+                    &rs->environment_storage_buffer,
+                    &rs->point_light_storage_buffer,
                     gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator),
                     // &rs->frame_images[0].texture
                     &rs->light_probes.irradiance_texture,
@@ -1381,6 +1362,7 @@ public:
                     rs->environment_storage_buffer.buffer,
                     rs->probe_storage_buffer.buffer,
                     rs->light_probe_settings_buffer.buffer,
+                    rs->light_probe_ray_buffer.buffer,
                 };
                 auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
                 mesh_pass.build_buffer_sets(builder, buffers);
@@ -1941,6 +1923,21 @@ public:
         rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
         lighting::destroy_textures(*rs->vk_gfx, &rs->light_probes);
         lighting::init_textures(*rs->vk_gfx, &rs->light_probes);
+    }
+
+    lighting::point_light_t*
+    create_point_light(system_t* rs, v3f point, f32 range = 25.0f, f32 power = 50.0f, v3f color = gfx::color::v3::ray_white) {
+        auto* light = &rs->point_light_storage_buffer.pool[0] + rs->environment_storage_buffer.pool[0].light_count++;
+        light->pos = point;
+        light->range = range;
+        light->col = color;
+        light->power = power;
+
+        return light;
+    }
+
+    void release_point_light(lighting::point_light_t* light) {
+
     }
 
     #include "raytrace_pass.hpp"

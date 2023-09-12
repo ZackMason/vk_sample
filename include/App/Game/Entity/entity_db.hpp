@@ -470,6 +470,22 @@ parkcore_02 {
 };
 
 DB_ENTRY
+room_03 {
+    .type = entity_type::environment,
+    .type_name = "parkcore_02",
+    .gfx = {
+        .mesh_name = "res/models/rooms/room_03.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
+    },
+};
+
+DB_ENTRY
 tower_01 {
     .type = entity_type::environment,
     .type_name = "tower_01",

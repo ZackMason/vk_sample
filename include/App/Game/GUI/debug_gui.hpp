@@ -10,7 +10,7 @@ watch_game_state(game_state_t* game_state) {
     DEBUG_WATCH(&gs_imgui_state->theme.shadow_distance);
 
     DEBUG_WATCH(&gs_rtx_on)->max_u32 = 2;
-    auto* rtx_super_sample = &game_state->render_system->rt_cache->super_sample;
+    auto* rtx_super_sample = &game_state->render_system->rt_cache->constants.super_sample;
     DEBUG_WATCH(rtx_super_sample)->max_u32 = 2;
 
     auto* pp_tonemap = &rs->postprocess_params.data[0];
@@ -21,12 +21,36 @@ watch_game_state(game_state_t* game_state) {
     DEBUG_WATCH(pp_exposure)->max_f32 = 2.0f;
     DEBUG_WATCH(pp_contrast);
     DEBUG_WATCH(pp_gamma)->max_f32 = 2.5f;
+
+    auto& light_probe_settings = rs->light_probe_settings_buffer.pool[0];
+    auto* probe_hysteresis = &light_probe_settings.hysteresis;
+
+    DEBUG_WATCH(probe_hysteresis)->max_f32 = 0.1f;
+}
+
+void 
+set_ui_textures(game_state_t* game_state) {
+    auto* rs = game_state->render_system;
+    auto& vk_gfx = *rs->vk_gfx;
+
+    gfx::vul::texture_2d_t* ui_textures[4096];
+    for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = game_state->default_font_texture; }
+    ui_textures[1] = &rs->frame_images[0].texture;
+    ui_textures[2] = &rs->light_probes.irradiance_texture;
+    ui_textures[3] = &rs->light_probes.visibility_texture;
+
+    game_state->default_font_descriptor = vk_gfx.create_image_descriptor_set(
+        vk_gfx.descriptor_pool,
+        game_state->gui_pipeline->descriptor_set_layouts[0],
+        ui_textures, array_count(ui_textures));
+
 }
 
 void 
 draw_gui(game_memory_t* game_memory) {
     TIMED_FUNCTION;
     game_state_t* game_state = get_game_state(game_memory);
+    auto* input = &game_memory->input;
 
     watch_game_state(game_state);
 
@@ -158,6 +182,7 @@ draw_gui(game_memory_t* game_memory) {
             im::begin_panel(state, "World Select"sv, v2f{350,350}, v2f{800, 600});
 
             #define WORLD_GUI(name) if (im::text(state, #name)) {world->world_generator = generate_##name(&world->arena); }
+            WORLD_GUI(room_03);
             WORLD_GUI(world_0);
             WORLD_GUI(world_1);
             WORLD_GUI(forest);
@@ -409,13 +434,13 @@ draw_gui(game_memory_t* game_memory) {
                 }
             }
 
-            local_persist bool show_gfx = false;
+            local_persist bool show_gfx = !false;
             local_persist bool show_mats = false;
             local_persist bool show_textures = false;
-            local_persist bool show_probes = false;
-            local_persist bool show_env = false;
+            local_persist bool show_probes = !false;
+            local_persist bool show_env = !false;
             local_persist bool show_mat_id[8] = {};
-                local_persist bool show_sky = false;
+            local_persist bool show_sky = false;
             if (im::text(state, "Graphics"sv, &show_gfx)) { 
                 if (im::text(state, "- Reload Shaders"sv)) {
                     std::system("ninja");
@@ -444,6 +469,7 @@ draw_gui(game_memory_t* game_memory) {
 
                 if (im::text(state, "- Probes"sv, &show_probes)) { 
                     auto* probes = &game_state->render_system->probe_storage_buffer.pool[0];
+                    auto* probe_box = &game_state->render_system->light_probes;
                     auto& probe_settings = game_state->render_system->light_probe_settings_buffer.pool[0];
                     im::text(state, fmt_sv("--- AABB: {} - {}", probe_settings.aabb_min, probe_settings.aabb_max));
                     im::text(state, fmt_sv("--- Dim: {} x {} x {}", probe_settings.dim.x, probe_settings.dim.y, probe_settings.dim.z));
@@ -452,17 +478,17 @@ draw_gui(game_memory_t* game_memory) {
                         auto& p = probes[i];
                         // im::text(state, fmt_sv("P[{}].SH[2]: {}", p.id, p.irradiance.h[2]));
                         // im::text(state, fmt_sv("P[{}].SH[5]: {}", p.id, p.irradiance.h[5]));
-                        
-                        if (im::draw_circle_3d(state, vp, p.position, 0.1f, gfx::color::rgba::white)) {
+                        auto color = (p.ray_count / 2 < p.backface_count) ?
+                            gfx::color::rgba::red : gfx::color::rgba::white;
+                        if (im::draw_circle_3d(state, vp, rendering::lighting::probe_position(probe_box, &p), 0.1f, color)) {
                             auto push_theme = state.theme;
                             state.theme.border_radius = 1.0f;
-                            if (im::begin_panel_3d(state, "probe"sv, vp, p.position)) {
-                                im::text(state, fmt_sv("Pos: {}", p.position));
-
-                                range_u64(s, 0, 9) {
-                                    im::text(state, fmt_sv("P[{}].SH[{}]: {}", p.id, s, p.irradiance.h[s]));
-                                }
+                            if (im::begin_panel_3d(state, "probe"sv, vp, rendering::lighting::probe_position(probe_box, &p))) {
                                 im::text(state, fmt_sv("Probe ID: {}"sv, p.id));
+                                im::text(state, fmt_sv("Pos: {}", p.position));
+                                im::text(state, fmt_sv("Ray Count: {}", p.ray_count));
+                                im::text(state, fmt_sv("Backface Count: {}", p.backface_count));
+                                
                                 im::end_panel(state);
                             }
                             state.theme = push_theme;
@@ -471,18 +497,41 @@ draw_gui(game_memory_t* game_memory) {
                 }
                 if (im::text(state, "- Environment"sv, &show_env)) { 
                     auto& env = game_state->render_system->environment_storage_buffer.pool[0];
+                    auto* point_lights = &game_state->render_system->point_light_storage_buffer.pool[0];
                     local_persist bool show_amb = false;
                     if (im::text(state, "--- Ambient"sv, &show_amb)) { 
                         gfx::color32 tc = gfx::color::to_color32(env.ambient_color);
                         im::color_edit(state, &tc);
                         env.ambient_color = gfx::color::to_color4(tc);
                     }
-                    local_persist bool show_fog = !false;
+                    local_persist bool show_fog = false;
                     if (im::text(state, "--- Fog"sv, &show_fog)) { 
                         gfx::color32 tc = gfx::color::to_color32(env.fog_color);
                         im::color_edit(state, &tc);
                         env.fog_color = gfx::color::to_color4(tc);
                         im::float_slider(state, &env.fog_density);
+                    }
+                    local_persist bool show_lights = !false;
+                    local_persist bool light[512]{true};
+                    if (im::text(state, "--- Point Lights"sv, &show_lights)) { 
+                        if (im::text(state, "----- Add Light"sv)) {
+                            rendering::create_point_light(game_state->render_system, v3f{0.0f, 3.0f, 0.0f}, 1.0f, 10.0f, v3f{0.1f});
+                        }
+                        range_u64(i, 0, env.light_count) {
+                            if (im::text(state, fmt_sv("----- Light[{}]"sv, i), light+i)) { 
+                                // gfx::color32 color = gfx::color::to_color32(point_lights[i].col);
+                                // im::color_edit(state, &color);
+                                // point_lights[i].col = gfx::color::to_color4(color);
+                                
+                                im::vec3(state, point_lights[i].pos, -25.0f, 25.0f);
+                                im::vec3(state, point_lights[i].col, 0.0f, 3.0f);
+
+                                im::float_slider(state, &point_lights[i].range, 1.0, 100.0);
+                                im::float_slider(state, &point_lights[i].power, 1.0, 1000.0);
+
+                                widget_pos = (v3f*)&point_lights[i].pos;
+                            }
+                        }
                     }
                 }
                 if (im::text(state, "- Materials"sv, &show_mats)) { 
@@ -738,6 +787,26 @@ draw_gui(game_memory_t* game_memory) {
             selected_entity->physics.rigidbody->set_transform(selected_entity->global_transform().to_matrix());
         }
 
+        local_persist math::aabb_t<v2f> depth_uv{v2f{0.0}, v2f{0.04, 0.2}};
+        local_persist math::aabb_t<v2f> color_uv{v2f{0.0}, v2f{0.04, 0.2}};
+        // local_persist math::aabb_t<v2f> color_uv{v2f{0.0}, v2f{0.01, 0.15}};
+
+        if (input->keys[key_id::UP]) { depth_uv.add(v2f{0.0f, -0.01}); }
+        if (input->keys[key_id::DOWN]) { depth_uv.add(v2f{0.0f, 0.01}); }
+        if (input->keys[key_id::RIGHT]) { depth_uv.add(v2f{0.01f, 0.0}); }
+        if (input->keys[key_id::LEFT]) { depth_uv.add(v2f{-0.01f, 0.0}); }
+        if (input->keys[key_id::MINUS]) { depth_uv.scale(v2f{0.99f});}
+        if (input->keys[key_id::EQUAL]) { depth_uv.scale(v2f{1.01f});}
+
+        if (input->keys[key_id::UP]) { color_uv.add(v2f{0.0f, -0.01}); }
+        if (input->keys[key_id::DOWN]) { color_uv.add(v2f{0.0f, 0.01}); }
+        if (input->keys[key_id::RIGHT]) { color_uv.add(v2f{0.01f, 0.0}); }
+        if (input->keys[key_id::LEFT]) { color_uv.add(v2f{-0.01f, 0.0}); }
+        if (input->keys[key_id::MINUS]) { color_uv.scale(v2f{0.99f});}
+        if (input->keys[key_id::EQUAL]) { color_uv.scale(v2f{1.01f});}
+
+        im::image(state, 2, {v2f{0.0f, 800}, v2f{state.ctx.screen_size.x * 0.3f, state.ctx.screen_size.y}}, color_uv);
+        im::image(state, 3, {v2f{state.ctx.screen_size.x *  0.7f, 800}, v2f{state.ctx.screen_size}}, depth_uv);
 
         draw_game_gui(game_memory);
 
@@ -754,7 +823,6 @@ draw_gui(game_memory_t* game_memory) {
 
         // const math::aabb_t<v2f> screen{v2f{0.0f}, state.ctx.screen_size};
         // im::image(state, 2, math::aabb_t<v2f>{v2f{state.ctx.screen_size.x - 400, 0.0f}, v2f{state.ctx.screen_size.x, 400.0f}});
-        // im::image(state, 1, screen);
     }
 
     arena_set_mark(&game_state->string_arena, string_mark);

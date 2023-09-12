@@ -599,6 +599,7 @@ physx_simulate(api_t* api, f32 dt) {
             }
             if (glm::length(rb->velocity) > vm) { rb->velocity = glm::normalize(rb->velocity) * vm; }
 
+            transform->origin = rb->position;
         }
     }
 
@@ -633,10 +634,10 @@ physx_simulate(api_t* api, f32 dt) {
                 }
             } else if (body->type == rigidbody_type::CHARACTER) {
                 // if you are wondering, yes we actually make it to here
-                if (auto* cct = ((physx::PxController*)body->api_data)) {
-                    auto [x,y,z] = cct->getPosition();
-                    transform->origin = v3f{x,y,z};
-                }
+                // if (auto* cct = ((physx::PxController*)body->api_data)) {
+                //     auto [x,y,z] = cct->getPosition();
+                //     transform->origin = v3f{x,y,z};
+                // }
             } 
         }
     }

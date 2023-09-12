@@ -2,8 +2,8 @@ include libs.ninja
 
 # Variables
 
-#OptimizationFlags = /DNDEBUG /O2 /fp:fast /arch:AVX2
-OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /O0 /fp:fast /arch:AVX2
+OptimizationFlags = /DNDEBUG /O2 /fp:fast /arch:AVX2
+#OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /O0 /fp:fast /arch:AVX2
 cflags = -FC -WX -W4 -wd4127 -wd4100 -wd4201 -wd4505 -wd4702 -wd4701 -wd4189 -MD -EHa /std:c++20
 lflags = -incremental:no -opt:ref user32.lib gdi32.lib shell32.lib /nologo /NOIMPLIB /NOEXP
 sdl_lflags = SDL2.lib SDL2_mixer.lib SDL2main.lib
@@ -107,6 +107,8 @@ build res\shaders\bin\anyhit.rahit.spv: compile_shader res/shaders/anyhit.rahit
 build res\shaders\bin\miss.rmiss.spv: compile_shader res/shaders/miss.rmiss
 build res\shaders\bin\shadow.rmiss.spv: compile_shader res/shaders/shadow.rmiss
 
+build res\shaders\bin\probe_integrate.comp.spv: compile_shader res/shaders/probe_integrate.comp
+build res\shaders\bin\probe_integrate_depth.comp.spv: compile_shader res/shaders/probe_integrate_depth.comp
 build res\shaders\bin\rt_compute.comp.spv: compile_shader res/shaders/rt_compute.comp
 
 build res\shaders\bin\screen.vert.spv: compile_shader res/shaders/screen.vert
@@ -134,11 +136,13 @@ default res/shaders/bin/anyhit.rahit.spv
 default res/shaders/bin/miss.rmiss.spv
 default res/shaders/bin/shadow.rmiss.spv
 
+default res/shaders/bin/probe_integrate_depth.comp.spv
+default res/shaders/bin/probe_integrate.comp.spv
 #default res/shaders/bin/rt_compute.comp.spv
 default res/shaders/bin/screen.vert.spv
 default res/shaders/bin/invert.frag.spv
 default res/shaders/bin/tonemap.frag.spv
-default res/shaders/bin/skeletal.vert.spv
+#default res/shaders/bin/skeletal.vert.spv
 default res/shaders/bin/simple.vert.spv
 default res/shaders/bin/simple.frag.spv
 default res/shaders/bin/skybox.vert.spv
@@ -146,5 +150,5 @@ default res/shaders/bin/skybox.frag.spv
 default res/shaders/bin/voidsky.frag.spv
 default res/shaders/bin/gui.vert.spv
 default res/shaders/bin/gui.frag.spv
-default res/shaders/bin/trail.vert.spv
-default res/shaders/bin/trail.frag.spv
+#default res/shaders/bin/trail.vert.spv
+#default res/shaders/bin/trail.frag.spv

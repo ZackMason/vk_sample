@@ -2,6 +2,9 @@
 #extension GL_ARB_separate_shader_objects  : enable
 #extension GL_ARB_shading_language_420pack : enable
 
+#include "utl.glsl"
+
+layout(binding = 4, set = 1) uniform sampler2D uProbeSampler[2];
 #include "material.glsl"
 
 layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
@@ -44,6 +47,8 @@ layout(std430, set = 2, binding = 0) readonly buffer MaterialBuffer {
 layout(std430, set = 3, binding = 0) readonly buffer EnvironmentBuffer {
 	Environment uEnvironment;
 };
+
+
 
 layout( push_constant ) uniform constants
 {

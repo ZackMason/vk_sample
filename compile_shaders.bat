@@ -9,6 +9,7 @@ glslc %OptFlags% %IncFlags% res/shaders/shadow.rmiss -o res/shaders/bin/shadow.r
 glslc %OptFlags% %IncFlags% res/shaders/raygen.rgen -o res/shaders/bin/raygen.rgen.spv
 
 glslc %OptFlags% %IncFlags% res/shaders/rt_compute.comp -o res/shaders/bin/rt_compute.comp.spv
+glslc %OptFlags% %IncFlags% res/shaders/probe_integrate.comp -o res/shaders/bin/probe_integrate.comp.spv
 
 glslc %OptFlags% %IncFlags% res/shaders/screen.vert -o res/shaders/bin/screen.vert.spv
 

@@ -369,22 +369,27 @@ app_init_graphics(game_memory_t* game_memory) {
         temp_arena_t ta = game_state->texture_arena;
         gfx::font_load(&ta, &game_state->large_font, "./res/fonts/Go-Mono-Bold.ttf", 24.0f);
         gfx::font_load(&ta, &game_state->default_font, "./res/fonts/Go-Mono-Bold.ttf", 18.0f);
-        game_state->default_font_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&ta, 1);
+        game_state->default_font_texture = arena_alloc_ctor<gfx::vul::texture_2d_t>(&game_state->texture_arena, 1);
+        
         vk_gfx.load_font_sampler(
             &ta,
             game_state->default_font_texture,
             &game_state->default_font);
     }
 
+    // set_ui_textures(game_state);
+    set_ui_textures(game_state);
 
-    gfx::vul::texture_2d_t* ui_textures[4096];
-    for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = game_state->default_font_texture; }
-    ui_textures[1] = &rs->frame_images[0].texture;
+    // gfx::vul::texture_2d_t* ui_textures[4096];
+    // for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = game_state->default_font_texture; }
+    // ui_textures[1] = &rs->frame_images[0].texture;
+    // ui_textures[2] = &rs->light_probes.irradiance_texture;
+    // ui_textures[3] = &rs->light_probes.visibility_texture;
 
-    game_state->default_font_descriptor = vk_gfx.create_image_descriptor_set(
-        vk_gfx.descriptor_pool,
-        game_state->gui_pipeline->descriptor_set_layouts[0],
-        ui_textures, array_count(ui_textures));
+    // game_state->default_font_descriptor = vk_gfx.create_image_descriptor_set(
+    //     vk_gfx.descriptor_pool,
+    //     game_state->gui_pipeline->descriptor_set_layouts[0],
+    //     ui_textures, array_count(ui_textures));
 
     if (1)
     {
@@ -416,9 +421,16 @@ app_init_graphics(game_memory_t* game_memory) {
         rs->shader_cache.load(
             game_state->main_arena, 
             vk_gfx,
-            assets::shaders::rt_comp,
-            rt_compute_pass.descriptor_layouts,
-            rt_compute_pass.descriptor_count
+            assets::shaders::probe_integrate_comp,
+            &rt_compute_pass.descriptor_set_layouts[1],
+            1
+        );
+        rs->shader_cache.load(
+            game_state->main_arena, 
+            vk_gfx,
+            assets::shaders::probe_integrate_depth_comp,
+            &rt_compute_pass.descriptor_set_layouts[2],
+            1
         );
 
         rs->shader_cache.load(
@@ -428,13 +440,13 @@ app_init_graphics(game_memory_t* game_memory) {
             mesh_pass.descriptor_layouts,
             mesh_pass.descriptor_count
         );
-        rs->shader_cache.load(
-            game_state->main_arena, 
-            vk_gfx,
-            assets::shaders::skinned_vert,
-            anim_pass.descriptor_layouts,
-            anim_pass.descriptor_count
-        );
+        // rs->shader_cache.load(
+        //     game_state->main_arena, 
+        //     vk_gfx,
+        //     assets::shaders::skinned_vert,
+        //     anim_pass.descriptor_layouts,
+        //     anim_pass.descriptor_count
+        // );
         rs->shader_cache.load(
             game_state->main_arena, 
             vk_gfx,
@@ -1044,6 +1056,7 @@ game_on_update(game_memory_t* game_memory) {
     auto* world_generator = game_state->game_world->world_generator;
     if (world_generator && world_generator->is_done() == false) {
         world_generator->execute(game_state->game_world, [&](){draw_gui(game_memory);});
+        set_ui_textures(game_state);
     } else {
         // local_persist f32 accum = 0.0f;
         // const u32 sub_steps = 1;
@@ -1061,7 +1074,7 @@ game_on_update(game_memory_t* game_memory) {
 }
 
 inline static u32
-wait_for_frame(game_state_t* game_state, u64 frame_count) {
+wait_for_frame(game_state_t* game_state) {
     TIMED_FUNCTION;
     gfx::vul::state_t& vk_gfx = game_state->gfx;
 
@@ -1122,10 +1135,11 @@ present_frame(game_state_t* game_state, VkCommandBuffer command_buffer, u32 imag
 }
 
 void
-game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) { 
+game_on_render(game_memory_t* game_memory, u32 imageIndex) { 
     TIMED_FUNCTION;
     
     game_state_t* game_state = get_game_state(game_memory);
+    u64 frame_count = game_state->render_system->frame_count;
 
     gfx::vul::state_t& vk_gfx = game_state->gfx;
 
@@ -1236,7 +1250,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex, u32 frame_count) {
         
         // if (gs_rtx_on) 
         {
-            rendering::begin_rt_pass(game_state->render_system, command_buffer, frame_count);
+            rendering::begin_rt_pass(game_state->render_system, command_buffer);
         // } else {
             // game_state->render_system->rt_cache->frame = 0;
             VkBuffer buffers[1] = { game_state->render_system->vertices.buffer };
@@ -1549,29 +1563,29 @@ inline entity_editor_t* get_entity_editor(game_memory_t* game_state) {
 export_fn(void) 
 app_on_render(game_memory_t* game_memory) {
     auto* game_state = get_game_state(game_memory);
-    local_persist u32 frame_count = 0;
-    if (frame_count < 3) {
-        zyy_info("frame", "Frame: {}", frame_count);
-    }
+    // local_persist u32 frame_count = 0;
+    // if (frame_count < 3) {
+    //     zyy_info("frame", "Frame: {}", frame_count);
+    // }
     // std::lock_guard lock{game_state->render_system->ticket};
     switch (scene_state) {
         case 0:{
     
             // std::lock_guard lock{game_state->render_system->ticket};
             entity_editor_render(get_entity_editor(game_memory));
-            u32 image_index = wait_for_frame(game_state, ++frame_count);
-            game_on_render(game_memory, image_index, frame_count);
+            u32 image_index = wait_for_frame(game_state);
+            game_on_render(game_memory, image_index);
         }   break;
         case 1:{
             // Game           
     
-            u32 image_index = wait_for_frame(game_state, ++frame_count);
+            u32 image_index = wait_for_frame(game_state);
             std::lock_guard lock{game_state->render_system->ticket};
 
             // game_state->render_system->camera_pos = game_state->game_world->camera.origin;
             // game_state->render_system->set_view(game_state->game_world->camera.inverse().to_matrix(), game_state->width(), game_state->height());
 
-            game_on_render(game_memory, image_index, frame_count);
+            game_on_render(game_memory, image_index);
         
         }   break;
         default:
