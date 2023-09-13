@@ -73,6 +73,8 @@ begin_rt_pass(
             // once = false;
             pass.build_descriptors(
                 gfx, 
+                // command_buffer,
+                // cache.pipeline_layout,
                 rs->texture_cache, 
                 &cache.mesh_data_buffer, 
                 &rs->probe_storage_buffer,
@@ -88,7 +90,45 @@ begin_rt_pass(
                 &rs->light_probes.visibility_texture
                 // &rs->frame_images[6].texture
             );
+
+            // khr.vkCmdPushDescriptorSetKHR()
         }
+
+        // gfx::vul::utl::insert_image_memory_barrier(
+        //     command_buffer,
+        //     rs->light_probes.irradiance_texture.image,
+        //     0,
+        //     // VK_ACCESS_SHADER_READ_BIT,
+        //     VK_ACCESS_SHADER_WRITE_BIT,
+        //     VK_IMAGE_LAYOUT_GENERAL,
+        //     VK_IMAGE_LAYOUT_GENERAL,
+        //     // VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        //     VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+        //     VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+        //     VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+        // gfx::vul::utl::insert_image_memory_barrier(
+        //     command_buffer,
+        //     rs->light_probes.visibility_texture.image,
+        //     0,
+        //     // VK_ACCESS_SHADER_READ_BIT,
+        //     VK_ACCESS_SHADER_WRITE_BIT,
+        //     VK_IMAGE_LAYOUT_GENERAL,
+        //     VK_IMAGE_LAYOUT_GENERAL,
+        //     // VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        //     VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+        //     VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+        //     VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+        width = rs->light_probes.probe_count;
+
+        rs->light_probe_ray_buffer.insert_memory_barrier(
+            command_buffer, 
+            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 
+            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 
+            0,
+            VK_ACCESS_SHADER_WRITE_BIT
+        );
 
         vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline);
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, cache.pipeline_layout, 0, 1, &pass.descriptor_sets[0], 0, 0);
@@ -98,30 +138,6 @@ begin_rt_pass(
             VK_SHADER_STAGE_RAYGEN_BIT_KHR,
             0, sizeof(cache.constants), &cache.constants
         );
-
-        gfx::vul::utl::insert_image_memory_barrier(
-            command_buffer,
-            rs->light_probes.irradiance_texture.image,
-            0,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-            VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-        gfx::vul::utl::insert_image_memory_barrier(
-            command_buffer,
-            rs->light_probes.visibility_texture.image,
-            0,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-            VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-        width = rs->light_probes.probe_count;
 
         gfx.khr.vkCmdTraceRaysKHR(
             command_buffer,
@@ -133,12 +149,14 @@ begin_rt_pass(
             64,
             1);
 
-        // srcStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
-        // dstStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        // barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        // barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
         // vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+        srcStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+        // dstStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+        dstStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 
 
         // gfx::vul::utl::insert_image_memory_barrier(
@@ -168,7 +186,13 @@ begin_rt_pass(
         
         // vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
         
-
+        rs->light_probe_ray_buffer.insert_memory_barrier(
+            command_buffer, 
+            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_ACCESS_SHADER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT
+        );
         
         VkBuffer buffers[]{
             rs->vk_gfx->sporadic_uniform_buffer.buffer,
@@ -257,12 +281,12 @@ begin_rt_pass(
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
-        // srcStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        // dstStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        // barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        // barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        srcStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        // vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+        vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 
         
 

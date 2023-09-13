@@ -141,7 +141,7 @@ void main()
 
         // color = sqrt(color);
         
-        result.radiance = color;
+        result.radiance = max(vec3(0.0), color);
         // result.radiance = vec3(rnd(seed)*2.0-1.0);
         // result.radiance = vec3(seed);
         // result.radiance = data.normal.xyz;

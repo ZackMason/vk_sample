@@ -991,7 +991,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
 
     if (world->player) {
-        world->player->camera_controller.transform.origin = world->player->transform.origin + 
+        world->player->camera_controller.transform.origin = world->player->physics.rigidbody->position + 
             axis::up * world->player->camera_controller.head_height + axis::up * world->player->camera_controller.head_offset;
         world->player->camera_controller.translate(v3f{0.0f});
     
@@ -1139,7 +1139,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
     TIMED_FUNCTION;
     
     game_state_t* game_state = get_game_state(game_memory);
-    u64 frame_count = game_state->render_system->frame_count;
+    u64 frame_count = game_state->render_system->frame_count%2;
 
     gfx::vul::state_t& vk_gfx = game_state->gfx;
 

@@ -1178,6 +1178,7 @@ public:
         rs->environment_storage_buffer.insert_memory_barrier(command_buffer);
         rs->instance_storage_buffer.insert_memory_barrier(command_buffer);
         rs->animation_storage_buffer.insert_memory_barrier(command_buffer);
+        
         rs->job_storage_buffer().insert_memory_barrier(command_buffer);
     }
 
@@ -1228,7 +1229,7 @@ public:
         job->instance_count = instance_count;
 
         for (size_t i = 0; i < job->meshes->count; i++) {
-            for (size_t j = 0; j < instance_count && j < 1'000; j++) { // @hardcoded limit for instancing
+            for (size_t j = 0; j < instance_count && j < 10; j++) { // @hardcoded limit for instancing
                 rs->get_frame_data().rt_compute_pass.add_to_tlas(
                     *rs->vk_gfx,
                     *rs->rt_cache,
@@ -1351,7 +1352,7 @@ public:
             
             mesh_pass_t& mesh_pass = rs->get_frame_data().mesh_pass;
 
-            if (mesh_pass.object_descriptors == VK_NULL_HANDLE) 
+            // if (mesh_pass.object_descriptors == VK_NULL_HANDLE) 
             {
                 VkBuffer buffers[]{
                     rs->vk_gfx->sporadic_uniform_buffer.buffer,

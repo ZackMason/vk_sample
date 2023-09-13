@@ -44,6 +44,28 @@ struct gpu_buffer_t {
             0, nullptr
         );
     }
+
+    void insert_memory_barrier(VkCommandBuffer command_buffer, u32 src_stage, u32 dst_stage, u32 src_mask, u32 dst_mask) const {
+        VkBufferMemoryBarrier buffer_barrier{};
+        buffer_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        buffer_barrier.srcAccessMask = src_mask; 
+        buffer_barrier.dstAccessMask = dst_mask;
+        buffer_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        buffer_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        buffer_barrier.buffer = buffer;
+        buffer_barrier.offset = 0;
+        buffer_barrier.size = VK_WHOLE_SIZE;
+
+        vkCmdPipelineBarrier(
+            command_buffer, 
+            src_stage,
+            dst_stage,
+            0,
+            0, nullptr,
+            1, &buffer_barrier,
+            0, nullptr
+        );
+    }
 };
 
 template <typename T>
@@ -355,7 +377,6 @@ struct state_t {
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabled_ray_tracing_pipeline_features_KHR{};
     VkPhysicalDeviceBufferDeviceAddressFeaturesKHR enabled_buffer_device_address_features_KHR{};
 
-    // VkPhysicalDevicePushDescriptorFeaturesKHR enabled_
 
     VkPhysicalDeviceShaderObjectFeaturesEXT enabled_shader_object_features_EXT{};
 	VkPhysicalDeviceDynamicRenderingFeaturesKHR enabled_dynamic_rendering_features_KHR{};
@@ -469,6 +490,7 @@ struct state_t {
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(T), 0, &gpu_ptr);
         buffer->data = (T*)gpu_ptr;
+        *buffer->data = T{};
         return r;
     }
 
@@ -482,6 +504,9 @@ struct state_t {
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(T) * N, 0, &gpu_ptr);
         buffer->pool = utl::pool_t<T>{(T*)gpu_ptr, N};
+        // for (size_t i = 0; i < N; i++) {
+            // buffer->pool[i] = T{};
+        // }
         return r;
     }
 

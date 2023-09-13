@@ -21,7 +21,7 @@ void main()
     // data.color = vec3(0.1961, 0.451, 0.9255);
     // data.color = sqrt(sqrt(sky_color(data.normal, normalize(vec3(1,30,2))))); // breaks light probes
     vec3 L = normalize(uEnvironment.sun.direction.xyz);
-    data.light_solution.direct.diffuse = sqrt(sqrt(sky_color(data.surface.normal, L))); // breaks light probes
+    data.light_solution.direct.diffuse = (sqrt(sky_color(data.surface.normal, L))); // breaks light probes
     // data.color = vec3(0.99, 0.98, 0.82);
     
     data.distance = gl_RayTmaxEXT + 1.0;

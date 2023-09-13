@@ -90,7 +90,7 @@ generate_forest(arena_t* arena) {
 
     generator->add_step("Planting Trees", WORLD_STEP_TYPE_LAMBDA(environment) {
         auto* tree = zyy::spawn(world, world->render_system(), zyy::db::environmental::tree_01, axis::down);
-        constexpr u32 tree_count = 400;
+        constexpr u32 tree_count = 4000;
         tree->gfx.instance(world->render_system()->instance_storage_buffer.pool, tree_count);
         
         for (size_t i = 0; i < tree_count; i++) {

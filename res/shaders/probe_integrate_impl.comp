@@ -156,7 +156,7 @@ const ivec4 border_offsets[36] = ivec4[](
 
 void main() {
     uint odd_frame = kFrame % 2;
-    bool adjust_offset = false;
+    bool adjust_offset = true;
 
 
 #ifdef INTEGRATE_DEPTH
@@ -179,7 +179,7 @@ void main() {
         probes[probe_id].ray_count >>= 1;
         probes[probe_id].backface_count >>= 1;
         uint seed = kFrame;
-        probes[probe_id].p = sphere_random(seed) * probe_settings.grid_size.x * 0.75;
+        probes[probe_id].p = sphere_random(seed) * probe_settings.grid_size.x * 0.5;
     }
 #endif
 
@@ -267,9 +267,7 @@ void main() {
         #ifdef INTEGRATE_DEPTH
                     ray.depth = abs(ray.depth);
                     weight = pow(weight, 64.0);
-                    // weight = pow(weight, 32.0);
-                    // weight = pow(weight, 64.0);
-                    // weight = pow(weight, 64.0);
+
                     result += vec4(ray.depth * weight, ray.depth * ray.depth * weight, 1.0, weight);
         #else
                     if (ray.depth > 0.0) 
@@ -312,9 +310,9 @@ void main() {
         }
     #else
         result.rgb = sqrt(result.rgb);
-        vec3 current = imageLoad(uProbeTexture[0], ivec2(pixel)).rgb;
 
         if (kFrame != 0) {
+            vec3 current = imageLoad(uProbeTexture[0], ivec2(pixel)).rgb;
             result.rgb = saturate(mix(current.rgb, result.rgb, probe_settings.hysteresis));
         }
         // result.rgb = abs(max(vec3(0.0), texel_dir.rgb));

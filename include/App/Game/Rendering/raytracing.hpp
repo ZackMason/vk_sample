@@ -400,6 +400,99 @@ struct rt_compute_pass_t {
             .bind_buffer(9, buffer_info + 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .build(descriptor_sets[0], descriptor_set_layouts[0]);
     }
+
+    void push_descriptors(
+        gfx::vul::state_t& gfx,
+        VkCommandBuffer command_buffer,
+        VkPipelineLayout pipeline_layout_, 
+        texture_cache_t& texture_cache,
+        gfx::vul::gpu_buffer_t* rt_mesh_data,
+        gfx::vul::gpu_buffer_t* probe_data,
+        gfx::vul::gpu_buffer_t* probe_settings,
+        gfx::vul::gpu_buffer_t* probe_rays,
+        gfx::vul::gpu_buffer_t* environment,
+        gfx::vul::gpu_buffer_t* point_lights,
+        gfx::vul::descriptor_builder_t&& builder, 
+        gfx::vul::texture_2d_t* irradiance_texture,
+        gfx::vul::texture_2d_t* visibility_texture
+    ) {
+        VkDescriptorBufferInfo buffer_info[9];
+        u32 b = 0;
+        buffer_info[b].buffer = tlas.buffer.buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = rt_mesh_data->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = probe_data->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = probe_settings->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = probe_rays->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = environment->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = point_lights->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        VkWriteDescriptorSetAccelerationStructureKHR descriptor_acceleration_structure_info{};
+        descriptor_acceleration_structure_info.sType                      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+        descriptor_acceleration_structure_info.accelerationStructureCount = 1;
+        descriptor_acceleration_structure_info.pAccelerationStructures    = &tlas.handle;
+
+        VkDescriptorImageInfo vdii[4096];
+        VkDescriptorImageInfo ovdii[2];
+
+        auto* null_texture = texture_cache["null"];
+        range_u64(i, 0, array_count(texture_cache.textures)) {
+            vdii[i].imageLayout = null_texture->image_layout;
+            vdii[i].imageView = null_texture->image_view;
+            vdii[i].sampler = null_texture->sampler;
+        }
+
+        u64 w{0};
+        for(u64 i = texture_cache.first(); 
+            i != texture_cache.end(); 
+            i = texture_cache.next(i)
+        ) {
+            vdii[i].imageLayout = texture_cache[i]->image_layout;
+            vdii[i].imageView = texture_cache[i]->image_view;
+            vdii[i].sampler = texture_cache[i]->sampler;
+        }
+
+        ovdii[0].imageLayout = irradiance_texture->image_layout;
+        ovdii[0].imageView = irradiance_texture->image_view;
+        ovdii[0].sampler = irradiance_texture->sampler;
+
+        ovdii[1].imageLayout = visibility_texture->image_layout;
+        ovdii[1].imageView = visibility_texture->image_view;
+        ovdii[1].sampler = visibility_texture->sampler;
+
+
+        builder
+            .bind_buffer(0, buffer_info + 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, &descriptor_acceleration_structure_info)
+            .bind_image(1, ovdii, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_image(2, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
+            // .bind_buffer(3, buffer_info + 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+            .bind_buffer(4, buffer_info + 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
+            .bind_buffer(5, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(6, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(7, buffer_info + 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+            .bind_buffer(8, buffer_info + 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(9, buffer_info + 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .build_push(command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline_layout_, descriptor_sets[0], gfx.khr.vkCmdPushDescriptorSetKHR);
+    }
     
 
     void add_to_tlas(
@@ -529,6 +622,7 @@ struct rt_compute_pass_t {
         device = device_;
         pipeline_layout[0] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[1], 1, sizeof(u32), VK_SHADER_STAGE_COMPUTE_BIT);
         pipeline_layout[1] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[2], 1, sizeof(u32), VK_SHADER_STAGE_COMPUTE_BIT);
+        
     }
 
     void build_integrate_pass(

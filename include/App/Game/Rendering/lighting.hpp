@@ -65,15 +65,15 @@ namespace rendering::lighting {
         v3f grid_size{0.0f};
         i32 sample_max{100};
         f32 hysteresis{0.02f};
-        f32 boost{1.0};
+        f32 boost{1.0f};
     };
 
     struct probe_box_t {
         math::aabb_t<v3f> aabb;
         // f32 grid_size{4.0f};
         // f32 grid_size{15.0f};
-        // f32 grid_size{2.0f * 1.618033f};
-        f32 grid_size{1.618033f};
+        f32 grid_size{1.0f + 1.618033f};
+        // f32 grid_size{1.618033f};
         probe_t* probes{0};
         u32 probe_count{0};
 

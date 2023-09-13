@@ -98,7 +98,7 @@ namespace zyy {
         assert(world->entity_capacity < array_count(world->entities));
         entity_t* e{0};
 
-        if (world->free_entities) {
+        if (world->free_entities && 0) {
             node_pop(e, world->free_entities);
             world->entity_count++;
             assert(e);

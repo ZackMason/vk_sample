@@ -258,6 +258,16 @@ descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCre
     }
 }
 
+
+using vkCmdPushDescriptorSetKHRFN = void(*)(
+    VkCommandBuffer,
+    VkPipelineBindPoint,
+    VkPipelineLayout,
+    uint32_t,
+    uint32_t,
+    const VkWriteDescriptorSet*);
+
+
 struct descriptor_builder_t {
     static descriptor_builder_t begin(descriptor_layout_cache_t* layout_cache, descriptor_allocator_t* allocator) {
         return descriptor_builder_t{
@@ -271,6 +281,13 @@ struct descriptor_builder_t {
 
     bool build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
     bool build(VkDescriptorSet& set);
+    bool build_push(
+        VkCommandBuffer command_buffer, 
+        VkPipelineBindPoint bind_point, 
+        VkPipelineLayout pipeline_layout, 
+        VkDescriptorSet& set,
+        vkCmdPushDescriptorSetKHRFN fn
+    );
 
     descriptor_layout_cache_t* cache;
     descriptor_allocator_t* alloc;
@@ -374,9 +391,51 @@ bool descriptor_builder_t::build(VkDescriptorSet& set, VkDescriptorSetLayout& la
 	return true;
 }
 
+
+
 bool descriptor_builder_t::build(VkDescriptorSet& set){
     VkDescriptorSetLayout layout;
 	return build(set, layout);
+}
+
+bool descriptor_builder_t::build_push(
+    VkCommandBuffer command_buffer, 
+    VkPipelineBindPoint bind_point, 
+    VkPipelineLayout pipeline_layout, 
+    VkDescriptorSet& set,
+    vkCmdPushDescriptorSetKHRFN fn
+) {
+    VkDescriptorSetLayout layout;
+	//build layout first
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.pNext = nullptr;
+
+	layoutInfo.pBindings = bindings.data();
+	layoutInfo.bindingCount = safe_truncate_u64(bindings.size());
+
+	layout = cache->create_descriptor_set_layout(&layoutInfo);
+
+	//allocate descriptor
+	bool success = alloc->allocate(&set, layout);
+	if (!success) { 
+        zyy_warn(__FUNCTION__, "Failed to build descriptor set");
+        return false; 
+    };
+
+	//write descriptor
+	for (VkWriteDescriptorSet& w : writes) {
+		w.dstSet = set;
+	}
+
+    fn(command_buffer, bind_point, pipeline_layout, 0, safe_truncate_u64(writes.size()), writes.data());
+
+	// vkUpdateDescriptorSets(alloc->device, safe_truncate_u64(writes.size()), writes.data(), 0, nullptr);      
+
+    writes.clear();
+    bindings.clear();
+
+	return true;
 }
 
 size_t descriptor_layout_cache_t::descriptor_layout_info_t::hash() const{

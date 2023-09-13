@@ -24,8 +24,10 @@ watch_game_state(game_state_t* game_state) {
 
     auto& light_probe_settings = rs->light_probe_settings_buffer.pool[0];
     auto* probe_hysteresis = &light_probe_settings.hysteresis;
+    auto* probe_gi_boost = &light_probe_settings.boost;
 
     DEBUG_WATCH(probe_hysteresis)->max_f32 = 0.1f;
+    DEBUG_WATCH(probe_gi_boost)->max_f32 = 10.0f;
 }
 
 void 
@@ -437,7 +439,7 @@ draw_gui(game_memory_t* game_memory) {
             local_persist bool show_gfx = !false;
             local_persist bool show_mats = false;
             local_persist bool show_textures = false;
-            local_persist bool show_probes = !false;
+            local_persist bool show_probes = false;
             local_persist bool show_env = !false;
             local_persist bool show_mat_id[8] = {};
             local_persist bool show_sky = false;

@@ -164,7 +164,7 @@ void main()
     }
 
 
-    light_solution.direct.diffuse += saturate(light_probe_irradiance(wp, direction.xyz, wn, probe_settings) * 0.00295 * 1.0);
+    light_solution.indirect.diffuse += saturate(light_probe_irradiance(wp, direction.xyz, wn, probe_settings) * 0.00295 * probe_settings.boost);
 
 
 

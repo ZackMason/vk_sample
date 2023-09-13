@@ -114,15 +114,19 @@ struct world_t;
 // using entity_update_function = void(*)(entity_t*, world_t*);
 // using entity_interact_function = void(*)(entity_t*, world_t*);
 
-struct entity_t : node_t<entity_t> {
+struct entity_t {
     entity_id   id{uid::invalid_id};
     entity_type type{entity_type::SIZE};
     u64         flags{0};
     u64         tag{0};
     string_t    name;
 
+    entity_t*   next{nullptr};
     entity_t*   parent{nullptr};
     entity_t*   next_id_hash{nullptr};
+
+    entity_t* first_child{nullptr};
+    entity_t* next_child{nullptr};
 
     brain_id    brain_id{uid::invalid_id};
 
@@ -214,17 +218,17 @@ struct entity_t : node_t<entity_t> {
             return (particle_system ? particle_system->live_count : _instance_count); 
         }
         
-    } gfx;
+    } gfx{};
 
     struct physics_t {
         u32 flags{0};
         physics::rigidbody_t* rigidbody;
-    } physics;
+    } physics{};
 
     struct stats_t {
         character_stats_t character{};
         wep::base_weapon_t weapon{};
-    } stats;
+    } stats{};
 
     entity_ref_t primary_weapon{0};
     entity_ref_t secondary_weapon{0};
@@ -238,8 +242,8 @@ struct entity_t : node_t<entity_t> {
     // entity_update_function on_update{nullptr};
     // entity_interact_function on_interact{nullptr};
 
-    virtual ~entity_t() = default;
-    constexpr entity_t() noexcept = default;
+    // virtual ~entity_t() = default;
+    // constexpr entity_t() noexcept = default;
 
     constexpr bool is_renderable() const noexcept {
         return (gfx.mesh_id != -1) || gfx.particle_system != nullptr;
@@ -252,10 +256,21 @@ struct entity_t : node_t<entity_t> {
 
     void queue_free() noexcept {
         flags |= EntityFlags_Dying;
+        auto* child = first_child;
+        for (;child; child = child->next_child) {
+            child->queue_free();
+        }
     }
 
     void add_child(entity_t* child, bool maintain_world_pos = false) {
         // assert(maintain_world_pos == false);
+        if (first_child) {
+            child->next_child = first_child;            
+        } else {
+            child->next_child = 0;
+        }
+        first_child = child;
+
         child->parent = this;
         if (!maintain_world_pos) {
             child->transform = math::transform_t{};
