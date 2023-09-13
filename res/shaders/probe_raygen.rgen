@@ -1,17 +1,9 @@
 #version 460
-
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_scalar_block_layout : enable
 
-
-// #define PROBE_USE_SH_COLOR
-// #define PROBE_USE_SAMPLER_COLOR
-// #define PROBE_USE_SAMPLER_DEPTH
-// #define PROBE_USE_IMAGE_DEPTH
-
-#define PROBE_AUTOADJUST
-
+#include "packing.glsl"
 #include "rng.glsl"
 #include "utl.glsl"
 
@@ -19,13 +11,8 @@ layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0, rgba16f) uniform image2D uProbeTexture[2];
 layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[2];
 
-// layout(binding = 1, set = 0, rgba16f) uniform image2D visibility;
 layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];
-// layout(binding = 3, set = 0) uniform CameraProperties 
-// {
-// 	mat4 viewInverse;
-// 	mat4 projInverse;
-// } cam;
+
 #include "material.glsl"
 #include "raycommon.glsl"
 
@@ -39,6 +26,9 @@ layout(std430, set = 0, binding = 6, scalar) readonly buffer ProbeSettingsBuffer
 layout(set = 0, binding = 7, scalar) buffer ProbeResultsBuffer {
     ProbeRayResult probe_results[];
 };
+layout(set = 0, binding = 7, scalar) buffer ProbeResultsPacked {
+    ProbeRayPacked packed_probe_results[];
+};
 
 layout(location = 0) rayPayloadEXT RayData data;
 layout(location = 2) rayPayloadEXT bool shadowed;
@@ -50,6 +40,7 @@ layout( push_constant ) uniform constants
     mat3 kRandomRotation;
 };
 
+// rtxgi distribution
 #define madfrac(A, B) ((A) * (B)-floor((A) * (B)))
 const float PHI = sqrt(5.0) * 0.5 + 0.5;
 vec3 spherical_fibonacci(float i, float n)
@@ -60,8 +51,6 @@ vec3 spherical_fibonacci(float i, float n)
 	return vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
 }
 
-
-
 void main() 
 {
     uint odd_frame = kFrame%2;
@@ -69,20 +58,10 @@ void main()
     uint probe_id = gl_LaunchIDEXT.x;
     LightProbe probe = probes[probe_id];
 
-    probes[probe_id].id = probe_id;
-
-    uvec3 probe_coord = index_1d(probe_settings.dim, probes[probe_id].id);
-
+    uvec3 probe_coord = index_1d(probe_settings.dim, probe_id);
 
     vec3 grid_size = light_probe_grid_size(probe_settings);
     float grid_max_distance  = max(grid_size.x, max(grid_size.y, grid_size.z)) * 1.5;
-
-
-    uint seed = tea(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x, kFrame);
-
-    xorshift(seed);
-    xorshift(seed);
-    xorshift(seed);
 
 	float tmin = 0.0;
 	float tmax = 10000.0;
@@ -90,67 +69,64 @@ void main()
     uint i = gl_LaunchIDEXT.y;
     vec3 probe_start_position = probe_position(probe_coord, light_probe_grid_size(probe_settings), probe_settings.aabb_min);
 
-    {
-	    vec4 origin = vec4(probe_start_position + probes[probe_id].p, 1.0);
-        vec4 direction = vec4(normalize(kRandomRotation * spherical_fibonacci(i, gl_LaunchSizeEXT.y)), 0);
-        
-        ProbeRayResult result;
-        result.direction = direction.xyz;
+    vec4 origin = vec4(probe_start_position + probes[probe_id].p, 1.0);
+    vec4 direction = vec4(normalize(kRandomRotation * spherical_fibonacci(i, gl_LaunchSizeEXT.y)), 0);
+    
+    ProbeRayResult result;
+    result.direction = direction.xyz;
 
-        vec3 color=vec3(0.0);
-        data.surface.point = origin.xyz;
-        data.surface.normal = direction.xyz;
-        data.surface.albedo = vec3(1.0);
-        data.surface.emissive = vec3(0.0);
-        data.distance = 0.0;
-        data.light_solution = InitLightSolution();
+    vec3 color=vec3(0.0);
 
-        traceRayEXT(topLevelAS, 
-            gl_RayFlagsNoneEXT, 
-            // gl_RayFlagsOpaqueEXT, 
-            0xff, 
-            0, 
-            0, 
-            0, 
-            origin.xyz, 
-            tmin, 
-            direction.xyz, 
-            tmax, 
-            0);
+    // set payload
+    data.direction = direction.xyz;
+    data.color = vec3(1.0);
+    data.distance = 0.0;
 
+    traceRayEXT(topLevelAS, 
+        gl_RayFlagsNoneEXT, 
+        // gl_RayFlagsOpaqueEXT, 
+        0xff, 
+        0, 
+        0, 
+        0, 
+        origin.xyz, 
+        tmin, 
+        direction.xyz, 
+        tmax, 
+        0);
 
-        if (data.distance > tmax) {
-            // color += data.color;
-            apply_light(data.surface, data.light_solution, color);
-        } else if (data.distance > tmin) {
-            apply_light(data.surface, data.light_solution, color);
-            // color += data.color;
-        } 
+    if (data.distance > tmax) {
+        color += data.color;
+    } else if (data.distance > tmin) {
+        color += data.color;
+    } 
 
-        // if (abs(direction.x) > abs(direction.y) && abs(direction.x) > abs(direction.z)) { color.rgb = vec3(direction.x > 0.0 ? 1.0 : 0.5, 0, 0); }
-        // else if (abs(direction.y) > abs(direction.x) && abs(direction.y) > abs(direction.z)) { color.rgb = vec3(0,direction.y > 0.0 ? 1.0 : 0.5, 0); }
-        // else if (abs(direction.z) > abs(direction.y) && abs(direction.z) > abs(direction.x)) { color.rgb = vec3(0,0,direction.z > 0.0 ? 1.0 : 0.5); }
-        
+    // if (abs(direction.x) > abs(direction.y) && abs(direction.x) > abs(direction.z)) { color.rgb = vec3(direction.x > 0.0 ? 1.0 : 0.5, 0, 0); }
+    // else if (abs(direction.y) > abs(direction.x) && abs(direction.y) > abs(direction.z)) { color.rgb = vec3(0,direction.y > 0.0 ? 1.0 : 0.5, 0); }
+    // else if (abs(direction.z) > abs(direction.y) && abs(direction.z) > abs(direction.x)) { color.rgb = vec3(0,0,direction.z > 0.0 ? 1.0 : 0.5); }
+    
 
-        if (data.distance < 0.0) { 
-            // backface
-            atomicAdd(probes[probe_id].backface_count, 1);
-        } else if (data.distance > tmax) { // fix sky distance
-            data.distance = grid_max_distance;
-        }
-
-        // color = sqrt(color);
-        
-        result.radiance = max(vec3(0.0), color);
-        // result.radiance = vec3(rnd(seed)*2.0-1.0);
-        // result.radiance = vec3(seed);
-        // result.radiance = data.normal.xyz;
-        // result.radiance = direction.xyz;
-        result.depth = data.distance;
-
-        uint result_start_index = probe_ray_start(probe_id, odd_frame);
-        probe_results[result_start_index + i] = result;
-        
-        atomicAdd(probes[probe_id].ray_count, 1);
+    if (data.distance < 0.0) { 
+        // backface
+        atomicAdd(probes[probe_id].ray_back_count, 1<<16);
+    } else if (data.distance > tmax) { // fix sky distance
+        data.distance = grid_max_distance;
     }
+
+    // color = sqrt(color);
+    
+    result.radiance = max(vec3(0.0), color);
+    result.depth = data.distance;
+
+    uint result_start_index = probe_ray_start(probe_id, odd_frame);
+
+    ProbeRayPacked packed_ray;
+    packed_ray.direction_depth = uvec2(pack_normal(result.direction.xyz), asuint(data.distance));
+    packed_ray.radiance = pack_half3(result.radiance);
+    // packed_ray.radiance = uvec2(pack_rgbe(result.radiance), 0);
+
+    packed_probe_results[result_start_index + i] = packed_ray;
+    // probe_results[result_start_index + i] = result;
+    
+    atomicAdd(probes[probe_id].ray_back_count, 1);
 }

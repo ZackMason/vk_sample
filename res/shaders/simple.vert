@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_420pack : enable
 
 #include "utl.glsl"
+#include "packing.glsl"
 
 layout(binding = 4, set = 1) uniform sampler2D uProbeSampler[2];
 #include "material.glsl"
@@ -104,6 +105,8 @@ main() {
 	vWorldPos = (M * vec4(vertex, 1.0)).xyz;
 
 	vN = normalize(M * vec4(normalize(aNormal), 0.0)).xyz;
+
+
 
 	gl_Position = PVM * vec4(vertex, 1. );
 }

@@ -45,10 +45,9 @@ layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Triangle indic
 
 hitAttributeEXT vec3 attribs;
 
-
 void main()
 {
-    vec3 direction = data.surface.normal.xyz;
+    vec3 direction = data.direction.xyz;
     MeshDesc mesh = uMeshDesc.i[gl_InstanceCustomIndexEXT];
     Vertices vertices = Vertices(mesh.vertex_ptr);
     Indices indices = Indices(mesh.index_ptr);
@@ -75,10 +74,7 @@ void main()
     float tmin = 0.001;
     float tmax = 1000.0;
     vec3 origin = wp + wn * 0.001;
-    float D = (gl_RayTminEXT + gl_HitTEXT) * sign(dot(-data.surface.normal, wn));
-    data.surface.normal = wn;
-    data.surface.point = wp;
-    data.surface.albedo = albedo.rgb;
+    float D = (gl_RayTminEXT + gl_HitTEXT) * sign(dot(-data.direction, wn));
 
     shadowed = true;
     float shadow = 1.0;
@@ -105,11 +101,11 @@ void main()
     
     data.distance = 0.0;
 
-    data.surface.normal = wn;
-    data.surface.point = wp;
-    data.surface.albedo = albedo.rgb;
-    data.surface.emissive = vec3(0.0);
-    Surface start_surface = data.surface;
+    Surface start_surface;
+    start_surface.normal = wn;
+    start_surface.point = wp;
+    start_surface.albedo = albedo.rgb;
+    start_surface.emissive = vec3(0.0);
 
     DirectionalLight sun = uEnvironment.sun;
     
@@ -120,7 +116,6 @@ void main()
     // light_solution.direct.diffuse *= saturate(light_probe_irradiance(wp, wn, wn, probe_settings) * 0.295 * 3.14150);
 
     for (uint i = 0; i < uEnvironment.light_count; i++) {
-        data.surface = start_surface;
         shadowed = true;
         shadow = 1.0;
         PointLight light = point_lights[i];
@@ -163,13 +158,11 @@ void main()
 
     }
 
-
     light_solution.indirect.diffuse += saturate(light_probe_irradiance(wp, direction.xyz, wn, probe_settings) * 0.00295 * probe_settings.boost);
 
-
-
-
-    data.surface = start_surface;
+    apply_light(start_surface, light_solution, data.color);
     data.distance = D;
-    data.light_solution = light_solution;
+
+    // data.color
+    // data.light_solution = light_solution;
 }

@@ -121,15 +121,20 @@ struct LightProbe {
     // SH9Irradiance irradiance;
     // SH9Depth depth;
     vec3 p;
-    uint id;
-    uint ray_count;
-    uint backface_count;
+    // uint id;
+    uint ray_back_count;
+    // uint backface_count;
 };
 
 struct ProbeRayResult {
     vec3 radiance;
     float depth;
     vec3 direction;
+};
+
+struct ProbeRayPacked {
+    uvec2 direction_depth; // packed normal, float
+    uvec2 radiance; // rgbe, unused
 };
 
 SH9 coefficients(in vec3 N) {

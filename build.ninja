@@ -2,8 +2,8 @@ include libs.ninja
 
 # Variables
 
-#OptimizationFlags = /DNDEBUG /O2 /fp:fast /arch:AVX2
-OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /O0 /fp:fast /arch:AVX2
+OptimizationFlags = /DNDEBUG /O2 /fp:fast /arch:AVX2
+#OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /O0 /fp:fast /arch:AVX2
 cflags = -FC -WX -W4 -wd4127 -wd4100 -wd4201 -wd4505 -wd4702 -wd4701 -wd4189 -MD -EHa /std:c++20
 lflags = -incremental:no -opt:ref user32.lib gdi32.lib shell32.lib /nologo /NOIMPLIB /NOEXP
 sdl_lflags = SDL2.lib SDL2_mixer.lib SDL2main.lib

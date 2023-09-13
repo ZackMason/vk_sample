@@ -87,6 +87,24 @@ vec2 normalized_oct_coord(ivec2 frag_coord, int probe_side_length)
     return (vec2(oct_frag_coord) + vec2(0.5f)) * (2.0f / float(probe_side_length)) - vec2(1.0f, 1.0f);
 }
 
+// Assume normalized input on +Z hemisphere.
+// Output is on [-1, 1].
+vec2 encode_hemioct(in vec3 v)
+{
+	// Project the hemisphere onto the hemi-octahedron,
+	// and then into the xy plane
+	vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + v.z));
+	// Rotate and scale the center diamond to the unit square
+	return vec2(p.x + p.y, p.x - p.y);
+}
+vec3 decode_hemioct(vec2 e)
+{
+	// Rotate and scale the unit square back to the center diamond
+	vec2 temp = vec2(e.x + e.y, e.x - e.y) * 0.5;
+	vec3 v = vec3(temp, 1.0 - abs(temp.x) - abs(temp.y));
+	return normalize(v);
+}
+
 vec3 probe_position(uvec3 probe_coord, vec3 grid_size, vec3 min_pos) {
 	return min_pos + grid_size * vec3(probe_coord);
 }
@@ -128,4 +146,10 @@ ivec2 probe_depth_texel(uvec3 probeCoord, vec3 direction, uvec3 dim)
 	vec2 pixel = probe_depth_pixel(probeCoord, dim);
 	pixel += (encode_oct(normalize(direction)) * 0.5 + 0.5) * PROBE_VISIBILITY_DIM;
 	return ivec2(pixel);
+}
+
+vec3 reproject(vec2 uv, float depth, mat4 inv_vp) {
+    vec4 s = vec4(uv.x*2.-1.,(1.-uv.y)*2.-1.,depth,1.);
+    vec4 v = inv_vp * s;
+    return v.xyz/v.w;
 }

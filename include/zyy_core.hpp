@@ -121,6 +121,7 @@ using v4f = glm::vec4;
 
 using v2i = glm::ivec2;
 using v3i = glm::ivec3;
+using v2u = glm::uvec2;
 using v3u = glm::uvec3;
 using v4i = glm::ivec4;
 
@@ -5575,3 +5576,28 @@ auto generic(auto&& fn) {
 }
 
 };
+
+namespace packing {
+
+    u32 pack_normal(v3f n) {
+        u32 r=0;
+        r |= u32((n.x*0.5f+0.5f)*255.0f)<<0;
+        r |= u32((n.y*0.5f+0.5f)*255.0f)<<8;
+        r |= u32((n.z*0.5f+0.5f)*255.0f)<<16;
+        return r;
+    }
+
+    v3f unpack_normal(u32 p) {
+        v3f n;
+        n.x = f32((p>>0)&0xff)/255.0f*2.0f-1.0f;
+        n.y = f32((p>>8)&0xff)/255.0f*2.0f-1.0f;
+        n.z = f32((p>>16)&0xff)/255.0f*2.0f-1.0f;
+        return n;
+    }
+
+    v2u u32tov2u(u32 x) {
+        return v2u(u16(x&0xffff), u16((x>>16)&0xffff));
+    } 
+
+};
+

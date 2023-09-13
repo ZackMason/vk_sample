@@ -7,7 +7,6 @@
 #include "pbr.glsl"
 
 
-
 layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 layout( set = 4, binding = 1 ) uniform sampler2D uProbeTexture[2];
 layout( set = 4, binding = 1 ) uniform sampler2D uProbeSampler[2];

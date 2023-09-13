@@ -46,15 +46,31 @@ namespace rendering::lighting {
     struct probe_t {
         // sh9_irradiance_t irradiance;
         v3f position{};
-        u32 id{0};
-        u32 ray_count{0};
-        u32 backface_count{0};
+        // u32 id{0};
+        u32 ray_back_count{0};
+
+        u16 ray_count() {
+            return ray_back_count&0xffff;
+        }
+        u16 backface_count() {
+            return (ray_back_count>>16)&0xffff;
+        }
+
+        bool is_off() {
+            return backface_count() > (ray_count()>>1);
+        }
+        // u32 backface_count{0};
     };
 
+    // struct probe_ray_result_t {
+    //     v3f radiance;
+    //     f32 depth;
+    //     v3f direction;
+    // };
+
     struct probe_ray_result_t {
-        v3f radiance;
-        f32 depth;
-        v3f direction;
+        v2u direction_depth;
+        v2u radiance;
     };
 
     struct probe_settings_t {
@@ -158,9 +174,9 @@ namespace rendering::lighting {
                 range_u32(x, 0, probe_count.x) {
                     assert(v3u(x,y,z) == index_3d(probe_count, i));
                     assert(i == index_1d(probe_count, v3u{x,y,z}));
-                    auto* probe = probe_box->probes + i;
+                    auto* probe = probe_box->probes + i++;
                     probe->position = probe_box->aabb.min + step_size * v3f{x,y,z};
-                    probe->id = i++;
+                    // probe->id = i++;
                 }
             }
         }
@@ -186,13 +202,13 @@ namespace rendering::lighting {
         range_u32(z, 0, probe_count.z) {
             range_u32(y, 0, probe_count.y) {
                 range_u32(x, 0, probe_count.x) {
-                    auto* probe = probe_box->probes + i;
+                    auto* probe = probe_box->probes + i++;
                     assert(v3u(x,y,z) == index_3d(probe_count, i));
                     assert(i == index_1d(probe_count, v3u{x,y,z}));
                     probe->position = probe_box->aabb.min + step_size * v3f{x,y,z};
-                    probe->id = i++;
-                    probe->ray_count = 0;
-                    probe->backface_count = 0;
+                    // probe->id = i++;
+                    // probe->ray_count = 0;
+                    // probe->backface_count = 0;
                 }
             }
         }
@@ -201,8 +217,8 @@ namespace rendering::lighting {
     v3f probe_start_position(v3u probe_coord, v3f grid_size, v3f min_pos) {
 	    return min_pos + grid_size * v3f(probe_coord);
     }
-    v3f probe_position(probe_box_t* probe_box, probe_t* probe) {
-        return probe->position + probe_start_position(index_3d(probe_box->settings.dim, probe->id), v3f{probe_box->grid_size}, probe_box->aabb.min);
+    v3f probe_position(probe_box_t* probe_box, probe_t* probe, u32 id) {
+        return probe->position + probe_start_position(index_3d(probe_box->settings.dim, id), v3f{probe_box->grid_size}, probe_box->aabb.min);
     }
 }
 

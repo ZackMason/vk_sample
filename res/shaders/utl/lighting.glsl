@@ -4,6 +4,7 @@ struct Surface {
     vec3 normal;
     vec3 emissive;
     float occlusion;
+    float roughness;
 };
 
 struct Lighting {
@@ -73,7 +74,7 @@ void directional_light(
 ) {
     float nol = max(dot(surface.normal, light.direction.xyz), 0.0);
 
-    light_solution.direct.diffuse += saturate(nol * light.color.rgb * shadow);
+    light_solution.direct.diffuse += saturate(nol) * light.color.rgb * shadow;
 }
 
 float point_light_attenuation(in float dist2, in float range2) {

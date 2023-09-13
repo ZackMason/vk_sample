@@ -29,7 +29,10 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
         uint adj_probe_index = index_3d(settings.dim, adj_probe_coord);
 
         // ignore probes inside walls
-        if (probes[adj_probe_index].ray_count / 2 < probes[adj_probe_index].backface_count) { continue; }
+        uint ray_count = probes[adj_probe_index].ray_back_count & 0xffff;
+        uint backface_count = (probes[adj_probe_index].ray_back_count>>16) & 0xffff;
+    
+        if (ray_count / 2 < backface_count) { continue; }
 
         vec3 adj_probe_pos = probe_position(adj_probe_coord, settings.grid_size, settings.aabb_min) + probes[adj_probe_index].p;
 		

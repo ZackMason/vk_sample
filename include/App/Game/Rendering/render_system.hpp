@@ -1228,6 +1228,10 @@ public:
         job->material = mat_id;
         job->instance_count = instance_count;
 
+        // this material setup will fundamentally not work with raytracing and instancing like this
+        // it either needs to be split up, or each submesh needs its own material
+        // probably the later
+
         for (size_t i = 0; i < job->meshes->count; i++) {
             for (size_t j = 0; j < instance_count && j < 10; j++) { // @hardcoded limit for instancing
                 rs->get_frame_data().rt_compute_pass.add_to_tlas(
@@ -1237,7 +1241,6 @@ public:
                     instance_count == 1 ? transform : transform * instance_buffer[instance_offset + j]
                 );
             }
-
 
             gfx::indirect_indexed_draw_t* draw_cmd = rs->get_frame_data().indexed_indirect_storage_buffer.pool.allocate(1);
             draw_cmd->index_count = job->meshes->meshes[i].index_count;

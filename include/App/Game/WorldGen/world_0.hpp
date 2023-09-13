@@ -374,6 +374,11 @@ generate_world_0(arena_t* arena) {
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         // zyy::spawn(world, world->render_system(), zyy::db::rooms::sponza);
         zyy::spawn(world, world->render_system(), zyy::db::misc::platform_1000, axis::down);
+        zyy::spawn(world, world->render_system(), {
+            .gfx = {
+                .mesh_name = "res/models/rooms/house_02.gltf"
+            }
+        }, v3f{45.0f, 0.0f, 45.0f});
         zyy::spawn(world, world->render_system(), zyy::db::rooms::temple_01, axis::left * 150.0f)->gfx.material_id = 0;
         zyy::spawn(world, world->render_system(), zyy::db::rooms::parkcore_01, axis::right * 150.0f)->gfx.material_id = 1;
         auto enemy_room = zyy::db::rooms::parkcore_02;

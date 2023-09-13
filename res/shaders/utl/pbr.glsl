@@ -1,5 +1,8 @@
 const float PI = 3.14159;
 
+#define MEDIUMP_FLT_MAX    65504.0
+#define saturateMediump(x) min(x, MEDIUMP_FLT_MAX)
+#define highp
 
 vec3 filament_Schlick(const vec3 f0, float VoH) {
     float f = pow(1.0 - VoH, 5.0);
@@ -17,7 +20,7 @@ float filament_Schlick(float u, float f0, float f90) {
 float filament_DGGX(float NoH, float roughness) {
     float a = NoH * roughness;
     float k = roughness / (1.0 - NoH * NoH + a * a);
-    return k * k * (1.0 / PI);
+    return saturateMediump(k * k * (1.0 / PI));
 }
 
 float filament_DGGX2(float NoH, float a) {
@@ -50,7 +53,7 @@ float filament_SmithGGXCorrelated(float NoV, float NoL, float a) {
     float a2 = a * a;
     float GGXL = NoV * sqrt((-NoL * a2 + NoL) * NoL + a2);
     float GGXV = NoL * sqrt((-NoV * a2 + NoV) * NoV + a2);
-    return 0.5 / max(GGXV + GGXL, 1e-5);
+    return saturateMediump(0.5 / max(GGXV + GGXL, 1e-5));
 }
 
 float filament_DLambert() {

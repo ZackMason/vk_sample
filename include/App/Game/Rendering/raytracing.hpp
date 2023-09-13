@@ -197,6 +197,7 @@ struct rt_cache_t {
             VkDeviceOrHostAddressConstKHR index_buffer_device_address{};
 
             rt_data[b].texture_id = u32(m.material.albedo_id);
+            rt_data[b].texture_id = u32(m.material.albedo_id);
             rt_data[b].vertex_ptr = vertex_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(vertex_buffer.buffer) + sizeof(gfx::vertex_t) * m.vertex_start;
             rt_data[b].index_ptr = index_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(index_buffer.buffer) + sizeof(u32) * m.index_start;
 

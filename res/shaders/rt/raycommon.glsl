@@ -2,11 +2,11 @@
 
 struct MeshDesc
 {
-    int      texture_id;             // Texture index offset in the array of textures
-    uint64_t vertex_ptr;         // Address of the Vertex buffer
-    uint64_t index_ptr;          // Address of the index buffer
-    uint64_t material_ptr;       // Address of the material buffer
-    uint64_t material_id;  // Address of the triangle material index buffer
+  int      texture_id;             // Texture index offset in the array of textures
+  uint64_t vertex_ptr;         // Address of the Vertex buffer
+  uint64_t index_ptr;          // Address of the index buffer
+  uint64_t material_ptr;       // Address of the material buffer
+  uint64_t material_id;  // Address of the triangle material index buffer
 };
 
 struct Vertex
@@ -18,7 +18,7 @@ struct Vertex
 };
 
 struct RayData {
-  Surface surface;
-  TotalLight light_solution;
+  vec3 direction;
   float distance;
+  vec3 color;  
 };

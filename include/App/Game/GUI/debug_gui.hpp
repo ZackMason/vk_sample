@@ -476,20 +476,20 @@ draw_gui(game_memory_t* game_memory) {
                     im::text(state, fmt_sv("--- AABB: {} - {}", probe_settings.aabb_min, probe_settings.aabb_max));
                     im::text(state, fmt_sv("--- Dim: {} x {} x {}", probe_settings.dim.x, probe_settings.dim.y, probe_settings.dim.z));
                     u32 probe_count = probe_settings.dim.x * probe_settings.dim.y * probe_settings.dim.z;
-                    range_u64(i, 0, probe_count) {
+                    range_u32(i, 0, probe_count) {
                         auto& p = probes[i];
                         // im::text(state, fmt_sv("P[{}].SH[2]: {}", p.id, p.irradiance.h[2]));
                         // im::text(state, fmt_sv("P[{}].SH[5]: {}", p.id, p.irradiance.h[5]));
-                        auto color = (p.ray_count / 2 < p.backface_count) ?
+                        auto color = (p.is_off()) ?
                             gfx::color::rgba::red : gfx::color::rgba::white;
-                        if (im::draw_circle_3d(state, vp, rendering::lighting::probe_position(probe_box, &p), 0.1f, color)) {
+                        if (im::draw_circle_3d(state, vp, rendering::lighting::probe_position(probe_box, &p, i), 0.1f, color)) {
                             auto push_theme = state.theme;
                             state.theme.border_radius = 1.0f;
-                            if (im::begin_panel_3d(state, "probe"sv, vp, rendering::lighting::probe_position(probe_box, &p))) {
-                                im::text(state, fmt_sv("Probe ID: {}"sv, p.id));
+                            if (im::begin_panel_3d(state, "probe"sv, vp, rendering::lighting::probe_position(probe_box, &p, i))) {
+                                // im::text(state, fmt_sv("Probe ID: {}"sv, p.id));
                                 im::text(state, fmt_sv("Pos: {}", p.position));
-                                im::text(state, fmt_sv("Ray Count: {}", p.ray_count));
-                                im::text(state, fmt_sv("Backface Count: {}", p.backface_count));
+                                im::text(state, fmt_sv("Ray Count: {}", p.ray_count()));
+                                im::text(state, fmt_sv("Backface Count: {}", p.backface_count()));
                                 
                                 im::end_panel(state);
                             }
