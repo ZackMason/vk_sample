@@ -161,6 +161,7 @@ const ivec4 border_offsets[36] = ivec4[](
 // #define SHARED_MEMORY
 
 void main() {
+    // if (kFrame == 0) return;
     uint odd_frame = kFrame % 2;
     bool adjust_offset = true;
 
@@ -271,9 +272,9 @@ void main() {
                 weight = saturate(dot(ray.direction, texel_dir));
 
         #ifdef INTEGRATE_DEPTH
-                if (ray.depth > 0.0 && ray.depth < offset_distance) 
+                if (abs(ray.depth) < offset_distance) 
                 {
-                    new_offset -= ray.direction * (offset_distance - ray.depth);
+                    new_offset -= ray.direction * (offset_distance - abs(ray.depth));
                 }
         #endif
 
@@ -311,9 +312,9 @@ void main() {
         result.rgb *= 1.0 / (2.0f * max(result.a, epsilon));
 
     #ifdef INTEGRATE_DEPTH
-        vec3 current = imageLoad(uProbeTexture[1], ivec2(pixel)).rgb;
-        if (kFrame != 0) {
-            result.rgb = saturate(mix(current.rgb, result.rgb, probe_settings.hysteresis));
+        if (kFrame > 1) {
+            vec3 current = imageLoad(uProbeTexture[1], ivec2(pixel)).rgb;
+            result.rgb = max(vec3(0.0), mix(current.rgb, result.rgb, probe_settings.hysteresis));
         }
         imageStore(uProbeTexture[1], ivec2(pixel), vec4(result.rgb, 1.0));
 
@@ -325,11 +326,11 @@ void main() {
             probes[probe_id].p = probe_offset;
         }
     #else
-        result.rgb = sqrt(result.rgb);
+        // result.rgb = sqrt(result.rgb);
 
-        if (kFrame != 0) {
+        if (kFrame > 1) {
             vec3 current = imageLoad(uProbeTexture[0], ivec2(pixel)).rgb;
-            result.rgb = saturate(mix(current.rgb, result.rgb, probe_settings.hysteresis));
+            result.rgb = max(vec3(0.0), mix(current.rgb, result.rgb, probe_settings.hysteresis));
         }
         // result.rgb = abs(max(vec3(0.0), texel_dir.rgb));
         // result.rgb = abs(min(vec3(0.0), texel_dir.rgb));
@@ -347,13 +348,13 @@ void main() {
     // if (false) 
     {
 #ifdef INTEGRATE_DEPTH
-        for (uint i = gl_LocalInvocationIndex; i < 68; i += 16*16) {
+        for (uint i = gl_LocalInvocationIndex; i < 68; i += 18*18) {
             uvec2 src = pixel_top_left - 1 + border_offsets[i].xy;
             uvec2 dst = pixel_top_left - 1 + border_offsets[i].zw;
             imageStore(uProbeTexture[1], ivec2(dst), imageLoad(uProbeTexture[1], ivec2(src)));
         }
 #else
-        for (uint i = gl_LocalInvocationIndex; i < 36; i += 8*8) {
+        for (uint i = gl_LocalInvocationIndex; i < 36; i += 10*10) {
             uvec2 src = pixel_top_left - 1 + border_offsets[i].xy;
             uvec2 dst = pixel_top_left - 1 + border_offsets[i].zw;
             imageStore(uProbeTexture[0], ivec2(dst), imageLoad(uProbeTexture[0], ivec2(src)));

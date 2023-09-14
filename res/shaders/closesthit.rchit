@@ -16,6 +16,7 @@ layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[2];
 layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];
 
+
 #include "material.glsl"
 layout(std430, set = 0, binding = 5, scalar) buffer ProbeBuffer {
 	LightProbe probes[];
@@ -44,6 +45,16 @@ layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Triangle indic
 
 
 hitAttributeEXT vec3 attribs;
+
+layout( push_constant ) uniform constants
+{
+    mat4 kRandomRotation;
+    uint64_t kScenePtr;
+    uint kFrame;
+    uint kSuperSample;
+    // uint kScenePtr[2];
+};
+
 
 void main()
 {
@@ -111,7 +122,7 @@ void main()
     
     TotalLight light_solution = InitLightSolution();
 
-    // directional_light(sun, data.surface, light_solution, shadow);
+    // directional_light(sun, start_surface, light_solution, shadow);
 
     // light_solution.direct.diffuse *= saturate(light_probe_irradiance(wp, wn, wn, probe_settings) * 0.295 * 3.14150);
 
@@ -158,7 +169,9 @@ void main()
 
     }
 
-    light_solution.indirect.diffuse += saturate(light_probe_irradiance(wp, direction.xyz, wn, probe_settings) * 0.00295 * probe_settings.boost);
+    if (kFrame != 0) {
+        light_solution.direct.diffuse += max(vec3(0.0), albedo.rgb * light_probe_irradiance(wp, direction.xyz, wn, probe_settings) * 0.95 * probe_settings.boost);
+    }
 
     apply_light(start_surface, light_solution, data.color);
     data.distance = D;
@@ -166,3 +179,5 @@ void main()
     // data.color
     // data.light_solution = light_solution;
 }
+
+

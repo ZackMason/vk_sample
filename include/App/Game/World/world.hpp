@@ -163,7 +163,16 @@ namespace zyy {
         entity_t* entity = world_create_entity(world);
         entity_init(entity, rendering::safe_get_mesh_id(rs, def.gfx.mesh_name));
 
+        entity->gfx.gfx_id  = rendering::register_entity(rs);
+
         if (def.gfx.mesh_name != ""sv) {
+            auto& mesh_list = rendering::get_mesh(rs, def.gfx.mesh_name);
+            entity->gfx.gfx_entity_count = mesh_list.count;
+            rendering::initialize_entity(rs, entity->gfx.gfx_id, mesh_list.meshes[0].vertex_start, mesh_list.meshes[0].index_start);
+            for(u64 i = 1; i < mesh_list.count; i++) {
+                rendering::register_entity(rs);
+                rendering::initialize_entity(rs, entity->gfx.gfx_id + i, mesh_list.meshes[i].vertex_start, mesh_list.meshes[i].index_start);
+            }
             entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
         }
         if (def.type_name != ""sv) {

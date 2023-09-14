@@ -1,9 +1,11 @@
+
+// line bug is effected by dir
 vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings settings) {
     vec3 irradiance = vec3(0.0);
 
     float total_weight = 0.0;
 
-    vec3 biased_world_pos = p + (n * 0.02 + dir * 0.62);
+    vec3 biased_world_pos = p + (n * 0.02 + dir * 0.062);
     // vec3 biased_world_pos =     p + (n * 0.02);
     uvec3 biased_probe_coord = light_probe_probe_index(settings, biased_world_pos);
     // uint biased_probe_id = index_1d(settings.dim, biased_probe_coord);
@@ -11,7 +13,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
     vec3 biased_probe_true_pos = probe_position(biased_probe_coord, settings.grid_size, settings.aabb_min);
 
     vec3 grid_distance = (biased_world_pos - biased_probe_true_pos);
-    vec3 alpha = saturate(grid_distance / settings.grid_size);
+    vec3 alpha = saturate(grid_distance / (settings.grid_size));
     
     // vec3 grid_size = light_probe_grid_size(settings);
 
@@ -66,7 +68,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
 		
         vec3 probe_irradiance = texture(uProbeSampler[0], probe_color_uv(adj_probe_coord, n, settings.dim, 1.0/textureSize(uProbeSampler[0],0).xy)).rgb;
         // linear
-        probe_irradiance = sqrt(saturate(probe_irradiance));
+        probe_irradiance = sqrt(max(vec3(0.0), probe_irradiance));
 
         const float crush = 0.2;
         if (weight < crush) {
@@ -78,7 +80,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
         irradiance += probe_irradiance * weight;
         total_weight += weight;
 	}
-
+    // return vec3(total_weight);
     if (total_weight==0.0) { return vec3(0.0); }
     
     irradiance /= total_weight;

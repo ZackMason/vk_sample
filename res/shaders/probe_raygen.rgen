@@ -1,8 +1,12 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
-#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_scalar_block_layout : enable
+#extension GL_EXT_nonuniform_qualifier : enable
 
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_buffer_reference2 : require
+
+#include "engine.glsl"
 #include "packing.glsl"
 #include "rng.glsl"
 #include "utl.glsl"
@@ -30,14 +34,20 @@ layout(set = 0, binding = 7, scalar) buffer ProbeResultsPacked {
     ProbeRayPacked packed_probe_results[];
 };
 
+// layout(buffer_reference, scalar) buffer SceneRef { Scene s; };
+// layout(buffer_reference, scalar) buffer TLASRef { accelerationStructureEXT tlas; };
+
 layout(location = 0) rayPayloadEXT RayData data;
 layout(location = 2) rayPayloadEXT bool shadowed;
 
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 layout( push_constant ) uniform constants
 {
+    mat4 kRandomRotation;
+    uint64_t kScenePtr;
     uint kFrame;
     uint kSuperSample;
-    mat3 kRandomRotation;
+    // uint kScenePtr[2];
 };
 
 // rtxgi distribution
@@ -70,7 +80,7 @@ void main()
     vec3 probe_start_position = probe_position(probe_coord, light_probe_grid_size(probe_settings), probe_settings.aabb_min);
 
     vec4 origin = vec4(probe_start_position + probes[probe_id].p, 1.0);
-    vec4 direction = vec4(normalize(kRandomRotation * spherical_fibonacci(i, gl_LaunchSizeEXT.y)), 0);
+    vec4 direction = vec4(normalize(mat3(kRandomRotation) * spherical_fibonacci(i, gl_LaunchSizeEXT.y)), 0);
     
     ProbeRayResult result;
     result.direction = direction.xyz;
@@ -79,9 +89,10 @@ void main()
 
     // set payload
     data.direction = direction.xyz;
-    data.color = vec3(1.0);
+    data.color = vec3(0.0);
     data.distance = 0.0;
 
+  
     traceRayEXT(topLevelAS, 
         gl_RayFlagsNoneEXT, 
         // gl_RayFlagsOpaqueEXT, 
@@ -94,6 +105,7 @@ void main()
         direction.xyz, 
         tmax, 
         0);
+
 
     if (data.distance > tmax) {
         color += data.color;

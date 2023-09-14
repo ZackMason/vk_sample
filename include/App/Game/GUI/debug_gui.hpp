@@ -79,8 +79,8 @@ draw_gui(game_memory_t* game_memory) {
         // &game_state->game_world->physics->default_allocator.heap_arena,
         &game_state->render_system->arena,
         &game_state->render_system->frame_arena,
-        &game_state->render_system->vertices.pool,
-        &game_state->render_system->indices.pool,
+        &game_state->render_system->scene_context->vertices.pool,
+        &game_state->render_system->scene_context->indices.pool,
         &game_state->gui.vertices[!(frame&1)].pool,
         &game_state->gui.indices[!(frame&1)].pool,
         &game_state->render_system->instance_storage_buffer.pool,
@@ -112,7 +112,8 @@ draw_gui(game_memory_t* game_memory) {
     };
 
     // std::lock_guard lock{game_state->render_system->ticket};
-    gfx::gui::ctx_clear(&game_state->gui.ctx, &game_state->gui.vertices[(frame&1)].pool, &game_state->gui.indices[frame&1].pool);
+    gfx::gui::ctx_clear(&game_state->gui.ctx, 
+        &game_state->gui.vertices[(frame&1)].pool, &game_state->gui.indices[(frame&1)].pool);
     
     const auto dt = game_memory->input.dt;
 

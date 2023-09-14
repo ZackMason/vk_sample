@@ -121,9 +121,11 @@ using v4f = glm::vec4;
 
 using v2i = glm::ivec2;
 using v3i = glm::ivec3;
+using v4i = glm::ivec4;
 using v2u = glm::uvec2;
 using v3u = glm::uvec3;
-using v4i = glm::ivec4;
+using v4u = glm::uvec4;
+
 
 using quat = glm::quat;
 using m22 = glm::mat2x2;

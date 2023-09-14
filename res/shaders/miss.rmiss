@@ -21,7 +21,7 @@ void main()
     // data.color = vec3(0.1961, 0.451, 0.9255);
     // data.color = sqrt(sqrt(sky_color(data.normal, normalize(vec3(1,30,2))))); // breaks light probes
     vec3 L = normalize(uEnvironment.sun.direction.xyz);
-    data.color = (sqrt(sky_color(data.direction, L))) / 3.1415; // breaks light probes
+    data.color = (sqrt(max(vec3(0.0), sky_color(data.direction, L)))) / 3.1415; // breaks light probes
     
     // data.color = vec3(0.99, 0.98, 0.82);
     

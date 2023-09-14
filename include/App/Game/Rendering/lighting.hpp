@@ -202,9 +202,9 @@ namespace rendering::lighting {
         range_u32(z, 0, probe_count.z) {
             range_u32(y, 0, probe_count.y) {
                 range_u32(x, 0, probe_count.x) {
-                    auto* probe = probe_box->probes + i++;
                     assert(v3u(x,y,z) == index_3d(probe_count, i));
                     assert(i == index_1d(probe_count, v3u{x,y,z}));
+                    auto* probe = probe_box->probes + i++;
                     probe->position = probe_box->aabb.min + step_size * v3f{x,y,z};
                     // probe->id = i++;
                     // probe->ray_count = 0;

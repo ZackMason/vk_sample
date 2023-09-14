@@ -131,7 +131,7 @@ generate_sponza(arena_t* arena) {
 
         auto aabb = sponza->global_transform().xform_aabb(sponza->aabb);
         // world->render_system()->light_probes.grid_size = 3.0f;
-        // world->render_system()->light_probes.grid_size = 2.0f*1.6180f;
+        // world->render_system()->light_probes.grid_size = 2.0f;
         // rendering::update_probe_aabb(world->render_system(), aabb);
     });
 
@@ -225,7 +225,7 @@ generate_probe_test(arena_t* arena) {
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
-       world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{-1.0};
+    //    world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{-1.0};
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::left * 15.0f);
@@ -240,13 +240,13 @@ generate_probe_test(arena_t* arena) {
         };
         zyy::db::prefab_t shaderball_prefab {
             .gfx = {
-                .mesh_name = "res/models/shaderball.obj"
+                .mesh_name = "res/models/dragon.obj"
             }
         };
         zyy::spawn(world, world->render_system(), prefab, axis::backward * 10.12310f)->gfx.material_id = 1;
-        auto* ball = zyy::spawn(world, world->render_system(), shaderball_prefab); 
-        ball->gfx.material_id = 1;
-        ball->transform.set_scale(v3f{6.0f});
+        auto* ball = zyy::spawn(world, world->render_system(), shaderball_prefab, axis::up * 2.0f); 
+        ball->gfx.material_id = 0;
+        ball->transform.set_scale(v3f{0.05f});
 
         // rendering::create_point_light(world->render_system(), axis::up*2.0f, 20.0f, v3f{0.8f});
 

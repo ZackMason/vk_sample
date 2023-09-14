@@ -752,8 +752,8 @@ app_on_init(game_memory_t* game_memory) {
 
     {
         auto& rs = game_state->render_system;
-        auto& vertices = rs->vertices.pool;
-        auto& indices = rs->indices.pool;
+        auto& vertices = rs->scene_context->vertices.pool;
+        auto& indices = rs->scene_context->indices.pool;
         prcgen::mesh_builder_t builder{vertices, indices};
 
         builder.add_box({v3f{-1.0f}, v3f{1.0f}});
@@ -1078,7 +1078,7 @@ wait_for_frame(game_state_t* game_state) {
     TIMED_FUNCTION;
     gfx::vul::state_t& vk_gfx = game_state->gfx;
 
-    // vkDeviceWaitIdle(vk_gfx.device);
+    vkDeviceWaitIdle(vk_gfx.device);
 
     return rendering::wait_for_frame(game_state->render_system);
 
@@ -1253,13 +1253,13 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
             rendering::begin_rt_pass(game_state->render_system, command_buffer);
         // } else {
             // game_state->render_system->rt_cache->frame = 0;
-            VkBuffer buffers[1] = { game_state->render_system->vertices.buffer };
+            VkBuffer buffers[1] = { game_state->render_system->scene_context->vertices.buffer };
             VkDeviceSize offsets[1] = { 0 };
 
             vkCmdBindVertexBuffers(command_buffer, 0, 1, buffers, offsets);
 
             vkCmdBindIndexBuffer(command_buffer,
-                game_state->render_system->indices.buffer, 0, VK_INDEX_TYPE_UINT32
+                game_state->render_system->scene_context->indices.buffer, 0, VK_INDEX_TYPE_UINT32
             );
 
             gfx::vul::utl::insert_image_memory_barrier(
@@ -1520,7 +1520,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
             ext.vkCmdBindShadersEXT(command_buffer, 2, stages, gui_shaders);
 
             vkCmdDrawIndexed(command_buffer,
-                (u32)game_state->gui.ctx.indices->count(),
+                (u32)gui_indices.pool.count(),
                 1,
                 0,
                 0,

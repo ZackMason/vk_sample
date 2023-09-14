@@ -6,8 +6,11 @@ glslc %OptFlags% %IncFlags% res/shaders/closesthit.rchit -o res/shaders/bin/clos
 glslc %OptFlags% %IncFlags% res/shaders/miss.rmiss -o res/shaders/bin/miss.rmiss.spv
 glslc %OptFlags% %IncFlags% res/shaders/anyhit.rahit -o res/shaders/bin/anyhit.rahit.spv
 glslc %OptFlags% %IncFlags% res/shaders/shadow.rmiss -o res/shaders/bin/shadow.rmiss.spv
-glslc %OptFlags% %IncFlags% res/shaders/raygen.rgen -o res/shaders/bin/raygen.rgen.spv
+rem glslc %OptFlags% %IncFlags% res/shaders/raygen.rgen -o res/shaders/bin/raygen.rgen.spv
+glslc %OptFlags% %IncFlags% res/shaders/probe_raygen.rgen -o res/shaders/bin/probe_raygen.rgen.spv
 
+glslc %OptFlags% %IncFlags% res/shaders/probe_integrate.comp -o res/shaders/bin/probe_integrate.comp.spv
+glslc %OptFlags% %IncFlags% res/shaders/probe_integrate_depth.comp -o res/shaders/bin/probe_integrate_depth.comp.spv
 glslc %OptFlags% %IncFlags% res/shaders/rt_compute.comp -o res/shaders/bin/rt_compute.comp.spv
 glslc %OptFlags% %IncFlags% res/shaders/probe_integrate.comp -o res/shaders/bin/probe_integrate.comp.spv
 

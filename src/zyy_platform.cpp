@@ -585,7 +585,7 @@ main(int argc, char* argv[]) {
     });
 #endif
     
-    game_memory.input.pressed.keys[key_id::F9] = 1;
+    // game_memory.input.pressed.keys[key_id::F9] = 1;
 
     _set_se_translator([](unsigned int u, EXCEPTION_POINTERS *pExp) {
         std::string error = "SE Exception: ";

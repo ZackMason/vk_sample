@@ -7,6 +7,7 @@
 
 #include "App/Game/Util/loading.hpp"
 
+#include "scene.hpp"
 #include "lighting.hpp"
 #include "assets.hpp"
 #include "descriptor_allocator.hpp"
@@ -741,15 +742,13 @@ public:
             VkSubmitInfo submitInfo{};
             submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-            VkSemaphore waitSemaphores[] = {render_semaphore};
             VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
             submitInfo.waitSemaphoreCount = 1;
-            submitInfo.pWaitSemaphores = waitSemaphores;
+            submitInfo.pWaitSemaphores = &render_semaphore;
             submitInfo.pWaitDstStageMask = waitStages;
 
-            VkSemaphore signalSemaphores[] = {present_semaphore};
             submitInfo.signalSemaphoreCount = 1;
-            submitInfo.pSignalSemaphores = signalSemaphores;
+            submitInfo.pSignalSemaphores = &present_semaphore;
 
             submitInfo.commandBufferCount = 1;
             submitInfo.pCommandBuffers = &command_buffer;
@@ -763,7 +762,7 @@ public:
             presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
             presentInfo.waitSemaphoreCount = 1;
-            presentInfo.pWaitSemaphores = signalSemaphores;
+            presentInfo.pWaitSemaphores = &present_semaphore;
 
             presentInfo.swapchainCount = 1;
             presentInfo.pSwapchains = &swap_chain;
@@ -794,24 +793,11 @@ public:
         }
     };
 
-
-    struct padded_vertex_t {
-        v3f p;
-        float p0;
-        v3f n;
-        float p1;
-        v3f c;
-        float p2;
-        v2f t;
-        float p3;
-        float p4;
-    };
     
     struct system_t {
         inline static constexpr umm  frame_arena_size = megabytes(64);
         inline static constexpr u32     frame_overlap = 2;
-        inline static constexpr umm max_scene_vertex_count{10'000'000};
-        inline static constexpr umm max_scene_index_count{30'000'000};
+
         inline static constexpr umm max_scene_skinned_vertex_count{1'000'000};
         inline static constexpr umm max_scene_skinned_index_count{3'000'000};
 
@@ -851,9 +837,6 @@ public:
         gfx::vul::framebuffer_t* render_targets{0};
         u32                     render_target_count{0};
 
-        gfx::vul::vertex_buffer_t<gfx::vertex_t, max_scene_vertex_count> vertices;
-        gfx::vul::index_buffer_t<max_scene_index_count> indices;
-
         gfx::vul::vertex_buffer_t<gfx::skinned_vertex_t, max_scene_skinned_vertex_count> skinned_vertices;
         gfx::vul::index_buffer_t<max_scene_skinned_index_count> skinned_indices;
 
@@ -867,6 +850,8 @@ public:
         gfx::vul::storage_buffer_t<lighting::point_light_t, 512> point_light_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 256>                animation_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 2'000'000>          instance_storage_buffer;
+
+        scene_context_t* scene_context{0};
 
         m44 vp{1.0f};
         m44 projection{1.0f};
@@ -947,8 +932,8 @@ public:
             rs->vk_gfx->destroy_data_buffer(rs->frames[i].indexed_indirect_storage_buffer);
         }
 
-        rs->vk_gfx->destroy_data_buffer(rs->vertices);
-        rs->vk_gfx->destroy_data_buffer(rs->indices);
+        // rs->vk_gfx->destroy_data_buffer(rs->vertices);
+        // rs->vk_gfx->destroy_data_buffer(rs->indices);
         rs->vk_gfx->destroy_data_buffer(rs->skinned_vertices);
         rs->vk_gfx->destroy_data_buffer(rs->skinned_indices);
         range_u64(i,0,rs->frame_overlap)
@@ -1137,20 +1122,22 @@ public:
         for (int i = 0; i < system_t::frame_overlap; i++) {
             VK_OK(vkCreateCommandPool(state.device, &command_pool_info, nullptr, &rs->frames[i].command_pool));
 
-            //allocate the default command buffer that we will use for rendering
             auto cmdAllocInfo = gfx::vul::utl::command_buffer_allocate_info(rs->frames[i].command_pool, 1);
 
             VK_OK(vkAllocateCommandBuffers(state.device, &cmdAllocInfo, &rs->frames[i].command_buffer));
         }
 
-        state.create_vertex_buffer(&rs->vertices);
-        state.create_index_buffer(&rs->indices);
+        // state.create_vertex_buffer(&rs->vertices);
+        // state.create_index_buffer(&rs->indices);
         state.create_vertex_buffer(&rs->skinned_vertices);
         state.create_index_buffer(&rs->skinned_indices);
     
        // lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
         rs->rt_cache->init(state, rs->frames[0].rt_compute_pass.descriptor_set_layouts[0]);
+
+
+        rs->scene_context = arena_alloc_ctor<scene_context_t>(&rs->arena, 1, state);
 
         return rs;
     }
@@ -1172,8 +1159,8 @@ public:
     void
     memory_barriers(system_t* rs, VkCommandBuffer command_buffer) {
         rs->get_frame_data().indexed_indirect_storage_buffer.insert_memory_barrier(command_buffer);
-        rs->vertices.insert_memory_barrier(command_buffer);
-        rs->indices.insert_memory_barrier(command_buffer);
+        // rs->vertices.insert_memory_barrier(command_buffer);
+        // rs->indices.insert_memory_barrier(command_buffer);
         rs->material_storage_buffer.insert_memory_barrier(command_buffer);
         rs->environment_storage_buffer.insert_memory_barrier(command_buffer);
         rs->instance_storage_buffer.insert_memory_barrier(command_buffer);
@@ -1593,8 +1580,8 @@ public:
             auto loaded_mesh = load_bin_mesh_data(
                 &rs->arena,
                 file_data, 
-                &rs->vertices.pool,
-                &rs->indices.pool
+                &rs->scene_context->vertices.pool,
+                &rs->scene_context->indices.pool
             );
 
             range_u64(m, 0, loaded_mesh.count) {
@@ -1604,7 +1591,7 @@ public:
                 loaded_mesh.meshes[m].material.normal_id = (mask&0x2) ? ids[1] : std::numeric_limits<u64>::max();
             }
 
-            rs->rt_cache->build_blas(*rs->vk_gfx, loaded_mesh, rs->vertices, rs->indices);
+            rs->rt_cache->build_blas(*rs->vk_gfx, loaded_mesh, rs->scene_context->vertices, rs->scene_context->indices);
 
             return add_mesh(rs, name, loaded_mesh);
         }
@@ -1942,6 +1929,15 @@ public:
 
     void release_point_light(lighting::point_light_t* light) {
 
+    }
+
+    gfx_entity_id register_entity(system_t* rs) {
+        return rs->scene_context->register_entity();
+    }
+
+    void initialize_entity(system_t* rs, gfx_entity_id id, u32 vertex_start, u32 index_start) {
+        rs->scene_context->get_entity(id).vertex_start = vertex_start;
+        rs->scene_context->get_entity(id).index_start = index_start;
     }
 
     #include "raytrace_pass.hpp"

@@ -52,10 +52,13 @@ struct rt_cache_t {
     gfx::vul::gpu_buffer_t mesh_data_buffer;
 
     struct push_constants_t {
+        m44 random_rotation{1.0f};
+        u64 scene;
         u32 frame{0};
         u32 super_sample{0};
-        m33 random_rotation{1.0f};
-    } constants;
+        // u32 sc
+    };
+    push_constants_t constants;
    
     void add_miss_shader(gfx::vul::state_t& gfx, std::string_view name) {
         shader_stages[shader_stage_count++] = gfx.load_shader(name, VK_SHADER_STAGE_MISS_BIT_KHR);
@@ -113,7 +116,7 @@ struct rt_cache_t {
         // pipeline_layout_create_info.pSetLayouts    = &descriptor_set_layout;
         // pipeline_layout_create_info.
 
-        pipeline_layout = gfx::vul::create_pipeline_layout(gfx.device, &descriptor_set_layout, 1, sizeof(constants), VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+        pipeline_layout = gfx::vul::create_pipeline_layout(gfx.device, &descriptor_set_layout, 1, sizeof(constants), VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
 
         // VK_OK(vkCreatePipelineLayout(gfx.device, &pipeline_layout_create_info, nullptr, &pipeline_layout));
 
@@ -623,7 +626,7 @@ struct rt_compute_pass_t {
         device = device_;
         pipeline_layout[0] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[1], 1, sizeof(u32), VK_SHADER_STAGE_COMPUTE_BIT);
         pipeline_layout[1] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[2], 1, sizeof(u32), VK_SHADER_STAGE_COMPUTE_BIT);
-        
+
     }
 
     void build_integrate_pass(
