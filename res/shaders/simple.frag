@@ -11,10 +11,11 @@ layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 layout( set = 4, binding = 1 ) uniform sampler2D uProbeTexture[2];
 layout( set = 4, binding = 1 ) uniform sampler2D uProbeSampler[2];
 
+#define LIGHT_PROBE_SET_READ_WRITE readonly
+#define LIGHT_PROBE_SET_INDEX 5
+#define LIGHT_PROBE_BINDING_INDEX 0
+
 #include "material.glsl"
-layout(std430, set = 5, binding = 0, scalar) readonly buffer ProbeBuffer {
-	LightProbe probes[];
-};
 #include "ddgi.glsl"
 
 layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
@@ -24,7 +25,6 @@ layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 	int		uNumInstances;
 	float 	uTime;
 } Sporadic;
-
 
 
 struct ObjectData {
@@ -167,24 +167,6 @@ vec3 SHIrradiance(vec3 nrm)
 		);
 }
 
-vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)
-{
-    vec3 blending = abs(n);
-    blending = normalize(max(blending, 0.00001));
-    
-    // normalized total value to 1.0
-    float b = (blending.x + blending.y + blending.z);
-    blending /= b;
-    
-    vec4 xaxis = texture(tex, p.yz);
-    vec4 yaxis = texture(tex, p.xz);
-    vec4 zaxis = texture(tex, p.xy);
-    
-	
-    // blend the results of the 3 planar projections.
-    return vec4((xaxis * blending.x + yaxis * blending.y + zaxis * blending.z).rgb, 1.0);
-}
-
 
 void
 main( )
@@ -270,11 +252,17 @@ main( )
 
 	env = light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
 
-	
-	
+	TotalLight light_solution = InitLightSolution();
 
+	Surface surface;
+	surface.point = vWorldPos;
+	surface.normal = N;
+	surface.albedo = albedo.rgb;
+	surface.roughness = roughness;
+	surface.emissive = albedo.rgb * material.emission;
 
-	
+	light_solution.direct.diffuse += max(material.ao, NoL);
+	light_solution.indirect.diffuse += env;
 
 	// vec3 env = vec3(1.0);
 	// vec3 r_env = vec3(1.0);
@@ -290,10 +278,13 @@ main( )
 
 	if (lit_material > 0) {
 		// rgb = 10.0 * max(NoL, material.ao) * (Fd + Fr * ec * r_env);
-		rgb = Fd + Fr * ec;
+		rgb = Fd + Fr * ec ;
 	} else {
 		rgb = albedo * material.emission;
 	}
+
+	rgb = vec3(0.0);
+	apply_light(surface, light_solution, rgb);
 
 	rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
 	
@@ -302,10 +293,6 @@ main( )
 	// rgb = N;
  
 	// rgb = env;	
-
-
-
-
 
 
 

@@ -88,8 +88,9 @@ namespace rendering::lighting {
         math::aabb_t<v3f> aabb;
         // f32 grid_size{4.0f};
         // f32 grid_size{15.0f};
-        f32 grid_size{1.0f + 1.618033f};
-        // f32 grid_size{1.618033f};
+        // f32 grid_size{1.0f + 1.618033f};
+        f32 grid_size{1.618033f};
+        // f32 grid_size{1.0f};
         probe_t* probes{0};
         u32 probe_count{0};
 

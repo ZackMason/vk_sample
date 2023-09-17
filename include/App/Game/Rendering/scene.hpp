@@ -8,10 +8,11 @@ namespace rendering {
     using gpu_ptr_t = u64;
 
     struct gfx_entity_t {
-        u32 vertex_start; 
-        u32 index_start;
-        u32 material;
-        u32 transform;
+        gpu_ptr_t vertex_start; 
+        gpu_ptr_t index_start;
+        gpu_ptr_t material;
+        gpu_ptr_t transform;
+        u32 albedo;
     };
 
     DEFINE_TYPED_ID(gfx_entity_id);
@@ -63,6 +64,8 @@ namespace rendering {
             gfx.create_storage_buffer(&material_storage_buffer);
             gfx.create_storage_buffer(&indexed_indirect_storage_buffer);
 
+            utl::memzero(&entities.pool[0], entities.size);
+
             get_scene().vertex_buffer = gfx.get_buffer_device_address(vertices.buffer);
             get_scene().index_buffer = gfx.get_buffer_device_address(indices.buffer);
             get_scene().entities = gfx.get_buffer_device_address(entities.buffer);
@@ -102,13 +105,13 @@ namespace rendering {
         }
 
         gfx_entity_id register_entity() {
-            range_u64(i, 0, entity_count+1) {
-                if (get_entity(i).vertex_start==0) {
-                    entity_count++;
-                    return i;
-                }
-            }
-            return 0;
+            // range_u64(i, 0, entity_count+1) {
+            //     if (get_entity(i).vertex_start==0) {
+            //         entity_count++;
+            //         return i;
+            //     }
+            // }
+            return entity_count++;
         }
 
         void release_entity(gfx_entity_id id) {

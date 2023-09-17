@@ -486,7 +486,7 @@ struct state_t {
 
     template <typename T>
     VkResult create_uniform_buffer(uniform_buffer_t<T>* buffer) {
-        const auto r = create_data_buffer(sizeof(T), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, buffer);
+        const auto r = create_data_buffer(sizeof(T), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, buffer);
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(T), 0, &gpu_ptr);
         buffer->data = (T*)gpu_ptr;
@@ -500,7 +500,7 @@ struct state_t {
         if constexpr (N * sizeof(T) > gigabytes(1)) {
             zyy_warn(__FUNCTION__, "Giant buffer allocated: {} Gb", float(N * sizeof(T)) / float(gigabytes(1)));
         }
-        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | additional_usage, buffer);
+        const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | additional_usage, buffer);
         void* gpu_ptr{0};
         vkMapMemory(device, buffer->vdm, 0, sizeof(T) * N, 0, &gpu_ptr);
         buffer->pool = utl::pool_t<T>{(T*)gpu_ptr, N};

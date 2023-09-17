@@ -98,7 +98,7 @@ namespace zyy {
         assert(world->entity_capacity < array_count(world->entities));
         entity_t* e{0};
 
-        if (world->free_entities && 0) {
+        if (world->free_entities) {
             node_pop(e, world->free_entities);
             world->entity_count++;
             assert(e);
@@ -109,10 +109,11 @@ namespace zyy {
             e = world->entities + world->entity_capacity++;
             world->entity_count++;
             assert(e);
+            new (e) entity_t;
             e->id = world->next_entity_id++;
             add_entity_to_id_hash(world, e);
         }
-        e->gfx.particle_system = 0;
+        // e->gfx.particle_system = 0;
         return e;
     }
 
@@ -161,17 +162,32 @@ namespace zyy {
         utl::res::pack_file_t* resource_file = world->game_state->resource_file;
 
         entity_t* entity = world_create_entity(world);
+
+        assert(entity);
+        assert(uid::is_valid(entity->id));
+        assert(entity->parent == nullptr);
+        assert(entity->first_child == nullptr);
+        assert(entity->next_child == nullptr);
+
         entity_init(entity, rendering::safe_get_mesh_id(rs, def.gfx.mesh_name));
 
         entity->gfx.gfx_id  = rendering::register_entity(rs);
+        entity->gfx.gfx_entity_count = 1;
 
         if (def.gfx.mesh_name != ""sv) {
             auto& mesh_list = rendering::get_mesh(rs, def.gfx.mesh_name);
             entity->gfx.gfx_entity_count = mesh_list.count;
+
+            auto& vertex_buffer = rs->scene_context->vertices;
+            auto& index_buffer = rs->scene_context->indices;
+
             rendering::initialize_entity(rs, entity->gfx.gfx_id, mesh_list.meshes[0].vertex_start, mesh_list.meshes[0].index_start);
+            rendering::set_entity_albedo(rs, entity->gfx.gfx_id, u32(mesh_list.meshes[0].material.albedo_id));
             for(u64 i = 1; i < mesh_list.count; i++) {
+                auto& mesh = mesh_list.meshes[i];
                 rendering::register_entity(rs);
-                rendering::initialize_entity(rs, entity->gfx.gfx_id + i, mesh_list.meshes[i].vertex_start, mesh_list.meshes[i].index_start);
+                rendering::initialize_entity(rs, entity->gfx.gfx_id + i, mesh.vertex_start, mesh.index_start);
+                rendering::set_entity_albedo(rs, entity->gfx.gfx_id + i, u32(mesh.material.albedo_id));
             }
             entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
         }
@@ -349,12 +365,14 @@ namespace zyy {
         world_t* world
     ) {
         if (world->effects.blood_splat_count) {
+            // no gfx id, kinda scuffed
             rendering::submit_job(
                 world->render_system(), 
                 rendering::get_mesh_id(world->render_system(), "res/models/misc/bloodsplat_02.gltf"),
                 3, // todo make material per mesh
                 m44{1.0f},
                 v4f{0.0f},
+                0,0,
                 (u32)glm::min(world->effects.blood_splat_count, world->effects.blood_splat_max),
                 0
             );
@@ -465,12 +483,17 @@ namespace zyy {
         e->flags = EntityFlags_Dead;
         remove_entity_from_id_hash(world, e);
 
+        if (e->parent) {
+            e->parent->remove_child(e);
+        }
+
         if (e->physics.rigidbody) {
             world->physics->remove_rigidbody(world->physics, e->physics.rigidbody);
             e->physics.rigidbody = 0;
         }
 
         e->gfx = {};
+        new (e) zyy::entity_t;
 
         constexpr bool maintain_references = true;
         if constexpr (maintain_references) {

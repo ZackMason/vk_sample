@@ -17,12 +17,14 @@ layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[2];
 
 layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];
 
+#define LIGHT_PROBE_SET_INDEX 0
+#define LIGHT_PROBE_BINDING_INDEX 5
+#define LIGHT_PROBE_SET_READ_WRITE
+
 #include "material.glsl"
+#include "ddgi.glsl"
 #include "raycommon.glsl"
 
-layout(std430, set = 0, binding = 5, scalar) buffer ProbeBuffer {
-	LightProbe probes[];
-};
 
 layout(std430, set = 0, binding = 6, scalar) readonly buffer ProbeSettingsBuffer {
 	LightProbeSettings probe_settings;
@@ -91,7 +93,6 @@ void main()
     data.direction = direction.xyz;
     data.color = vec3(0.0);
     data.distance = 0.0;
-
   
     traceRayEXT(topLevelAS, 
         gl_RayFlagsNoneEXT, 
@@ -121,14 +122,15 @@ void main()
     if (data.distance < 0.0) { 
         // backface
         atomicAdd(probes[probe_id].ray_back_count, 1<<16);
-    } else if (data.distance > tmax) { // fix sky distance
-        data.distance = grid_max_distance;
+    // } else if (data.distance > tmax) { // fix sky distance
+        // data.distance = grid_max_distance;
     }
 
     // color = sqrt(color);
     
+
     result.radiance = max(vec3(0.0), color);
-    result.depth = data.distance;
+    result.depth = min(grid_max_distance, data.distance);
 
     uint result_start_index = probe_ray_start(probe_id, odd_frame);
 

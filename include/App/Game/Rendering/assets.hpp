@@ -28,9 +28,11 @@ namespace assets::shaders {
 
     ASSET_SHADER(probe_integrate_comp)
         SHADER_PATH("probe_integrate.comp")
+        .add_push_constant(sizeof(u32))
         .set_stage(COMP);
     ASSET_SHADER(probe_integrate_depth_comp)
         SHADER_PATH("probe_integrate_depth.comp")
+        .add_push_constant(sizeof(u32))
         .set_stage(COMP);        
 
     ASSET_SHADER(screen_vert)
@@ -40,7 +42,17 @@ namespace assets::shaders {
 
     ASSET_SHADER(tonemap_frag)
         SHADER_PATH("tonemap.frag")
+        .add_push_constant(sizeof(f32)*16)
         .set_stage(FRAG);        
+    ASSET_SHADER(downsample_frag)
+        SHADER_PATH("downsample.frag")
+        .add_push_constant(sizeof(f32)*16)
+        .set_stage(FRAG);        
+    ASSET_SHADER(upscale_frag)
+        SHADER_PATH("upscale.frag")
+        .add_push_constant(sizeof(f32)*16)
+        .set_stage(FRAG);        
+
     ASSET_SHADER(invert_frag)
         SHADER_PATH("invert.frag")
         .set_stage(FRAG);        

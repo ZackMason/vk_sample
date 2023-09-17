@@ -19,7 +19,12 @@ layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 layout(binding = 1, set = 0, rgba16f) uniform image2D uProbeTexture[2];
 layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[2];
 
+#define LIGHT_PROBE_BINDING_INDEX 4
+#define LIGHT_PROBE_SET_INDEX 0
+#define LIGHT_PROBE_SET_READ_WRITE 
+
 #include "material.glsl"
+#include "ddgi.glsl"
 
 
 layout(std430, set = 0, binding = 2, scalar) readonly buffer ProbeSettingsBuffer {
@@ -33,9 +38,6 @@ layout(set = 0, binding = 3, scalar) readonly buffer PackedProbeResultsBuffer {
     ProbeRayPacked packed_probe_results[];
 };
 
-layout(std430, set = 0, binding = 4, scalar) buffer ProbeBuffer {
-    LightProbe probes[];    
-};
 
 #define CACHE_SIZE 64
 shared vec4 direction_depth[CACHE_SIZE];
@@ -195,11 +197,6 @@ void main() {
     }
 #endif
 
-    // if (probes[probe_id].backface_count  > 200048 && probes[probe_id].backface_count > probes[probe_id].ray_count / 2) 
-    {
-        // probes[probe_id].p = vec3(0.0);
-        // return;
-    }
     
     uvec3 probe_coord = index_1d(probe_settings.dim, probe_id);
 
@@ -246,6 +243,7 @@ void main() {
             }
 
             barrier();
+            groupMemoryBarrier();
 
             for (uint ray_index = 0; ray_index < num_rays; ray_index++) {                
                 ProbeRayResult ray;
@@ -283,7 +281,7 @@ void main() {
 
         #ifdef INTEGRATE_DEPTH
                     ray.depth = abs(ray.depth);
-                    weight = pow(weight, 64.0);
+                    weight = pow(weight, 1.0);
 
                     result += vec4(ray.depth * weight, ray.depth * ray.depth * weight, 1.0, weight);
         #else
@@ -291,17 +289,16 @@ void main() {
                     {
                         result += vec4(ray.radiance * weight, weight);
                     }
-                    // if (dot(ray.radiance, ray.radiance) < 0.1) continue;
         #endif
                 }
             }
 
     #ifdef SHARED_MEMORY
             barrier();
+            groupMemoryBarrier();
 
             remaining_rays -= num_rays;
             offset += num_rays;
-
         }
     #else
     #endif
@@ -345,6 +342,7 @@ void main() {
     }
 
     barrier();
+    groupMemoryBarrier();
     // if (false) 
     {
 #ifdef INTEGRATE_DEPTH

@@ -3225,7 +3225,7 @@ namespace gui {
     draw_rect(
         ctx_t* ctx,
         math::aabb_t<v2f> box,
-        u32 tex, math::aabb_t<v2f> uvs
+        u32 tex, math::aabb_t<v2f> uvs, u32 color = color::rgba::white
     ) {
         const u32 v_start = safe_truncate_u64(ctx->vertices->count());
         const u32 i_start = safe_truncate_u64(ctx->indices->count());
@@ -3242,10 +3242,10 @@ namespace gui {
 
         vertex_t* v = ctx->vertices->allocate(4);
         u32* i = ctx->indices->allocate(6);
-        v[0] = vertex_t { .pos = p0 / ctx->screen_size, .tex = uv0, .img = tex, .col = color::rgba::white};
-        v[1] = vertex_t { .pos = p1 / ctx->screen_size, .tex = uv1, .img = tex, .col = color::rgba::white};
-        v[2] = vertex_t { .pos = p2 / ctx->screen_size, .tex = uv2, .img = tex, .col = color::rgba::white};
-        v[3] = vertex_t { .pos = p3 / ctx->screen_size, .tex = uv3, .img = tex, .col = color::rgba::white};
+        v[0] = vertex_t { .pos = p0 / ctx->screen_size, .tex = uv0, .img = tex, .col = color};
+        v[1] = vertex_t { .pos = p1 / ctx->screen_size, .tex = uv1, .img = tex, .col = color};
+        v[2] = vertex_t { .pos = p2 / ctx->screen_size, .tex = uv2, .img = tex, .col = color};
+        v[3] = vertex_t { .pos = p3 / ctx->screen_size, .tex = uv3, .img = tex, .col = color};
 
         i[0] = v_start + 0;
         i[1] = v_start + 1;
@@ -3751,9 +3751,10 @@ namespace gui {
             state_t& imgui,
             u32 bind_index,
             math::aabb_t<v2f> screen,
-            math::aabb_t<v2f> uv = math::aabb_t<v2f>{v2f{0.0f}, v2f{1.0f}}
+            math::aabb_t<v2f> uv = math::aabb_t<v2f>{v2f{0.0f}, v2f{1.0f}},
+            u32 color = color::rgba::white
         ) {
-            draw_rect(&imgui.ctx, screen, bind_index, uv);
+            draw_rect(&imgui.ctx, screen, bind_index, uv, color);
         }
  
         inline void

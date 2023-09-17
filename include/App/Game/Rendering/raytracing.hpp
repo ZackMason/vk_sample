@@ -12,20 +12,20 @@ struct acceleration_structure_t {
 
 struct rt_cache_t {
     struct rt_data_t {
-        i32      texture_id;             // Texture index offset in the array of textures
-        uint64_t vertex_ptr;         // Address of the Vertex buffer
-        uint64_t index_ptr;          // Address of the index buffer
-        uint64_t material_ptr;       // Address of the material buffer
-        uint64_t material_id;  // Address of the triangle material index buffer
+        i32      texture_id;   
+        uint64_t vertex_ptr;   
+        uint64_t index_ptr;    
+        uint64_t material_id;  
+        uint64_t entity_id;
     };
 
-    rt_data_t* rt_data;
+    // rt_data_t* rt_data;
 
     explicit rt_cache_t(gfx::vul::state_t& gfx) {
-        gfx.create_data_buffer(sizeof(rt_data_t) * array_count(blas), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &mesh_data_buffer);
-        void* gpu_ptr = 0;
-        gfx.map_data_buffer(&mesh_data_buffer, gpu_ptr);
-        rt_data = (rt_data_t*)gpu_ptr;
+        // gfx.create_data_buffer(sizeof(rt_data_t) * array_count(blas), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &mesh_data_buffer);
+        // void* gpu_ptr = 0;
+        // gfx.map_data_buffer(&mesh_data_buffer, gpu_ptr);
+        // rt_data = (rt_data_t*)gpu_ptr;
     }
     
     void init(gfx::vul::state_t& gfx, VkDescriptorSetLayout& descriptor_set_layout) {
@@ -49,7 +49,7 @@ struct rt_cache_t {
     gfx::vul::gpu_buffer_t miss_shader_binding_table;
     gfx::vul::gpu_buffer_t hit_shader_binding_table;
 
-    gfx::vul::gpu_buffer_t mesh_data_buffer;
+    // gfx::vul::gpu_buffer_t mesh_data_buffer;
 
     struct push_constants_t {
         m44 random_rotation{1.0f};
@@ -178,6 +178,8 @@ struct rt_cache_t {
         gfx::mesh_list_t& mesh, 
         gfx::vul::vertex_buffer_t<gfx::vertex_t, VSize>& vertex_buffer,
         gfx::vul::index_buffer_t<ISize>& index_buffer
+        // gfx::vul::gpu_buffer_t* entity_buffer,
+        // size_t entity_size
     ) {
         TIMED_FUNCTION;
         // zyy_warn(__FUNCTION__, "Building BLAS");
@@ -199,10 +201,12 @@ struct rt_cache_t {
             VkDeviceOrHostAddressConstKHR vertex_buffer_device_address{};
             VkDeviceOrHostAddressConstKHR index_buffer_device_address{};
 
-            rt_data[b].texture_id = u32(m.material.albedo_id);
-            rt_data[b].texture_id = u32(m.material.albedo_id);
-            rt_data[b].vertex_ptr = vertex_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(vertex_buffer.buffer) + sizeof(gfx::vertex_t) * m.vertex_start;
-            rt_data[b].index_ptr = index_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(index_buffer.buffer) + sizeof(u32) * m.index_start;
+            // rt_data[b].texture_id = u32(m.material.albedo_id);
+            // rt_data[b].texture_id = u32(m.material.albedo_id);
+            // rt_data[b].vertex_ptr = 
+            vertex_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(vertex_buffer.buffer) + sizeof(gfx::vertex_t) * m.vertex_start;
+            // rt_data[b].index_ptr = 
+            index_buffer_device_address.deviceAddress = gfx.get_buffer_device_address(index_buffer.buffer) + sizeof(u32) * m.index_start;
 
             VkAccelerationStructureGeometryKHR acceleration_structure_geometry{};
             acceleration_structure_geometry.sType                            = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -296,8 +300,6 @@ struct rt_cache_t {
 };
 
 struct rt_compute_pass_t {
-
-
     VkPipelineLayout pipeline_layout[2]{};
     
     VkDevice device;
@@ -395,13 +397,12 @@ struct rt_compute_pass_t {
             .bind_buffer(0, buffer_info + 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, &descriptor_acceleration_structure_info)
             .bind_image(1, ovdii, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_image(2, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
-            // .bind_buffer(3, buffer_info + 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+            .bind_buffer(3, buffer_info + 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_buffer(4, buffer_info + 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
             .bind_buffer(5, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_buffer(6, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_buffer(7, buffer_info + 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
-            .bind_buffer(8, buffer_info + 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
-            .bind_buffer(9, buffer_info + 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(8, buffer_info + 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .build(descriptor_sets[0], descriptor_set_layouts[0]);
     }
 
@@ -502,6 +503,7 @@ struct rt_compute_pass_t {
     void add_to_tlas(
         gfx::vul::state_t& gfx,
         rt_cache_t& cache,
+        u64 gfx_id,
         u64 blas_id,
         m44 t,
         umm transform_count = 1
@@ -513,7 +515,7 @@ struct rt_compute_pass_t {
         auto i = instance_count++;
         VkAccelerationStructureInstanceKHR& acceleration_structure_instance    = tlas_instances[i];
         acceleration_structure_instance.transform                              = transform_matrix;
-        acceleration_structure_instance.instanceCustomIndex                    = blas_id;
+        acceleration_structure_instance.instanceCustomIndex                    = gfx_id;
         acceleration_structure_instance.mask                                   = 0xFF;
         acceleration_structure_instance.instanceShaderBindingTableRecordOffset = 0;
         acceleration_structure_instance.flags                                  = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;

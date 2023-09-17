@@ -46,23 +46,6 @@ vec2 sign_not_zero(vec2 v)
 	return vec2((v.x >= 0.0) ? +1.0 : -1.0, (v.y >= 0.0) ? +1.0 : -1.0);
 }
 
-vec2 DDGIGetNormalizedOctahedralCoordinates(ivec2 texCoords, int numTexels)
-{
-    vec2 octahedralTexelCoord = vec2(texCoords.x % numTexels, texCoords.y % numTexels);
-
-    octahedralTexelCoord.xy += 0.5f;
-
-    // Normalize
-    octahedralTexelCoord.xy /= float(numTexels);
-
-    // Shift to [-1, 1);
-    octahedralTexelCoord *= 2.f;
-    octahedralTexelCoord -= vec2(1.f, 1.f);
-
-    return octahedralTexelCoord;
-}
-
-
 vec2 encode_oct(in vec3 v)
 {
 	// Project the sphere onto the octahedron, and then onto the xy plane
@@ -87,19 +70,13 @@ vec2 normalized_oct_coord(ivec2 frag_coord, int probe_side_length)
     return (vec2(oct_frag_coord) + vec2(0.5f)) * (2.0f / float(probe_side_length)) - vec2(1.0f, 1.0f);
 }
 
-// Assume normalized input on +Z hemisphere.
-// Output is on [-1, 1].
 vec2 encode_hemioct(in vec3 v)
 {
-	// Project the hemisphere onto the hemi-octahedron,
-	// and then into the xy plane
 	vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + v.z));
-	// Rotate and scale the center diamond to the unit square
 	return vec2(p.x + p.y, p.x - p.y);
 }
 vec3 decode_hemioct(vec2 e)
 {
-	// Rotate and scale the unit square back to the center diamond
 	vec2 temp = vec2(e.x + e.y, e.x - e.y) * 0.5;
 	vec3 v = vec3(temp, 1.0 - abs(temp.x) - abs(temp.y));
 	return normalize(v);
@@ -113,7 +90,6 @@ uvec2 probe_color_pixel(uvec3 probeCoord, uvec3 dim)
 {
 	return probeCoord.xz * PROBE_IRRADIANCE_TOTAL + uvec2(probeCoord.y * dim.x * PROBE_IRRADIANCE_TOTAL, 0) + 1;
 }
-
 
 ivec2 probe_color_texel(uvec3 probeCoord, vec3 direction, uvec3 dim)
 {

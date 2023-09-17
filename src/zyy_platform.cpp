@@ -16,6 +16,7 @@
 #undef near
 #undef far
 
+// #define MULTITHREAD_ENGINE
 platform_api_t Platform;
 
 struct access_violation_exception : public std::exception {
@@ -85,7 +86,6 @@ FILETIME win32_last_write_time(const char* path){
 #include "SDL_mixer.h"
 #endif
 
-// #define MULTITHREAD_ENGINE
 
 struct audio_cache_t {
 #if USE_SDL

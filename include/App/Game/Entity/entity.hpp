@@ -220,6 +220,8 @@ struct entity_t {
         u32 instance_count() {
             return (particle_system ? particle_system->live_count : _instance_count); 
         }
+
+
         
     } gfx{};
 
@@ -258,20 +260,39 @@ struct entity_t {
     }
 
     void queue_free() noexcept {
+        assert(uid::is_valid(id));
+        assert(((flags & EntityFlags_Dead) == 0) && "Should not have access to dead entities");
+        zyy_info(__FUNCTION__, "Killing entity: {} - {}", (void*)this, name.c_str());
         flags |= EntityFlags_Dying;
+        // return;
         auto* child = first_child;
         for (;child; child = child->next_child) {
             child->queue_free();
         }
     }
 
-    void add_child(entity_t* child, bool maintain_world_pos = false) {
-        // assert(maintain_world_pos == false);
-        if (first_child) {
-            child->next_child = first_child;            
+    void remove_child(entity_t* child) {
+        entity_t* last=first_child;
+        if (last==child) {
+            first_child = first_child->next_child;
+            child->parent = nullptr;
         } else {
-            child->next_child = 0;
+            for (auto* c = first_child; c; c = c->next_child) {
+                if (c == child) {
+                    last->next_child  = c->next_child;
+                    child->parent = nullptr;
+                    return;
+                }
+                last = c;
+            }
         }
+    }
+
+    void add_child(entity_t* child, bool maintain_world_pos = false) {
+        assert(child->is_alive());
+        assert(child->parent == nullptr && "reassignment is not supported yet"); 
+        assert(child->next_child == nullptr && "reassignment is not supported yet");
+        child->next_child = first_child;            
         first_child = child;
 
         child->parent = this;
@@ -293,6 +314,7 @@ entity_init(entity_t* entity, u64 mesh_id = -1) {
     // entity->flags |= EntityFlags_Spatial;
     // entity->flags |= mesh_id != -1 ? EntityFlags_Renderable : 0;
     entity->gfx.mesh_id = mesh_id;
+    entity->flags = 0;
 }
 
 inline void 

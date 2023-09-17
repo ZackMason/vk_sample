@@ -33,45 +33,24 @@ struct Material {
     uint padding[3];
 };
 
-
-
-
-struct LightProbeSettings {
-    vec3 aabb_min;
-    // float p0; 
-    vec3 aabb_max;
-    // float p1;
-    uvec3 dim;
-    vec3 grid_size;
-    int sample_max;
-    float hysteresis;
-    float boost;
-};
-
-vec3 light_probe_aabb_size(LightProbeSettings settings) {
-    return settings.aabb_max - settings.aabb_min;
+vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)
+{
+    vec3 blending = abs(n);
+    blending = normalize(max(blending, 0.00001));
+    
+    // normalized total value to 1.0
+    float b = (blending.x + blending.y + blending.z);
+    blending /= b;
+    
+    vec4 xaxis = texture(tex, p.yz);
+    vec4 yaxis = texture(tex, p.xz);
+    vec4 zaxis = texture(tex, p.xy);
+    
+	
+    // blend the results of the 3 planar projections.
+    return vec4((xaxis * blending.x + yaxis * blending.y + zaxis * blending.z).rgb, 1.0);
 }
 
-vec3 light_probe_grid_size(LightProbeSettings settings) {
-    return settings.grid_size;
-}
-
-vec3 light_probe_aabb_center(LightProbeSettings settings) {
-    return settings.aabb_min + light_probe_aabb_size(settings) * 0.5;
-}
-
-vec3 light_probe_local_pos(LightProbeSettings settings, vec3 p) {
-    return p - settings.aabb_min;
-}
-
-vec3 light_probe_local_pos_normalized(LightProbeSettings settings, vec3 p) {
-    return light_probe_local_pos(settings, p) / light_probe_aabb_size(settings);
-}
-
-ivec3 light_probe_probe_index(LightProbeSettings settings, vec3 p) {
-    vec3 grid = light_probe_grid_size(settings);
-    return ivec3(floor(saturate(light_probe_local_pos_normalized(settings, p + grid*0.0)) * (vec3(settings.dim))));
-}
 
 struct SH9 {
     float h[9];
@@ -115,27 +94,6 @@ SH9Depth sh_depth_identity() {
     r.l22 = vec2(0.0);
     return r;
 }
-
-struct LightProbe {
-    // SLOL9Irradiance irradiance;
-    // SH9Irradiance irradiance;
-    // SH9Depth depth;
-    vec3 p;
-    // uint id;
-    uint ray_back_count;
-    // uint backface_count;
-};
-
-struct ProbeRayResult {
-    vec3 radiance;
-    float depth;
-    vec3 direction;
-};
-
-struct ProbeRayPacked {
-    uvec2 direction_depth; // packed normal, float
-    uvec2 radiance; // rgbe, unused
-};
 
 SH9 coefficients(in vec3 N) {
     SH9 result;
@@ -367,51 +325,51 @@ vec3 stupid_irradiance_decoding(in SLOL9Irradiance encoding, in vec3 N) {
     return irradiance;
 }
 
-vec3 stupid_light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSettings settings) {
-    vec3 irradiance = vec3(0.0);
-    float total_weight = 0.0;
+// vec3 stupid_light_probe_irradiance(vec3 p, vec3 n, LightProbe probes[8], LightProbeSettings settings) {
+//     vec3 irradiance = vec3(0.0);
+//     float total_weight = 0.0;
     
-    vec3 cell_rcp = 1. / light_probe_grid_size(settings);
-    vec3 alpha = saturate((p - probes[0].p) * cell_rcp);
+//     vec3 cell_rcp = 1. / light_probe_grid_size(settings);
+//     vec3 alpha = saturate((p - probes[0].p) * cell_rcp);
 
 
-    for (uint i = 0; i < 8; i++) {
-		uvec3 offset = uvec3(i, i>>1, i>>2) & 1;
+//     for (uint i = 0; i < 8; i++) {
+// 		uvec3 offset = uvec3(i, i>>1, i>>2) & 1;
 		
-        vec3 r = p - probes[i].p + n * 0.001;
-        vec3 d = normalize(-r); 
+//         vec3 r = p - probes[i].p + n * 0.001;
+//         vec3 d = normalize(-r); 
 
-        vec3 tri = mix(1.0 - alpha, alpha, offset);
-        float weight = 1.0;
+//         vec3 tri = mix(1.0 - alpha, alpha, offset);
+//         float weight = 1.0;
 
-        {
-            vec3 bf = normalize(probes[i].p - p);
-            const float smooth_backface = 1.0;
-            weight *= mix(saturate(dot(d, n)), max(0.001, pow((dot(bf, n) + 1.0)*0.5,2.0))+0.02, smooth_backface);
-        }
+//         {
+//             vec3 bf = normalize(probes[i].p - p);
+//             const float smooth_backface = 1.0;
+//             weight *= mix(saturate(dot(d, n)), max(0.001, pow((dot(bf, n) + 1.0)*0.5,2.0))+0.02, smooth_backface);
+//         }
 
-        weight = max(0.00001, weight);
+//         weight = max(0.00001, weight);
 
-        // vec3 probe_irradiance = stupid_irradiance_decoding(probes[i].irradiance, n);
+//         // vec3 probe_irradiance = stupid_irradiance_decoding(probes[i].irradiance, n);
 
-        const float crush = 0.2;
-        if (weight < crush) {
-            weight *= weight * weight * (1.0 / sqrt(crush));
-        }
-        weight *= tri.x * tri.y * tri.z;
+//         const float crush = 0.2;
+//         if (weight < crush) {
+//             weight *= weight * weight * (1.0 / sqrt(crush));
+//         }
+//         weight *= tri.x * tri.y * tri.z;
 
-        // linear
-        // probe_irradiance = sqrt(probe_irradiance);
+//         // linear
+//         // probe_irradiance = sqrt(probe_irradiance);
 
-        // irradiance += probe_irradiance * weight;
-        total_weight += weight;
-	}
+//         // irradiance += probe_irradiance * weight;
+//         total_weight += weight;
+// 	}
 
-    if (total_weight > 0.0) {
-        // return sqrt(irradiance / total_weight);
-        // return irradiance;
-        return irradiance / total_weight;
-    }
+//     if (total_weight > 0.0) {
+//         // return sqrt(irradiance / total_weight);
+//         // return irradiance;
+//         return irradiance / total_weight;
+//     }
 
-    return vec3(0.0);
-}
+//     return vec3(0.0);
+// }

@@ -114,6 +114,7 @@ build res\shaders\bin\rt_compute.comp.spv: compile_shader res/shaders/rt_compute
 build res\shaders\bin\screen.vert.spv: compile_shader res/shaders/screen.vert
 
 build res\shaders\bin\invert.frag.spv: compile_shader res/shaders/invert.frag
+build res\shaders\bin\downsample.frag.spv: compile_shader res/shaders/downsample.frag
 build res\shaders\bin\tonemap.frag.spv: compile_shader res/shaders/tonemap.frag
 build res\shaders\bin\skeletal.vert.spv: compile_shader res/shaders/skeletal.vert
 build res\shaders\bin\simple.vert.spv: compile_shader res/shaders/simple.vert
@@ -141,6 +142,7 @@ default res/shaders/bin/probe_integrate.comp.spv
 #default res/shaders/bin/rt_compute.comp.spv
 default res/shaders/bin/screen.vert.spv
 default res/shaders/bin/invert.frag.spv
+default res/shaders/bin/downsample.frag.spv
 default res/shaders/bin/tonemap.frag.spv
 #default res/shaders/bin/skeletal.vert.spv
 default res/shaders/bin/simple.vert.spv

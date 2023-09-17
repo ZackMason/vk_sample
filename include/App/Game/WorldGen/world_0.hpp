@@ -240,13 +240,13 @@ generate_probe_test(arena_t* arena) {
         };
         zyy::db::prefab_t shaderball_prefab {
             .gfx = {
-                .mesh_name = "res/models/dragon.obj"
+                .mesh_name = "res/models/dragon.gltf"
             }
         };
         zyy::spawn(world, world->render_system(), prefab, axis::backward * 10.12310f)->gfx.material_id = 1;
-        auto* ball = zyy::spawn(world, world->render_system(), shaderball_prefab, axis::up * 2.0f); 
-        ball->gfx.material_id = 0;
-        ball->transform.set_scale(v3f{0.05f});
+        auto* ball = zyy::spawn(world, world->render_system(), shaderball_prefab);
+        ball->gfx.material_id = 2;
+        // ball->transform.set_scale(v3f{0.05f});
 
         // rendering::create_point_light(world->render_system(), axis::up*2.0f, 20.0f, v3f{0.8f});
 
@@ -295,10 +295,12 @@ generate_world_1(arena_t* arena) {
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
+       world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{0.0};
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 15.0f);
         player->physics.rigidbody->linear_dampening = 3.0f;
+        SPAWN_GUN(zyy::db::weapons::smg, axis::forward * 15.0f + axis::up * 3.0f);
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         // zyy::spawn(world, world->render_system(), zyy::db::rooms::sponza);
@@ -318,6 +320,7 @@ generate_world_1(arena_t* arena) {
                     skull = zyy::spawn(world, world->render_system(), zyy::db::bads::skull, self->global_transform().origin + axis::up * 15.0f + planes::xz * utl::rng::random_s::randv());
                     skull->physics.rigidbody->set_gravity(false);
                     skull->physics.rigidbody->set_ccd(true);
+                    skull->gfx.material_id = 2;
                     *count -= 1;
                     co_yield(co);
                 }
@@ -350,6 +353,26 @@ generate_world_1(arena_t* arena) {
                     self->coroutine->start();
                 }
             };
+
+        auto aabb = e_room->aabb;
+
+        aabb.min.y = 1.0f;
+        aabb.max.y *= 0.8f;
+
+        auto light_aabb = aabb;
+        light_aabb.scale(v3f{0.5f});
+
+        range_u64(l, 0, 6) {
+            // spawn random lights
+            rendering::create_point_light(
+                world->render_system(),
+                utl::rng::random_s::aabb(light_aabb),
+                100.0f, 250.0f, v3f{1.5f, .9f, .3f} * utl::rng::random_s::randv()
+            );
+        }
+
+        world->render_system()->light_probes.grid_size = 8.0f;
+        rendering::update_probe_aabb(world->render_system(), aabb);
     });
     return generator;
 }

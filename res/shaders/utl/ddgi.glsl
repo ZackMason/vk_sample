@@ -1,3 +1,61 @@
+struct LightProbe {
+    vec3 p;
+    uint ray_back_count;
+};
+
+// unused
+struct ProbeRayResult {
+    vec3 radiance;
+    float depth;
+    vec3 direction;
+};
+
+struct ProbeRayPacked {
+    uvec2 direction_depth; // packed normal, float
+    uvec2 radiance; // f16 v4
+};
+
+struct LightProbeSettings {
+    vec3 aabb_min;
+    vec3 aabb_max;
+
+    uvec3 dim;
+    vec3 grid_size;
+    int sample_max;
+    float hysteresis;
+    float boost;
+};
+
+layout(std430, set = LIGHT_PROBE_SET_INDEX, binding = LIGHT_PROBE_BINDING_INDEX, scalar) LIGHT_PROBE_SET_READ_WRITE buffer ProbeBuffer {
+	LightProbe probes[];
+};
+
+
+vec3 light_probe_aabb_size(LightProbeSettings settings) {
+    return settings.aabb_max - settings.aabb_min;
+}
+
+vec3 light_probe_grid_size(LightProbeSettings settings) {
+    return settings.grid_size;
+}
+
+vec3 light_probe_aabb_center(LightProbeSettings settings) {
+    return settings.aabb_min + light_probe_aabb_size(settings) * 0.5;
+}
+
+vec3 light_probe_local_pos(LightProbeSettings settings, vec3 p) {
+    return p - settings.aabb_min;
+}
+
+vec3 light_probe_local_pos_normalized(LightProbeSettings settings, vec3 p) {
+    return light_probe_local_pos(settings, p) / light_probe_aabb_size(settings);
+}
+
+// funkiness here with saturate
+ivec3 light_probe_probe_index(LightProbeSettings settings, vec3 p) {
+    vec3 grid = light_probe_grid_size(settings);
+    return ivec3(floor(saturate(light_probe_local_pos_normalized(settings, p)) * (vec3(settings.dim))));
+}
 
 // line bug is effected by dir
 vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings settings) {
@@ -66,13 +124,14 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
 
         weight = max(0.00001, weight);
 		
+        // seam bug is here
         vec3 probe_irradiance = texture(uProbeSampler[0], probe_color_uv(adj_probe_coord, n, settings.dim, 1.0/textureSize(uProbeSampler[0],0).xy)).rgb;
         // linear
-        probe_irradiance = sqrt(max(vec3(0.0), probe_irradiance));
+        probe_irradiance = sqrt(max(vec3(0.001), probe_irradiance));
 
         const float crush = 0.2;
         if (weight < crush) {
-            weight *= weight * weight * (1.0 / sqr(crush));
+            weight *= sqr(weight) * (1.0 / sqr(crush));
         }
         weight *= tri.x * tri.y * tri.z;
 
@@ -80,17 +139,17 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
         irradiance += probe_irradiance * weight;
         total_weight += weight;
 	}
-    // return vec3(total_weight);
+    // return vec3(total_weight/(total_weight+1.0));
     if (total_weight==0.0) { return vec3(0.0); }
     
     irradiance /= total_weight;
 
-    irradiance.x = isnan(irradiance.x) ? 0.0f : irradiance.x;
-    irradiance.y = isnan(irradiance.y) ? 0.0f : irradiance.y;
-    irradiance.z = isnan(irradiance.z) ? 0.0f : irradiance.z;
+    // irradiance.x = isnan(irradiance.x) ? 0.0f : irradiance.x;
+    // irradiance.y = isnan(irradiance.y) ? 0.0f : irradiance.y;
+    // irradiance.z = isnan(irradiance.z) ? 0.0f : irradiance.z;
 
     irradiance = sqr((irradiance));
-
+    // return irradiance;
     return irradiance * 2.0 * 3.1415;
 
 }

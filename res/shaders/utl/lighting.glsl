@@ -58,7 +58,7 @@ struct Environment {
 };
 
 void apply_light(in Surface surface, in TotalLight light, inout vec3 color) {
-    vec3 diffuse = light.direct.diffuse / 3.1415 + light.indirect.diffuse;
+    vec3 diffuse = light.direct.diffuse / 3.14159 + light.indirect.diffuse;
     vec3 specular = light.direct.specular + light.indirect.specular;
     color = surface.albedo * diffuse;
     color += specular;
@@ -74,7 +74,7 @@ void directional_light(
 ) {
     float nol = max(dot(surface.normal, light.direction.xyz), 0.0);
 
-    light_solution.direct.diffuse += saturate(nol) * light.color.rgb * shadow;
+    light_solution.direct.diffuse += saturate(nol) * sqr(light.color.rgb) * shadow;
 }
 
 float point_light_attenuation(in float dist2, in float range2) {
@@ -91,7 +91,7 @@ void point_light(
 ) {
     vec3 L = light.pos.xyz - surface.point;
     vec3 l = normalize(L);
-    float nol = max(0.0, dot(l,surface.normal));
+    float nol = max(0.0, dot(l, surface.normal));
 
     float d2 = dot(L,L);
     float r2 = light.range * light.range;

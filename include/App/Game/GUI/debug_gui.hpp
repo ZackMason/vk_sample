@@ -27,7 +27,7 @@ watch_game_state(game_state_t* game_state) {
     auto* probe_gi_boost = &light_probe_settings.boost;
 
     DEBUG_WATCH(probe_hysteresis)->max_f32 = 0.1f;
-    DEBUG_WATCH(probe_gi_boost)->max_f32 = 10.0f;
+    DEBUG_WATCH(probe_gi_boost)->max_f32 = 2.0f;
 }
 
 void 
@@ -557,6 +557,10 @@ draw_gui(game_memory_t* game_memory) {
                             im::text(state, "Roughness: ");
                             im::float_slider(state, &mat->roughness);
 
+                            im::same_line(state);
+                            im::text(state, "Emission: ");
+                            im::float_slider(state, &mat->emission, 0.0f, 100.0f);
+
                             game_state->render_system->material_storage_buffer.pool[i] = *mat;
 
                         }
@@ -809,7 +813,7 @@ draw_gui(game_memory_t* game_memory) {
         if (input->keys[key_id::EQUAL]) { color_uv.scale(v2f{1.01f});}
 
         im::image(state, 2, {v2f{0.0f, 800}, v2f{state.ctx.screen_size.x * 0.3f, state.ctx.screen_size.y}}, color_uv);
-        im::image(state, 3, {v2f{state.ctx.screen_size.x *  0.7f, 800}, v2f{state.ctx.screen_size}}, depth_uv);
+        im::image(state, 3, {v2f{state.ctx.screen_size.x *  0.7f, 800}, v2f{state.ctx.screen_size}}, depth_uv, 0xff0000ff);
 
         draw_game_gui(game_memory);
 

@@ -713,6 +713,7 @@ public:
         VkCommandBuffer command_buffer;
 
         pp_pass_t postprocess_pass{};
+        pp_pass_t bloom_pass[2];
         mesh_pass_t mesh_pass{};
         anim_pass_t anim_pass{};
         rt_compute_pass_t rt_compute_pass{};
@@ -867,7 +868,7 @@ public:
         // lighting::probe_box_t light_probes{.aabb={v3f{-200.0f, 1.0f, -100.0f}, v3f{200.0f, 50.0f, 100.0f}}};
         // lighting::probe_box_t light_probes{.aabb={v3f{-15.0f, 1, -30.0f}, v3f{25.0f, 25.0f, 20.0f}}};
         
-        lighting::probe_box_t light_probes{.aabb={v3f{-20.0f, 0.750f, -10.0f}, v3f{20.0f, 24.0f, 15.0f}}};
+        lighting::probe_box_t light_probes{.aabb={v3f{-15.0f, 1.5f, -8.0f}, v3f{20.0f, 24.0f, 7.0f}}};
 
         frame_image_t frame_images[8]{};
 
@@ -990,6 +991,8 @@ public:
         lighting::set_probes(*rs->vk_gfx, &rs->light_probes, 0, &rs->probe_storage_buffer.pool[0]);
         rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
         lighting::init_textures(*rs->vk_gfx, &rs->light_probes);
+
+        rs->scene_context = arena_alloc_ctor<scene_context_t>(&rs->arena, 1, state);
         
 
         create_render_pass(rs, state.device, state.swap_chain_image_format);
@@ -1040,6 +1043,7 @@ public:
        
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
         rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{1.f,2.f,3.f}),0.0f};
+        rs->environment_storage_buffer.pool[0].sun.color = v4f{glm::normalize(v3f{0.3922f, 0.5686f, 0.902f}),0.0f};
 
         rs->rt_cache = arena_alloc_ctor<rt_cache_t>(&rs->arena, 1, state);
 
@@ -1070,16 +1074,18 @@ public:
                 rs->frames[i].rt_compute_pass.build_integrate_pass(builder, rt_buffers, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture);
                 rs->frames[i].rt_compute_pass.build_integrate_pass(builder, rt_buffers, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture, true);
                 rs->frames[i].rt_compute_pass.build_layout(state.device);
+                // if (i==0)
                 rs->frames[i].rt_compute_pass.build_descriptors(
                     state,
                     rs->texture_cache,
-                    &rs->rt_cache->mesh_data_buffer,
+                    &rs->scene_context->entities,
+                    // &rs->rt_cache->mesh_data_buffer,
                     &rs->probe_storage_buffer,
                     &rs->light_probe_settings_buffer,
                     &rs->light_probe_ray_buffer,
                     &rs->environment_storage_buffer,
                     &rs->point_light_storage_buffer,
-                    gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator),
+                    gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->permanent_descriptor_allocator),
                     // &rs->frame_images[0].texture
                     &rs->light_probes.irradiance_texture,
                     &rs->light_probes.visibility_texture
@@ -1093,8 +1099,7 @@ public:
             }
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
-                state.create_storage_buffer(&rs->frames[i].postprocess_pass.parameter_buffer);
-                // rs->frames[i].postprocess_pass.build_buffer_sets(builder);
+                
                 rs->frames[i].postprocess_pass.bind_images(builder, rs->texture_cache["null"]);
                 rs->frames[i].postprocess_pass.build_layout(state);
             }
@@ -1135,9 +1140,10 @@ public:
        // lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
         rs->rt_cache->init(state, rs->frames[0].rt_compute_pass.descriptor_set_layouts[0]);
+        rs->frames[0].rt_compute_pass.descriptor_set_layouts[0] = VK_NULL_HANDLE;
 
 
-        rs->scene_context = arena_alloc_ctor<scene_context_t>(&rs->arena, 1, state);
+        
 
         return rs;
     }
@@ -1204,6 +1210,8 @@ public:
         u32 mat_id, // todo(zack): remove this
         m44 transform,
         v4f bounds,
+        u64 gfx_id,
+        u64 gfx_count,
         u32 instance_count = 1,
         u32 instance_offset = 0
     ) {
@@ -1220,12 +1228,15 @@ public:
         // probably the later
 
         for (size_t i = 0; i < job->meshes->count; i++) {
-            for (size_t j = 0; j < instance_count && j < 10; j++) { // @hardcoded limit for instancing
+            if (instance_count == 1){
+            // for (size_t j = 0; j < instance_count && j < 10 && instance_count == 1; j++) { // @hardcoded limit for instancing
                 rs->get_frame_data().rt_compute_pass.add_to_tlas(
                     *rs->vk_gfx,
                     *rs->rt_cache,
+                    gfx_id + i,
                     job->meshes->meshes[i].blas,
-                    instance_count == 1 ? transform : transform * instance_buffer[instance_offset + j]
+                    transform
+                    // instance_count == 1 ? transform : transform * instance_buffer[instance_offset + j]
                 );
             }
 
@@ -1935,9 +1946,19 @@ public:
         return rs->scene_context->register_entity();
     }
 
-    void initialize_entity(system_t* rs, gfx_entity_id id, u32 vertex_start, u32 index_start) {
+    void initialize_entity(system_t* rs, gfx_entity_id id, u32 vertex_start_, u32 index_start_) {
+        u64 vertex_start = rs->vk_gfx->get_buffer_device_address(rs->scene_context->vertices.buffer) + sizeof(gfx::vertex_t) * vertex_start_;
+        u64 index_start = rs->vk_gfx->get_buffer_device_address(rs->scene_context->indices.buffer) + sizeof(u32) * index_start_;
         rs->scene_context->get_entity(id).vertex_start = vertex_start;
         rs->scene_context->get_entity(id).index_start = index_start;
+    }
+
+    void set_entity_material(system_t* rs, gfx_entity_id id, u64 material_) {
+        u64 material = rs->vk_gfx->get_buffer_device_address(rs->material_storage_buffer.buffer) + material_ * sizeof(gfx::material_t);
+        rs->scene_context->get_entity(id).material = material;
+    }
+    void set_entity_albedo(system_t* rs, gfx_entity_id id, u32 albedo) {
+        rs->scene_context->get_entity(id).albedo = albedo;
     }
 
     #include "raytrace_pass.hpp"

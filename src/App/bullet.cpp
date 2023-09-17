@@ -191,7 +191,7 @@ namespace zyy::wep {
         bullet_entity->physics.rigidbody->set_group(~2ui32);
 
         bullet_entity->coroutine->start();
-        // bullet_entity->add_child(spawn_puff(world, bullet.ray.origin, 10));
+        bullet_entity->add_child(spawn_puff(world, bullet.ray.origin, 10));
 
         return bullet_entity;
     }

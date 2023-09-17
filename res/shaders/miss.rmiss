@@ -10,7 +10,7 @@
 
 layout(location = 0) rayPayloadInEXT RayData data;
 
-layout(std430, set = 0, binding = 8, scalar) readonly buffer EnvironmentBuffer {
+layout(std430, set = 0, binding = 3, scalar) readonly buffer EnvironmentBuffer {
 	Environment uEnvironment;
 };
 
@@ -18,12 +18,13 @@ void main()
 {
     // data.color = vec3(0,0,1);
     // data.color = vec3(0.8706, 0.8118, 0.6549);
-    // data.color = vec3(0.1961, 0.451, 0.9255);
+    // data.color = vec3(0.3922, 0.5686, 0.902);
     // data.color = sqrt(sqrt(sky_color(data.normal, normalize(vec3(1,30,2))))); // breaks light probes
     vec3 L = normalize(uEnvironment.sun.direction.xyz);
-    data.color = (sqrt(max(vec3(0.0), sky_color(data.direction, L)))) / 3.1415; // breaks light probes
+    data.color = sqrt(sqrt(max(vec3(0.0), sky_color(data.direction, L)))) / 3.1415; // breaks light probes
+    // data.color = (sqrt(max(vec3(0.0), sky_color(normalize(vec3(1,2,1)), L)))) / 3.1415; // breaks light probes
     
-    // data.color = vec3(0.99, 0.98, 0.82);
+    // data.color = vec3(0.99, 0.98, 0.82) * 0.16;
     
     data.distance = gl_RayTmaxEXT + 1.0;
 }

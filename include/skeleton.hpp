@@ -142,7 +142,7 @@ struct animation_t {
     i32 ticks_per_second{24};
 
     u64 node_count{0};
-    std::array<node_t, skeleton_t::max_bones_()> nodes;
+    std::array<node_t, skeleton_t::max_bones_()> nodes{};
 };
 
 struct animator_t {

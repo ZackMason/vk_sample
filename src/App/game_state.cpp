@@ -475,19 +475,19 @@ app_init_graphics(game_memory_t* game_memory) {
 
         make_material("default", gfx::material_t::plastic(gfx::color::v4::ray_white));
         // make_material("default", gfx::material_t::plastic(gfx::color::v4::red));
-        {
+        { // 1
             auto triplanar_mat = gfx::material_t::plastic(gfx::color::v4::white);
             triplanar_mat.flags = gfx::material_lit | gfx::material_triplanar;
             make_material("triplanar", triplanar_mat);
         }
-        {
-            auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::white);
-            unlit_mat.flags = 0;
+        { // 2
+            auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::reddish);
+            unlit_mat.flags = gfx::material_lit;
             unlit_mat.emission = 10.0f;
 
             make_material("unlit", unlit_mat);
         }
-        {
+        { // 3
             auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::white);
             // unlit_mat.flags = 0;
             unlit_mat.roughness = 0.1f;
@@ -495,7 +495,7 @@ app_init_graphics(game_memory_t* game_memory) {
 
             make_material("blood", unlit_mat);
         }
-        {
+        { // 4
             auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::yellowish);
             unlit_mat.flags = gfx::material_billboard;
             unlit_mat.roughness = 1.0f;
@@ -503,7 +503,7 @@ app_init_graphics(game_memory_t* game_memory) {
 
             make_material("particle", unlit_mat);
         }
-        {
+        { // 5
             auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::reddish);
             unlit_mat.flags = gfx::material_billboard;
             unlit_mat.roughness = 1.0f;
@@ -511,7 +511,7 @@ app_init_graphics(game_memory_t* game_memory) {
 
             make_material("particle-red", unlit_mat);
         }
-        {
+        { // 6
             auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::orange);
             unlit_mat.flags = gfx::material_billboard;
             unlit_mat.roughness = 1.0f;
@@ -617,7 +617,7 @@ app_on_init(game_memory_t* game_memory) {
 
     game_state->temp_arena = arena_sub_arena(&game_state->main_arena, megabytes(4));
     game_state->string_arena = arena_sub_arena(&game_state->main_arena, megabytes(16));
-    game_state->mesh_arena = arena_sub_arena(&game_state->main_arena, megabytes(128));
+    game_state->mesh_arena = arena_sub_arena(&game_state->main_arena, megabytes(512));
     game_state->texture_arena = arena_sub_arena(&game_state->main_arena, megabytes(32));
     game_state->game_arena = arena_sub_arena(&game_state->main_arena, megabytes(512));
     game_state->gui.arena = arena_sub_arena(main_arena, megabytes(8));
@@ -837,6 +837,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
     if (game_state->render_system == nullptr) return;
 
+    auto* rs = game_state->render_system;
     auto* world = game_state->game_world;
     
     zyy::world_update(world, dt);
@@ -873,6 +874,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             if (e->is_alive() == false) {
                 continue;
             }
+
 
             DEBUG_WATCH(e);
 
@@ -1017,6 +1019,10 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             continue;
         }
 
+        for (u32 m = 0; m < e->gfx.gfx_entity_count; m++) {
+            rendering::set_entity_material(rs, e->gfx.gfx_id + m, e->gfx.material_id);
+        }
+
         if (e->gfx.buffer) {
             arena_sweep_keep(&world->render_system()->instance_storage_buffer.pool, e->gfx.instance_end());
         }
@@ -1037,6 +1043,8 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             e->gfx.material_id, // todo make material per mesh
             e->global_transform().to_matrix(),
             bounds,
+            e->gfx.gfx_id,
+            e->gfx.gfx_entity_count,
             e->gfx.instance_count(),
             e->gfx.instance_offset()
         );
@@ -1056,6 +1064,7 @@ game_on_update(game_memory_t* game_memory) {
     auto* world_generator = game_state->game_world->world_generator;
     if (world_generator && world_generator->is_done() == false) {
         world_generator->execute(game_state->game_world, [&](){draw_gui(game_memory);});
+        std::lock_guard lock{game_state->render_system->ticket};
         set_ui_textures(game_state);
     } else {
         // local_persist f32 accum = 0.0f;
@@ -1078,7 +1087,7 @@ wait_for_frame(game_state_t* game_state) {
     TIMED_FUNCTION;
     gfx::vul::state_t& vk_gfx = game_state->gfx;
 
-    vkDeviceWaitIdle(vk_gfx.device);
+    // vkDeviceWaitIdle(vk_gfx.device);
 
     return rendering::wait_for_frame(game_state->render_system);
 
@@ -1562,6 +1571,7 @@ inline entity_editor_t* get_entity_editor(game_memory_t* game_state) {
 
 export_fn(void) 
 app_on_render(game_memory_t* game_memory) {
+    return;
     auto* game_state = get_game_state(game_memory);
     // local_persist u32 frame_count = 0;
     // if (frame_count < 3) {
@@ -1585,7 +1595,7 @@ app_on_render(game_memory_t* game_memory) {
             // game_state->render_system->camera_pos = game_state->game_world->camera.origin;
             // game_state->render_system->set_view(game_state->game_world->camera.inverse().to_matrix(), game_state->width(), game_state->height());
 
-            game_on_render(game_memory, image_index);
+            // game_on_render(game_memory, image_index);
         
         }   break;
         default:
@@ -1597,6 +1607,7 @@ app_on_render(game_memory_t* game_memory) {
 
 export_fn(void) 
 app_on_update(game_memory_t* game_memory) {
+    auto* game_state = get_game_state(game_memory);
     if (game_memory->input.pressed.keys[key_id::F3] || 
         game_memory->input.gamepads->buttons[button_id::dpad_down].is_pressed) {
         scene_state = !scene_state;
@@ -1605,8 +1616,11 @@ app_on_update(game_memory_t* game_memory) {
         case 0: // Editor
             entity_editor_update(get_entity_editor(game_memory));
             break;
-        case 1: // Game            
+        case 1: { // Game
+            u32 image_index = wait_for_frame(game_state);
             game_on_update(game_memory);
+            game_on_render(game_memory, image_index);
+        }         
             break;
         default:
             zyy_warn("scene::update", "Unknown scene: {}", scene_state);

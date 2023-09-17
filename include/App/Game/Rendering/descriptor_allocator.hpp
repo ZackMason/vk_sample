@@ -151,11 +151,14 @@ void
 descriptor_allocator_t::reset_pools() {
     for (auto p : std::span{used_pools, used_pool_count}) {
         vkResetDescriptorPool(device, p, 0);
+        // push back used pool into free
         free_pools[free_pool_count++] = p;
         assert(free_pool_count < MAX_DESCRIPTOR_POOLS);
     }
+    // clear used pools
     std::memset(used_pools, 0, sizeof(VkDescriptorPool) * array_count(used_pools));
     used_pool_count = 0;
+
     current_pool = VK_NULL_HANDLE;
 }
 

@@ -8,6 +8,7 @@
 
 #include "utl.glsl"
 #include "rng.glsl"
+#include "sky.glsl"
 
 
 layout(location = 2) rayPayloadInEXT bool shadowed;
@@ -16,33 +17,36 @@ layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[2];
 layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];
 
+#define LIGHT_PROBE_SET_INDEX 0
+#define LIGHT_PROBE_BINDING_INDEX 5
+#define LIGHT_PROBE_SET_READ_WRITE readonly
+
 
 #include "material.glsl"
-layout(std430, set = 0, binding = 5, scalar) buffer ProbeBuffer {
-	LightProbe probes[];
-};
-
-#include "raycommon.glsl"
 #include "ddgi.glsl"
+
+#include "engine.glsl"
+#include "raycommon.glsl"
 
 layout(location = 0) rayPayloadInEXT RayData data;
 
-layout(set = 0, binding = 4, scalar) buffer MeshDesc_ { MeshDesc i[]; } uMeshDesc;
+layout(set = 0, binding = 4, scalar) readonly buffer GfxEntity_ { Entity e[]; } uEntityBuffer;
+// layout(set = 0, binding = 4, scalar) buffer MeshDesc_ { MeshDesc i[]; } uMeshDesc;
 
 layout(std430, set = 0, binding = 6, scalar) readonly buffer ProbeSettingsBuffer {
 	LightProbeSettings probe_settings;
 };
 
-layout(set = 0, binding = 8, scalar) readonly buffer EnvironmentBuffer {
+layout(set = 0, binding = 3, scalar) readonly buffer EnvironmentBuffer {
 	Environment uEnvironment;
 };
-layout(set = 0, binding = 9, scalar) readonly buffer PointLightBuffer {
+layout(set = 0, binding = 8, scalar) readonly buffer PointLightBuffer {
 	PointLight point_lights[];
 };
 
-layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; }; // Positions of an object
-layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Triangle indices
-
+layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; };
+layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; 
+layout(buffer_reference, scalar) buffer Materials {Material m[]; };
 
 hitAttributeEXT vec3 attribs;
 
@@ -55,13 +59,17 @@ layout( push_constant ) uniform constants
     // uint kScenePtr[2];
 };
 
-
 void main()
 {
     vec3 direction = data.direction.xyz;
-    MeshDesc mesh = uMeshDesc.i[gl_InstanceCustomIndexEXT];
-    Vertices vertices = Vertices(mesh.vertex_ptr);
-    Indices indices = Indices(mesh.index_ptr);
+    // MeshDesc mesh = uMeshDesc.i[gl_InstanceCustomIndexEXT];
+    Entity entity = uEntityBuffer.e[gl_InstanceCustomIndexEXT];
+    Vertices vertices = Vertices(entity.vertex_start);
+    Indices indices = Indices(entity.index_start);
+    Material material = Materials(entity.material).m[0];
+
+    uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;
+
 
     const vec3 bary = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 
@@ -72,13 +80,18 @@ void main()
     Vertex v2 = vertices.v[tri.z];
 
     vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
-    vec4 albedo = texture(uTextureCache[nonuniformEXT(mesh.texture_id%4096)], uv);
+    // vec4 albedo = vec4(1.0);
 
     vec3 n = normalize(v0.n * bary.x + v1.n * bary.y + v2.n * bary.z);
     vec3 p = (v0.p * bary.x + v1.p * bary.y + v2.p * bary.z);
 
     vec3 wp = (gl_ObjectToWorldEXT * vec4(p, 1.0)).xyz;
     vec3 wn = normalize((gl_ObjectToWorldEXT * vec4(n, 0.0)).xyz);
+
+
+    vec4 albedo = triplanar_material != 0 ?
+        texture_triplanar(uTextureCache[nonuniformEXT(entity.albedo%4096)], wp*0.5, wn) :
+        texture(uTextureCache[nonuniformEXT(entity.albedo%4096)], uv);
 
     vec3 L = normalize(uEnvironment.sun.direction.xyz);
 
@@ -109,20 +122,22 @@ void main()
 
     }
     
-    
     data.distance = 0.0;
+    data.color = vec3(0.0);
 
     Surface start_surface;
     start_surface.normal = wn;
     start_surface.point = wp;
-    start_surface.albedo = albedo.rgb;
-    start_surface.emissive = vec3(0.0);
+    start_surface.albedo = (albedo.rgb * material.albedo.rgb);
+    start_surface.emissive = material.emission * start_surface.albedo;
 
     DirectionalLight sun = uEnvironment.sun;
+    sun.color.rgb = sqrt(sqrt(max(vec3(0.0), sky_color(direction.xyz, sun.direction.xyz))));
     
     TotalLight light_solution = InitLightSolution();
 
     // directional_light(sun, start_surface, light_solution, shadow);
+
 
     // light_solution.direct.diffuse *= saturate(light_probe_irradiance(wp, wn, wn, probe_settings) * 0.295 * 3.14150);
 
@@ -134,7 +149,7 @@ void main()
         // light to world
         // world to light
         L = -normalize(wp - point_lights[i].pos.xyz);
-        float dist_to_light = max(0.0, distance(wp, point_lights[i].pos.xyz) - 0.1);
+        float dist_to_light = max(0.0, distance(wp, point_lights[i].pos.xyz) - 0.02);
         float r2 = sqr(light.range);
         float d2 = sqr(dist_to_light);
 
@@ -149,8 +164,8 @@ void main()
                 0, 
                 0, 
                 1, 
-                wp + wn * 0.03, 
-                0.02, 
+                wp + wn * 0.02, 
+                0.01, 
                 L, 
                 dist_to_light,
                 2);
@@ -163,14 +178,12 @@ void main()
             }
         }
 
-        // light_solution.direct.diffuse += (30.0 * shadow * light.col.rgb * saturate(nol) * light.power) * point_light_attenuation(d2, r2);
         light_solution.direct.diffuse += saturate(nol) * sqr(light.col.rgb) * light.power * shadow * point_light_attenuation(d2, r2);
-        // point_light(point_lights[i], start_surface, light_solution, shadow);
-
     }
 
+
     if (kFrame != 0) {
-        light_solution.direct.diffuse += max(vec3(0.0), albedo.rgb * light_probe_irradiance(wp, direction.xyz, wn, probe_settings) * 0.95 * probe_settings.boost);
+        light_solution.direct.diffuse += max(vec3(0.0), light_probe_irradiance(wp, direction.xyz, wn, probe_settings) * 0.95 * probe_settings.boost);
     }
 
     apply_light(start_surface, light_solution, data.color);

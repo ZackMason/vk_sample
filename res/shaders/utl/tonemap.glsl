@@ -8,3 +8,19 @@ vec3 ACESFilm(vec3 x)
     float e = 0.14;
     return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
 }
+
+vec3 to_srgb(vec3 color)
+{
+    return sqrt(color);
+    // return pow(color,vec3(1./2.2));
+}
+
+float rgb_to_luminance(vec3 color)
+{
+    return dot(color, vec3(0.2126f, 0.7152f, 0.0722f));
+}
+
+float karis_average(vec3 color) {
+    float l = rgb_to_luminance(to_srgb(color)) * 0.25;
+    return l / (1. + l);
+}
