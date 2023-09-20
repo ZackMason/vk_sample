@@ -515,7 +515,8 @@ draw_gui(game_memory_t* game_memory) {
                         gfx::color32 tc = gfx::color::to_color32(env.fog_color);
                         im::color_edit(state, &tc);
                         env.fog_color = gfx::color::to_color4(tc);
-                        im::float_slider(state, &env.fog_density);
+                        // im::float_slider(state, &env.fog_density);
+                        im::float_edit(state, &env.fog_density);
                     }
                     local_persist bool show_lights = !false;
                     local_persist bool light[512]{true};

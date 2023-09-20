@@ -1258,7 +1258,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
         
         // if (gs_rtx_on) 
         {
-            // rendering::begin_rt_pass(game_state->render_system, command_buffer);
+            rendering::begin_rt_pass(game_state->render_system, command_buffer);
         // } else {
             // game_state->render_system->rt_cache->frame = 0;
             VkBuffer buffers[1] = { game_state->render_system->scene_context->vertices.buffer };

@@ -4010,6 +4010,26 @@ namespace gui {
             }
             imgui.panel->expand(bg_box.max + v2f{imgui.theme.padding});
         }
+        
+        void 
+        float_edit(
+            state_t& imgui,
+            f32* val
+        ) {
+            local_persist char text_buffer[256];
+            local_persist size_t write=0;
+            if (imgui.active.id != "float_edit"_sid) {
+                utl::memzero(text_buffer, array_count(text_buffer));
+                write = 0;
+            }
+
+            const auto t = fmt_str("{}", *val);
+            std::memcpy(text_buffer, t.data(), t.size());
+
+            text_edit(imgui, text_buffer, &write, "float_edit"_sid);
+            
+            *val = (f32)std::atof(text_buffer);
+        }
 
         inline void
         checkbox(

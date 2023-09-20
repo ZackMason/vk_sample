@@ -140,6 +140,7 @@ descriptor_allocator_t::allocate(VkDescriptorSet* set, VkDescriptorSetLayout lay
 
         //if it still fails then we have big issues
         if (allocResult == VK_SUCCESS){
+            zyy_error(__FUNCTION__, "Big issues allocating descriptor set");
             return true;
         }
     }
@@ -163,11 +164,11 @@ descriptor_allocator_t::reset_pools() {
 }
 
 static constexpr u64 MAX_DESCRIPTOR_LAYOUT_BINDINGS = 32;
-static constexpr u64 MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE = 1024;
+static constexpr u64 MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE = 1024*32;
 
 struct descriptor_layout_cache_t {
     explicit descriptor_layout_cache_t(VkDevice device_) : device{device_} {
-        std::memset(cache, (int)VK_NULL_HANDLE, sizeof(size_t) * array_count(cache));
+        std::memset(cache, (int)VK_NULL_HANDLE, sizeof(VkDescriptorSetLayout) * array_count(cache));
         std::memset(meta, 0, sizeof(size_t) * array_count(meta));
     }
     virtual ~descriptor_layout_cache_t() {
@@ -246,7 +247,7 @@ descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCre
     
     while (cache[bucket] != VK_NULL_HANDLE && meta[bucket] != hash) {
         bucket = (bucket + 1) % MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE;
-        // zyy_warn(__FUNCTION__, "probe: {}", hash);
+        zyy_warn(__FUNCTION__, "probe: {}", hash);
     }
 
     if (meta[bucket] == hash) {
