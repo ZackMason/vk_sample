@@ -33,7 +33,7 @@ struct rt_cache_t {
         build_shader_table(gfx);
     }
 
-    acceleration_structure_t blas[512];
+    acceleration_structure_t blas[512<<2];
     umm blas_count{0};
 
     VkRayTracingShaderGroupCreateInfoKHR   shader_groups[32];
@@ -513,6 +513,7 @@ struct rt_compute_pass_t {
         t = glm::transpose(t);
         std::memcpy(&transform_matrix, &t, sizeof(transform_matrix));
         auto i = instance_count++;
+        assert(instance_count < array_count(tlas_instances));
         VkAccelerationStructureInstanceKHR& acceleration_structure_instance    = tlas_instances[i];
         acceleration_structure_instance.transform                              = transform_matrix;
         acceleration_structure_instance.instanceCustomIndex                    = gfx_id;

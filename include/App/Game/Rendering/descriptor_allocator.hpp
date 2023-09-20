@@ -91,7 +91,7 @@ descriptor_allocator_t::get_pool() {
         free_pools[free_pool_count] = VK_NULL_HANDLE;
         return pool;
     } else {
-        return create_pool(device, descriptor_sizes, array_count(descriptor_sizes), 100000, 0);
+        return create_pool(device, descriptor_sizes, array_count(descriptor_sizes), 1000, 0);
     }
 }
 

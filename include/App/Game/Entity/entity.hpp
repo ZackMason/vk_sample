@@ -262,9 +262,9 @@ struct entity_t {
     void queue_free() noexcept {
         assert(uid::is_valid(id));
         assert(((flags & EntityFlags_Dead) == 0) && "Should not have access to dead entities");
-        zyy_info(__FUNCTION__, "Killing entity: {} - {}", (void*)this, name.c_str());
+        zyy_info(__FUNCTION__, "Killing entity: {} - {}", (void*)this, name.c_str() ? name.c_str() : "<null>");
         flags |= EntityFlags_Dying;
-        // return;
+        
         auto* child = first_child;
         for (;child; child = child->next_child) {
             child->queue_free();

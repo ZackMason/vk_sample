@@ -41,10 +41,10 @@ struct world_generator_t {
         auto* step = first_step;
         while(step) {
             {
-                std::lock_guard lock{world->render_system()->ticket};
-                rendering::begin_frame(world->render_system());
+                // std::lock_guard lock{world->render_system()->ticket};
+                // rendering::begin_frame(world->render_system());
             }
-            draw_gui();
+            // draw_gui();
             step->function(world);
             completed_count++;
 

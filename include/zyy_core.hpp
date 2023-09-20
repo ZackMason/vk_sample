@@ -3690,10 +3690,17 @@ namespace gui {
                 color::rgba::black,
             };
 
+            f32 bx = color_hsv.y * box.size().x;
+            f32 by = (1.0f-color_hsv.z) * box.size().y;
+
+
+            draw_circle(&imgui.ctx, box.min + v2f{bx,by}, 3.0f, color::rgba::white);
+            draw_circle(&imgui.ctx, box.min + v2f{bx,by}, 4.0f, color::rgba::black);
+
             draw_rect(&imgui.ctx, box, std::span{rect_colors});
 
             const size_t res = 4;
-            loop_iota_u64(i, res) {
+            range_u64(i, 0, res) {
                 math::aabb_t<v2f> hue_seg;
                 hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i)/f32(res)} + v2f{imgui.theme.padding, 0.0f});
                 hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i+1)/f32(res)} + v2f{8.0f, 0.0f} + v2f{imgui.theme.padding,0.0f});
@@ -3714,6 +3721,10 @@ namespace gui {
                 
                 draw_rect(&imgui.ctx, hue_seg, std::span{hue_colors});
             }
+
+            f32 tx = hue_box.max.x + 2.0f;
+            f32 ty = hue_box.min.y + (color_hsv.x/360.0f)*hue_box.size().y;
+            draw_circle(&imgui.ctx, v2f{tx,ty}, 5.0f, color::rgba::white, 3, 1.0f, 0.5f);
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
             const f32 col_s = glm::max(x - box.min.x, 0.0f) / box.size().x;

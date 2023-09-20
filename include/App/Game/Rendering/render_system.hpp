@@ -705,7 +705,6 @@ public:
 
     // for double buffering
     struct frame_data_t {
-        // these arent being used
         VkSemaphore present_semaphore, render_semaphore;
         VkFence fence;
 
@@ -1200,7 +1199,7 @@ public:
     void present_frame(system_t* rs, u32 image_index) {
         auto& gfx = *rs->vk_gfx;
 
-        rs->get_frame_data().present_queue(gfx.present_queue, gfx.swap_chain, image_index);
+        rs->get_frame_data().present_queue(gfx.gfx_queue, gfx.swap_chain, image_index);
     }
 
     inline void

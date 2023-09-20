@@ -24,6 +24,7 @@ struct LightProbeSettings {
     int sample_max;
     float hysteresis;
     float boost;
+    float depth_sharpness;
 };
 
 layout(std430, set = LIGHT_PROBE_SET_INDEX, binding = LIGHT_PROBE_BINDING_INDEX, scalar) LIGHT_PROBE_SET_READ_WRITE buffer ProbeBuffer {
@@ -85,7 +86,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
 
     for (uint i = 0; i < 8; i++) {
 		uvec3 offset = uvec3(i, i>>1, i>>2) & uvec3(1);
-        uvec3 adj_probe_coord = clamp(biased_probe_coord + offset, uvec3(0), uvec3(settings.dim-1));
+        uvec3 adj_probe_coord = clamp(biased_probe_coord + offset, uvec3(0), uvec3(settings.dim));
         uint adj_probe_index = index_3d(settings.dim, adj_probe_coord);
 
         // ignore probes inside walls
@@ -103,7 +104,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
         vec3 tri = max(vec3(0.001), mix(1.0 - alpha, alpha, offset));
         float weight = 1.0;
 
-        float smooth_backface = 1.0;
+        float smooth_backface = 0.0;
         float wrap_shading = (dot(world_to_adj, n) + 1.0) * 0.5;
         float normal_shading = saturate(dot(world_to_adj, n));
         weight *= mix(normal_shading, sqr(wrap_shading) + 0.2, smooth_backface);

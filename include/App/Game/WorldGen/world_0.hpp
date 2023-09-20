@@ -138,34 +138,36 @@ generate_sponza(arena_t* arena) {
     return generator;
 }
 
-#define SPAWN_FIRE_PARTICLE(pos, mat, size)\
-    {auto* ps = zyy::spawn(world, world->render_system(), zyy::db::particle::plasma, pos);\
-    ps->gfx.particle_system = particle_system_create(&world->arena, 64);\
-    ps->gfx.instance(world->render_system()->instance_storage_buffer.pool, 64, 1);\
-    ps->gfx.material_id = mat;\
-    ps->gfx.particle_system->acceleration = v3f{axis::up*9.81f*0.1f};\
-    ps->gfx.particle_system->spawn_rate = 0.02f;\
-    ps->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>(0.06f * size, 0.01f * size);\
-    ps->gfx.particle_system->velocity_random = math::aabb_t<v3f>(planes::xz*-.0050f, v3f(.0050f));\
-    ps->gfx.particle_system->angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));\
-    ps->gfx.particle_system->emitter_type = particle_emitter_type::box;\
-    ps->gfx.particle_system->box = math::aabb_t<v3f>(v3f(-.030f), v3f(.030f));\
-    ps->gfx.particle_system->stream_rate = 1;\
-    ps->gfx.particle_system->template_particle = particle_t {\
-        .position = v3f(0.0),\
-        .life_time = 1.0f,\
-        .color = gfx::color::v4::purple,\
-        .scale = 1.0f,\
-        .velocity = axis::up * 0.10f,\
-    };}
+auto SPAWN_FIRE_PARTICLE(auto* world, auto pos, auto mat, auto size) {
+    auto* ps = zyy::spawn(world, world->render_system(), zyy::db::particle::plasma, pos);
+    ps->gfx.particle_system = particle_system_create(&world->arena, 64);
+    ps->gfx.instance(world->render_system()->instance_storage_buffer.pool, 64, 1);
+    ps->gfx.material_id = mat;
+    ps->gfx.particle_system->acceleration = v3f{axis::up*9.81f*0.1f};
+    ps->gfx.particle_system->spawn_rate = 0.02f;
+    ps->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>(0.06f * size, 0.01f * size);
+    ps->gfx.particle_system->velocity_random = math::aabb_t<v3f>(planes::xz*-.0050f, v3f(.0050f));
+    ps->gfx.particle_system->angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));
+    ps->gfx.particle_system->emitter_type = particle_emitter_type::box;
+    ps->gfx.particle_system->box = math::aabb_t<v3f>(v3f(-.10f), v3f(.10f));
+    ps->gfx.particle_system->stream_rate = 1;
+    ps->gfx.particle_system->template_particle = particle_t {
+        .position = v3f(0.0),
+        .life_time = 1.50f,
+        .color = gfx::color::v4::purple,
+        .scale = 1.0f,
+        .velocity = axis::up * 0.10f,
+    };
+    return ps;
+}
 
 world_generator_t*
 generate_particle_test(arena_t* arena) {
     auto* generator = generate_world_test(arena);
 
     generator->add_step("Fire Particle", WORLD_STEP_TYPE_LAMBDA(environment) {
-        SPAWN_FIRE_PARTICLE(5.0f*axis::right + axis::up, 5, 1.0f);
-        SPAWN_FIRE_PARTICLE(5.0f*axis::right + axis::up, 4, 1.0f);
+        SPAWN_FIRE_PARTICLE(world, 5.0f*axis::right + axis::up, 5, 1.0f);
+        SPAWN_FIRE_PARTICLE(world, 5.0f*axis::right + axis::up, 4, 1.0f);
     });
     generator->add_step("Particle Spawner", WORLD_STEP_TYPE_LAMBDA(environment) {
         constexpr zyy::db::prefab_t spawner_p{
@@ -354,9 +356,9 @@ generate_world_1(arena_t* arena) {
                 }
             };
 
-        auto aabb = e_room->aabb;
+        auto aabb = e_room->global_transform().xform_aabb(e_room->aabb);
 
-        aabb.min.y = 1.0f;
+        aabb.min.y = 0.0f;
         aabb.max.y *= 0.8f;
 
         auto light_aabb = aabb;
@@ -367,7 +369,7 @@ generate_world_1(arena_t* arena) {
             rendering::create_point_light(
                 world->render_system(),
                 utl::rng::random_s::aabb(light_aabb),
-                100.0f, 250.0f, v3f{1.5f, .9f, .3f} * utl::rng::random_s::randv()
+                100.0f, 25.0f, v3f{1.5f, .9f, .3f} * utl::rng::random_s::randv()
             );
         }
 
@@ -497,7 +499,7 @@ generate_world_0(arena_t* arena) {
     });
     generator->add_step("Teapots", WORLD_STEP_TYPE_LAMBDA(environment) {
         // return;
-        loop_iota_u64(i, 50) {
+        loop_iota_u64(i, 500) {
             auto* e = zyy::spawn(
                 world, 
                 world->render_system(),
@@ -530,5 +532,529 @@ generate_world_0(arena_t* arena) {
     return generator;
 }
 
+zyy::entity_t* spawn_torch(zyy::world_t* world, v3f pos, f32 rotation = 0.0f) {
+    auto prefab = zyy::db::misc::torch_01;
+    zyy::db::prefab_t null_prefab{};
+    prefab.children[0].entity = &null_prefab;
+    auto* torch = zyy::spawn(world, world->render_system(), prefab, pos);
+    torch->transform.set_rotation(v3f{0.0f, rotation, 0.0f});
+    torch->gfx.material_id = 1;
+    torch->first_child->add_child(SPAWN_FIRE_PARTICLE(world, v3f{0.0f}, 5, 4.0f));
+    rendering::create_point_light(
+        world->render_system(),
+        torch->first_child->global_transform().origin,
+        50.0f, 55.0f, v3f{1.5f, .9f, .3f} * utl::rng::random_s::randv()
+    );
+    return torch;
+}   
+zyy::entity_t* spawn_door(zyy::world_t* world, v3f pos, f32 rotation = 0.0f) {
+    auto prefab = zyy::db::misc::door;
+    // zyy::db::prefab_t null_prefab{};
+    // prefab.children[0].entity = &null_prefab;
+    auto* torch = zyy::spawn(world, world->render_system(), prefab, pos);
+    torch->transform.set_rotation(v3f{0.0f, rotation, 0.0f});
+    torch->physics.rigidbody->orientation = glm::toQuat(torch->transform.basis);
+    torch->physics.rigidbody->position = torch->global_transform().origin;
+    world->physics->set_rigidbody(0, torch->physics.rigidbody);
+    torch->gfx.material_id = 1;
+    
+    return torch;
+}   
 
+zyy::entity_t* spawn_room(zyy::world_t* world, zyy::db::prefab_t prefab, v3f pos = v3f{0.0f}) {
+    auto* room = zyy::spawn(world, world->render_system(), prefab, pos);
+    room->gfx.material_id = 1;
+    // room->flags |= (zyy::EntityFlags_Pickupable);
+
+    room->add_child(
+        spawn_door(world, v3f{-25.0f, 0.0f, 0.0f}, 3.1415f * 0.5f)
+    , true);
+    room->add_child(
+        spawn_door(world, v3f{25.0f, 0.0f, 0.0f}, -3.1415f * 0.5f)
+    , true);
+    room->add_child(
+        spawn_door(world, v3f{0.0f, 0.0f, 25.0f}, 0.0f)
+    , true);
+    room->add_child(
+        spawn_door(world, v3f{0.0f, 0.0f,-25.0f}, 3.1415f)
+    , true);
+
+    room->add_child(spawn_torch(world, v3f{-25.0f, 2.0f, 8.0f}, -3.1415*0.5f), true);
+    room->add_child(spawn_torch(world, v3f{-25.0f, 2.0f, -8.0f}, -3.1415*0.5f), true);
+    room->add_child(spawn_torch(world, v3f{25.0f, 2.0f, 8.0f}, 3.1415f*0.5f), true);
+    room->add_child(spawn_torch(world, v3f{25.0f, 2.0f, -8.0f}, 3.1415f*0.5f), true);
+    room->add_child(spawn_torch(world, v3f{-8.0f, 2.0f, 25.0f}), true);
+    room->add_child(spawn_torch(world, v3f{-8.0f, 2.0f, -25.0f}, 3.1415f), true);
+    room->add_child(spawn_torch(world, v3f{8.0f, 2.0f, 25.0f}), true);
+    room->add_child(spawn_torch(world, v3f{8.0f, 2.0f, -25.0f}, 3.1415f), true);
+    return room;
+}
+
+enum RoomDirection {
+    RoomDirection_None  = 0,
+    RoomDirection_North = BIT(0),
+    RoomDirection_South = BIT(1),
+    RoomDirection_East  = BIT(2),
+    RoomDirection_West  = BIT(3),
+    RoomDirection_Up    = BIT(4),
+    RoomDirection_Down  = BIT(5),
+
+    RoomDirection_Horizontal    = RoomDirection_North|RoomDirection_South|RoomDirection_East|RoomDirection_West,
+    RoomDirection_Vertical      = RoomDirection_Up|RoomDirection_Down,
+    RoomDirection_All           = RoomDirection_Horizontal|RoomDirection_Vertical,
+};
+
+enum ModuleType {
+    ModuleType_Room = BIT(0),
+    ModuleType_Shop = BIT(1),
+    ModuleType_Item = BIT(2),
+    ModuleType_Exit = BIT(3),
+};
+
+#define make_room(name) \
+    zyy::db::prefab_t {\
+        .gfx = {\
+            .mesh_name = name,\
+        },\
+        .physics = zyy::db::prefab_t::physics_t {\
+            .flags = zyy::PhysicsEntityFlags_Static,\
+            .shapes = {\
+                zyy::db::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},\
+            },\
+        },\
+    }
+
+struct module_filter_t {
+    u32 directions{0};
+    u32 type{0};
+
+    f32 match(module_filter_t o) const {
+        f32 r{0.0f};
+        r += type == o.type ? 100.0f : -100.0f;
+        r += directions == o.directions ? 100.0f : 0.0f;
+        r += (directions & o.directions) ? 50.0f : 0.0f;
+        return r;
+    }
+};
+
+struct module_prefab_t {
+    zyy::db::prefab_t prefab{};
+    // u32 directions{0};
+    module_filter_t filter{};
+
+    
+};
+
+global_variable module_prefab_t gs_modules[] = {
+    module_prefab_t{.prefab = make_room("res/models/modules/module_0.gltf"),   .filter={.directions=RoomDirection_None}},
+    module_prefab_t{.prefab = make_room("res/models/modules/module_000.gltf"), .filter={.directions=RoomDirection_Horizontal}},
+    module_prefab_t{.prefab = make_room("res/models/modules/module_001.gltf"), .filter={.directions=RoomDirection_North}},
+    module_prefab_t{.prefab = make_room("res/models/modules/module_002.gltf"), .filter={.directions=RoomDirection_North|RoomDirection_West}},
+    module_prefab_t{.prefab = make_room("res/models/modules/module_003.gltf"), .filter={.directions=RoomDirection_North|RoomDirection_West|RoomDirection_East}},
+    module_prefab_t{.prefab = make_room("res/models/modules/module_005.gltf"), .filter={.directions=RoomDirection_Vertical|RoomDirection_Horizontal}},
+    module_prefab_t{.prefab = make_room("res/models/modules/module_004.gltf"), .filter={.directions=RoomDirection_Up|RoomDirection_Horizontal}},
+    module_prefab_t{.prefab = make_room("res/models/modules/module_006.gltf"), .filter={.directions=RoomDirection_Down|RoomDirection_Horizontal}},
+};
+
+struct room_module_t {
+    v3u coord{};
+    u32 type{ModuleType_Room};
+
+    zyy::db::prefab_t prefab{};
+
+    union {
+        struct {
+            // do not move
+            room_module_t* north;
+            room_module_t* south;
+            room_module_t* east;
+            room_module_t* west;
+            room_module_t* up;
+            room_module_t* down;
+        };
+        room_module_t* direction[6];
+    };
+
+    u32 opened_directions() const {
+        u32 r=0;
+        range_u32(i,0,6) {
+            r|=direction[i]?1<<i:0;
+        }
+        return r;
+    }
+    u32 closed_directions() const {
+        return (~opened_directions())&0b111111;
+    }
+};
+
+constexpr u32 direction_index(u32 x) {
+    u32 i = 0;
+    while(x!=1) {
+        x>>=1; i++;
+    }
+    return i;
+}
+
+constexpr u32 anti_direction(u32 x) {
+    switch(x) {
+        case RoomDirection_North: return RoomDirection_South;
+        case RoomDirection_South: return RoomDirection_North;
+        case RoomDirection_West: return RoomDirection_East;
+        case RoomDirection_East: return RoomDirection_West;
+        case RoomDirection_Up: return RoomDirection_Down;
+        case RoomDirection_Down: return RoomDirection_Up;
+        case_invalid_default;
+    }
+    return 0xffffffff;
+}
+
+constexpr v3i direction_offset(u32 x) {
+    switch(x) {
+        case RoomDirection_North: return v3i{0,0,1};
+        case RoomDirection_South: return v3i{0,0,-1};
+        case RoomDirection_West: return v3i{-1,0,0};
+        case RoomDirection_East: return v3i{1,0,0};
+        case RoomDirection_Up: return v3i{0,1,0};
+        case RoomDirection_Down: return v3i{0,-1,0};
+        case_invalid_default;
+    }
+    return v3i{0};
+}
+
+struct module_generator_t {
+    inline static constexpr v3u dim{8,3,8};
+    zyy::world_t* world{nullptr};
+
+    v3f room_dimensions{16.0f, 8.0f, 16.0f};
+    room_module_t rooms[dim.x*dim.y*dim.z];
+    room_module_t* tiles[dim.x][dim.y][dim.z];
+
+    u64 spawned{0};
+    v3u start_room{0};
+
+    void print() const {
+        puts("============================");
+        v3u p{0};
+
+        range_u64(y, 0, dim.y) {
+            range_u64(z, 0, dim.z) {
+                range_u64(x, 0, dim.x) {
+                    p = v3u{x,y,z};
+                    switch (at(p)->type){
+                        case ModuleType_Room: printf("o"); break;
+                        case ModuleType_Shop: printf("$"); break;
+                        case ModuleType_Exit: printf("<"); break;
+                        default: printf("x"); break;
+                    }
+                    if (x<dim.x-1&&at(p)->east) printf("--"); 
+                    else printf("  ");
+                }
+
+                printf("\n");
+
+                if (z < dim.z-1) {
+                    range_u64(x, 0, dim.x) {
+                        if (at(v3u{x, y, z})->north) printf("|");
+                        else printf(" ");
+                        printf("  ");
+                    }
+                }
+                printf("\n");
+            }
+
+            puts("============================");
+        }
+    }
+
+    bool bounds(v3u x) const {
+        return x.x < dim.x && x.y < dim.y && x.z < dim.z;
+    }
+
+    v3u safe_move(v3u x, v3i o) const {
+        v3i n = v3i(x) + o;
+        return bounds(v3u(n)) ? v3u(n) : x;
+    }
+
+    room_module_t* at(v3u x) const {
+        assert(bounds(x));
+        return tiles[x.x][x.y][x.z];
+    }
+
+    void get_path(v3u a, room_module_t** visited, u64& visited_top) {
+        room_module_t* path[dim.x*dim.y*dim.z];
+
+        u64 stack = 0;
+        path[stack++] = at(a);
+        visited[visited_top++] = at(a);
+
+        auto is_visited = [&](room_module_t* r) {
+            if (r==nullptr) return true;
+            range_u64(i, 0, visited_top) {
+                if (visited[i] == r) return true;
+            }
+            return false;
+        };
+
+        while(stack) {
+            auto* room = path[--stack];
+            assert(room);
+            
+            range_u64(adj, 0, 6) {
+                if (is_visited(room->direction[adj]) == false) {
+                    visited[visited_top++] = room->direction[adj];
+                    path[stack++] = room->direction[adj];
+                }
+            }
+        }
+    }
+
+    bool path_connected(v3u a, v3u b) {
+        // room_module_t** visited = new room_module_t*[dim.x*dim.y*dim.z];
+        // defer {
+        //     delete[] visited;
+        // };
+        room_module_t* visited[dim.x*dim.y*dim.z];
+        
+        u64 visited_top = 0;
+
+        get_path(a, visited, visited_top);
+
+        range_u64(i, 0, visited_top) {
+            if (visited[i]->coord==b) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void connect_rooms(v3u a, v3u b, u32 a_to_b_direction) {
+        assert(at(a)->direction[direction_index(a_to_b_direction)] == 0);
+        assert(at(b)->direction[direction_index(anti_direction(a_to_b_direction))] == 0);
+
+        at(a)->direction[direction_index(a_to_b_direction)] = at(b);
+        at(b)->direction[direction_index(anti_direction(a_to_b_direction))] = at(a);
+    }
+
+    void fill_modules() {
+        u64 i = 0;
+        range_u64(z, 0, dim.z) {
+            range_u64(y, 0, dim.y) {
+                range_u64(x, 0, dim.x) {
+                    tiles[x][y][z] = rooms + i++;
+                    tiles[x][y][z]->coord = v3u{x,y,z};
+                }
+            }
+        }
+    }
+
+    v3u random_room_on_path(v3u p) {
+        room_module_t* visited[dim.x*dim.y*dim.z];
+        u64 visited_top = 0;
+
+        get_path(p, visited, visited_top);
+
+        return visited_top > 1 ?
+            visited[(world->entropy.rand()%(visited_top-1))+1]->coord :
+            p;
+    }
+
+    // returns opened room coord
+    v3u open_random_room_on_path(v3u p) {
+        u64 tries = 100;
+        while(tries--) {
+            auto r = random_room_on_path(p);
+            u32 d = u32(world->entropy.rand()>>8) % 6;
+            if (path_open(r, 1<<d) == false && open_path(r, 1<<d)) {
+                return at(r)->direction[d]->coord;
+            }
+        }
+        zyy_warn(__FUNCTION__, "Failed to open path");
+        return p;
+    }
+
+    // checks for bounds
+    // returns true on success
+    bool open_path(v3u a, u32 direction) {
+        v3i o = direction_offset(direction);
+        v3u b = safe_move(a, o);
+        if (b!=a && path_open(a, direction) == false) {
+            connect_rooms(a,b, direction);
+            return true;
+        }
+        return false;
+    }
+
+    bool path_open(v3u a, u32 direction) const {
+        return at(a)->direction[direction_index(direction)] != nullptr;
+    }
+
+    void build_maze(u32 iters = 60) {
+        v3u p = random_tile();
+
+        at(p)->type = ModuleType_Exit; // todo better exit placement
+
+        while(iters--) {
+            p = open_random_room_on_path(p);
+        }
+    }
+
+    void place_rooms() {
+        range_u64(z, 0, dim.z) {
+            range_u64(y, 0, dim.y) {
+                range_u64(x, 0, dim.x) {
+                    auto* room = tiles[x][y][z];
+                    f32 best_match = 0.0f;
+                    u64 best=0;
+
+                    module_filter_t room_filter{
+                        .directions = room->opened_directions(),
+                        .type = room->type,
+                    };
+                    
+                    // Note(Zack): Idea: pick random weighted by match
+                    range_u64(p, 0, array_count(gs_modules)) {
+                        auto* m = gs_modules+p;
+                        f32 match = m->filter.match(room_filter);
+
+                        if (best_match < match) {
+                            best_match = match;
+                            best = p;
+                        }
+                    }
+
+                    if(best_match>0.0f) {
+                        zyy::spawn(world, world->render_system(), gs_modules[best].prefab, tile_to_world(room->coord));
+                    } else {
+                        zyy_warn(__FUNCTION__, "Missing module prefab for filter: direction: {}, type: {}", room_filter.directions, room_filter.type);
+                    }
+                }
+            }
+        }
+    }
+
+    void generate() {
+        build_maze();
+        print();
+        place_rooms();
+    }
+
+    v3f tile_to_world(v3u t) const {
+        return v3f(t) * room_dimensions;
+    }
+
+    v3u random_tile() const {
+        return v3u{
+            u32(world->entropy.rand() % dim.x),
+            u32(world->entropy.rand() % dim.y),
+            u32(world->entropy.rand() % dim.z)
+        };
+    }
+
+    explicit module_generator_t(zyy::world_t* world_) : world{world_} {
+        utl::memzero(tiles, sizeof(room_module_t*)*array_count(rooms));
+        utl::memzero(rooms, sizeof(room_module_t)*array_count(rooms));
+        fill_modules();
+    }
+};
+
+struct dungeon_generator_t {
+    v3f room_dimensions{40.0f, 20.0f, 40.0f}; // half
+    zyy::entity_t* tiles[8][8];
+    zyy::world_t* world{nullptr};
+
+    u64 rooms_spawned{0};
+    v2u start_room{};
+
+
+    
+    zyy::db::prefab_t rooms[4] = {
+        make_room("res/models/rooms/room_02.gltf"),
+        make_room("res/models/rooms/room_03.gltf"),
+        make_room("res/models/rooms/room_04.gltf"),
+        make_room("res/models/rooms/room_05.gltf")
+    };
+
+    #undef make_room
+
+    void generate() {
+        if (rooms_spawned >= 16) return;
+
+        v2u room_coord;
+
+        do {
+            room_coord = random_tile();
+        } while(tiles[room_coord.x][room_coord.y]==nullptr);
+
+        auto random_room = rooms[world->entropy.rand()%array_count(rooms)];
+        auto* room = spawn_room(world, random_room, tile_position(room_coord));
+        tiles[room_coord.x][room_coord.y] = room;
+
+        if (rooms_spawned==0) {
+            start_room = room_coord;
+        }
+
+        rooms_spawned++;
+    }
+
+    v3f tile_position(v2u pos) const {
+        return v3f(pos.x, 0.0f, pos.y) * (2.0f * room_dimensions * planes::xz);
+    }
+
+    v2u random_tile() const {
+        return v2u{
+            u32(world->entropy.rand() % 8),
+            u32(world->entropy.rand() % 8)
+        };
+    }
+
+    explicit dungeon_generator_t(zyy::world_t* world_) : world{world_} {
+        utl::memzero(tiles, sizeof(zyy::entity_t*)*16);
+    }
+};
+
+
+world_generator_t*
+generate_world_maze(arena_t* arena) {
+    auto* generator = arena_alloc<world_generator_t>(arena);
+    generator->arena = arena;
+    generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
+       world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
+       world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{0.0};
+    });
+    generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
+        auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::forward * 15.0f);
+        SPAWN_GUN(zyy::db::weapons::smg, v3f(1.5f, 4.5f, 0.0f));
+    });
+    generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
+        zyy::spawn(world, world->render_system(), zyy::db::misc::platform_1000, axis::down);
+
+        module_generator_t* mgen = new module_generator_t{world};
+        mgen->generate();
+        delete mgen;
+
+        
+
+        dungeon_generator_t creator{world};
+
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+        // creator.generate();
+
+        world->player->transform.origin = creator.tile_position(creator.start_room);
+
+        // world->render_system()->light_probes.grid_size = 5.0f;
+        // rendering::update_probe_aabb(world->render_system(), start_room->aabb);
+    });
+    return generator;
+}
 

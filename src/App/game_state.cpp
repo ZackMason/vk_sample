@@ -603,7 +603,6 @@ app_init_graphics(game_memory_t* game_memory) {
 
 export_fn(void) 
 app_on_init(game_memory_t* game_memory) {
-    // utl::profile_t p{"game_state init"};
     TIMED_FUNCTION;
     Platform = game_memory->platform;
 
@@ -984,7 +983,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     }
 
     TIMED_BLOCK(GameSubmitRenderJobs);
-    rendering::begin_frame(game_state->render_system);
+    // rendering::begin_frame(game_state->render_system);
     // game_state->debug.debug_vertices.pool.clear();
 
     draw_gui(game_state->game_memory);
@@ -1259,7 +1258,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
         
         // if (gs_rtx_on) 
         {
-            rendering::begin_rt_pass(game_state->render_system, command_buffer);
+            // rendering::begin_rt_pass(game_state->render_system, command_buffer);
         // } else {
             // game_state->render_system->rt_cache->frame = 0;
             VkBuffer buffers[1] = { game_state->render_system->scene_context->vertices.buffer };
@@ -1582,15 +1581,15 @@ app_on_render(game_memory_t* game_memory) {
         case 0:{
     
             // std::lock_guard lock{game_state->render_system->ticket};
-            entity_editor_render(get_entity_editor(game_memory));
-            u32 image_index = wait_for_frame(game_state);
-            game_on_render(game_memory, image_index);
+            // entity_editor_render(get_entity_editor(game_memory));
+            // u32 image_index = wait_for_frame(game_state);
+            // game_on_render(game_memory, image_index);
         }   break;
         case 1:{
             // Game           
     
-            u32 image_index = wait_for_frame(game_state);
-            std::lock_guard lock{game_state->render_system->ticket};
+            // u32 image_index = wait_for_frame(game_state);
+            // std::lock_guard lock{game_state->render_system->ticket};
 
             // game_state->render_system->camera_pos = game_state->game_world->camera.origin;
             // game_state->render_system->set_view(game_state->game_world->camera.inverse().to_matrix(), game_state->width(), game_state->height());
@@ -1620,6 +1619,7 @@ app_on_update(game_memory_t* game_memory) {
             u32 image_index = wait_for_frame(game_state);
             game_on_update(game_memory);
             game_on_render(game_memory, image_index);
+            rendering::begin_frame(game_state->render_system);
         }         
             break;
         default:

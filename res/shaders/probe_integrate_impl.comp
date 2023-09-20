@@ -217,7 +217,8 @@ void main() {
 
 
 
-    uint remaining_rays = 64;
+    uint remaining_rays = 128;
+    // uint remaining_rays = 64;
     uint offset = 0;
 
     uint start_index = probe_ray_start(probe_id, odd_frame);
@@ -281,7 +282,7 @@ void main() {
 
         #ifdef INTEGRATE_DEPTH
                     ray.depth = abs(ray.depth);
-                    weight = pow(weight, 1.0);
+                    weight = pow(weight, probe_settings.depth_sharpness);
 
                     result += vec4(ray.depth * weight, ray.depth * ray.depth * weight, 1.0, weight);
         #else

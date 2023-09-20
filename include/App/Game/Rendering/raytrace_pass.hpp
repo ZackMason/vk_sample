@@ -90,15 +90,11 @@ begin_rt_pass(
                 &rs->point_light_storage_buffer,
                 gfx::vul::descriptor_builder_t::begin(
                     rs->descriptor_layout_cache, 
-                    // rs->permanent_descriptor_allocator
                     rs->get_frame_data().dynamic_descriptor_allocator
                 ),
                 &rs->light_probes.irradiance_texture,
                 &rs->light_probes.visibility_texture
-                // &rs->frame_images[6].texture
             );
-
-            // khr.vkCmdPushDescriptorSetKHR()
         }
     #endif
 
@@ -154,7 +150,8 @@ begin_rt_pass(
             &hit_shader_sbt_entry,
             &callable_shader_sbt_entry,
             width,
-            64,
+            128,
+            // 64,
             1);
 
 

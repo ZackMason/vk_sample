@@ -82,6 +82,7 @@ namespace rendering::lighting {
         i32 sample_max{100};
         f32 hysteresis{0.02f};
         f32 boost{1.0f};
+        f32 depth_sharpness{1.0f};
     };
 
     struct probe_box_t {

@@ -131,12 +131,14 @@ void main()
     start_surface.albedo = (albedo.rgb * material.albedo.rgb);
     start_surface.emissive = material.emission * start_surface.albedo;
 
-    DirectionalLight sun = uEnvironment.sun;
-    sun.color.rgb = sqrt(sqrt(max(vec3(0.0), sky_color(direction.xyz, sun.direction.xyz))));
+    // DirectionalLight sun = uEnvironment.sun;
+    // sun.color.rgb = sqrt(sqrt(max(vec3(0.0), sky_color(direction.xyz, sun.direction.xyz))));
     
     TotalLight light_solution = InitLightSolution();
 
     // directional_light(sun, start_surface, light_solution, shadow);
+
+    
 
 
     // light_solution.direct.diffuse *= saturate(light_probe_irradiance(wp, wn, wn, probe_settings) * 0.295 * 3.14150);

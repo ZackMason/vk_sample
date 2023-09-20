@@ -199,8 +199,6 @@ main( )
 			alpha = albedo.a * material.albedo.a;
 			break;
 
-
-
 		case 2:
 			rgb = material.albedo.rgb;
 			// rgb = PushConstants.uCol.rgb;
@@ -244,14 +242,6 @@ main( )
 	vec3  F = filament_Schlick(LoH, F0);
 	float S = filament_SmithGGXCorrelated(NoV, NoL, roughness);
 
-	vec3 r_env = SHIrradiance(reflect(V, N));
-	vec3 env = SHIrradiance(N);
-
-	r_env = vec3(1.0);
-	// env = light_probe_irradiance(vWorldPos, probe_settings);
-
-	env = light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
-
 	TotalLight light_solution = InitLightSolution();
 
 	Surface surface;
@@ -261,16 +251,16 @@ main( )
 	surface.roughness = roughness;
 	surface.emissive = albedo.rgb * material.emission;
 
-	light_solution.direct.diffuse += max(material.ao, NoL);
-	light_solution.indirect.diffuse += env;
-
-	// vec3 env = vec3(1.0);
-	// vec3 r_env = vec3(1.0);
-
+	// light_solution.direct.diffuse += max(0.0, NoL);
+	light_solution.indirect.diffuse += light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
+	// light_solution.indirect.specular += light_probe_irradiance(vWorldPos,  reflect(V,N), reflect(V,N), probe_settings) * 1.0;
 
 	vec3 Fr = (D * S) * F; // specular lobe
-	vec3 Fd = env * albedo * max(material.ao, NoL) * filament_Burley(roughness, NoV, NoL, LoH); // diffuse lobe
 
+
+
+
+	vec3 Fd = albedo * max(0.0, NoL) * filament_Burley(roughness, NoV, NoL, LoH); // diffuse lobe
 
 
 	vec3 ec = (vec3(1.0) - F0) * 0.725 + F0 * 0.07; // @hardcoded no idea what these should be
@@ -293,8 +283,6 @@ main( )
 	// rgb = N;
  
 	// rgb = env;	
-
-
 
 
 

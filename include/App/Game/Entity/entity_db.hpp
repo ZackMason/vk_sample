@@ -158,20 +158,36 @@ door {
     .type = entity_type::environment,
     .type_name = "door",
     .gfx = {
-        .mesh_name = "door",
+        .mesh_name = "res/models/environment/door_02.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
     .physics = prefab_t::physics_t {
-        .flags = PhysicsEntityFlags_Static | PhysicsEntityFlags_Trigger,
+        .flags = PhysicsEntityFlags_Kinematic,
         .shapes = {
             prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::BOX,
-                .flags = 1,
+                // .flags = 1,
                 .box = {
-                    .size = v3f{1.0f},
+                    .size = v3f{7.5f, 8.5f, 1.0f },
                 },
             },
         },
+    },
+};
+
+DB_ENTRY
+torch_01 {
+    .type = entity_type::environment,
+    .type_name = "torch",
+    .gfx = {
+        .mesh_name = "res/models/environment/torch_01.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .children = {
+        {
+            .entity = {},
+            .offset = v3f{0.0f, 1.5f, -0.45f}
+        }
     },
 };
 

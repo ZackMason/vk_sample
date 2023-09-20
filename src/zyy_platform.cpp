@@ -689,6 +689,7 @@ main(int argc, char* argv[]) {
                 app_dlls.on_update(&game_memory);
 
             } catch (access_violation_exception& e) {
+                zyy_error("exception", "{}", e.what());
                 auto pressed = MessageBox(0, e.what(), 0, MB_ABORTRETRYIGNORE);
                 if (pressed == IDRETRY) {
 #ifdef MULTITHREAD_ENGINE

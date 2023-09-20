@@ -25,9 +25,11 @@ watch_game_state(game_state_t* game_state) {
     auto& light_probe_settings = rs->light_probe_settings_buffer.pool[0];
     auto* probe_hysteresis = &light_probe_settings.hysteresis;
     auto* probe_gi_boost = &light_probe_settings.boost;
+    auto* probe_depth_sharpness = &light_probe_settings.depth_sharpness;
 
     DEBUG_WATCH(probe_hysteresis)->max_f32 = 0.1f;
     DEBUG_WATCH(probe_gi_boost)->max_f32 = 2.0f;
+    DEBUG_WATCH(probe_depth_sharpness)->max_f32 = 100.0f;
 }
 
 void 
@@ -185,6 +187,7 @@ draw_gui(game_memory_t* game_memory) {
             im::begin_panel(state, "World Select"sv, v2f{350,350}, v2f{800, 600});
 
             #define WORLD_GUI(name) if (im::text(state, #name)) {world->world_generator = generate_##name(&world->arena); }
+            WORLD_GUI(world_maze);
             WORLD_GUI(room_03);
             WORLD_GUI(world_0);
             WORLD_GUI(world_1);
@@ -559,7 +562,7 @@ draw_gui(game_memory_t* game_memory) {
 
                             im::same_line(state);
                             im::text(state, "Emission: ");
-                            im::float_slider(state, &mat->emission, 0.0f, 100.0f);
+                            im::float_slider(state, &mat->emission, 0.0f, 30.0f);
 
                             game_state->render_system->material_storage_buffer.pool[i] = *mat;
 
