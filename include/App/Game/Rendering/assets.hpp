@@ -14,7 +14,7 @@ namespace assets::shaders {
     #define SHADER_PATH_(name) "./res/shaders/bin/" ## name ## ".spv"
     #define SHADER_PATH(name) {SHADER_PATH_(name)}
 
-    constexpr u32 CAMERA_CONSTANTS_SIZE = sizeof(m44) + sizeof(v4f);
+    constexpr u32 CAMERA_CONSTANTS_SIZE = sizeof(m44) + sizeof(m44);
     constexpr u32 NONE = 0;
     constexpr u32 VERT = VK_SHADER_STAGE_VERTEX_BIT;
     constexpr u32 FRAG = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -23,7 +23,7 @@ namespace assets::shaders {
 
     ASSET_SHADER(rt_comp)
         SHADER_PATH("rt_compute.comp")
-        .add_push_constant(CAMERA_CONSTANTS_SIZE + sizeof(u32) * 2)
+        .add_push_constant(sizeof(m44) + sizeof(u32) * 2)
         .set_stage(COMP);
 
     ASSET_SHADER(probe_integrate_comp)
@@ -60,17 +60,19 @@ namespace assets::shaders {
     ASSET_SHADER(gui_vert)
         SHADER_PATH("gui.vert")
         .set_stage(VERT)
-        .add_next_stage(FRAG);
+        .add_next_stage(FRAG)
+        .add_push_constant(CAMERA_CONSTANTS_SIZE);
     ASSET_SHADER(gui_frag)
         SHADER_PATH("gui.frag")
-        .set_stage(FRAG);
+        .set_stage(FRAG)
+        .add_push_constant(CAMERA_CONSTANTS_SIZE);
 
     ASSET_SHADER(simple_vert)
         SHADER_PATH("simple.vert")
         .set_stage(VERT)
         .add_next_stage(FRAG)
         .add_next_stage(GEOM)
-        .add_push_constant(CAMERA_CONSTANTS_SIZE + sizeof(u32) * 2);
+        .add_push_constant(CAMERA_CONSTANTS_SIZE);
     ASSET_SHADER(simple_frag)
         SHADER_PATH("simple.frag")
         .set_stage(FRAG)

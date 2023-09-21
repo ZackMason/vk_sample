@@ -635,6 +635,17 @@ draw_gui(game_memory_t* game_memory) {
             bool is_selected = widget_pos == &e->transform.origin;
             if (is_selected) {
                 selected_entity = e;
+                if (e->gfx.mesh_id) {
+                    gfx::gui::draw_mesh(
+                        &state.ctx,
+                        &game_state->render_system->mesh_cache.get(e->gfx.mesh_id),
+                        &game_state->render_system->scene_context->vertices.pool[0],
+                        &game_state->render_system->scene_context->indices.pool[0],
+                        e->global_transform().to_matrix(),
+                        gfx::color::to_color32(v4f{1.0f, 1.0f, 0.1f, 0.5f})
+                        // gfx::color::rgba::yellow
+                    );
+                }
             }
             bool not_player = e != game_state->game_world->player;
             bool opened = false;

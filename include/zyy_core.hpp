@@ -2227,6 +2227,53 @@ end_statistic(statistic_t& stat) {
 
 }; // namespace math
 
+namespace packing {
+
+    u32 pack_normal(v3f n) {
+        u32 r=0;
+        r |= u32((n.x*0.5f+0.5f)*255.0f)<<0;
+        r |= u32((n.y*0.5f+0.5f)*255.0f)<<8;
+        r |= u32((n.z*0.5f+0.5f)*255.0f)<<16;
+        return r;
+    }
+
+    v3f unpack_normal(u32 p) {
+        v3f n;
+        n.x = f32((p>>0)&0xff)/255.0f*2.0f-1.0f;
+        n.y = f32((p>>8)&0xff)/255.0f*2.0f-1.0f;
+        n.z = f32((p>>16)&0xff)/255.0f*2.0f-1.0f;
+        return n;
+    }
+
+    v2u u32tov2u(u32 x) {
+        return v2u(u16(x&0xffff), u16((x>>16)&0xffff));
+    } 
+
+    u32 pack_rgbe(v3f rgb) {
+        const f32 max_val = std::bit_cast<f32>(0x477f8000ui32);
+        const f32 min_val = std::bit_cast<f32>(0x37800000ui32);
+        rgb = glm::clamp(rgb, v3f{0.0f}, v3f{max_val});
+
+        float max_channel = glm::max(glm::max(min_val, rgb.r), glm::max(rgb.g, rgb.b));
+
+        float bias = std::bit_cast<f32>((std::bit_cast<u32>(max_channel) + 0x07804000ui32) & 0x7f800000ui32);
+
+        v3u RGB;
+        RGB.x = std::bit_cast<u32>(rgb.x+bias);
+        RGB.y = std::bit_cast<u32>(rgb.y+bias);
+        RGB.z = std::bit_cast<u32>(rgb.z+bias);
+        u32 e = (std::bit_cast<u32>(bias) << 4) + 0x10000000ui32;
+
+        return e | RGB.b << 18 | RGB.g << 9 | (RGB.r & 0x1ffui32);
+    }
+
+    v3f unpack_rgbe(u32 p) {
+        v3f rgb{v3u{p&0x1ff,(p>>9)&0x1ff,(p>>18)&0x1ff}};
+        return glm::ldexp(rgb, v3i{(p>>27)-24});
+    }
+
+};
+
 
 namespace gfx {
 // note(zack): this is in core because it will probably be loaded 
@@ -2829,11 +2876,16 @@ namespace color {
 
 namespace gui {
     struct vertex_t {
-        v2f pos;
+        v3f pos;
         v2f tex;
+        u32 nrm;
         u32 img;
         u32 col;
     };
+
+    v3f ui_2d(v2f i) {
+        return v3f{i,0.0f};
+    }
 
     struct ctx_t {
         utl::pool_t<vertex_t>* vertices;
@@ -2939,7 +2991,7 @@ namespace gui {
 
         vertex_t* center = ctx->vertices->allocate(1);
 
-        center->pos = pos / ctx->screen_size;
+        center->pos = ui_2d(pos / ctx->screen_size);
         center->col = color;
         center->img = ~(0ui32);
 
@@ -2948,7 +3000,7 @@ namespace gui {
             const auto a = start * math::constants::tau32 + perc * math::constants::tau32 * f32(i)/f32(res);
             vertex_t* v = ctx->vertices->allocate(1);
 
-            v->pos = center->pos + v2f{glm::cos(a), glm::sin(a)} * radius / ctx->screen_size;
+            v->pos = center->pos + ui_2d(v2f{glm::cos(a), glm::sin(a)} * radius / ctx->screen_size);
             v->col = color;
             v->img = ~(0ui32);
 
@@ -2982,10 +3034,10 @@ namespace gui {
 
         vertex_t* v = ctx->vertices->allocate(4);
         u32* i = ctx->indices->allocate(6);
-        v[0] = vertex_t { .pos = a/ctx->screen_size + n * (line_width/ctx->screen_size * 0.5f), .tex = v2f{0.0f, 1.0f}, .img = ~(0ui32), .col = color};
-        v[1] = vertex_t { .pos = a/ctx->screen_size - n * (line_width/ctx->screen_size * 0.5f), .tex = v2f{0.0f, 0.0f}, .img = ~(0ui32), .col = color};
-        v[2] = vertex_t { .pos = b/ctx->screen_size + n * (line_width/ctx->screen_size * 0.5f), .tex = v2f{1.0f, 0.0f}, .img = ~(0ui32), .col = color};
-        v[3] = vertex_t { .pos = b/ctx->screen_size - n * (line_width/ctx->screen_size * 0.5f), .tex = v2f{1.0f, 1.0f}, .img = ~(0ui32), .col = color};
+        v[0] = vertex_t { .pos = ui_2d(a/ctx->screen_size + n * (line_width/ctx->screen_size * 0.5f)), .tex = v2f{0.0f, 1.0f}, .nrm=0, .img = ~(0ui32), .col = color};
+        v[1] = vertex_t { .pos = ui_2d(a/ctx->screen_size - n * (line_width/ctx->screen_size * 0.5f)), .tex = v2f{0.0f, 0.0f}, .nrm=0, .img = ~(0ui32), .col = color};
+        v[2] = vertex_t { .pos = ui_2d(b/ctx->screen_size + n * (line_width/ctx->screen_size * 0.5f)), .tex = v2f{1.0f, 0.0f}, .nrm=0, .img = ~(0ui32), .col = color};
+        v[3] = vertex_t { .pos = ui_2d(b/ctx->screen_size - n * (line_width/ctx->screen_size * 0.5f)), .tex = v2f{1.0f, 1.0f}, .nrm=0, .img = ~(0ui32), .col = color};
 
         i[0] = v_start + 0;
         i[1] = v_start + 1;
@@ -3108,6 +3160,62 @@ namespace gui {
         }
     }
 
+    void
+    draw_triangle(
+        ctx_t* ctx,
+        math::triangle_t triangle,
+        std::span<u32, 3> colors,
+        std::span<v2f, 3> uv,
+        u32 img = ~0ui32
+    ) {
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count());
+        const u32 i_start = safe_truncate_u64(ctx->indices->count());
+
+        vertex_t* v = ctx->vertices->allocate(3);
+        u32* i = ctx->indices->allocate(3);
+
+        v[0] = gfx::gui::vertex_t{ .pos = triangle.p[0], .tex = uv[0], .nrm = packing::pack_normal(triangle.normal()), .img = img, .col = colors[0]};
+        v[1] = gfx::gui::vertex_t{ .pos = triangle.p[1], .tex = uv[1], .nrm = packing::pack_normal(triangle.normal()), .img = img, .col = colors[1]};
+        v[2] = gfx::gui::vertex_t{ .pos = triangle.p[2], .tex = uv[2], .nrm = packing::pack_normal(triangle.normal()), .img = img, .col = colors[2]};
+        i[0] = v_start + 0;
+        i[1] = v_start + 1;
+        i[2] = v_start + 2;
+    }
+
+    void
+    draw_triangle(
+        ctx_t* ctx,
+        math::triangle_t triangle,
+        u32 color = gfx::color::rgba::white
+    ) {
+        v2f uv[3]{v2f{0.0f}, v2f{0.0f}, v2f{0.0f}};
+        u32 c[3]{color,color,color};
+        draw_triangle(ctx, triangle, std::span{c}, std::span{uv} );
+    }
+
+    void draw_mesh(
+        ctx_t* ctx,
+        gfx::mesh_list_t* mesh_list,
+        gfx::vertex_t* vertices,
+        u32* indices,
+        const m44& transform,
+        u32 color
+    ) {
+        for(size_t m=0; m<mesh_list->count;m++) {
+            auto* mesh = mesh_list->meshes+m;
+            for (u32 t=mesh->index_start;t<mesh->index_start+mesh->index_count;t+=3) {
+                math::triangle_t tri{
+                    .p = {
+                        v3f{transform * v4f{vertices[mesh->vertex_start+indices[t+0]].pos, 1.0f}},
+                        v3f{transform * v4f{vertices[mesh->vertex_start+indices[t+1]].pos, 1.0f}},
+                        v3f{transform * v4f{vertices[mesh->vertex_start+indices[t+2]].pos, 1.0f}},
+                    }
+                };
+                draw_triangle(ctx, tri, color);
+            }
+        }
+    }
+
     inline void
     draw_rect(
         ctx_t* ctx,
@@ -3124,10 +3232,10 @@ namespace gui {
 
         vertex_t* v = ctx->vertices->allocate(4);
         u32* i = ctx->indices->allocate(6);
-        v[0] = vertex_t { .pos = p0 / ctx->screen_size, .tex = v2f{0.0f, 1.0f}, .img = ~(0ui32), .col = colors[0]};
-        v[1] = vertex_t { .pos = p1 / ctx->screen_size, .tex = v2f{0.0f, 0.0f}, .img = ~(0ui32), .col = colors[1]};
-        v[2] = vertex_t { .pos = p2 / ctx->screen_size, .tex = v2f{1.0f, 0.0f}, .img = ~(0ui32), .col = colors[2]};
-        v[3] = vertex_t { .pos = p3 / ctx->screen_size, .tex = v2f{1.0f, 1.0f}, .img = ~(0ui32), .col = colors[3]};
+        v[0] = vertex_t { .pos = ui_2d(p0 / ctx->screen_size), .tex = v2f{0.0f, 1.0f}, .nrm = 0, .img = ~(0ui32), .col = colors[0]};
+        v[1] = vertex_t { .pos = ui_2d(p1 / ctx->screen_size), .tex = v2f{0.0f, 0.0f}, .nrm = 0, .img = ~(0ui32), .col = colors[1]};
+        v[2] = vertex_t { .pos = ui_2d(p2 / ctx->screen_size), .tex = v2f{1.0f, 0.0f}, .nrm = 0, .img = ~(0ui32), .col = colors[2]};
+        v[3] = vertex_t { .pos = ui_2d(p3 / ctx->screen_size), .tex = v2f{1.0f, 1.0f}, .nrm = 0, .img = ~(0ui32), .col = colors[3]};
 
         i[0] = v_start + 0;
         i[1] = v_start + 1;
@@ -3154,10 +3262,10 @@ namespace gui {
 
         vertex_t* v = ctx->vertices->allocate(4);
         u32* i = ctx->indices->allocate(6);
-        v[0] = vertex_t { .pos = p0 / ctx->screen_size, .tex = v2f{0.0f, 1.0f}, .img = ~(0ui32), .col = color};
-        v[1] = vertex_t { .pos = p1 / ctx->screen_size, .tex = v2f{0.0f, 0.0f}, .img = ~(0ui32), .col = color};
-        v[2] = vertex_t { .pos = p2 / ctx->screen_size, .tex = v2f{1.0f, 0.0f}, .img = ~(0ui32), .col = color};
-        v[3] = vertex_t { .pos = p3 / ctx->screen_size, .tex = v2f{1.0f, 1.0f}, .img = ~(0ui32), .col = color};
+        v[0] = vertex_t { .pos = ui_2d(p0 / ctx->screen_size), .tex = v2f{0.0f, 1.0f}, .nrm=0, .img = ~(0ui32), .col = color};
+        v[1] = vertex_t { .pos = ui_2d(p1 / ctx->screen_size), .tex = v2f{0.0f, 0.0f}, .nrm=0, .img = ~(0ui32), .col = color};
+        v[2] = vertex_t { .pos = ui_2d(p2 / ctx->screen_size), .tex = v2f{1.0f, 0.0f}, .nrm=0, .img = ~(0ui32), .col = color};
+        v[3] = vertex_t { .pos = ui_2d(p3 / ctx->screen_size), .tex = v2f{1.0f, 1.0f}, .nrm=0, .img = ~(0ui32), .col = color};
 
         i[0] = v_start + 0;
         i[1] = v_start + 1;
@@ -3190,10 +3298,10 @@ namespace gui {
 
         vertex_t* v = ctx->vertices->allocate(4);
         u32* i = ctx->indices->allocate(6);
-        v[0] = vertex_t { .pos = p0 / ctx->screen_size, .tex = uv0, .img = tex, .col = color};
-        v[1] = vertex_t { .pos = p1 / ctx->screen_size, .tex = uv1, .img = tex, .col = color};
-        v[2] = vertex_t { .pos = p2 / ctx->screen_size, .tex = uv2, .img = tex, .col = color};
-        v[3] = vertex_t { .pos = p3 / ctx->screen_size, .tex = uv3, .img = tex, .col = color};
+        v[0] = vertex_t { .pos = ui_2d(p0 / ctx->screen_size), .tex = uv0, .nrm = 0, .img = tex, .col = color};
+        v[1] = vertex_t { .pos = ui_2d(p1 / ctx->screen_size), .tex = uv1, .nrm = 0, .img = tex, .col = color};
+        v[2] = vertex_t { .pos = ui_2d(p2 / ctx->screen_size), .tex = uv2, .nrm = 0, .img = tex, .col = color};
+        v[3] = vertex_t { .pos = ui_2d(p3 / ctx->screen_size), .tex = uv3, .nrm = 0, .img = tex, .col = color};
 
         i[0] = v_start + 0;
         i[1] = v_start + 1;
@@ -4300,10 +4408,10 @@ font_render(
             const u32 font_id = font->id;
             const u32 texture_bit = (u32)BIT(30);
 
-            v[0] = gui::vertex_t{ .pos = p0, .tex = c0, .img = font_id|texture_bit, .col = text_color};
-            v[1] = gui::vertex_t{ .pos = p1, .tex = c1, .img = font_id|texture_bit, .col = text_color};
-            v[2] = gui::vertex_t{ .pos = p2, .tex = c2, .img = font_id|texture_bit, .col = text_color};
-            v[3] = gui::vertex_t{ .pos = p3, .tex = c3, .img = font_id|texture_bit, .col = text_color};
+            v[0] = gui::vertex_t{ .pos = gui::ui_2d(p0), .tex = c0, .img = font_id|texture_bit, .col = text_color};
+            v[1] = gui::vertex_t{ .pos = gui::ui_2d(p1), .tex = c1, .img = font_id|texture_bit, .col = text_color};
+            v[2] = gui::vertex_t{ .pos = gui::ui_2d(p2), .tex = c2, .img = font_id|texture_bit, .col = text_color};
+            v[3] = gui::vertex_t{ .pos = gui::ui_2d(p3), .tex = c3, .img = font_id|texture_bit, .col = text_color};
 
             i[0] = v_start + 0;
             i[1] = v_start + 2;
@@ -5684,27 +5792,4 @@ auto generic(auto&& fn) {
 
 };
 
-namespace packing {
-
-    u32 pack_normal(v3f n) {
-        u32 r=0;
-        r |= u32((n.x*0.5f+0.5f)*255.0f)<<0;
-        r |= u32((n.y*0.5f+0.5f)*255.0f)<<8;
-        r |= u32((n.z*0.5f+0.5f)*255.0f)<<16;
-        return r;
-    }
-
-    v3f unpack_normal(u32 p) {
-        v3f n;
-        n.x = f32((p>>0)&0xff)/255.0f*2.0f-1.0f;
-        n.y = f32((p>>8)&0xff)/255.0f*2.0f-1.0f;
-        n.z = f32((p>>16)&0xff)/255.0f*2.0f-1.0f;
-        return n;
-    }
-
-    v2u u32tov2u(u32 x) {
-        return v2u(u16(x&0xffff), u16((x>>16)&0xffff));
-    } 
-
-};
 

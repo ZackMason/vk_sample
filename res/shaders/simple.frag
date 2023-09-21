@@ -63,7 +63,6 @@ layout( push_constant ) uniform constants
 	mat4 uP;
 } PushConstants;
 
-
 layout ( location = 0 ) in flat uint vMatId;
 layout ( location = 1 ) in vec2 vTexCoord;
 layout ( location = 2 ) in vec3 vN;

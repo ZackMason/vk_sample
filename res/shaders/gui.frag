@@ -1,10 +1,14 @@
 #version 450
 #extension GL_ARB_separate_shader_objects  : enable
 #extension GL_ARB_shading_language_420pack : enable
+#extension GL_EXT_scalar_block_layout : enable
+
+#include "utl.glsl"
 
 layout ( location = 0 ) in vec2 voUV;
 layout ( location = 1 ) flat in uint voTexID;
 layout ( location = 2 ) in vec4 voColor;
+layout ( location = 3 ) in vec3 voNormal;
 
 layout ( location = 0 ) out vec4 fFragColor;
 
@@ -20,7 +24,13 @@ vec3 aces_film(vec3 x)
 
 layout(set = 0, binding = 0) uniform sampler2D uTextures[4096];
 
+layout (push_constant, scalar) uniform constants {
+    mat4 V;
+    mat4 P;
+} PushConstants;
+
 void main() {
+    vec3 normal = vec3(0.0)==voNormal?vec3(0.0):normalize(voNormal);
     uint is_font = voTexID & (1 << 30);
     uint actual_texture = voTexID & ~(1<<30);
     bool is_texture = actual_texture < 64 && actual_texture >= 0;
@@ -50,6 +60,10 @@ void main() {
     fFragColor.rgb = color.rgb;
     
     fFragColor.a = clamp(color.a, 0.0, 1.0);
+
+    if (vec3(0.0)!=voNormal) {
+        fFragColor.rgb *= saturate(dot(normal, normalize(vec3(1,2,3))));
+    }
 
     if (fFragColor.a < 0.01) {
         discard;
