@@ -115,6 +115,20 @@ create_meta_data_dir() {
     free(app_data_path);
 }
 
+utl::config_t* load_dev_config(arena_t* arena, size_t* count) {
+    std::ifstream file{"config.ini"};
+    
+    if(!file.is_open()) {
+        zyy_error("win32", "Failed to graphics config file");
+        return 0;
+    }
+    auto text = (std::stringstream{} << file.rdbuf()).str();
+
+    utl::config_t* config{0};
+    utl::read_config(arena, text, &config, count);
+    return config;
+}
+
 void
 load_graphics_config(game_memory_t* game_memory) {
     std::ifstream file{"gfx_config.bin", std::ios::binary};
@@ -466,8 +480,17 @@ main(int argc, char* argv[]) {
     auto& config = game_memory.config;
     load_graphics_config(&game_memory);
 
+    utl::config_list_t dconfig{};
+    dconfig.head = load_dev_config(&game_memory.arena, &dconfig.count);
+
     config.window_size[0] = game_memory.config.graphics_config.window_size.x;
     config.window_size[1] = game_memory.config.graphics_config.window_size.y;
+
+    config.window_size[0] = utl::config_get_int(&dconfig, "width", 1920);
+    config.window_size[1] = utl::config_get_int(&dconfig, "height", 1080);
+    
+    config.graphics_config.vsync = utl::config_get_int(&dconfig, "vsync", 1);
+    
 
     game_memory.config.create_vk_surface = [](void* instance, void* surface, void* window_handle) {
         VkWin32SurfaceCreateInfoKHR createInfo{};

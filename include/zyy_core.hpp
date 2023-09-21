@@ -76,6 +76,7 @@ bool check_for_debugger()
 #include <fstream>
 #include <chrono>
 #include <functional>
+#include <ranges>
 
 #include <string>
 #include <string_view>
@@ -2389,7 +2390,6 @@ struct mesh_builder_t {
         return *this;
     }
 
-
     mesh_builder_t& add_triangles(math::triangle_t* tris, u64 count) {
         loop_iota_u64(i, count) {
             auto* v = vertices.allocate(3);
@@ -2455,58 +2455,6 @@ struct mesh_builder_t {
         return *this;
     }
 };
-
-struct bvh_node_t {
-    v3f min;
-    u32 left_first;
-
-    v3f max;
-    u32 tri_count;
-};
-
-struct bvh_tree_t {
-    bvh_node_t* nodes{0};
-    u64 node_count{0};
-    u64 root{0};
-    u64 nodes_used{1};
-    vertex_t* vertices{0};
-    u64 vertex_count{0};
-    u32* indices{0};
-    u64 index_count{0};
-    u32* tri_remap{0};
-};
-
-void subdivide(bvh_tree_t* tree, u64 id) {
-
-}
-
-void update_node_bounds(bvh_tree_t* tree, u64 id) {
-    auto* node = &tree->nodes[id];
-    node->min = v3f{1e30f};
-    node->max = v3f{-1e30f};
-    range_u64(i, node->left_first, node->tri_count) {
-        auto* t = tree->indices + i * 3;
-        auto* v = tree->vertices;
-        node->min = glm::min(v[t[0]].pos, node->min);
-        node->max = glm::max(v[t[0]].pos, node->max);
-        node->min = glm::min(v[t[1]].pos, node->min);
-        node->max = glm::max(v[t[1]].pos, node->max);
-        node->min = glm::min(v[t[2]].pos, node->min);
-        node->max = glm::max(v[t[2]].pos, node->max);
-    }
-}
-
-void build_bvh(
-    bvh_tree_t* tree
-) {
-    auto* root = &tree->nodes[tree->root];
-    root->left_first = 0;
-    root->tri_count = safe_truncate_u64(tree->index_count/3);
-
-    update_node_bounds(tree, tree->root);
-    subdivide(tree, tree->root);
-}
-
 
 using color4 = v4f;
 using color3 = v3f;
@@ -4230,7 +4178,9 @@ font_load(
     font_t* font,
     std::string_view path,
     float size
-) {
+) 
+#ifdef STB_TRUETYPE_IMPLEMENTATION
+{
     font->size = size;
 
     font->bitmap = (u8*)arena_alloc(arena, font->pixel_count*font->pixel_count);
@@ -4248,9 +4198,14 @@ font_load(
 
     arena_set_mark(arena, stack_mark);
 }
+#else 
+{}
+#endif
 
 inline font_t::glyph_t
-font_get_glyph(font_t* font, f32 x, f32 y, char c) {
+font_get_glyph(font_t* font, f32 x, f32 y, char c) 
+#ifdef STB_TRUETYPE_IMPLEMENTATION
+{
 
     math::aabb_t<v2f> screen{};
     math::aabb_t<v2f> texture{};
@@ -4270,6 +4225,11 @@ font_get_glyph(font_t* font, f32 x, f32 y, char c) {
         texture
     };
 }
+#else 
+{
+    return {};
+}
+#endif
 
 struct vertex_t;
 
@@ -5489,6 +5449,119 @@ std::byte* pack_file_get_file_by_name(
 
 }; // namespace res 
 
+std::string open_file(std::string_view name) {
+    return (std::stringstream{}<<std::ifstream{name.data()}.rdbuf()).str();
+}
+
+struct config_t {
+    char name[64];
+    char value[128];
+
+    void set_name(auto x) {
+        auto v=fmt::format("{}", x);
+        assert(v.size() < array_count(name));
+        std::memcpy(name, v.data(), v.size());
+    }
+
+    void set(auto x) {
+        auto v=fmt::format("{}", x);
+        assert(v.size() < array_count(value));
+        std::memcpy(value, v.data(), v.size());
+    }
+
+    f32 as_float() const {
+        return (f32)std::atof(value);
+    }
+
+    i32 as_int() const {
+        return (i32)std::atoi(value);
+    }
+
+    void print() const {
+        fmt::print("{}={}\n", name, value);
+    }
+
+    std::string str() const {
+        return fmt::format("{}={}\n", name, value);
+    }
+};
+
+struct config_list_t {
+    config_t* head{0};
+    size_t count{0};
+};
+
+bool
+read_config(
+    arena_t* arena, 
+    std::string_view text, 
+    config_t** config, 
+    size_t* count
+) {
+    bool success = true;
+    u64 start=0;
+    u64 end=text.find('\n');
+
+    config_t* c;
+    *count = 0;
+    *config = nullptr;
+
+    while (end != std::string_view::npos) {
+        // zyy_info(__FUNCTION__, "Start: {}, End: {}", start, end);
+        if (end == start) {
+            // zyy_info(__FUNCTION__, "Empty Line");
+            start = end + 1;
+            end = text.find('\n', start);
+            continue;
+        }
+
+        std::string_view line{text.substr(start, end-start)};
+
+        u64 equal_pos = line.find('=');
+
+        if (equal_pos != std::string_view::npos) {
+            std::string_view name{line.substr(0, equal_pos)};
+            std::string_view value{line.substr(equal_pos+1, line.size()-equal_pos+1)};
+            assert(name.size() < array_count(c->name));
+            assert(value.size() < array_count(c->value));
+
+            c = arena_alloc<config_t>(arena);
+            *config = *config?*config:c;
+            
+            utl::memzero(c, sizeof(config_t));
+
+            zyy_info(__FUNCTION__, "{}: {}", name, value);            
+            std::memcpy(c->name, name.data(), name.size());
+            std::memcpy(c->value, value.data(), value.size());
+            *count += 1;
+        } else {
+            success = false;
+            zyy_error(__FUNCTION__, "Parse Error: {}", line);            
+            break;
+        }
+
+        start = end + 1;
+        end = text.find('\n', start);
+    }
+
+    return success;
+}
+
+config_t* config_find(config_list_t* list, std::string_view name) {
+    for (config_t* c=list->head; c < list->head+list->count; c++) {
+        if (name == c->name) {
+            return c;
+        }
+    }
+    return nullptr;
+}
+
+i32 config_get_int(config_list_t* list, std::string_view name, i32 default_value = 0) {
+    if (config_t* c = config_find(list, name); c) {
+        return c->as_int();
+    }
+    return default_value;
+}
 
 }; // namespace utl
 
