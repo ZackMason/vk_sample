@@ -428,6 +428,13 @@ struct state_t {
 
         // VK_EXT_vertex_input_dynamic_state
         PFN_vkCmdSetVertexInputEXT vkCmdSetVertexInputEXT;
+
+        // VK_EXT_debug_marker
+        inline static PFN_vkCmdDebugMarkerBeginEXT vkCmdDebugMarkerBeginEXT;
+        inline static PFN_vkCmdDebugMarkerEndEXT vkCmdDebugMarkerEndEXT;
+        inline static PFN_vkCmdDebugMarkerInsertEXT vkCmdDebugMarkerInsertEXT;
+        inline static PFN_vkDebugMarkerSetObjectNameEXT vkDebugMarkerSetObjectNameEXT;
+        inline static PFN_vkDebugMarkerSetObjectTagEXT vkDebugMarkerSetObjectTagEXT;
     } ext;
 
     void init(app_config_t* info, arena_t* temp_arena);
@@ -590,6 +597,58 @@ struct quick_cmd_raii_t {
     }
 };
 
+void create_descriptor_set_layouts(
+    VkDevice device,
+    VkDescriptorSetLayoutBinding* bindings, 
+    u32 descriptor_count,
+    VkDescriptorSetLayout* descriptor_set_layouts
+);
+
+void begin_debug_marker(
+    VkCommandBuffer command_buffer,
+    const char *name,
+    v3f color = v3f{1.0f}
+) {
+	
+	if (state_t::ext_functions_t::vkCmdDebugMarkerBeginEXT)
+	{
+        VkDebugMarkerMarkerInfoEXT marker_info = {};
+        marker_info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
+        marker_info.pNext = 0;
+        marker_info.pMarkerName = name;
+        marker_info.color[0] = color.r; 
+        marker_info.color[1] = color.g; 
+        marker_info.color[2] = color.b; 
+        marker_info.color[4] = 1.0f; 
+        state_t::ext_functions_t::vkCmdDebugMarkerBeginEXT(command_buffer, &marker_info);
+	}
+}
+
+void end_debug_marker(VkCommandBuffer command_buffer) {
+	if (state_t::ext_functions_t::vkCmdDebugMarkerEndEXT)
+    {
+        state_t::ext_functions_t::vkCmdDebugMarkerEndEXT(command_buffer);
+    }
+}
+
+void set_object_name(
+    VkDevice device, 
+    u64 object, 
+    VkDebugReportObjectTypeEXT objectType, 
+    const char *name
+) {
+	// Check for a valid function pointer
+	if (state_t::ext_functions_t::vkDebugMarkerSetObjectNameEXT)
+	{
+		VkDebugMarkerObjectNameInfoEXT nameInfo = {};
+		nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		nameInfo.objectType = objectType;
+		nameInfo.object = object;
+		nameInfo.pObjectName = name;
+		state_t::ext_functions_t::vkDebugMarkerSetObjectNameEXT(device, &nameInfo);
+	}
+}
+
 void generate_mipmaps(state_t* state, texture_2d_t* texture, VkCommandBuffer command_buffer);
 
 void 
@@ -613,15 +672,15 @@ create_pipeline_layout(
 	    vpcr.size = push_constant_size;
         vpcr.stageFlags = stages;
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = descriptor_set_count;
-        pipelineLayoutInfo.pSetLayouts = descriptor_set_layouts;
-        pipelineLayoutInfo.pushConstantRangeCount = !!push_constant_size;
-        pipelineLayoutInfo.pPushConstantRanges = push_constant_size ? &vpcr : 0;
+    VkPipelineLayoutCreateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        info.setLayoutCount = descriptor_set_count;
+        info.pSetLayouts = descriptor_set_layouts;
+        info.pushConstantRangeCount = !!push_constant_size;
+        info.pPushConstantRanges = push_constant_size ? &vpcr : 0;
 
-    VkPipelineLayout pipeline_layout;
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipeline_layout) != VK_SUCCESS) {
+    VkPipelineLayout pipeline_layout{};
+    if (vkCreatePipelineLayout(device, &info, nullptr, &pipeline_layout) != VK_SUCCESS) {
         zyy_error("vulkan", "failed to create pipeline layout!");
         std::terminate();
     }

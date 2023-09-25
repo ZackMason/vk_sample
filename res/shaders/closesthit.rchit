@@ -137,9 +137,7 @@ void main()
     TotalLight light_solution = InitLightSolution();
 
     // directional_light(sun, start_surface, light_solution, shadow);
-
-    
-
+                
 
     // light_solution.direct.diffuse *= saturate(light_probe_irradiance(wp, wn, wn, probe_settings) * 0.295 * 3.14150);
 
@@ -182,6 +180,7 @@ void main()
 
         light_solution.direct.diffuse += saturate(nol) * sqr(light.col.rgb) * light.power * shadow * point_light_attenuation(d2, r2);
     }
+
 
 
     if (kFrame != 0) {

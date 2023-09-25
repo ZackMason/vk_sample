@@ -23,13 +23,10 @@ struct flat_particle_system_t {
     particle_t particles[1024];
 };
 
-struct particle_system_t {
+struct particle_system_settings_t {
     particle_t template_particle;
 
-    particle_t* particles;
     u32 max_count{1024};
-    u32 live_count{0};
-    u32 instance_offset{0};
 
     math::aabb_t<v3f> aabb{};
 
@@ -45,17 +42,28 @@ struct particle_system_t {
 
     math::aabb_t<f32> scale_over_life_time{1.0f, 1.0f};
 
-    utl::rng::random_t<utl::rng::xor64_random_t> rng;
-
     particle_emitter_type emitter_type{particle_emitter_type::sphere};
     union {
         math::sphere_t sphere{v3f{0.0f}, 1.0f};
         math::aabb_t<v3f> box;
     };
+};
+
+struct particle_system_t : public particle_system_settings_t {
+    particle_t* particles;
+    utl::rng::random_t<utl::rng::xor64_random_t> rng;
+    u32 live_count{0};
+    u32 instance_offset{0};
 
     u32 _stream_count{0};
     v3f _current_velocity{};
     v3f _current_position{};
+
+    // particle_system_settings_t settings{};
+
+
+    particle_system_t*
+    clone(arena_t* arena, arena_t* particle_arena = 0);
 };
 
 struct particle_system_info_t {
@@ -144,7 +152,8 @@ get_or_create_particle_system_from_cache(
 }
 
 // user needs to check can spawn before calling
-inline static void particle_system_spawn(
+inline static void 
+particle_system_spawn(
     particle_system_t* system
 ) {
     auto* particle = system->particles + system->live_count++;
@@ -170,7 +179,8 @@ inline static void particle_system_spawn(
     particle->angular_velocity += system->rng.aabb(system->angular_velocity_random);
 }
 
-inline static void particle_system_kill_particle(
+inline static void 
+particle_system_kill_particle(
     particle_system_t* system,
     u64 i
 ) {
@@ -180,7 +190,8 @@ inline static void particle_system_kill_particle(
     }
 }
 
-inline static void particle_system_update(
+inline static void 
+particle_system_update(
     particle_system_t* system,
     f32 dt
 ) {
@@ -233,7 +244,6 @@ particle_system_build_matrices(
 ) {
     assert(system->live_count <= matrix_count);
 
-
     range_u32(i, 0, system->live_count) {
         auto* particle = system->particles + i;
         matrix[i] = math::transform_t{}
@@ -262,6 +272,23 @@ particle_system_create(
     if (seed) system->rng.seed(seed);
 
     return system;
+}
+
+particle_system_t* 
+particle_system_t::clone(
+    arena_t* arena,
+    arena_t* particle_arena
+) {
+    auto* ps = particle_system_create(
+        arena,
+        max_count,
+        particle_arena
+    );
+
+    particle_system_settings_t& settings = *ps;
+    settings = particle_system_settings_t{*this};
+
+    return ps;
 }
 
 #endif

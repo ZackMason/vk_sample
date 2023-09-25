@@ -266,10 +266,16 @@ physx_remove_rigidbody(api_t* api, rigidbody_t* rb) {
         auto* controller = (physx::PxController*)rb->api_data;
         
         ps->world->scene->removeActor(*controller->getActor());
-        
+        for (u64 i = 0; i < api->character_count; i++) {
+            if (api->characters[i] == rb) {
+                std::swap(api->characters[i], api->characters[--api->character_count]);
+                break;
+            }
+        }
     } else {
         ps->world->scene->removeActor(*(physx::PxActor*)rb->api_data);
     }
+    // Todo(Zack): move rigidbody to freelist
 }
 
 void

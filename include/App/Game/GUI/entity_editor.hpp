@@ -8,9 +8,98 @@
 
 #include "App/game_state.hpp"
 
+enum struct edit_type_t {
+    TEXT, VEC3, 
+};
+
+enum edit_change_type {
+    Edit_From = 0,
+    Edit_To = 1,
+    Edit_Count
+};
+
+struct text_edit_t {
+    char* where{0};
+    char change[Edit_Count];
+};
+
+struct vec3_edit_t {
+    v3f* where{0};
+    v3f change[Edit_Count];
+};
+
+void execute_edit(auto& edit, u32 which) {
+    *edit.where = edit.change[which];
+}
+
+struct edit_event_t {
+    edit_event_t* next{0};
+    edit_event_t* prev{0};
+
+    edit_type_t type{};
+    union {
+        text_edit_t text_edit{};   
+        vec3_edit_t vec3_edit;   
+    };
+};
+
 struct entity_editor_t {
     game_state_t* game_state{0};
     gfx::gui::im::state_t imgui;
+
+    arena_t undo_arena{};
+
+    edit_event_t redo_sentinel{};
+    edit_event_t undo_sentinel{};
+
+    void redo() {
+        auto* cmd = redo_sentinel.next;
+        if (cmd != &redo_sentinel) {
+            dlist_remove(cmd);
+            // todo: Execute the cmd
+            switch (cmd->type)
+            {
+            case edit_type_t::TEXT:
+                execute_edit(cmd->text_edit, Edit_To);
+                break;
+            case edit_type_t::VEC3:
+                execute_edit(cmd->vec3_edit, Edit_To);
+                break;
+            case_invalid_default;
+            }
+            dlist_insert(&undo_sentinel, cmd);
+        }
+    }
+
+    void undo() {
+        auto* cmd = undo_sentinel.next;
+        if (cmd != &undo_sentinel) {
+            dlist_remove(cmd);
+            // todo: Execute the cmd
+            switch (cmd->type)
+            {
+            case edit_type_t::TEXT:
+                execute_edit(cmd->text_edit, Edit_From);
+                break;
+            case edit_type_t::VEC3:
+                execute_edit(cmd->vec3_edit, Edit_From);
+                break;
+            case_invalid_default;
+            }
+            dlist_insert(&redo_sentinel, cmd);
+        }
+    }
+
+    void edit_char(char* where, char what) {
+        auto* edit = arena_alloc_ctor<edit_event_t>(&undo_arena);
+        edit->type = edit_type_t::TEXT;
+        edit->text_edit.where = where;
+        edit->text_edit.change[Edit_From] = *where;
+        edit->text_edit.change[Edit_To] = what;
+
+        execute_edit(edit->text_edit, Edit_To);
+        dlist_insert(&undo_sentinel, edit);
+    }
 
     m44 projection{1.0f};
     zyy::cam::orbit_camera_t camera{};
@@ -18,6 +107,8 @@ struct entity_editor_t {
     v3f* selection{0};
 
     zyy::db::prefab_t entity;
+
+    zyy::world_t* editor_world{0};
 
     entity_editor_t(game_state_t* app_)
     : game_state{app_}, imgui{
@@ -32,48 +123,18 @@ struct entity_editor_t {
             .padding = 4.0f,
         },
     }
-    {}
+    {
+        undo_arena = arena_sub_arena(&game_state->main_arena, megabytes(1));
+        dlist_init(&redo_sentinel);
+        dlist_init(&undo_sentinel);
+        editor_world = zyy::world_init(&game_state->main_arena, game_state, game_state->game_memory->physics);
+    }
 };
 
-struct shader_1_t {
-    std::string_view name;
-
-    v3f color;
-    f32 roughness;
-};
-struct shader_2_t {
-    std::string_view name{"hello world"};
-
-    v3f color;
-    v3f color1;
-    v3f color2;
-    v3f color3;
-    f32 metallic;
-    f32 emission;
-};
 
 REFLECT_TYPE(std::string_view) {
     REFLECT_TYPE_INFO(std::string_view)
     };
-};
-REFLECT_TYPE(shader_1_t) {
-    REFLECT_TYPE_INFO(shader_1_t)
-    }
-    // .REFLECT_PROP(shader_1_t, name)
-    .REFLECT_PROP(shader_1_t, color)
-    .REFLECT_PROP(shader_1_t, roughness);
-};
-
-REFLECT_TYPE(shader_2_t) {
-    REFLECT_TYPE_INFO(shader_2_t)
-    }
-    .REFLECT_PROP(shader_2_t, name)
-    .REFLECT_PROP(shader_2_t, color)
-    .REFLECT_PROP(shader_2_t, color1)
-    .REFLECT_PROP(shader_2_t, color2)
-    .REFLECT_PROP(shader_2_t, color3)
-    .REFLECT_PROP(shader_2_t, metallic)
-    .REFLECT_PROP(shader_2_t, emission);
 };
 
 inline static void
@@ -140,12 +201,6 @@ object_gui(gfx::gui::im::state_t& imgui, auto& value, size_t depth = 0) {
     object_data_gui(imgui, type, (std::byte*)&value, 0, depth+2);
 }
 
-inline static void
-entity_editor_update(entity_editor_t* ee) {
-    auto* game_state = ee->game_state;
-
-    rendering::begin_frame(game_state->render_system);
-}
 
 inline static void
 entity_editor_render(entity_editor_t* ee) {
@@ -153,16 +208,31 @@ entity_editor_render(entity_editor_t* ee) {
     using namespace gfx::gui;
     using namespace std::string_view_literals;
 
-    local_persist u64 frame{0}; frame++;
+    const u64 frame{++ee->game_state->gui.ctx.frame};
+    
+    local_persist char mesh_name[512];
     local_persist bool show_load = false;
     local_persist bool show_save = false;
     local_persist bool show_graphics = false;
     local_persist bool show_physics = false;
 
+
     auto* game_state = ee->game_state;
     auto& imgui = ee->imgui;
     const auto width = game_state->gui.ctx.screen_size.x;
     gfx::gui::ctx_clear(&game_state->gui.ctx, &game_state->gui.vertices[frame&1].pool, &game_state->gui.indices[frame&1].pool);
+
+
+    bool ctrl_held = game_state->input().keys[key_id::LEFT_CONTROL] || game_state->input().keys[key_id::RIGHT_CONTROL];
+    bool shift_held = game_state->input().keys[key_id::LEFT_SHIFT] || game_state->input().keys[key_id::RIGHT_SHIFT];
+    if (ctrl_held && game_state->input().pressed.keys[key_id::Z]) {
+        game_state->input().pressed.keys[key_id::Z] = 0;
+        if (shift_held) {
+            ee->redo();
+        } else {
+            ee->undo();
+        }
+    }
 
     if (im::begin_panel(imgui, "EE", v2f{width/3.0f,0.0f} )) {
         im::text(imgui, "Entity Editor"sv);
@@ -171,9 +241,15 @@ entity_editor_render(entity_editor_t* ee) {
         if (im::text(imgui, "Load"sv, &show_load)) {
             show_save = false;
         }
+        im::same_line(imgui);
         if (im::text(imgui, "  Save"sv, &show_save)) {
             show_load = false;
         }
+        if (im::text(imgui, "  Clear"sv)) {
+            ee->entity = {};
+            utl::memzero(mesh_name, array_count(mesh_name));
+        }
+
         if (show_load || show_save) {
             im::text(imgui, "============================="sv);
             im::text(imgui, show_load ? "Loading"sv : "Saving"sv);
@@ -203,8 +279,10 @@ entity_editor_render(entity_editor_t* ee) {
 
         im::text(imgui, "============================="sv);
         
+        
+        std::string_view mesh_view{mesh_name};
         size_t type_pos=std::strlen(ee->entity.type_name);
-        size_t mesh_pos=std::strlen(ee->entity.gfx.mesh_name);
+        size_t mesh_pos=std::strlen(mesh_name);
         
         im::same_line(imgui);
         im::text(imgui, "Type Name: \t"sv);
@@ -213,11 +291,13 @@ entity_editor_render(entity_editor_t* ee) {
         std::string_view types[]{
             "environment",
             "player",
-            "enemy",
+            "bad",
             "weapon",
             "weapon_part",
             "item",
             "trigger",
+            "effect",
+            "SIZE",
         };
 
         if (im::text(imgui, fmt_sv("Type: {}"sv, types[(u32)ee->entity.type]))) {
@@ -227,7 +307,14 @@ entity_editor_render(entity_editor_t* ee) {
         if (im::text(imgui, "Graphics"sv, &show_graphics)) {
             im::same_line(imgui);
             im::text(imgui, "-- Mesh Name: \t"sv);
-            im::text_edit(imgui, std::string_view{ee->entity.gfx.mesh_name}, &mesh_pos, "mesh_name::edit"_sid);
+            if (im::text_edit(imgui, mesh_view, &mesh_pos, "mesh_name::edit"_sid)) {
+                utl::memzero(ee->entity.gfx.mesh_name, array_count(ee->entity.gfx.mesh_name));
+                for (u64 i = 0; i < mesh_pos; i++) {
+                    ee->edit_char(ee->entity.gfx.mesh_name + i, mesh_name[i]);
+                    ee->edit_char(mesh_name + i, 0);
+                }
+                // std::memcpy(ee->entity.gfx.mesh_name, mesh_name, mesh_pos);
+            }
             
             im::text(imgui, fmt_sv("-- Albedo Name: {}"sv, ee->entity.gfx.albedo_texture));
             im::text(imgui, fmt_sv("-- Normal Name: {}"sv, ee->entity.gfx.normal_texture));
@@ -255,10 +342,32 @@ entity_editor_render(entity_editor_t* ee) {
         }
 
         im::text(imgui, "============================");
-        local_persist shader_1_t s1;
-        local_persist shader_2_t s2{.name="test"};
-        object_gui(imgui, s1);
-        object_gui(imgui, s2);
+        {
+            u64 redo_count = 0;
+            u64 undo_count = 0;
+            for(auto* u = ee->undo_sentinel.next;
+                u != &ee->undo_sentinel;
+                u = u->next
+            ) {
+                undo_count++;
+            }
+            for(auto* r = ee->redo_sentinel.next;
+                r != &ee->redo_sentinel;
+                r = r->next
+            ) {
+                redo_count++;
+            }
+
+            im::text(imgui, fmt_sv("Undo Count: {}", undo_count));
+            im::text(imgui, fmt_sv("Redo Count: {}", redo_count));
+        }
+
+        im::text(imgui, fmt_sv("Camera: {}", ee->camera.position));
+
+        // local_persist shader_1_t s1;
+        // local_persist shader_2_t s2{.name="test"};
+        // object_gui(imgui, s1);
+        // object_gui(imgui, s2);
 
 
         im::end_panel(imgui);
@@ -268,13 +377,50 @@ entity_editor_render(entity_editor_t* ee) {
         im::gizmo(imgui, ee->selection, ee->projection * ee->camera.view());
     }
 
-    local_persist viewport_t viewport{};
-    viewport.images[0] = 4;
-    viewport.images[1] = 1;
-    viewport.images[2] = 1;
-    viewport.images[3] = 2;
+}
 
-    draw_viewport(imgui, &viewport);
+inline static void
+entity_editor_update(entity_editor_t* ee) {
+    auto* game_state = ee->game_state;
+    auto* pack_file = game_state->resource_file;
+    auto dt = game_state->input().dt;
+
+    auto& camera = ee->camera;
+    auto* input = &game_state->input();
+
+    auto pc = input->gamepads[0].is_connected ? gamepad_controller(input) : keyboard_controller(input);
+
+    camera.move(dt * camera.forward() * pc.move_input.z);
+    camera.move(dt * camera.right() * pc.move_input.x);
+    camera.move(dt * axis::up * pc.move_input.y);
+
+    game_state->render_system->set_view(camera.view(), (u32)game_state->width(), (u32)game_state->height());
+
+
+    if (utl::res::pack_file_get_file_by_name(pack_file, ee->entity.gfx.mesh_name))
+    {
+        auto* e = zyy::spawn(ee->editor_world, game_state->render_system, ee->entity);
+        v3f size = e->aabb.size()*0.5f;
+        v4f bounds{e->aabb.center(), glm::max(glm::max(size.x, size.y), size.z) };
+
+        rendering::submit_job(
+            game_state->render_system, 
+            e->gfx.mesh_id, 
+            e->gfx.material_id, // todo make material per mesh
+            e->global_transform().to_matrix(),
+            bounds,
+            e->gfx.gfx_id,
+            e->gfx.gfx_entity_count,
+            e->gfx.instance_count(),
+            e->gfx.instance_offset()
+        );
+
+        zyy::world_destroy_entity(ee->editor_world, e);
+
+    }
+
+    entity_editor_render(ee);
+    
 }
 
 

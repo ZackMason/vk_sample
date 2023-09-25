@@ -950,6 +950,14 @@ struct module_generator_t {
         };
     }
 
+    
+    math::aabb_t<v3f> aabb() const {
+        math::aabb_t<v3f> t{};
+        t.expand(v3f{0.0f});
+        t.expand(tile_to_world(dim+v3u{1}));
+        return t;
+    }
+
     explicit module_generator_t(zyy::world_t* world_) : world{world_} {
         utl::memzero(tiles, sizeof(room_module_t*)*array_count(rooms));
         utl::memzero(rooms, sizeof(room_module_t)*array_count(rooms));
@@ -1007,6 +1015,7 @@ struct dungeon_generator_t {
         };
     }
 
+
     explicit dungeon_generator_t(zyy::world_t* world_) : world{world_} {
         utl::memzero(tiles, sizeof(zyy::entity_t*)*16);
     }
@@ -1030,7 +1039,12 @@ generate_world_maze(arena_t* arena) {
 
         module_generator_t* mgen = new module_generator_t{world};
         mgen->generate();
+
+        world->render_system()->light_probes.grid_size = 5.0f;
+        rendering::update_probe_aabb(world->render_system(), mgen->aabb());
+
         delete mgen;
+
 
         
 
@@ -1052,8 +1066,6 @@ generate_world_maze(arena_t* arena) {
 
         world->player->transform.origin = creator.tile_position(creator.start_room);
 
-        // world->render_system()->light_probes.grid_size = 5.0f;
-        // rendering::update_probe_aabb(world->render_system(), start_room->aabb);
     });
     return generator;
 }

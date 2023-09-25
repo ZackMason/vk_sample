@@ -14,7 +14,7 @@ namespace assets::shaders {
     #define SHADER_PATH_(name) "./res/shaders/bin/" ## name ## ".spv"
     #define SHADER_PATH(name) {SHADER_PATH_(name)}
 
-    constexpr u32 CAMERA_CONSTANTS_SIZE = sizeof(m44) + sizeof(m44);
+    constexpr u32 CAMERA_CONSTANTS_SIZE = sizeof(m44) * 2;
     constexpr u32 NONE = 0;
     constexpr u32 VERT = VK_SHADER_STAGE_VERTEX_BIT;
     constexpr u32 FRAG = VK_SHADER_STAGE_FRAGMENT_BIT;

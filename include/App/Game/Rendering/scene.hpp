@@ -111,6 +111,7 @@ namespace rendering {
             //         return i;
             //     }
             // }
+            entities.pool.allocate(1);
             return entity_count++;
         }
 

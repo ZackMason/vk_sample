@@ -18,6 +18,7 @@ begin_rt_pass(
     u32 height = (u32)rs->height;
 
 
+    gfx::vul::begin_debug_marker(command_buffer, "DDGI Probe Raytrace");
 
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_pipeline_properties{};
     ray_tracing_pipeline_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
@@ -91,6 +92,7 @@ begin_rt_pass(
                 gfx::vul::descriptor_builder_t::begin(
                     rs->descriptor_layout_cache, 
                     rs->get_frame_data().dynamic_descriptor_allocator
+                    // rs->get_frame_data().dynamic_descriptor_allocator
                 ),
                 &rs->light_probes.irradiance_texture,
                 &rs->light_probes.visibility_texture
@@ -164,7 +166,8 @@ begin_rt_pass(
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
         vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 
-
+        gfx::vul::end_debug_marker(command_buffer);
+        gfx::vul::begin_debug_marker(command_buffer, "DDGI Integrate");
         
         rs->light_probe_ray_buffer.insert_memory_barrier(
             command_buffer, 
@@ -261,6 +264,7 @@ begin_rt_pass(
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
+        gfx::vul::end_debug_marker(command_buffer);
 
         // generate_mipmaps(&gfx, &rs->light_probes.irradiance_texture, command_buffer);
         // generate_mipmaps(&gfx, &rs->light_probes.visibility_texture, command_buffer);

@@ -234,6 +234,8 @@ create_gui_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
     create_info->vertex_shader = "./res/shaders/bin/gui.vert.spv";
     create_info->fragment_shader = "./res/shaders/bin/gui.frag.spv";
 
+    create_info->push_constant_size = assets::shaders::gui_vert.push_constant_size;
+
     // create_info->attachment_count = 2;
     // create_info->attachment_descriptions[0] = utl::attachment_description(
     //     state->swap_chain_image_format,

@@ -203,7 +203,6 @@ app_init_graphics(game_memory_t* game_memory) {
     
     game_state->render_system = rendering::init<megabytes(256)>(vk_gfx, &game_state->main_arena);
     game_state->render_system->resource_file = game_state->resource_file;
-    vk_gfx.create_vertex_buffer(&game_state->debug.debug_vertices);
     vk_gfx.create_vertex_buffer(&game_state->gui.vertices[0]);
     vk_gfx.create_index_buffer(&game_state->gui.indices[0]);
     vk_gfx.create_vertex_buffer(&game_state->gui.vertices[1]);
@@ -347,24 +346,6 @@ app_init_graphics(game_memory_t* game_memory) {
         gs_animator.update(1.0f/60.0f);
     }
 
-    game_state->gui_pipeline = gfx::vul::create_gui_pipeline(&game_state->mesh_arena, &vk_gfx, rs->render_passes[0]);
-    game_state->sky_pipeline = gfx::vul::create_skybox_pipeline(&game_state->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass);
-    // game_state->mesh_pipeline = gfx::vul::create_mesh_pipeline(&game_state->mesh_arena, &vk_gfx, rs->render_targets[0].render_pass,
-    //     gfx::vul::mesh_pipeline_info_t{
-    //         vk_gfx.sporadic_uniform_buffer.buffer,
-    //         game_state->render_system->job_storage_buffer().buffer,
-    //         game_state->render_system->material_storage_buffer.buffer,
-    //         game_state->render_system->environment_storage_buffer.buffer
-    //     }
-    // );
-    // assert(game_state->mesh_pipeline);
-
-    game_state->debug_pipeline = gfx::vul::create_debug_pipeline(
-        &game_state->mesh_arena, 
-        &vk_gfx, 
-        rs->render_targets[0].render_pass
-    );
-
     {
         temp_arena_t ta = game_state->texture_arena;
         gfx::font_load(&ta, &game_state->large_font, "./res/fonts/Go-Mono-Bold.ttf", 24.0f);
@@ -375,21 +356,16 @@ app_init_graphics(game_memory_t* game_memory) {
             &ta,
             game_state->default_font_texture,
             &game_state->default_font);
+
+
     }
 
-    // set_ui_textures(game_state);
+
+
     set_ui_textures(game_state);
 
-    // gfx::vul::texture_2d_t* ui_textures[4096];
-    // for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = game_state->default_font_texture; }
-    // ui_textures[1] = &rs->frame_images[0].texture;
-    // ui_textures[2] = &rs->light_probes.irradiance_texture;
-    // ui_textures[3] = &rs->light_probes.visibility_texture;
 
-    // game_state->default_font_descriptor = vk_gfx.create_image_descriptor_set(
-    //     vk_gfx.descriptor_pool,
-    //     game_state->gui_pipeline->descriptor_set_layouts[0],
-    //     ui_textures, array_count(ui_textures));
+
 
     if (1)
     {
@@ -413,6 +389,7 @@ app_init_graphics(game_memory_t* game_memory) {
 
         rs->texture_cache.insert("blood", *blood_texture);
     }
+    
     { //@test loading shader objects
         auto& mesh_pass = rs->frames[0].mesh_pass;
         auto& anim_pass = rs->frames[0].anim_pass;
@@ -551,39 +528,39 @@ app_init_graphics(game_memory_t* game_memory) {
             rs->arena, 
             vk_gfx,
             assets::shaders::gui_vert,
-            game_state->gui_pipeline->descriptor_set_layouts,
-            game_state->gui_pipeline->descriptor_count
+            game_state->render_system->pipelines.gui.set_layouts,
+            game_state->render_system->pipelines.gui.set_count
         );
 
         rs->shader_cache.load(
             rs->arena, 
             vk_gfx,
             assets::shaders::gui_frag,
-            game_state->gui_pipeline->descriptor_set_layouts,
-            game_state->gui_pipeline->descriptor_count
+            game_state->render_system->pipelines.gui.set_layouts,
+            game_state->render_system->pipelines.gui.set_count
         );
 
         rs->shader_cache.load(
             rs->arena, 
             vk_gfx,
             assets::shaders::skybox_vert,
-            game_state->sky_pipeline->descriptor_set_layouts,
-            game_state->sky_pipeline->descriptor_count
+            game_state->render_system->pipelines.sky.set_layouts,
+            game_state->render_system->pipelines.sky.set_count
         );
 
         rs->shader_cache.load(
             rs->arena, 
             vk_gfx,
             assets::shaders::skybox_frag,
-            game_state->sky_pipeline->descriptor_set_layouts,
-            game_state->sky_pipeline->descriptor_count
+            game_state->render_system->pipelines.sky.set_layouts,
+            game_state->render_system->pipelines.sky.set_count
         );
         rs->shader_cache.load(
             rs->arena, 
             vk_gfx,
             assets::shaders::voidsky_frag,
-            game_state->sky_pipeline->descriptor_set_layouts,
-            game_state->sky_pipeline->descriptor_count
+            game_state->render_system->pipelines.sky.set_layouts,
+            game_state->render_system->pipelines.sky.set_count
         );
     }
   
@@ -802,6 +779,13 @@ app_on_reload(game_memory_t* game_memory) {
 
 void 
 app_on_input(game_state_t* game_state, app_input_t* input) {
+    if (input->pressed.keys[key_id::F1]) {
+        if (auto b = gs_show_watcher = !gs_show_watcher) {
+            gs_imgui_state->active = "watcher_text_box"_sid;
+        } else {
+            gs_imgui_state->hot = gs_imgui_state->active = 0;
+        }
+    }
     if (input->pressed.keys[key_id::F2]) {
         if (auto b = gs_show_console = !gs_show_console) {
             gs_imgui_state->active = "console_text_box"_sid;
@@ -809,12 +793,11 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
             gs_imgui_state->hot = gs_imgui_state->active = 0;
         }
     }
-    if (input->pressed.keys[key_id::F1]) {
-        if (auto b = gs_show_watcher = !gs_show_watcher) {
-            gs_imgui_state->active = "watcher_text_box"_sid;
-        } else {
-            gs_imgui_state->hot = gs_imgui_state->active = 0;
-        }
+    if (input->pressed.keys[key_id::F5]) {
+        zyy::world_destroy_all(game_state->game_world);
+        game_state->game_world->world_generator = nullptr;
+        game_state->game_world->player = nullptr;
+        game_state->game_world->effects.blood_splat_count = 0;
     }
 
     if (input->gamepads[0].is_connected) {
@@ -1065,7 +1048,7 @@ game_on_update(game_memory_t* game_memory) {
         world_generator->execute(game_state->game_world, [&](){draw_gui(game_memory);});
         std::lock_guard lock{game_state->render_system->ticket};
         set_ui_textures(game_state);
-    } else {
+    // } else {
         // local_persist f32 accum = 0.0f;
         // const u32 sub_steps = 1;
         // const f32 step = 1.0f/(60.0f*sub_steps);
@@ -1075,10 +1058,10 @@ game_on_update(game_memory_t* game_memory) {
         // if (accum >= step) {
         //     accum -= step;
             // game_on_gameplay(game_state, &game_memory->input, step);
-            game_on_gameplay(game_state, &game_memory->input, game_memory->input.dt * game_state->time_scale);
         // }
         
     }
+            game_on_gameplay(game_state, &game_memory->input, game_memory->input.dt * game_state->time_scale);
 }
 
 inline static u32
@@ -1333,7 +1316,6 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
                 rs, command_buffer, 
                 // assets::shaders::voidsky_frag.filename,
                 assets::shaders::skybox_frag.filename,
-                game_state->sky_pipeline->pipeline_layout,
                 view_dir, rs->environment_storage_buffer.pool[0].sun.direction
             );
 
@@ -1491,7 +1473,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
             ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
 
             vkCmdBindDescriptorSets(command_buffer, 
-                VK_PIPELINE_BIND_POINT_GRAPHICS, game_state->gui_pipeline->pipeline_layout,
+                VK_PIPELINE_BIND_POINT_GRAPHICS, game_state->render_system->pipelines.gui.layout,
                 0, 1, &game_state->default_font_descriptor, 0, nullptr);
 
             {
@@ -1501,7 +1483,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
                 } constants;
                 constants.v = rs->view;
                 constants.p = rs->projection;
-                vkCmdPushConstants(command_buffer, game_state->gui_pipeline->pipeline_layout,
+                vkCmdPushConstants(command_buffer, game_state->render_system->pipelines.gui.layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
                     0, sizeof(constants), &constants
                 );
@@ -1627,20 +1609,24 @@ app_on_update(game_memory_t* game_memory) {
         game_memory->input.gamepads->buttons[button_id::dpad_down].is_pressed) {
         scene_state = !scene_state;
     }
+    u32 image_index = wait_for_frame(game_state);
+    rendering::begin_frame(game_state->render_system);
+
     switch (scene_state) {
         case 0: // Editor
             entity_editor_update(get_entity_editor(game_memory));
             break;
         case 1: { // Game
-            u32 image_index = wait_for_frame(game_state);
             game_on_update(game_memory);
-            game_on_render(game_memory, image_index);
-            rendering::begin_frame(game_state->render_system);
         }         
             break;
         default:
             zyy_warn("scene::update", "Unknown scene: {}", scene_state);
+            scene_state = 1;
             break;
-        //     scene_state = 1;
     }
+    
+    game_on_render(game_memory, image_index);
+    game_state->render_system->frame_count++;
+    game_state->render_system->frame_count = game_state->render_system->frame_count % 2;
 }

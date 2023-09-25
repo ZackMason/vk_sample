@@ -53,10 +53,6 @@ T* win32_alloc(){
     return t;
 }
 
-game_memory_t* gs_app{0};
-game_memory_t* gs_app_restore{0};
-arena_t* gs_physics_arena;
-arena_t* gs_physics_restore_arena;
 
 FILETIME gs_game_dll_write_time;
 
@@ -426,14 +422,7 @@ LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
         msg += fmt::format("\nAttempted to access virtual address {}", (void*)info[1]);
         auto pressed = MessageBox(0, fmt::format("Exception at address {}\nCode: {}\nFlag: {}", address, msg!=""?msg:fmt::format("{}", code), flags).c_str(), 0, MB_ABORTRETRYIGNORE);
         if (pressed == IDRETRY) {
-            // std::memcpy(gs_physics_arena->start, gs_physics_restore_arena->start, gs_physics_restore_arena->top);
-            // *gs_app->physics = *gs_app_restore->physics;
-            // gs_physics_arena->top = gs_physics_restore_arena->top;
-
-            // std::memcpy(gs_app->arena.start, gs_app_restore->arena.start, gs_app_restore->arena.top);
-            // gs_app->arena.top = gs_app_restore->arena.top;
-            // std::memcpy(&gs_app->input, &gs_app_restore->input, sizeof(app_input_t));
-
+            
             throw std::exception(msg.c_str());
         }
     }
@@ -466,14 +455,12 @@ main(int argc, char* argv[]) {
 
     game_memory_t game_memory{};
     game_memory.platform = Platform;
+
     constexpr size_t application_memory_size = gigabytes(2);
     game_memory.arena = arena_create(VirtualAlloc(0, application_memory_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), application_memory_size);
 
     game_memory_t restore_point;
     restore_point.arena.start = 0;
-
-    gs_app = &game_memory;
-    gs_app_restore = &restore_point;
  
     assert(game_memory.arena.start);
 
@@ -483,14 +470,11 @@ main(int argc, char* argv[]) {
     utl::config_list_t dconfig{};
     dconfig.head = load_dev_config(&game_memory.arena, &dconfig.count);
 
-    config.window_size[0] = game_memory.config.graphics_config.window_size.x;
-    config.window_size[1] = game_memory.config.graphics_config.window_size.y;
-
-    config.window_size[0] = utl::config_get_int(&dconfig, "width", 1920);
-    config.window_size[1] = utl::config_get_int(&dconfig, "height", 1080);
+    config.window_size[0] = utl::config_get_int(&dconfig, "width", game_memory.config.graphics_config.window_size.x);
+    config.window_size[1] = utl::config_get_int(&dconfig, "height", game_memory.config.graphics_config.window_size.y);
     
     config.graphics_config.vsync = utl::config_get_int(&dconfig, "vsync", 1);
-    
+
 
     game_memory.config.create_vk_surface = [](void* instance, void* surface, void* window_handle) {
         VkWin32SurfaceCreateInfoKHR createInfo{};
@@ -508,8 +492,7 @@ main(int argc, char* argv[]) {
     void* physics_dll = LoadLibraryA(".\\build\\zyy_physics.dll");
     arena_t physics_arena = arena_create(win32_alloc(gigabytes(2)), gigabytes(2));
     arena_t restore_physics_arena = arena_create(win32_alloc(gigabytes(2)), gigabytes(2));
-    gs_physics_arena = &physics_arena;
-    gs_physics_restore_arena = &restore_physics_arena;
+
     if (physics_dll)
     {
         zyy_info("win32", "Initializing Physics");
@@ -546,19 +529,14 @@ main(int argc, char* argv[]) {
     load_sound_closure.data = &audio_cache;
     load_sound_closure.func = reinterpret_cast<void(*)(void*)>(
         +[](void* data, const char* path) -> u64 {
-            zyy_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
-
             auto* cache = (audio_cache_t*)data;
+
 #if USE_SDL
-            // if (utl::has_extension(path, "wav")) {
+            zyy_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
             cache->sounds[cache->sound_count] = Mix_LoadWAV(path);
-            // } else if (utl::has_extension(path, "ogg")) {
-                // cache->sounds[cache->sound_count] = Mix_LoadMUS(path);
-            // }
+            zyy_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
 #endif
 
-            zyy_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
-        
             return cache->sound_count++;
     });
     
@@ -566,11 +544,11 @@ main(int argc, char* argv[]) {
     play_sound_closure.data = &audio_cache;
     play_sound_closure.func = reinterpret_cast<void(*)(void*)>(
         +[](void* data, u64 id) -> void {
-            zyy_info("sdl_mixer::play_sound", "playing Sound: {}", id);
 
             auto* cache = (audio_cache_t*)data;
 
 #if USE_SDL
+            zyy_info("sdl_mixer::play_sound", "playing Sound: {}", id);
             Mix_PlayChannel(-1, cache->sounds[id], 0);
 #endif
     });

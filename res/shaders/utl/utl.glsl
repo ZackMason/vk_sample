@@ -23,6 +23,10 @@ vec3 saturate_min(vec3 a, float mi) {
     return clamp(a, vec3(mi), vec3(1.0));
 }
 
+uint sqr(uint x) {
+    return x*x;
+}
+
 float sqr(float x) {
     return x*x;
 }

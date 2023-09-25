@@ -313,8 +313,8 @@ struct rt_compute_pass_t {
     gfx::vul::gpu_buffer_t object_data_buffer;
 
 
-    VkDescriptorSet descriptor_sets[3];
-    VkDescriptorSetLayout descriptor_set_layouts[3];
+    VkDescriptorSet descriptor_sets[3]{0,0,0};
+    VkDescriptorSetLayout descriptor_set_layouts[3]{0,0,0};
 
     void build_descriptors(
         gfx::vul::state_t& gfx, 

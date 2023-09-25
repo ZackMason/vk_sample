@@ -8,7 +8,11 @@ namespace gfx::vul {
 static constexpr u64 MAX_DESCRIPTOR_POOLS = 10;
 
 struct descriptor_allocator_t {
-    explicit descriptor_allocator_t(VkDevice device_) : device{device_} {}
+    explicit descriptor_allocator_t(VkDevice device_) : device{device_}, current_pool{nullptr} {
+        range_u64(i, 0, MAX_DESCRIPTOR_POOLS) {
+            free_pools[i] = used_pools[i] = VK_NULL_HANDLE;
+        }
+    }
     virtual ~descriptor_allocator_t() {
         cleanup();
     }
@@ -40,8 +44,10 @@ struct descriptor_allocator_t {
     VkDescriptorPool current_pool{VK_NULL_HANDLE};
     size_t used_pool_count{0};
     size_t free_pool_count{0};
-    VkDescriptorPool used_pools[MAX_DESCRIPTOR_POOLS];
-    VkDescriptorPool free_pools[MAX_DESCRIPTOR_POOLS];
+    VkDescriptorPool used_pools[MAX_DESCRIPTOR_POOLS] = {};
+    VkDescriptorPool free_pools[MAX_DESCRIPTOR_POOLS] = {};
+    // std::vector<VkDescriptorPool> used{};
+    // std::vector<VkDescriptorPool> freed{};
 
     pool_size_t descriptor_sizes[12]={
         { VK_DESCRIPTOR_TYPE_SAMPLER, 0.5f },
@@ -54,7 +60,7 @@ struct descriptor_allocator_t {
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2.f },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1.f },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1.f },
-        { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1.f},
+        { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 4.f},
         { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0.5f },
     };
 };
@@ -73,37 +79,46 @@ create_pool(
     }
     VkDescriptorPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.pNext = 0;
     pool_info.flags = flags;
     pool_info.maxSets = count;
     pool_info.poolSizeCount = (uint32_t)sizes.size();
     pool_info.pPoolSizes = sizes.data();
 
-    VkDescriptorPool descriptorPool;
+    VkDescriptorPool descriptorPool{VK_NULL_HANDLE};
     vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool);
+
+    assert(descriptorPool);
+    // set_object_name(device, (u64)descriptorPool, VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT, "Descriptor Pool");
 
     return descriptorPool;
 }
 
 VkDescriptorPool 
 descriptor_allocator_t::get_pool() {
+    // if (freed.size() > 0) {
     if (free_pool_count > 0) {
+        // VkDescriptorPool pool = freed.back();
+        // freed.pop_back();
         auto pool = free_pools[--free_pool_count];
         free_pools[free_pool_count] = VK_NULL_HANDLE;
         return pool;
     } else {
-        return create_pool(device, descriptor_sizes, array_count(descriptor_sizes), 1000, 0);
+        return create_pool(device, descriptor_sizes, array_count(descriptor_sizes), 100000, 0);
     }
 }
 
 bool
 descriptor_allocator_t::allocate(VkDescriptorSet* set, VkDescriptorSetLayout layout) {
     //initialize the currentPool handle if it's null
-    if (current_pool == VK_NULL_HANDLE){
+    if (current_pool == VK_NULL_HANDLE) {
         current_pool = get_pool();
+        // used.push_back(current_pool);
         used_pools[used_pool_count++] = current_pool;
         assert(used_pool_count < MAX_DESCRIPTOR_POOLS);
     }
 
+    assert(current_pool);
     VkDescriptorSetAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.pNext = nullptr;
@@ -125,24 +140,28 @@ descriptor_allocator_t::allocate(VkDescriptorSet* set, VkDescriptorSetLayout lay
         //reallocate pool
         needReallocate = true;
         break;
-    default:
         //unrecoverable error
+    // case_invalid_default;
+    default:
         return false;
     }
 
-    if (needReallocate){
+    if (needReallocate) {
         //allocate a new pool and retry
         current_pool = get_pool();
+        // used.push_back(current_pool);
         used_pools[used_pool_count++] = current_pool;
         assert(used_pool_count < MAX_DESCRIPTOR_POOLS);
 
+        assert(current_pool);
+        allocInfo.descriptorPool = current_pool;
         allocResult = vkAllocateDescriptorSets(device, &allocInfo, set);
 
         //if it still fails then we have big issues
-        if (allocResult == VK_SUCCESS){
-            zyy_error(__FUNCTION__, "Big issues allocating descriptor set");
+        if (allocResult == VK_SUCCESS) {
             return true;
         }
+        zyy_error(__FUNCTION__, "Big issues allocating descriptor set");
     }
 
     return false;
@@ -150,14 +169,22 @@ descriptor_allocator_t::allocate(VkDescriptorSet* set, VkDescriptorSetLayout lay
 
 void
 descriptor_allocator_t::reset_pools() {
-    for (auto p : std::span{used_pools, used_pool_count}) {
-        vkResetDescriptorPool(device, p, 0);
-        // push back used pool into free
-        free_pools[free_pool_count++] = p;
+    // for (auto p : used) {
+    //     vkResetDescriptorPool(device, p, 0);
+    //     freed.push_back(p);
+    // }
+
+    free_pool_count = 0;
+
+    range_u64(i,0,used_pool_count) {
+        vkResetDescriptorPool(device, used_pools[i], 0);
+
+        free_pools[free_pool_count++] = used_pools[i];
         assert(free_pool_count < MAX_DESCRIPTOR_POOLS);
+    
+        used_pools[i] = VK_NULL_HANDLE;
     }
-    // clear used pools
-    std::memset(used_pools, 0, sizeof(VkDescriptorPool) * array_count(used_pools));
+    
     used_pool_count = 0;
 
     current_pool = VK_NULL_HANDLE;
@@ -177,20 +204,42 @@ struct descriptor_layout_cache_t {
 
     void cleanup() {
         ::utl::profile_t p{__FUNCTION__};
-        range_u64(i, 0, MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE) {
-            if (cache[i] != VK_NULL_HANDLE) {
-                vkDestroyDescriptorSetLayout(device, cache[i], nullptr);
-            }
-        }
+        // range_u64(i, 0, MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE) {
+        //     if (cache[i] != VK_NULL_HANDLE) {
+        //         vkDestroyDescriptorSetLayout(device, cache[i], nullptr);
+        //     }
+        // }
     }
 
     VkDescriptorSetLayout create_descriptor_set_layout(VkDescriptorSetLayoutCreateInfo* info);
 
     struct descriptor_layout_info_t {
         size_t binding_count{0};
-        VkDescriptorSetLayoutBinding bindings[MAX_DESCRIPTOR_LAYOUT_BINDINGS];
+        std::array<VkDescriptorSetLayoutBinding, MAX_DESCRIPTOR_LAYOUT_BINDINGS> bindings{};
 
-        bool operator==(const descriptor_layout_info_t& o) const;
+        bool operator==(const descriptor_layout_info_t& other) const {
+            if (&other == this) {
+                return true;
+            } else if (other.binding_count != binding_count){
+                return false;
+            } else {
+                for (int i = 0; i < binding_count; i++) {
+                    if (other.bindings[i].binding != bindings[i].binding) {
+                        return false;
+                    }
+                    if (other.bindings[i].descriptorType != bindings[i].descriptorType){
+                        return false;
+                    }
+                    if (other.bindings[i].descriptorCount != bindings[i].descriptorCount){
+                        return false;
+                    }
+                    if (other.bindings[i].stageFlags != bindings[i].stageFlags){
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
         size_t hash() const;
     };
 
@@ -200,6 +249,8 @@ struct descriptor_layout_cache_t {
         }
     };
 
+    // std::unordered_map<descriptor_layout_info_t, VkDescriptorSetLayout, descriptor_layout_hash_t> layout_map{};
+
     size_t meta[MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE];
     VkDescriptorSetLayout cache[MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE];
     VkDevice device;
@@ -207,7 +258,7 @@ struct descriptor_layout_cache_t {
 
 VkDescriptorSetLayout 
 descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCreateInfo* info){
-    descriptor_layout_cache_t::descriptor_layout_info_t layout_info;
+    descriptor_layout_cache_t::descriptor_layout_info_t layout_info{};
     layout_info.binding_count = info->bindingCount;
     bool isSorted = true;
     int lastBinding = -1;
@@ -225,7 +276,8 @@ descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCre
     }
 
     //sort the bindings if they aren't in order
-    if (!isSorted){
+    if (!isSorted) {
+        zyy_warn(__FUNCTION__, "Bindings aren't sorted");
         range_u64(w, 0, info->bindingCount-1) {
             size_t min{w};
 
@@ -241,13 +293,16 @@ descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCre
         }
     }
 
+#if 1
+
     //try to grab from cache
     const size_t hash = layout_info.hash();
     size_t bucket = hash % MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE;
+    // zyy_warn(__FUNCTION__, "binding hash: {}", hash);
     
     while (cache[bucket] != VK_NULL_HANDLE && meta[bucket] != hash) {
         bucket = (bucket + 1) % MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE;
-        zyy_warn(__FUNCTION__, "probe: {}", hash);
+        zyy_warn(__FUNCTION__, "probe: {} - {}", hash, bucket);
     }
 
     if (meta[bucket] == hash) {
@@ -260,6 +315,19 @@ descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCre
         meta[bucket] = hash;
         return layout;
     }
+#else 
+    auto it = layout_map.find(layout_info);
+    if (it != layout_map.end()) {
+        return (*it).second;
+    } else {
+        VkDescriptorSetLayout layout;
+		vkCreateDescriptorSetLayout(device, info, nullptr, &layout);
+
+        // layout_map.emplace(layout_info, layout);
+		layout_map[layout_info] = layout;
+		return layout;
+    }
+#endif
 }
 
 
@@ -274,7 +342,7 @@ using vkCmdPushDescriptorSetKHRFN = void(*)(
 
 struct descriptor_builder_t {
     static descriptor_builder_t begin(descriptor_layout_cache_t* layout_cache, descriptor_allocator_t* allocator) {
-        return descriptor_builder_t{
+        return descriptor_builder_t {
             .cache = layout_cache,
             .alloc = allocator
         };
@@ -442,19 +510,25 @@ bool descriptor_builder_t::build_push(
 	return true;
 }
 
-size_t descriptor_layout_cache_t::descriptor_layout_info_t::hash() const{
+size_t descriptor_layout_cache_t::descriptor_layout_info_t::hash() const {
     using std::size_t;
     using std::hash;
 
     size_t result = hash<size_t>()(binding_count);
 
-    for (const VkDescriptorSetLayoutBinding& b : std::span{bindings, binding_count})
+    for (const VkDescriptorSetLayoutBinding& b : std::span{bindings.data(), binding_count})
+    // for (const VkDescriptorSetLayoutBinding& b : bindings)
     {
         //pack the binding data into a single int64. Not fully correct but it's ok
-        size_t binding_hash = b.binding | b.descriptorType << 8 | b.descriptorCount << 16 | b.stageFlags << 24;
+        // size_t binding_hash = b.binding | b.descriptorType << 8 | b.descriptorCount << 16 | b.stageFlags << 24;
+        // size_t binding_hash = (b.binding | b.descriptorType << 8 | b.descriptorCount << 16) | b.stageFlags;
 
         //shuffle the packed binding data and xor it with the main hash
-        result ^= hash<size_t>()(binding_hash);
+        // result ^= hash<size_t>()(binding_hash);
+        result ^= hash<size_t>()(b.binding);
+        result ^= hash<size_t>()(b.descriptorType);
+        result ^= hash<size_t>()(b.descriptorCount);
+        result ^= hash<size_t>()(b.stageFlags);
     }
 
     return result;

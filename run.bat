@@ -1,2 +1,2 @@
-build\game.exe
-@REM build\game.exe 1> log.txt 2> errors.txt
+rem build\game.exe
+build\game.exe 1> log.txt 2> errors.txt

@@ -344,16 +344,17 @@ void main() {
 
     barrier();
     groupMemoryBarrier();
+    
     // if (false) 
     {
 #ifdef INTEGRATE_DEPTH
-        for (uint i = gl_LocalInvocationIndex; i < 68; i += 18*18) {
+        for (uint i = gl_LocalInvocationIndex; i < 68; i += sqr(PROBE_VISIBILITY_TOTAL)) {
             uvec2 src = pixel_top_left - 1 + border_offsets[i].xy;
             uvec2 dst = pixel_top_left - 1 + border_offsets[i].zw;
             imageStore(uProbeTexture[1], ivec2(dst), imageLoad(uProbeTexture[1], ivec2(src)));
         }
 #else
-        for (uint i = gl_LocalInvocationIndex; i < 36; i += 10*10) {
+        for (uint i = gl_LocalInvocationIndex; i < 36; i += sqr(PROBE_IRRADIANCE_TOTAL)) {
             uvec2 src = pixel_top_left - 1 + border_offsets[i].xy;
             uvec2 dst = pixel_top_left - 1 + border_offsets[i].zw;
             imageStore(uProbeTexture[0], ivec2(dst), imageLoad(uProbeTexture[0], ivec2(src)));

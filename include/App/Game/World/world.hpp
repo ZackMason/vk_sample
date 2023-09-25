@@ -58,7 +58,6 @@ namespace zyy {
         render_system() {
             return game_state->render_system;
         }
-
         // world_t() = default;
     };
 
@@ -515,6 +514,17 @@ namespace zyy {
                 world_destroy_entity(world, e);
             }
         }
+    }
+
+    static void
+    world_destroy_all(world_t* w) {
+        range_u64(i, 0, w->entity_capacity) {
+            auto* e = w->entities + i;
+            if (e->is_alive()) {
+                e->queue_free();
+            }
+        }
+        world_kill_free_queue(w);
     }
 
     static void 

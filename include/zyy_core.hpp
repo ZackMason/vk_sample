@@ -559,6 +559,9 @@ struct app_input_t {
                     if (c >= key_id::NUM_0 && c <= key_id::NUM_9) {
                         return num_lut[c-key_id::NUM_0];
                     }
+                    if (c == key_id::MINUS) {
+                        return '_';
+                    }
                     return (char)c;
                 } else {
                     return (char)std::tolower((char)c); 
@@ -794,6 +797,11 @@ struct window_t {
 #define node_last(list) do { while (list->next && list=list->next);} while(0)
 
 #define node_for(type, node, itr) for(type* itr = (node); (itr); node_next(itr))
+
+#define dlist_remove(ele) \
+    (ele)->prev->next = (ele)->next; \
+    (ele)->next->prev = (ele)->prev;
+
 
 #define dlist_insert(sen, ele) \
     (ele)->next = (sen)->next;\
@@ -1375,25 +1383,27 @@ constexpr string_id_t operator"" _sid(const char* str, std::size_t size) {
     return sid(std::string_view(str));
 }
 
-enum struct type_tag {
-    UINT8,
-    UINT16,
-    UINT32,
-    UINT64,
-    INT8,
-    INT16,
-    INT32,
-    INT64,
-    FLOAT32,
-    FLOAT64,
-    STRING,
-    STRING_VIEW,
-    VOID_STAR,
-    ARRAY,
-    UNKNOWN,
-};
 
 namespace reflect {
+
+    enum struct type_tag {
+        UINT8,
+        UINT16,
+        UINT32,
+        UINT64,
+        INT8,
+        INT16,
+        INT32,
+        INT64,
+        FLOAT32,
+        FLOAT64,
+        STRING,
+        STRING_VIEW,
+        VOID_STAR,
+        ARRAY,
+        UNKNOWN,
+    };
+
     struct type_info_t {
         sid_t       type_id{};
         size_t      size{};
@@ -1407,7 +1417,6 @@ namespace reflect {
         size_t       count{0};
         type_tag     tag{type_tag::UNKNOWN};
     };
-
     
     struct property_t {
         const type_t* type{0};
@@ -1444,6 +1453,7 @@ namespace reflect {
             return var;
         }
     };
+
     struct method_t {
         using function_ptr_t = void (*)(void);
         
@@ -1548,7 +1558,8 @@ namespace reflect {
 #define REFLECT_PROP(ttype, prop) add_property(reflect::property_t{reflect::type<decltype(ttype::prop)>{}?&reflect::type<decltype(ttype::prop)>::info:nullptr, #prop, sizeof(ttype::prop), offsetof(ttype, prop)})
 #define REFLECT_DYN_PROP(ttype, prop, size, offset) add_dynamic_property(reflect::property_t{reflect::type<decltype(ttype::prop)>{}?&reflect::type<decltype(ttype::prop)>::info:nullptr, #prop, size})
 
-};
+} // namespace reflect
+
 using reflect::type_info_t;
 template<>
 struct fmt::formatter<reflect::object_t> {
@@ -1559,6 +1570,8 @@ struct fmt::formatter<reflect::object_t> {
 
     template<typename FormatContext>
     auto format(reflect::object_t const& o, FormatContext& ctx) {
+        using reflect::type_tag;
+
         switch (o.type->tags) {
             case type_tag::UINT8:         return fmt::format_to(ctx.out(), "{}", *(u8*)o.data);
             case type_tag::UINT16:        return fmt::format_to(ctx.out(), "{}", *(u16*)o.data);
@@ -1597,9 +1610,8 @@ REFLECT_TYPE(v3f) {
 #define GEN_REFLECT_INFO(type, var, ...) struct VAR_CAT_(type, VAR_CAT(var, _info)) { GEN_REFLECT_VAR(type, var) }
 
 struct any_t {
-    
 
-    type_tag tag{type_tag::UNKNOWN};
+    reflect::type_tag tag{reflect::type_tag::UNKNOWN};
 
     #define ANY_T_RETURN_TYPE(type) if constexpr (std::is_same_v<T, type>) {return data.type; }
 
@@ -1617,6 +1629,8 @@ struct any_t {
         ANY_T_RETURN_TYPE(f64);
         assert(0 && "any_t :: Unknown type");
     }
+
+    #undef ANY_T_RETURN_TYPE
 
     union {
         u8 u8;
@@ -2579,12 +2593,12 @@ struct shader_description_t {
 
     template <typename T>
     constexpr shader_description_t& add_push_constant() {
-        add_push_constant(sizeof(T));
+        return add_push_constant(sizeof(T));
     }
 
     constexpr shader_description_t& add_push_constant(u32 size) {
         push_constant_size += size;
-        assert(push_constant_size < (sizeof(m44)<<1));
+        assert(push_constant_size <= 128);
         return *this;
     }
 
@@ -2926,11 +2940,35 @@ namespace gui {
     struct image_t;
     struct button_t;
 
+    struct widget_t : public math::aabb_t<v2f> {
+        widget_t* parent{0};
+        widget_t* first_child{0};
+        widget_t* next_child{0};
+
+        sid_t id{};
+        char type[4];
+
+        void add_child(widget_t* w) {
+            w->parent = this;
+            if (first_child) {
+                auto* c=first_child;
+                for (;c->next_child;c=c->next_child) {
+                }
+                c->next_child = w;
+            } else {
+                first_child = w;
+            }
+        }
+    };
+
     struct panel_t : public math::aabb_t<v2f> {
         sid_t name;
         v2f draw_cursor;
         v2f saved_cursor;
+
+        widget_t* widgets{0};
     };
+
     
     inline void
     ctx_clear(
@@ -3341,7 +3379,6 @@ namespace gui {
     }   
     
 
-
     namespace im {
         struct ui_id_t {
             u64 owner;
@@ -3358,6 +3395,8 @@ namespace gui {
 
         struct state_t {
             ctx_t& ctx;
+
+            arena_t arena;
 
             f32 gizmo_scale_start{};
             v2f draw_cursor{0.0f}; 
@@ -3377,6 +3416,13 @@ namespace gui {
             bool next_same_line{false};
             v2f saved_cursor;
         };
+
+        widget_t* new_widget(state_t& imgui, sid_t id) {
+            auto* w = arena_alloc_ctor<widget_t>(&imgui.arena, 1);
+            w->id = id;
+
+            return w;
+        }
 
         inline void
         indent(state_t& imgui, v2f offset) {
@@ -5424,6 +5470,8 @@ struct resource_table_entry_t {
 };
 
 struct pack_file_t {
+    constexpr inline static u64 invalid = ~0ui64;
+
     u64 meta{0};
     u64 vers{0};
 
@@ -5521,7 +5569,7 @@ size_t pack_file_find_file(
         }
     }
     zyy_warn("pack_file", "Failed to find file: {}", file_name);
-    return ~0ui32;
+    return pack_file_t::invalid;
 }
 
 u64 pack_file_get_file_size(
@@ -5549,7 +5597,7 @@ std::byte* pack_file_get_file_by_name(
     std::string_view file_name
 ) {
     const auto file_id = pack_file_find_file(pack_file, file_name);
-    if (~0ui32 == file_id) {
+    if (pack_file_t::invalid == file_id) {
         return nullptr;
     }
     return pack_file->resources[file_id].data;

@@ -306,31 +306,22 @@ struct export_dll api_t {
     std::array<rigidbody_t*, PHYSICS_MAX_CHARACTER_COUNT> characters;
     size_t       character_count{0};
 
-    using layer_mask_t = std::array<std::array<u8, 64>, 64>;
-    layer_mask_t layer_mask{};
-
     size_t      entity_transform_offset{0};
 
-    api_t& operator=(const api_t& o) {
-        if (this == &o) { return *this; }
+    // api_t& operator=(const api_t& o) {
+    //     if (this == &o) { return *this; }
 
-        // if (arena && o.arena) {
-        //     std::memcpy(arena->start, o.arena->start, o.arena->top);
-        //     arena->top = o.arena->top;
-        //     arena->size = o.arena->size;
-        // }
 
-        rigidbodies = o.rigidbodies;
-        colliders = o.colliders;
-        characters = o.characters;
+    //     rigidbodies = o.rigidbodies;
+    //     colliders = o.colliders;
+    //     characters = o.characters;
 
-        rigidbody_count = o.rigidbody_count;
-        collider_count = o.collider_count;
-        character_count = o.character_count;
+    //     rigidbody_count = o.rigidbody_count;
+    //     collider_count = o.collider_count;
+    //     character_count = o.character_count;
 
-        layer_mask = o.layer_mask;
-        return *this;
-    }
+    //     return *this;
+    // }
 
 #if ZYY_INTERNAL
     get_debug_table_function get_debug_table{0};

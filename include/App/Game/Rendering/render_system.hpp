@@ -329,6 +329,7 @@ public:
                 shader /* out */,
                 reflect /* out */
             );
+            // gfx::vul::set_object_name(vk_gfx.device, (u64)shader[0], VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_EXT)
             return add(
                 shader[0], 
                 filename, 
@@ -812,7 +813,7 @@ public:
         std::mutex ticket{};
 
         // utl::deque<render_job_t> render_jobs{};
-        render_job_t* render_jobs[frame_overlap]{};
+        // render_job_t* render_jobs[frame_overlap]{};
         size_t render_job_count{};
         u32 total_instance_count{0};
 
@@ -829,6 +830,17 @@ public:
 
         gfx::vul::descriptor_allocator_t* permanent_descriptor_allocator{nullptr};
         gfx::vul::descriptor_layout_cache_t* descriptor_layout_cache{nullptr};
+
+        struct pipelines_t {
+            struct pipeline_t {
+                VkPipelineLayout layout{VK_NULL_HANDLE};
+                u32 set_count{0};
+                VkDescriptorSetLayout set_layouts[8];
+            };
+            pipeline_t sky;
+            pipeline_t mesh;
+            pipeline_t gui;
+        } pipelines;
 
         VkRenderPass        render_passes[8];
         u32                 render_pass_count{1};
@@ -867,7 +879,7 @@ public:
         // lighting::probe_box_t light_probes{.aabb={v3f{-200.0f, 1.0f, -100.0f}, v3f{200.0f, 50.0f, 100.0f}}};
         // lighting::probe_box_t light_probes{.aabb={v3f{-15.0f, 1, -30.0f}, v3f{25.0f, 25.0f, 20.0f}}};
         
-        lighting::probe_box_t light_probes{.aabb={v3f{-15.0f, 1.5f, -8.0f}, v3f{20.0f, 24.0f, 7.0f}}};
+        lighting::probe_box_t light_probes{.aabb={v3f{-15.0f, 1.5f, -8.0f}, v3f{20.0f, 24.0f, 9.0f}}};
 
         frame_image_t frame_images[8]{};
 
@@ -963,7 +975,7 @@ public:
 
         rs->permanent_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device); 
         range_u64(i, 0, array_count(rs->frames)) {
-            rs->render_jobs[i] = (render_job_t*)arena_alloc(&rs->arena, 10000);
+            // rs->render_jobs[i] = (render_job_t*)arena_alloc(&rs->arena, 100000);
             rs->frames[i].dynamic_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device);
         }
         rs->descriptor_layout_cache = arena_alloc_ctor<gfx::vul::descriptor_layout_cache_t>(&rs->arena, 1, state.device); 
@@ -1084,7 +1096,7 @@ public:
                     &rs->light_probe_ray_buffer,
                     &rs->environment_storage_buffer,
                     &rs->point_light_storage_buffer,
-                    gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->permanent_descriptor_allocator),
+                    gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator),
                     // &rs->frame_images[0].texture
                     &rs->light_probes.irradiance_texture,
                     &rs->light_probes.visibility_texture
@@ -1142,7 +1154,10 @@ public:
         rs->frames[0].rt_compute_pass.descriptor_set_layouts[0] = VK_NULL_HANDLE;
 
 
-        
+        rs->pipelines.sky.layout = gfx::vul::create_pipeline_layout(
+            state.device,
+            0, 0, sizeof(m44) + sizeof(v4f)
+        );
 
         return rs;
     }
@@ -1151,7 +1166,7 @@ public:
     begin_frame(system_t* rs) {
         rs->stats.reset();
         rs->render_job_count = 0;
-        rs->frame_count++;
+        // rs->frame_count++;
         rs->get_frame_data().dynamic_descriptor_allocator->reset_pools();        
         rs->job_storage_buffer().pool.clear();
         rs->get_frame_data().indexed_indirect_storage_buffer.pool.clear();
@@ -1216,38 +1231,41 @@ public:
     ) {
         TIMED_FUNCTION;
 
-        auto* job = rs->render_jobs[rs->frame_count%rs->frame_overlap] + rs->render_job_count++;
+        rs->render_job_count++;
+        // auto* job = rs->render_jobs[rs->frame_count%rs->frame_overlap] + rs->render_job_count++;
         auto* instance_buffer = &rs->instance_storage_buffer.pool[0];
-        job->meshes = &rs->mesh_cache.get(mesh_id);
-        job->material = mat_id;
-        job->instance_count = instance_count;
+        // job->meshes = &rs->mesh_cache.get(mesh_id);
+
+        // job->material = mat_id;
+        // job->instance_count = instance_count;
 
         // this material setup will fundamentally not work with raytracing and instancing like this
         // it either needs to be split up, or each submesh needs its own material
         // probably the later
 
-        for (size_t i = 0; i < job->meshes->count; i++) {
+        auto* meshes = &rs->mesh_cache.get(mesh_id);
+        for (size_t i = 0; i < meshes->count; i++) {
             if (instance_count == 1){
             // for (size_t j = 0; j < instance_count && j < 10 && instance_count == 1; j++) { // @hardcoded limit for instancing
                 rs->get_frame_data().rt_compute_pass.add_to_tlas(
                     *rs->vk_gfx,
                     *rs->rt_cache,
                     gfx_id + i,
-                    job->meshes->meshes[i].blas,
+                    meshes->meshes[i].blas,
                     transform
                     // instance_count == 1 ? transform : transform * instance_buffer[instance_offset + j]
                 );
             }
 
             gfx::indirect_indexed_draw_t* draw_cmd = rs->get_frame_data().indexed_indirect_storage_buffer.pool.allocate(1);
-            draw_cmd->index_count = job->meshes->meshes[i].index_count;
+            draw_cmd->index_count = meshes->meshes[i].index_count;
             draw_cmd->instance_count = std::max(instance_count, 1ui32);
-            draw_cmd->first_index = job->meshes->meshes[i].index_start;
-            draw_cmd->vertex_offset = job->meshes->meshes[i].vertex_start;
+            draw_cmd->first_index = meshes->meshes[i].index_start;
+            draw_cmd->vertex_offset = meshes->meshes[i].vertex_start;
             draw_cmd->first_instance = 0;
             draw_cmd->object_id = (u32)rs->render_job_count - 1;
-            draw_cmd->albedo_id = u32(job->meshes->meshes[i].material.albedo_id) % array_count(rs->texture_cache.textures);
-            draw_cmd->normal_id = u32(job->meshes->meshes[i].material.normal_id) % array_count(rs->texture_cache.textures);
+            draw_cmd->albedo_id = u32(meshes->meshes[i].material.albedo_id) % array_count(rs->texture_cache.textures);
+            draw_cmd->normal_id = u32(meshes->meshes[i].material.normal_id) % array_count(rs->texture_cache.textures);
         }
         
         const auto* mat = rs->materials[mat_id];
@@ -1330,10 +1348,11 @@ public:
         VkPipelineLayout last_layout = VK_NULL_HANDLE;
         const VkShaderEXT* last_shader = VK_NULL_HANDLE;
 
-        if (rs->render_job_count==0) return;
-        render_job_t* job = rs->render_jobs[rs->frame_count%rs->frame_overlap];
+        // if (rs->render_job_count==0) return;
+        // render_job_t* job = rs->render_jobs[rs->frame_count%rs->frame_overlap];
 
-        const auto* material = rs->materials[job->material];
+
+        const auto* material = rs->materials[0];
 
         struct pc_t {
             m44 v;
@@ -1391,179 +1410,16 @@ public:
         }
         last_shader = material->shaders[1];
 
-
         auto draw_count = rs->get_frame_data().indexed_indirect_storage_buffer.pool.count();
-        vkCmdDrawIndexedIndirect(command_buffer, rs->get_frame_data().indexed_indirect_storage_buffer.buffer, 0, (u32)draw_count, sizeof(gfx::indirect_indexed_draw_t));
+        vkCmdDrawIndexedIndirect(
+            command_buffer, 
+            rs->get_frame_data().indexed_indirect_storage_buffer.buffer, 
+            0, 
+            (u32)draw_count, 
+            sizeof(gfx::indirect_indexed_draw_t)
+        );
     }
 
-    inline void build_shader_commands2(
-        system_t* rs,
-        VkCommandBuffer command_buffer
-    ) {
-        TIMED_FUNCTION;
-        auto& ext = rs->vk_gfx->ext;
-        auto& khr = rs->vk_gfx->khr;
-        
-        VkPipelineLayout last_layout = VK_NULL_HANDLE;
-        const VkShaderEXT* last_shader = VK_NULL_HANDLE;
-
-        for (size_t i = 0; i < rs->render_job_count; i++) {
-            render_job_t* job = rs->render_jobs[rs->frame_count%rs->frame_overlap] + i;
-
-            const auto* material = rs->materials[job->material];
-
-            if (material->pipeline_layout != last_layout) {
-                using namespace gfx::vul;
-                
-                mesh_pass_t& mesh_pass = rs->get_frame_data().mesh_pass;
-
-                if (mesh_pass.object_descriptors == VK_NULL_HANDLE) {
-                    auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
-                    VkBuffer buffers[]{
-                        rs->vk_gfx->sporadic_uniform_buffer.buffer,
-                        rs->job_storage_buffer().buffer,
-                        rs->instance_storage_buffer.buffer,
-                        rs->get_frame_data().indexed_indirect_storage_buffer.buffer,
-                        rs->material_storage_buffer.buffer,
-                        rs->environment_storage_buffer.buffer
-                    };
-                    mesh_pass.build_buffer_sets(builder, buffers);
-                    // mesh_pass.bind_images(builder, rs->texture_cache);
-                    mesh_pass.bind_images(builder, rs->texture_cache, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture);
-                }
-
-                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 0, 1, &mesh_pass.sporadic_descriptors, 0, nullptr);
-                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 1, 1, &mesh_pass.object_descriptors, 0, nullptr);
-                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 2, 1, &mesh_pass.material_descriptor, 0, nullptr);
-                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 3, 1, &mesh_pass.enviornment_descriptor, 0, nullptr);
-                vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 4, 1, &mesh_pass.texture_descriptor, 0, nullptr);
-            }
-            last_layout = material->pipeline_layout;
-
-            if (last_shader != material->shaders[1]) {
-                VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
-                VkShaderEXT shaders[10];
-                range_u64(j, 0, material->shader_count) {
-                    shaders[j] = material->shaders[j] ? *material->shaders[j] : VK_NULL_HANDLE;
-                }
-                ext.vkCmdBindShadersEXT(command_buffer, material->shader_count, stages, shaders);
-                rs->stats.shader_count++;
-            }
-            last_shader = material->shaders[1];
-
-            auto* meshes = job->meshes;
-            struct pc_t {
-                m44 vp;
-                v4f cp;
-                u32 albedo;
-                u32 normal;
-            } constants;
-            constants.vp = rs->vp;
-            constants.cp = v4f{rs->camera_pos, 0.0f};
-
-            range_u64(j, 0, meshes->count) {
-                constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.albedo_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.albedo_id : 0);
-                constants.normal = safe_truncate_u64(job->meshes->meshes[j].material.normal_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.normal_id : 0);
-                vkCmdPushConstants(command_buffer, material->pipeline_layout,
-                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
-                    0, sizeof(constants), &constants
-                );
-                
-                if (meshes->meshes[j].index_count) {
-                    rs->stats.triangle_count += meshes->meshes[j].index_count/3;
-                    vkCmdDrawIndexed(command_buffer,
-                        meshes->meshes[j].index_count,
-                        job->instance_count, 
-                        meshes->meshes[j].index_start,
-                        meshes->meshes[j].vertex_start,
-                        safe_truncate_u64(i)
-                    );
-                } else {
-                    rs->stats.triangle_count += meshes->meshes[j].vertex_count/3;
-                    vkCmdDraw(command_buffer,
-                        meshes->meshes[j].vertex_count,
-                        job->instance_count,
-                        meshes->meshes[j].vertex_start,
-                        safe_truncate_u64(i)
-                    );
-                }
-            }
-        }
-    }
-
-    inline void
-    build_commands(
-        system_t* rs,
-        VkCommandBuffer command_buffer
-    ) {
-        TIMED_FUNCTION;
-
-        // std::lock_guard lock{rs->ticket};
-        const material_node_t* last_material{0};
-
-        for (size_t i = 0; i < rs->render_job_count; i++) {
-            render_job_t* job = rs->render_jobs[rs->frame_count%rs->frame_overlap] + i;
-            
-            const material_node_t* mat = rs->materials[job->material];
-
-            if (!last_material || (mat->pipeline != last_material->pipeline)) {
-                vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat->pipeline);
-
-                assert(mat->pipeline_layout != VK_NULL_HANDLE);
-
-                last_material = mat;
-            }
-
-            struct pc_t {
-                m44 vp;
-                v4f cp;
-                u32 albedo;
-                u32 normal;
-            } constants;
-            constants.vp = rs->vp;
-            constants.cp = v4f{rs->camera_pos, 0.0f};
-                            
-            // gfx::vul::object_push_constants_t push_constants;
-            // push_constants.material = *job->material;
-            // push_constants.model    = job->transform;
-
-            // vkCmdPushConstants(command_buffer, job->material->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push_constants), &push_constants);
-
-            loop_iota_u64(j, job->meshes->count) {
-                if (job->meshes->meshes[j].index_count) {
-                    constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.albedo_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.albedo_id : 0);
-                    constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.normal_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.normal_id : 0);
-                    vkCmdPushConstants(command_buffer, mat->pipeline_layout,
-                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
-                        0, sizeof(constants), &constants
-                    );
-                    vkCmdDrawIndexed(command_buffer,
-                        job->meshes->meshes[j].index_count,
-                        1, 
-                        job->meshes->meshes[j].index_start,
-                        job->meshes->meshes[j].vertex_start,
-                        safe_truncate_u64(i)
-                    );
-                } else {
-                    constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.albedo_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.albedo_id : 0);
-                    constants.albedo = safe_truncate_u64(job->meshes->meshes[j].material.normal_id != std::numeric_limits<u64>::max() ? job->meshes->meshes[j].material.normal_id : 0);
-                    vkCmdPushConstants(command_buffer, mat->pipeline_layout,
-                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
-                        0, sizeof(constants), &constants
-                    );
-                    vkCmdDraw(command_buffer,
-                        job->meshes->meshes[j].vertex_count,
-                        job->meshes->meshes[j].instance_count,
-                        job->meshes->meshes[j].vertex_start,
-                        safe_truncate_u64(i)
-                        // job->meshes->meshes[j].instance_start
-                    );
-                }
-            }
-        }
-
-        // begin_frame(rs);
-    }
 
     inline u64
     add_mesh(
@@ -1811,12 +1667,13 @@ public:
         system_t* rs, 
         VkCommandBuffer command_buffer,
         std::string_view name,
-        VkPipelineLayout layout,
         v3f view, v4f light_direction
     ) {
         TIMED_FUNCTION;
         auto& ext = rs->vk_gfx->ext;
         auto& khr = rs->vk_gfx->khr;
+
+        VkPipelineLayout layout = rs->pipelines.sky.layout;
 
         const auto& sky_mesh_id = get_mesh_id(rs, "res/models/sphere.obj");
         const auto& sky_mesh = get_mesh(rs, "res/models/sphere.obj");

@@ -38,15 +38,36 @@ set_ui_textures(game_state_t* game_state) {
     auto& vk_gfx = *rs->vk_gfx;
 
     gfx::vul::texture_2d_t* ui_textures[4096];
+
+    auto descriptor_set_layout_binding = gfx::vul::utl::descriptor_set_layout_binding(
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, array_count(ui_textures)
+    );
+
     for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = game_state->default_font_texture; }
     ui_textures[1] = &rs->frame_images[0].texture;
     ui_textures[2] = &rs->light_probes.irradiance_texture;
     ui_textures[3] = &rs->light_probes.visibility_texture;
 
+    auto& gui_pipeline = game_state->render_system->pipelines.gui;
+    
+    gui_pipeline.set_count = 1;
+    gfx::vul::create_descriptor_set_layouts(
+        vk_gfx.device,
+        &descriptor_set_layout_binding,
+        gui_pipeline.set_count,
+        gui_pipeline.set_layouts
+    );
+
+    gui_pipeline.layout = gfx::vul::create_pipeline_layout(
+        vk_gfx.device,
+        gui_pipeline.set_layouts, gui_pipeline.set_count, sizeof(m44)*2
+    );
+
     game_state->default_font_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
-        game_state->gui_pipeline->descriptor_set_layouts[0],
-        ui_textures, array_count(ui_textures));
+        gui_pipeline.set_layouts[0],
+        ui_textures, array_count(ui_textures)
+    );
 
 }
 
@@ -86,6 +107,7 @@ draw_gui(game_memory_t* game_memory) {
         &game_state->gui.vertices[!(frame&1)].pool,
         &game_state->gui.indices[!(frame&1)].pool,
         &game_state->render_system->instance_storage_buffer.pool,
+        &game_state->render_system->scene_context->entities.pool,
     };
 
     const char* display_arena_names[] = {
@@ -111,6 +133,7 @@ draw_gui(game_memory_t* game_memory) {
         "- 2D Vertex",
         "- 2D Index",
         "- Instance Buffer",
+        "- Entity Buffer",
     };
 
     // std::lock_guard lock{game_state->render_system->ticket};
@@ -179,6 +202,7 @@ draw_gui(game_memory_t* game_memory) {
         local_persist v3f default_widget_pos{10.0f};
         local_persist zyy::entity_t* selected_entity{0};
         local_persist v3f* widget_pos = &default_widget_pos;
+        local_persist bool show_probes = false;
 
         im::clear(state);
 
@@ -293,6 +317,7 @@ draw_gui(game_memory_t* game_memory) {
                                 hist[j] = (f32)ms;
                             }
     
+            
                             if (im::text(state,
                                 fmt_sv(" {:.2f}ms - [{:.3f}, {:.3f}]", cycle/1e+6, debug_stat.range.min, debug_stat.range.max)
                             )) {
@@ -443,7 +468,6 @@ draw_gui(game_memory_t* game_memory) {
             local_persist bool show_gfx = !false;
             local_persist bool show_mats = false;
             local_persist bool show_textures = false;
-            local_persist bool show_probes = false;
             local_persist bool show_env = !false;
             local_persist bool show_mat_id[8] = {};
             local_persist bool show_sky = false;
@@ -490,7 +514,7 @@ draw_gui(game_memory_t* game_memory) {
                             auto push_theme = state.theme;
                             state.theme.border_radius = 1.0f;
                             if (im::begin_panel_3d(state, "probe"sv, vp, rendering::lighting::probe_position(probe_box, &p, i))) {
-                                // im::text(state, fmt_sv("Probe ID: {}"sv, p.id));
+                                im::text(state, fmt_sv("Probe ID: {}"sv, i));
                                 im::text(state, fmt_sv("Pos: {}", p.position));
                                 im::text(state, fmt_sv("Ray Count: {}", p.ray_count()));
                                 im::text(state, fmt_sv("Backface Count: {}", p.backface_count()));
@@ -827,8 +851,10 @@ draw_gui(game_memory_t* game_memory) {
         if (input->keys[key_id::MINUS]) { color_uv.scale(v2f{0.99f});}
         if (input->keys[key_id::EQUAL]) { color_uv.scale(v2f{1.01f});}
 
-        im::image(state, 2, {v2f{0.0f, 800}, v2f{state.ctx.screen_size.x * 0.3f, state.ctx.screen_size.y}}, color_uv);
-        im::image(state, 3, {v2f{state.ctx.screen_size.x *  0.7f, 800}, v2f{state.ctx.screen_size}}, depth_uv, 0xff0000ff);
+        if (show_probes) {
+            im::image(state, 2, {v2f{0.0f, 800}, v2f{state.ctx.screen_size.x * 0.3f, state.ctx.screen_size.y}}, color_uv);
+            im::image(state, 3, {v2f{state.ctx.screen_size.x *  0.7f, 800}, v2f{state.ctx.screen_size}}, depth_uv, 0xff0000ff);
+        }
 
         draw_game_gui(game_memory);
 

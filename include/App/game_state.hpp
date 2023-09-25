@@ -106,16 +106,8 @@ struct game_state_t {
     struct scene_t {
         gfx::vul::sporadic_buffer_t sporadic_buffer;
 
-        struct lighting_t {
-            v4f directional_light{1.0f, 2.0f, 3.0f, 1.0f};
-        } lighting;
     } scene;
     
-    gfx::vul::pipeline_state_t* gui_pipeline{0};
-    gfx::vul::pipeline_state_t* debug_pipeline{0};
-    // gfx::vul::pipeline_state_t* mesh_pipeline{0};
-    gfx::vul::pipeline_state_t* sky_pipeline{0};
-
     struct gui_state_t {
         gfx::gui::ctx_t ctx;
         gfx::vul::vertex_buffer_t<gfx::gui::vertex_t, 4'000'000> vertices[2];
@@ -130,38 +122,6 @@ struct game_state_t {
 
         bool show = false;
 
-        gfx::vul::vertex_buffer_t<gfx::vul::debug_line_vertex_t, 100'000> debug_vertices;
-
-        void draw_aabb(const math::aabb_t<v3f>& aabb, gfx::color3 color) {
-            const v3f size = aabb.size();
-            const v3f sxxx = v3f{size.x,0,0};
-            const v3f syyy = v3f{0,size.y,0};
-            const v3f szzz = v3f{0,0,size.z};
-            
-            draw_line(aabb.min, aabb.min + sxxx, color);
-            draw_line(aabb.min, aabb.min + syyy, color);
-            draw_line(aabb.min, aabb.min + szzz, color);
-
-            draw_line(aabb.min + sxxx + syyy, aabb.min + sxxx, color);
-            draw_line(aabb.min + sxxx + syyy, aabb.min + syyy, color);
-            draw_line(aabb.max - sxxx - syyy, aabb.max - sxxx, color);
-            draw_line(aabb.max - sxxx - syyy, aabb.max - syyy, color);
-            
-            draw_line(aabb.min + sxxx, aabb.min + szzz + sxxx, color);
-            draw_line(aabb.min + syyy, aabb.min + szzz + syyy, color);
-            
-            draw_line(aabb.max, aabb.max - sxxx, color);
-            draw_line(aabb.max, aabb.max - syyy, color);
-            draw_line(aabb.max, aabb.max - szzz, color);
-        }
-
-        void draw_line(v3f a, v3f b, gfx::color3 color) {
-            auto* points = debug_vertices.pool.allocate(2);
-            points[0].pos = a;
-            points[1].pos = b;
-            points[0].col = color;
-            points[1].col = color;
-        }
     } debug;
 
     zyy::world_t* game_world{0};

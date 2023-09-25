@@ -57,6 +57,12 @@ void load_extension_functions(state_t& state) {
     state.ext.LOAD_FN(vkCmdSetColorBlendEquationEXT);
     state.ext.LOAD_FN(vkCmdSetLogicOpEnableEXT);
 
+    state.ext.LOAD_FN(vkCmdDebugMarkerBeginEXT);
+    state.ext.LOAD_FN(vkCmdDebugMarkerEndEXT);
+    state.ext.LOAD_FN(vkCmdDebugMarkerInsertEXT);
+    state.ext.LOAD_FN(vkDebugMarkerSetObjectNameEXT);
+    state.ext.LOAD_FN(vkDebugMarkerSetObjectTagEXT);
+
     state.khr.LOAD_FN(vkCmdBeginRenderingKHR);
     state.khr.LOAD_FN(vkCmdEndRenderingKHR);
 
@@ -326,6 +332,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VK_KHR_SPIRV_1_4_EXTENSION_NAME,
         VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
         VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
+        // VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
         // VK_KHR_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
         // VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME,
     };
@@ -755,6 +762,9 @@ bool check_device_extension_support(VkPhysicalDevice device) {
 
         requiredExtensions.erase(extension.extensionName);
     }
+    // for (const auto& extension : requiredExtensions) {
+    //     zyy_error(__FUNCTION__, "Missing extension: {}", extension);
+    // }
 
     return requiredExtensions.empty();
 }
@@ -1237,16 +1247,28 @@ state_t::create_descriptors(
     VK_OK(vkAllocateDescriptorSets(device, &vdsai, descriptor_sets));
 }
 
+void create_descriptor_set_layouts(
+    VkDevice device,
+    VkDescriptorSetLayoutBinding* bindings, 
+    u32 descriptor_count,
+    VkDescriptorSetLayout* descriptor_set_layouts
+) {
+    for (u32 i = 0; i < descriptor_count; i++) {
+        VkDescriptorSetLayoutCreateInfo	vdslc{};
+        vdslc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        vdslc.pNext = nullptr;
+        vdslc.flags = 0;
+        vdslc.bindingCount = 1;
+        vdslc.pBindings = bindings + i;
+        VK_OK(vkCreateDescriptorSetLayout(device, &vdslc, 0, descriptor_set_layouts + i));
+    }
+}
+
 void 
 state_t::create_pipeline_state_descriptors(
     pipeline_state_t* pipeline, 
     pipeline_state_t::create_info_t* create_info
 ) {
-    VkDescriptorPoolSize				vdps[8];
-		for (u32 i = 0; i < create_info->descriptor_count; i++) {
-            vdps[i].type = (VkDescriptorType)create_info->descriptor_flags[i];            
-            vdps[i].descriptorCount = 1; // note(zack): not sure what this is for tbh
-        }
 
     VkDescriptorSetLayoutCreateInfo			vdslc[8];
 		for (u32 i = 0; i < create_info->descriptor_count; i++) {

@@ -116,12 +116,13 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
 
         float variance = abs(sqr(probe_depth.x) - probe_depth.y);
         float cheb = 1.0;
-        if (biased_to_adj_dist > probe_depth.x) {
+        if (biased_to_adj_dist > probe_depth.x && cheb > 0.0) 
+        {
             float v = biased_to_adj_dist - probe_depth.x;
             cheb = variance / (variance + sqr(v));
             cheb = max(cheb*cheb*cheb,0.0);
+            weight *= max(0.05, cheb);
         }
-        weight *= max(0.05, cheb);
 
         weight = max(0.00001, weight);
 		

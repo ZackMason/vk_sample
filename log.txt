@@ -1,5 +1,7 @@
-[1m[38;2;255;255;255m[info][save]: Save File Path: C:\Users\zack\AppData\Roaming/estella
+[1m[38;2;255;255;255m[info][save]: Save File Path: C:\Users\crazy\AppData\Roaming/estella
 [0m[1m[38;2;255;255;255m[info][win32]: Loading Platform Layer
+[0m[1m[38;2;255;255;255m[info][utl::read_config]: author: Zack Mason-Blaug
+[0m[1m[38;2;255;255;255m[info][utl::read_config]: vsync: 1
 [0m[1m[38;2;255;255;255m[info][win32]: Initializing Physics
 [0m
 Found 2 GLFW Required Instance Extensions:
@@ -18,8 +20,23 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 4
 [0m[1m[38;2;255;255;255m[info][app_init]: Creating physics scene
 [0m[1m[38;2;255;255;255m[info][physics::physx_create_scene]: Creating scene
-[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x1d864d80108
+[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x14ad0a90108
 [0m[1m[38;2;255;255;255m[info][app_init]: Created physics scene
+[0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 17
+[0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_optimus
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_RENDERDOC_Capture
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_nomad_release_public_2023_3_0
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_GPU_Trace_release_public_2023_3_0
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OW_OVERLAY
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OW_OBS_HOOK
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_overlay
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OBS_HOOK
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_api_dump
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_gfxreconstruct
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_synchronization2
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_validation
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 15 Instance Extensions actually available:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_device_group_creation'
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_KHR_external_fence_capabilities'
@@ -38,10 +55,121 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk::ext]: 1  'VK_LUNARG_direct_driver_loading'
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_surface
 [0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_KHR_win32_surface
-[0m[1m[38;2;255;255;255m[info][vulkan]: 2 extensions loaded
+[0m[1m[38;2;255;255;255m[info][vulkan]: loading extension: VK_EXT_debug_utils
+[0m[1m[38;2;255;255;255m[info][vulkan]: 3 extensions loaded
 [0m[1m[38;2;255;255;255m[info][vulkan]: instance created
 [0m[1m[38;2;255;255;255m[info][vulkan]: created surface.
-[0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 185
+[0m[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 109
+[0m	VK_EXT_full_screen_exclusive
+	VK_KHR_swapchain
+	VK_KHR_external_memory
+	VK_KHR_external_memory_win32
+	VK_EXT_external_memory_host
+	VK_KHR_external_semaphore
+	VK_KHR_external_semaphore_win32
+	VK_KHR_external_fence
+	VK_KHR_external_fence_win32
+	VK_KHR_timeline_semaphore
+	VK_KHR_win32_keyed_mutex
+	VK_KHR_get_memory_requirements2
+	VK_KHR_bind_memory2
+	VK_KHR_dedicated_allocation
+	VK_KHR_sampler_mirror_clamp_to_edge
+	VK_KHR_maintenance1
+	VK_KHR_maintenance2
+	VK_KHR_maintenance3
+	VK_KHR_maintenance4
+	VK_KHR_synchronization2
+	VK_KHR_shader_draw_parameters
+	VK_KHR_push_descriptor
+	VK_KHR_descriptor_update_template
+	VK_KHR_multiview
+	VK_KHR_shader_float16_int8
+	VK_KHR_shader_float_controls
+	VK_KHR_16bit_storage
+	VK_KHR_8bit_storage
+	VK_EXT_shader_subgroup_ballot
+	VK_EXT_shader_subgroup_vote
+	VK_KHR_storage_buffer_storage_class
+	VK_KHR_variable_pointers
+	VK_KHR_relaxed_block_layout
+	VK_EXT_sampler_filter_minmax
+	VK_KHR_device_group
+	VK_EXT_ycbcr_2plane_444_formats
+	VK_EXT_4444_formats
+	VK_EXT_post_depth_coverage
+	VK_EXT_shader_viewport_index_layer
+	VK_EXT_shader_stencil_export
+	VK_EXT_conservative_rasterization
+	VK_EXT_sample_locations
+	VK_KHR_draw_indirect_count
+	VK_EXT_multi_draw
+	VK_KHR_image_format_list
+	VK_EXT_vertex_attribute_divisor
+	VK_EXT_descriptor_indexing
+	VK_EXT_inline_uniform_block
+	VK_KHR_create_renderpass2
+	VK_KHR_dynamic_rendering
+	VK_KHR_swapchain_mutable_format
+	VK_KHR_depth_stencil_resolve
+	VK_KHR_driver_properties
+	VK_KHR_vulkan_memory_model
+	VK_EXT_conditional_rendering
+	VK_EXT_hdr_metadata
+	VK_EXT_depth_clip_enable
+	VK_EXT_depth_clip_control
+	VK_EXT_scalar_block_layout
+	VK_KHR_imageless_framebuffer
+	VK_KHR_buffer_device_address
+	VK_EXT_buffer_device_address
+	VK_EXT_host_query_reset
+	VK_KHR_performance_query
+	VK_NV_device_diagnostic_checkpoints
+	VK_KHR_separate_depth_stencil_layouts
+	VK_KHR_shader_clock
+	VK_KHR_spirv_1_4
+	VK_KHR_uniform_buffer_standard_layout
+	VK_EXT_separate_stencil_usage
+	VK_EXT_fragment_shader_interlock
+	VK_EXT_index_type_uint8
+	VK_EXT_primitive_topology_list_restart
+	VK_KHR_shader_subgroup_extended_types
+	VK_EXT_line_rasterization
+	VK_EXT_memory_budget
+	VK_EXT_memory_priority
+	VK_EXT_texel_buffer_alignment
+	VK_INTEL_performance_query
+	VK_EXT_subgroup_size_control
+	VK_EXT_shader_demote_to_helper_invocation
+	VK_EXT_pipeline_creation_feedback
+	VK_EXT_pipeline_creation_cache_control
+	VK_KHR_pipeline_executable_properties
+	VK_EXT_transform_feedback
+	VK_EXT_provoking_vertex
+	VK_EXT_extended_dynamic_state
+	VK_EXT_extended_dynamic_state2
+	VK_EXT_vertex_input_dynamic_state
+	VK_EXT_custom_border_color
+	VK_EXT_robustness2
+	VK_EXT_image_robustness
+	VK_EXT_calibrated_timestamps
+	VK_KHR_shader_integer_dot_product
+	VK_KHR_shader_subgroup_uniform_control_flow
+	VK_KHR_shader_terminate_invocation
+	VK_KHR_workgroup_memory_explicit_layout
+	VK_EXT_shader_atomic_float
+	VK_KHR_copy_commands2
+	VK_KHR_shader_non_semantic_info
+	VK_KHR_zero_initialize_workgroup_memory
+	VK_EXT_shader_atomic_float2
+	VK_EXT_global_priority
+	VK_EXT_global_priority_query
+	VK_KHR_global_priority
+	VK_KHR_format_feature_flags2
+	VK_EXT_color_write_enable
+	VK_EXT_private_data
+	VK_EXT_image_2d_view_of_3d
+[1m[38;2;255;255;255m[info][vulkan]: extensions available: - 164
 [0m	VK_KHR_16bit_storage
 	VK_KHR_8bit_storage
 	VK_KHR_acceleration_structure
@@ -64,8 +192,6 @@ Found 2 GLFW Required Instance Extensions:
 	VK_KHR_external_semaphore
 	VK_KHR_external_semaphore_win32
 	VK_KHR_format_feature_flags2
-	VK_KHR_fragment_shader_barycentric
-	VK_KHR_fragment_shading_rate
 	VK_KHR_get_memory_requirements2
 	VK_KHR_image_format_list
 	VK_KHR_imageless_framebuffer
@@ -79,7 +205,6 @@ Found 2 GLFW Required Instance Extensions:
 	VK_KHR_present_id
 	VK_KHR_present_wait
 	VK_KHR_push_descriptor
-	VK_KHR_ray_query
 	VK_KHR_ray_tracing_maintenance1
 	VK_KHR_ray_tracing_pipeline
 	VK_KHR_relaxed_block_layout
@@ -94,7 +219,6 @@ Found 2 GLFW Required Instance Extensions:
 	VK_KHR_shader_integer_dot_product
 	VK_KHR_shader_non_semantic_info
 	VK_KHR_shader_subgroup_extended_types
-	VK_KHR_shader_subgroup_uniform_control_flow
 	VK_KHR_shader_terminate_invocation
 	VK_KHR_spirv_1_4
 	VK_KHR_storage_buffer_storage_class
@@ -148,12 +272,8 @@ Found 2 GLFW Required Instance Extensions:
 	VK_EXT_load_store_op_none
 	VK_EXT_memory_budget
 	VK_EXT_memory_priority
-	VK_EXT_mesh_shader
 	VK_EXT_multi_draw
-	VK_EXT_mutable_descriptor_type
 	VK_EXT_non_seamless_cube_map
-	VK_EXT_opacity_micromap
-	VK_EXT_pageable_device_local_memory
 	VK_EXT_pci_bus_info
 	VK_EXT_pipeline_creation_cache_control
 	VK_EXT_pipeline_creation_feedback
@@ -187,12 +307,8 @@ Found 2 GLFW Required Instance Extensions:
 	VK_EXT_ycbcr_2plane_444_formats
 	VK_EXT_ycbcr_image_arrays
 	VK_NV_clip_space_w_scaling
-	VK_NV_compute_shader_derivatives
-	VK_NV_cooperative_matrix
 	VK_NV_copy_memory_indirect
-	VK_NV_corner_sampled_image
 	VK_NV_coverage_reduction_mode
-	VK_NV_cuda_kernel_launch
 	VK_NV_dedicated_allocation
 	VK_NV_dedicated_allocation_image_aliasing
 	VK_NV_device_diagnostic_checkpoints
@@ -202,40 +318,34 @@ Found 2 GLFW Required Instance Extensions:
 	VK_NV_external_memory_win32
 	VK_NV_fill_rectangle
 	VK_NV_fragment_coverage_to_color
-	VK_NV_fragment_shader_barycentric
-	VK_NV_fragment_shading_rate_enums
 	VK_NV_framebuffer_mixed_samples
 	VK_NV_geometry_shader_passthrough
 	VK_NV_inherited_viewport_scissor
 	VK_NV_linear_color_attachment
 	VK_NV_low_latency
 	VK_NV_memory_decompression
-	VK_NV_mesh_shader
 	VK_NV_ray_tracing
 	VK_NV_ray_tracing_invocation_reorder
-	VK_NV_representative_fragment_test
 	VK_NV_sample_mask_override_coverage
-	VK_NV_scissor_exclusive
-	VK_NV_shader_image_footprint
 	VK_NV_shader_sm_builtins
 	VK_NV_shader_subgroup_partitioned
-	VK_NV_shading_rate_image
 	VK_NV_viewport_array2
 	VK_NV_viewport_swizzle
 	VK_NV_win32_keyed_mutex
-	VK_NVX_binary_import
-	VK_NVX_image_view_handle
 	VK_NVX_multiview_per_view_attributes
 	VK_AMD_buffer_marker
-[1m[38;2;255;255;255m[info][vk::device]: Selecting device: NVIDIA GeForce RTX 2070 SUPER
+[1m[38;2;255;255;255m[info][vk::device]: Selecting device: NVIDIA GeForce GTX 1060
 [0m[1m[38;2;255;255;255m[info][vulkan]: created logical device
 [0m[1m[38;2;255;255;255m[info][vulkan]: created device.
 [0m[1m[38;2;255;255;255m[info][vulkan]: created swap chain.
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (1) and type (160): i = 7 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
 	./res/textures/null
@@ -244,80 +354,279 @@ Found 2 GLFW Required Instance Extensions:
 	width: 128
 	height: 128
 	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (1) and type (130): i = 7 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: vkCreateDescriptorPool
 [0m[1m[38;2;255;255;255m[info][vulkan]: init finished
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (1) and type (130): i = 7 *****
 
 [0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: null
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 160000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 64
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 81920000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][rendering::lighting::set_probes]: Creating Light Probe Box
+[0m[1m[38;2;255;255;255m[info][rendering::lighting::set_probes]: -- Total Probe Count: 2457
+[0m[1m[38;2;255;255;255m[info][rendering::lighting::set_probes]: -- Probe Dimensions: 21 x 13 x 9
+[0m[1m[38;2;255;255;255m[info][rendering::lighting::set_probes]: -- Probe AABB: [-15.00, 1.50, -8.00] - [18.98, 22.53, 6.56]
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1965600
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (1) and type (1921): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6368544
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (1) and type (1921): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 440000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 120000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 40000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6400
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (1) and type (130): i = 7 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (1) and type (136): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 16588800
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (1) and type (130): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 16588800
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (1) and type (130): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 66355200
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (1) and type (130): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 66355200
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (1) and type (130): i = 7 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (1) and type (160): i = 7 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (1) and type (160): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 33177600
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (1) and type (1921): i = 7 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6400
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 96
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 16384
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 16384
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 64000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 12000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 2400000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 24000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Mesh name: Mesh
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Animation: Armature|death, size: 7139600
@@ -468,30 +777,31 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: 14206284874694347467, parent: 77
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: 11779967842043732372, parent: 78
 [0m[1m[38;2;255;255;255m[info][app_init_graphics]: Bone: 6652614860823904566, parent: 79
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
+***** Found given memory flag (6) and type (1921): i = 8 *****
 
 [0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (3): i = 1 *****
+***** Found given memory flag (1) and type (130): i = 7 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 1921
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (1921): i = 8 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (130): i = 7 *****
+
+[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/probe_integrate.comp.spv
+[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/probe_integrate_depth.comp.spv
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/simple.vert.spv
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/simple.frag.spv
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: default
-[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: red-plastic
-[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: blue-plastic
-[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: gold-metal
-[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: silver-metal
-[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: sand
-[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: dirt
-[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/gui.vert.spv
-[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/gui.frag.spv
-[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.vert.spv
-[0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.frag.spv
-[0m[1m[38;2;255;255;255m[info][game_state]: world size: 35mb
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Sphere
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][win32]: Saved graphics config
-[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Render System cleaned up
-[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Graphics API cleaned up
-[0m[1m[38;2;255;255;255m[info][win32]: Closing Application
-[0m
+[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: triplanar
+[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: unlit
+[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: blood
+[0m[1m[38;2;255;255;255m[info][rendering]: Creating material: particle
+[0m[1m[38;2;255;255;255m[info][rendering
