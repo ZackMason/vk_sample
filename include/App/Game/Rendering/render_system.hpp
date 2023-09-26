@@ -1245,8 +1245,8 @@ public:
 
         auto* meshes = &rs->mesh_cache.get(mesh_id);
         for (size_t i = 0; i < meshes->count; i++) {
-            if (instance_count == 1){
-            // for (size_t j = 0; j < instance_count && j < 10 && instance_count == 1; j++) { // @hardcoded limit for instancing
+            // if (instance_count == 1) {
+            for (size_t j = 0; j < instance_count && j < 1000; j++) { // @hardcoded limit for instancing
                 rs->get_frame_data().rt_compute_pass.add_to_tlas(
                     *rs->vk_gfx,
                     *rs->rt_cache,

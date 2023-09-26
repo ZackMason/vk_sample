@@ -79,6 +79,7 @@ namespace zyy::wep {
         ps->gfx.particle_system = particle_system_create(&world->arena, count);
         ps->gfx.instance(world->render_system()->instance_storage_buffer.pool, count, 1);
 
+        // ps->gfx.particle_system->spawn_rate = 0.005f;
         ps->gfx.particle_system->spawn_rate = 0.005f;
         ps->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>(.10f, .050f);
         ps->gfx.particle_system->velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));
@@ -87,10 +88,11 @@ namespace zyy::wep {
         ps->gfx.particle_system->box = math::aabb_t<v3f>(v3f(-0.10f), v3f(0.10f));
         ps->gfx.particle_system->stream_rate = 
         ps->gfx.particle_system->_stream_count = 1;
+        ps->gfx.particle_system->world_space = 1;
         
         ps->gfx.particle_system->template_particle = particle_t {
             .position = v3f(0.0),
-            .life_time = 10.0f,
+            .life_time = 0.50f,
             .color = gfx::color::v4::purple,
             .scale = 1.0f,
             .velocity = axis::up * 5.0f,

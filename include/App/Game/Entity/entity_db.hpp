@@ -2,6 +2,7 @@
 
 #include "App/Game/Entity/entity.hpp"
 #include "App/Game/GUI/debug_state.hpp"
+#include "App/Game/Rendering/particle.hpp"
 
 namespace zyy::db {
 
@@ -46,13 +47,7 @@ struct prefab_t {
     };
     std::optional<physics_t> physics{};
 
-    struct particle_emitter_t {
-        u32 count{};
-        f32 rate{};
-        v3f vel{};
-        v3f acl{};
-    };
-    std::optional<particle_emitter_t> emitter{};
+    std::optional<particle_system_settings_t> emitter{};
 
     brain_type brain_type = brain_type::invalid;
 
@@ -670,6 +665,35 @@ pistol {
 
 
 }; // namespace weapons
+
+namespace particles {
+
+DB_ENTRY
+fire {
+    .type = entity_type::environment,
+    .type_name = "fire",
+    .emitter = particle_system_settings_t {
+        .template_particle = particle_t {
+            .position = v3f(0.0),
+            .life_time = 1.50f,
+            .color = gfx::color::v4::purple,
+            .scale = 1.0f,
+            .velocity = axis::up * 0.10f,
+        },
+        .acceleration = v3f{axis::up*9.81f*0.1f},
+        .velocity_random = math::aabb_t<v3f>(planes::xz*-.0050f, v3f(.0050f)),
+        .angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f)),
+        .stream_rate = 1,
+        .spawn_rate = 0.02f,
+        .scale_over_life_time = math::aabb_t<f32>(0.06f, 0.01f),
+        .emitter_type = particle_emitter_type::box,
+        .box = math::aabb_t<v3f>(v3f(-.10f), v3f(.10f)),
+        
+    },
+};
+
+
+}; // namespace particles
 
 namespace bads {
 

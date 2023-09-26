@@ -1,5 +1,111 @@
 #pragma once
 
+
+struct dialog_window_t {
+    u64 write_pos{0};
+    char text_buffer[512];
+
+    std::string_view title{};
+    std::string_view description{};
+    v2f position{0.0f};
+    v2f size{100.0f};
+    b32 done{0};
+    b32 open{0};
+
+
+    dialog_window_t& set_title(std::string_view title_) {
+        title = title_;
+        return *this;
+    }
+
+    dialog_window_t& set_description(std::string_view description_) {
+        description = description_;
+        return *this;
+    }
+
+    dialog_window_t& set_position(v2f position_) {
+        position = position_;
+        return *this;
+    }
+
+    dialog_window_t& set_size(v2f size_) {
+        size = size_;
+        return *this;
+    }
+
+    dialog_window_t& draw(gfx::gui::im::state_t& imgui) {
+        using namespace gfx::gui;
+
+        if (im::begin_panel(imgui, title, position, size)) {
+
+            im::text(imgui, title);
+            if (description.empty() == false) {
+                im::text(imgui, description);
+            }
+
+            done = im::text_edit(imgui, text_buffer, &write_pos, "dialog_window::text_buffer"_sid);
+
+            im::end_panel(imgui);
+        }
+
+        return *this;
+    }
+
+    void clear() {
+        write_pos = 0;
+        utl::memzero(text_buffer, array_count(text_buffer));
+    }
+
+    void into(f32& f) {
+        if (done) {
+            f = (f32)std::atof(text_buffer);
+            clear();
+        }
+    }
+    void into(i32& i) {
+        if (done) {
+            i = (i32)std::atoi(text_buffer);
+            clear();
+        }
+    }
+
+    void into(char* t, size_t tsize) {
+        if (done) {
+            std::memcpy(t, text_buffer, std::min(tsize, write_pos));
+            clear();
+        }
+    }
+};
+
+u32
+load_save_particle_dialog(
+    gfx::gui::im::state_t& imgui,
+    particle_system_t* system,
+    u32 load
+) {
+    local_persist dialog_window_t dialog_box{};
+    char file[512]{};
+    utl::memzero(file, array_count(file));
+
+    dialog_box
+        .set_title(load?"Load Particle System":"Save Particle System")
+        .set_description("Enter the nameof the file")
+        .set_position(v2f{400.0f,300.0f})
+        .draw(imgui)
+        .into(file, array_count(file));
+
+    if (!file[0]) {
+        return false;
+    }
+
+    if (load) {
+        particle_system_settings_load(system, file);
+    } else {
+        particle_system_settings_save(*system, file);
+    }
+    return true;
+}
+
 void
 watch_game_state(game_state_t* game_state) {
     auto* rs = game_state->render_system;
@@ -76,6 +182,11 @@ draw_gui(game_memory_t* game_memory) {
     TIMED_FUNCTION;
     game_state_t* game_state = get_game_state(game_memory);
     auto* input = &game_memory->input;
+
+    local_persist f32 test_float = 0.0f;
+    local_persist dialog_window_t dialog{
+        .open = 0,
+    };
 
     watch_game_state(game_state);
 
@@ -175,6 +286,7 @@ draw_gui(game_memory_t* game_memory) {
             .margin = 8.0f
         },
     };
+
     gs_imgui_state = &state;
 
 #ifdef DEBUG_STATE 
@@ -191,6 +303,8 @@ draw_gui(game_memory_t* game_memory) {
     {
         using namespace std::string_view_literals;
         using namespace gfx::gui;
+        im::clear(state);
+
         const m44 vp = 
             game_state->render_system->vp;
 
@@ -199,12 +313,19 @@ draw_gui(game_memory_t* game_memory) {
         }
         
 
+        local_persist b32 load_system{0};
+        local_persist particle_system_t* saving_system{0};
         local_persist v3f default_widget_pos{10.0f};
         local_persist zyy::entity_t* selected_entity{0};
         local_persist v3f* widget_pos = &default_widget_pos;
         local_persist bool show_probes = false;
 
-        im::clear(state);
+        if (saving_system) {
+            if (load_save_particle_dialog(state, saving_system, load_system)) {
+                saving_system = 0;
+            }
+        }
+
 
         auto* world = game_state->game_world;
         if (world->world_generator == nullptr) {
@@ -749,9 +870,20 @@ draw_gui(game_memory_t* game_memory) {
                     auto* ps = e->gfx.particle_system;
                     im::text(state, fmt_sv("Particle System - {} / {}", ps->live_count, ps->max_count));
                     im::text(state, "- Particle Template");
+
+                    if (im::text(state, "--- Save: ")) {
+                        load_system = 0;
+                        saving_system = ps;
+                    }
+                    if (im::text(state, "--- Load: ")) {
+                        load_system = 1;
+                        saving_system = ps;
+                    }
+
                     im::same_line(state);
                     im::text(state, "--- life_time: ");
                     im::float_slider(state, &ps->template_particle.life_time, 0.0f, 2.0f);
+                    
                     im::same_line(state);
                     im::text(state, "--- velocity: ");
                     im::vec3(state, ps->template_particle.velocity, -1.0f, 1.0f);

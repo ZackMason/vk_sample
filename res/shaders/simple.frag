@@ -284,23 +284,17 @@ main( )
 	// rgb = env;	
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	// rgb = env / 2.0f;	
 
 	fFragColor = vec4( rgb, alpha * alpha * alpha);
 }
+
+
+
+
+
+
+
+
+
+

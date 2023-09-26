@@ -1010,8 +1010,13 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         }
 
         if (e->gfx.particle_system) {
-            particle_system_update(e->gfx.particle_system, dt);
-            particle_system_build_matrices(e->gfx.particle_system, e->gfx.dynamic_instance_buffer, e->gfx.instance_count());
+            particle_system_update(e->gfx.particle_system, e->global_transform(), dt);
+            particle_system_build_matrices(
+                e->gfx.particle_system, 
+                e->global_transform(),
+                e->gfx.dynamic_instance_buffer, 
+                e->gfx.instance_count()
+            );
         }
 
         v3f size = e->aabb.size()*0.5f;

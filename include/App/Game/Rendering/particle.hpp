@@ -26,6 +26,8 @@ struct flat_particle_system_t {
 struct particle_system_settings_t {
     particle_t template_particle;
 
+    b32 world_space{0};
+
     u32 max_count{1024};
 
     math::aabb_t<v3f> aabb{};
@@ -36,7 +38,6 @@ struct particle_system_settings_t {
     u32 stream_rate{1}; // number of particles spawned before the system picks a new velocity, useful for streams
 
     f32 spawn_rate{0.0f};
-    f32 spawn_timer{spawn_rate};
 
     math::aabb_t<f32> life_random{0.0f, 0.0f};
 
@@ -54,6 +55,7 @@ struct particle_system_t : public particle_system_settings_t {
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
     u32 live_count{0};
     u32 instance_offset{0};
+    f32 spawn_timer{spawn_rate};
 
     u32 _stream_count{0};
     v3f _current_velocity{};
@@ -154,8 +156,12 @@ get_or_create_particle_system_from_cache(
 // user needs to check can spawn before calling
 inline static void 
 particle_system_spawn(
-    particle_system_t* system
+    particle_system_t* system,
+    const m44& transform
 ) {
+    const b32 world_space = system->world_space;
+    // const m44 world_inv = glm::inverse(transform);
+
     auto* particle = system->particles + system->live_count++;
     *particle = system->template_particle;
     
@@ -177,6 +183,12 @@ particle_system_spawn(
     particle->position += system->_current_position; 
     particle->velocity += system->_current_velocity;
     particle->angular_velocity += system->rng.aabb(system->angular_velocity_random);
+
+    if (world_space) {
+        particle->position = transform * v4f{particle->position, 1.0f};
+        particle->velocity = transform * v4f{particle->velocity, 0.0f};
+        particle->angular_velocity = transform * v4f{particle->angular_velocity, 0.0f};
+    }
 }
 
 inline static void 
@@ -193,6 +205,7 @@ particle_system_kill_particle(
 inline static void 
 particle_system_update(
     particle_system_t* system,
+    const m44& transform,
     f32 dt
 ) {
     system->spawn_timer -= dt;
@@ -201,7 +214,7 @@ particle_system_update(
     while (system->spawn_timer <= 0.0f) {
         system->spawn_timer += system->spawn_rate;
         if (system->live_count < system->max_count) {
-            particle_system_spawn(system);
+            particle_system_spawn(system, transform);
         }
         if (system->spawn_rate <= 0.0f) {
             system->spawn_timer = 0.0f;
@@ -240,9 +253,13 @@ particle_system_update(
 inline static void 
 particle_system_build_matrices(
     particle_system_t* system, 
+    const m44& transform,
     m44* matrix, u32 matrix_count
 ) {
     assert(system->live_count <= matrix_count);
+
+    const b32 world_space = system->world_space;
+    const auto world_inv = glm::inverse(transform);
 
     range_u32(i, 0, system->live_count) {
         auto* particle = system->particles + i;
@@ -251,6 +268,10 @@ particle_system_build_matrices(
             .rotate_quat(particle->orientation)
             .scale(v3f{particle->scale})
             .to_matrix();
+
+        if (world_space) {
+            matrix[i] = world_inv * matrix[i];
+        }
     }
 
 }
@@ -289,6 +310,39 @@ particle_system_t::clone(
     settings = particle_system_settings_t{*this};
 
     return ps;
+}
+
+static void 
+particle_system_settings_save(
+    particle_system_settings_t& settings,
+    std::string_view path
+) {
+    zyy_info(__FUNCTION__, "Saving Particle System: {}", path);
+
+    std::ofstream file{path.data(), std::ios::binary};
+    file.write((const char*)&settings, sizeof particle_system_settings_t);
+}
+
+static void 
+particle_system_settings_load(
+    particle_system_t* system,
+    std::string_view path
+) {
+    assert(system);
+
+    zyy_info(__FUNCTION__, "Loading Particle System: {}", path);
+
+    std::ifstream file{path.data(), std::ios::binary};
+
+    file.seekg(0, std::ios::end);
+    const size_t size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    assert(size == sizeof particle_system_settings_t);
+
+    particle_system_settings_t& settings = *system;
+
+    file.read((char*)&settings, size);
 }
 
 #endif

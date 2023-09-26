@@ -79,10 +79,9 @@ namespace rendering::lighting {
         // math::aabb_t<v3f> aabb;
         v3u dim{100,10,100};
         v3f grid_size{0.0f};
-        i32 sample_max{100};
         f32 hysteresis{0.02f};
         f32 boost{1.0f};
-        f32 depth_sharpness{1.0f};
+        f32 depth_sharpness{32.0f};
     };
 
     struct probe_box_t {

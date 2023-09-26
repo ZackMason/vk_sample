@@ -104,6 +104,7 @@ generate_forest(arena_t* arena) {
     });
 
     generator->add_step("Planting Grass", WORLD_STEP_TYPE_LAMBDA(environment) {
+        return;
         auto* grass = zyy::spawn(world, world->render_system(), zyy::db::environmental::grass_02);
         constexpr u32 grass_count = 90'000;
         grass->gfx.instance(world->render_system()->instance_storage_buffer.pool, grass_count);
@@ -196,6 +197,8 @@ generate_particle_test(arena_t* arena) {
             particle_prefab.coroutine = zyy::db::misc::co_kill_in_ten;
 
             auto* teapot_particle = zyy::spawn(world, world->render_system(), particle_prefab);
+
+            teapot_particle->gfx.material_id = 4;
             teapot_particle->coroutine->start();
             teapot_particle->gfx.particle_system = particle_system_create(&world->arena, 30000);
             teapot_particle->gfx.instance(world->render_system()->instance_storage_buffer.pool, 30000, 1);
@@ -227,7 +230,7 @@ generate_probe_test(arena_t* arena) {
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
-    //    world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{-1.0};
+       world->render_system()->environment_storage_buffer.pool[0].sun.direction = v4f{0.0f};
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::left * 15.0f);
@@ -461,6 +464,9 @@ generate_world_0(arena_t* arena) {
     // });
     generator->add_step("Particles", WORLD_STEP_TYPE_LAMBDA(environment) {
         auto* teapot_particle = zyy::spawn(world, world->render_system(), zyy::db::misc::teapot_particle);
+
+        teapot_particle->gfx.material_id = 4;
+
         teapot_particle->gfx.particle_system = particle_system_create(&world->arena, 1000);
         teapot_particle->gfx.instance(world->render_system()->instance_storage_buffer.pool, 1000, 1);
 

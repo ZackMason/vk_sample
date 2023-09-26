@@ -21,7 +21,6 @@ struct LightProbeSettings {
 
     uvec3 dim;
     vec3 grid_size;
-    int sample_max;
     float hysteresis;
     float boost;
     float depth_sharpness;
@@ -55,7 +54,7 @@ vec3 light_probe_local_pos_normalized(LightProbeSettings settings, vec3 p) {
 // funkiness here with saturate
 ivec3 light_probe_probe_index(LightProbeSettings settings, vec3 p) {
     vec3 grid = light_probe_grid_size(settings);
-    return ivec3(floor(saturate(light_probe_local_pos_normalized(settings, p)) * (vec3(settings.dim))));
+    return ivec3(floor((light_probe_local_pos_normalized(settings, p)) * (vec3(settings.dim))));
 }
 
 // line bug is effected by dir
@@ -64,8 +63,8 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
 
     float total_weight = 0.0;
 
-    vec3 biased_world_pos = p + (n * 0.02 + dir * 0.062);
-    // vec3 biased_world_pos =     p + (n * 0.02);
+    // vec3 biased_world_pos = p + (n * 0.02 + dir * 0.062);
+    vec3 biased_world_pos =     p + (n * 0.02);
     uvec3 biased_probe_coord = light_probe_probe_index(settings, biased_world_pos);
     // uint biased_probe_id = index_1d(settings.dim, biased_probe_coord);
     // without offset
@@ -104,7 +103,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
         vec3 tri = max(vec3(0.001), mix(1.0 - alpha, alpha, offset));
         float weight = 1.0;
 
-        float smooth_backface = 0.0;
+        float smooth_backface = 1.0;
         float wrap_shading = (dot(world_to_adj, n) + 1.0) * 0.5;
         float normal_shading = saturate(dot(world_to_adj, n));
         weight *= mix(normal_shading, sqr(wrap_shading) + 0.2, smooth_backface);
@@ -151,6 +150,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
     // irradiance.z = isnan(irradiance.z) ? 0.0f : irradiance.z;
 
     irradiance = sqr((irradiance));
+
     // return irradiance;
     return irradiance * 2.0 * 3.1415;
 
