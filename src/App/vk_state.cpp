@@ -14,6 +14,33 @@
 namespace gfx::vul {
 
 namespace utl {
+
+void set_image_layout(
+    state_t* state,
+    VkImage image,
+    VkImageAspectFlags aspect_mask,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    VkPipelineStageFlags src_stage_mask,
+    VkPipelineStageFlags dst_stage_mask
+) {
+    quick_cmd_raii_t c{state};
+    set_image_layout(c.command_buffer, image, aspect_mask, old_layout, new_layout, src_stage_mask, dst_stage_mask);
+}
+
+void set_image_layout(
+    state_t* state,
+    VkImage image,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    VkImageSubresourceRange subresourceRange,
+    VkPipelineStageFlags src_stage_mask,
+    VkPipelineStageFlags dst_stage_mask
+) {
+    quick_cmd_raii_t c{state};
+    set_image_layout(c.command_buffer, image, old_layout, new_layout, subresourceRange, src_stage_mask, dst_stage_mask);
+}
+
 std::string error_string(VkResult errorCode) {
     switch (errorCode) {
 #define STR(r) case VK_ ##r: return #r
@@ -797,7 +824,7 @@ void state_t::find_device(arena_t* arena) {
         zyy_error("vulkan", "No Physical Device Found, You Must Be Poor LOL");
         std::terminate();
     }
-    VkPhysicalDevice* devices = arena_alloc_ctor<VkPhysicalDevice>(arena, device_count);
+    VkPhysicalDevice* devices = push_struct<VkPhysicalDevice>(arena, device_count);
     vkEnumeratePhysicalDevices(instance, &device_count, devices);
 
     for(const auto& phys_device: std::span{devices, device_count}) {
@@ -967,7 +994,7 @@ void create_shader_objects(
     assert(shader_count <= 10);
 
     auto& device = state.device;
-    VkShaderCreateInfoEXT* shader_create_info = arena_alloc_ctor<VkShaderCreateInfoEXT>(&arena, shader_count);
+    VkShaderCreateInfoEXT* shader_create_info = push_struct<VkShaderCreateInfoEXT>(&arena, shader_count);
     VkPushConstantRange vpcr{};
         vpcr.offset = 0;
 	    vpcr.size = push_constant_size;
@@ -1042,7 +1069,7 @@ VkResult
 state_t::fill_data_buffer(gpu_buffer_t* buffer, void* data, size_t size) {
     void* gpu_ptr;
 	vkMapMemory(device, buffer->vdm, 0, VK_WHOLE_SIZE, 0, &gpu_ptr);	// 0 and 0 are offset and flags
-	std::memcpy(gpu_ptr, data, size);
+	::utl::copy(gpu_ptr, data, size);
 	vkUnmapMemory( device, buffer->vdm );
 	return VK_SUCCESS;
 }
@@ -1515,6 +1542,18 @@ state_t::create_pipeline_state(
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
 }
 
+quick_cmd_raii_t::quick_cmd_raii_t(state_t* gfx) : 
+    _s{gfx}, 
+    command_buffer{gfx->begin_single_time_commands()}
+{
+}
+
+quick_cmd_raii_t::~quick_cmd_raii_t()
+{
+    _s->end_single_time_commands(command_buffer);
+}
+    
+
 void 
 state_t::copy_buffer_to_image(
     gpu_buffer_t* buffer, 
@@ -1770,7 +1809,7 @@ state_t::load_font_sampler(
 ) {
     // need to convert R32 to RGBA
     const size_t image_size = font->pixel_count*font->pixel_count*4;
-    u8* t_pix = (u8*)arena_alloc(arena, image_size);
+    u8* t_pix = (u8*)push_bytes(arena, image_size);
     for (size_t i = 0; i < font->pixel_count * font->pixel_count; i++) {
         t_pix[4*i+0] = font->bitmap[i];
         t_pix[4*i+1] = 0;
@@ -1808,7 +1847,7 @@ state_t::load_font_sampler(
 
     void* gpu_ptr;
     vkMapMemory(device, staging_buffer.vdm, 0, image_size, 0, &gpu_ptr);
-    std::memcpy(gpu_ptr, texture->pixels, image_size);
+    ::utl::copy(gpu_ptr, texture->pixels, image_size);
     vkUnmapMemory(device, staging_buffer.vdm);
 
     VkImageCreateInfo image_info{};
@@ -2004,9 +2043,9 @@ state_t::create_texture(
     texture->size[1] = h;
     texture->channels= c;
     texture->pixel_size = pixel_size;
-    texture->pixels = arena ? (u8*)arena_alloc(arena, w*h*c) : nullptr;
+    texture->pixels = arena ? (u8*)push_bytes(arena, w*h*c) : nullptr;
     if (arena && data) {
-        std::memcpy(texture->pixels, data, w*h*c*pixel_size);
+        ::utl::copy(texture->pixels, data, w*h*c*pixel_size);
     } else if (data) {
         texture->pixels = data;
     }
@@ -2023,8 +2062,8 @@ state_t::load_texture(
         if (texture->pixels) {
             zyy_warn(__FUNCTION__, "Leaking texture pixels");
         }
-        texture->pixels = (u8*)arena_alloc(arena, image_size);
-        std::memcpy(texture->pixels, data.data(), image_size);
+        texture->pixels = (u8*)push_bytes(arena, image_size);
+        ::utl::copy(texture->pixels, data.data(), image_size);
     } else {
         texture->pixels = data.data();
     }
@@ -2159,16 +2198,18 @@ void
 state_t::load_texture_sampler(
     texture_2d_t* texture, 
     std::string_view path, 
-    arena_t* arena
+    arena_t* arena,
+    VkSampleCountFlagBits samples
 ) {
     load_texture(texture, path, arena);
-    load_texture_sampler(texture);
+    load_texture_sampler(texture, false, samples);
 }
 
 void 
 state_t::load_texture_sampler(
     texture_2d_t* texture,
-    bool storage
+    bool storage,
+    VkSampleCountFlagBits samples
 ) {
     auto image_size = texture->size[0] * texture->size[1] * 4; // @hardcoded 4 channels
     if (texture->format == VK_FORMAT_R32G32B32A32_SFLOAT) {
@@ -2213,7 +2254,7 @@ state_t::load_texture_sampler(
     if (texture->pixels) {
         void* gpu_ptr;
         vkMapMemory(device, staging_buffer.vdm, 0, image_size, 0, &gpu_ptr);
-        std::memcpy(gpu_ptr, texture->pixels, image_size);
+        ::utl::copy(gpu_ptr, texture->pixels, image_size);
         vkUnmapMemory(device, staging_buffer.vdm);
     }
 
@@ -2238,7 +2279,7 @@ state_t::load_texture_sampler(
             (!storage ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0);
         image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+        image_info.samples = samples;
         image_info.flags = 0;
 
         VK_OK(vkCreateImage(device, &image_info, nullptr, &texture->image));
@@ -2394,7 +2435,7 @@ void state_t::create_framebuffer(framebuffer_t* fb) {
 }
 
 void state_t::add_framebuffer_attachment(arena_t* arena, framebuffer_t* fb, framebuffer_attachment_create_info_t fbaci) {
-    auto* attachment = arena_alloc_ctor<framebuffer_attachment_t>(arena);
+    auto* attachment = push_struct<framebuffer_attachment_t>(arena);
     node_push(attachment, fb->attachments);
 
     attachment->format = fbaci.format;

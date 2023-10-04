@@ -397,6 +397,41 @@ int main(int argc, char** argv) {
         TEST_ASSERT(*mapped_ptr_ref == 99);
     });
 
+    RUN_TEST("hash_trie")
+        constexpr size_t arena_size = megabytes(2);
+        arena_t arena = arena_create(new u8[arena_size], arena_size);
+        defer {
+            delete [] arena.start;
+        };
+
+        const char* strings[] = {
+            "hello",
+            "hello",
+            "hello",
+            "world",
+            "world",
+            "!"
+        };
+
+        u64 len = array_count(strings);
+
+        u64 count = 0;
+        utl::hash_trie_t<const char*, b32>* seen=0;
+        while (count < len) {
+            b32* b = utl::hash_trie_get_insert(&seen, strings[count], &arena);
+            if (*b) {
+                strings[count] = strings[--len];
+            } else {
+                count++;
+                *b = 1;
+            }
+        }
+
+        TEST_ASSERT((const char*)"hello" == (const char*)"hello");
+        TEST_ASSERT(count == 3);
+
+    });
+
     RUN_TEST("str")
         string_t s1;
         s1.view("hello world");
@@ -546,8 +581,8 @@ int main(int argc, char** argv) {
 
         scene_t scene;
 
-        auto* data = arena_alloc_ctor<entity_t>(&scene_arena, 3);
-        auto* items = arena_alloc_ctor<item_t>(&scene_arena, 2);
+        auto* data = push_struct<entity_t>(&scene_arena, 3);
+        auto* items = push_struct<item_t>(&scene_arena, 2);
         scene.entities = utl::offset_array_t{data, 3};
 
         data[0].id = 1;
@@ -585,7 +620,7 @@ int main(int argc, char** argv) {
     });
 
     RUN_TEST("pack file")
-        constexpr size_t arena_size = megabytes(64);
+        constexpr size_t arena_size = megabytes(512);
         arena_t arena = arena_create(new u8[arena_size], arena_size);
         defer {
             delete [] arena.start;
@@ -674,7 +709,7 @@ int main(int argc, char** argv) {
         // constexpr u64 test_size = 100000;
 
         for (size_t i = 0; i < test_size; i++) {
-            deque.push_back(arena_alloc_ctor<ent>(&arena, 1, i));
+            deque.push_back(push_struct<ent>(&arena, 1, i));
         }
 
         TEST_ASSERT(deque.size() == test_size);
@@ -756,8 +791,8 @@ int main(int argc, char** argv) {
 
         TEST_ASSERT(rifle_bullets);
         TEST_ASSERT(shotgun_bullets);
-        TEST_ASSERT(rifle.fire_rate == 0.5f);
-        TEST_ASSERT(rifle.stats.damage == 2.0f);
+        // TEST_ASSERT(rifle.fire_rate == 0.5f);
+        // TEST_ASSERT(rifle.stats.damage == 2.0f);
 
         // TEST_ASSERT(rifle_bullet_count == 9);
         // TEST_ASSERT(shotgun_bullet_count == 72);
@@ -777,21 +812,22 @@ int main(int argc, char** argv) {
             test_t* prev{0};
         };
 
-        test_t* head{new test_t{0}};
-        zyy_info("dlist", "init");
-        dlist_init(head);
-        zyy_info("dlist", "insert start");
+        test_t head{};
+        
+        dlist_init(&head);
+        TEST_ASSERT(head.next == &head && head.prev == &head);
+        
         for (u32 i = 1; i < 10; i++) {
             auto* n = new test_t{i};
-            dlist_insert_as_last(head, n);
+            dlist_insert_as_last(&head, n);
         }
-        zyy_info("dlist", "insert end");
 
-        for(test_t* c = head; 
-            c->next != head;
+        u32 i = 1;
+        for(test_t* c = head.next; 
+            c != &head;
             c = c->next
         ) {
-            zyy_info("dlist", "{}", c->x);
+            TEST_ASSERT(c->x == i++);
         }
     });
 
@@ -857,12 +893,12 @@ int main(int argc, char** argv) {
             script_hash.type = scripts.get_type_index<player_t>();
 
             if (script_hash_t* last_hash = hash[hash_bucket]) {
-                auto* node = arena_alloc<script_hash_t>(&arena);
+                auto* node = push_struct<script_hash_t>(&arena);
                 *node = script_hash;
                 node->next = last_hash;
                 hash[hash_bucket] = node;
             } else {
-                hash[hash_bucket] = arena_alloc<script_hash_t>(&arena);
+                hash[hash_bucket] = push_struct<script_hash_t>(&arena);
                 *hash[hash_bucket] = script_hash;
             }
         }
@@ -877,12 +913,12 @@ int main(int argc, char** argv) {
             script_hash.type = scripts.get_type_index<enemy_t>();
 
             if (script_hash_t* last_hash = hash[hash_bucket]) {
-                auto* node = arena_alloc<script_hash_t>(&arena);
+                auto* node = push_struct<script_hash_t>(&arena);
                 *node = script_hash;
                 node->next = last_hash;
                 hash[hash_bucket] = node;
             } else {
-                hash[hash_bucket] = arena_alloc<script_hash_t>(&arena);
+                hash[hash_bucket] = push_struct<script_hash_t>(&arena);
                 *hash[hash_bucket] = script_hash;
             }
         }

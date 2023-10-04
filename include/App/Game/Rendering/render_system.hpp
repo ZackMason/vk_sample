@@ -48,7 +48,7 @@ namespace rendering {
         utl::deque<link_t> meshes;
 
         u64 add(arena_t* arena, const gfx::mesh_list_t& r) {
-            link_t* link = arena_alloc_ctor<link_t>(arena, 1);
+            link_t* link = push_struct<link_t>(arena, 1);
             link->mesh = r;
             meshes.push_back(link);
             return meshes.size() - 1;
@@ -443,7 +443,7 @@ public:
             u32 shader_count_
         ) : gfx::material_t{std::move(mat)}, shader_count{shader_count_}
         {
-            std::memcpy(shaders, shaders_, sizeof(const VkShaderEXT*) * shader_count_);
+            utl::copy(shaders, shaders_, sizeof(const VkShaderEXT*) * shader_count_);
         }
 
         string_t name{};
@@ -597,11 +597,12 @@ public:
             gfx::vul::descriptor_builder_t& builder, 
             texture_cache_t& texture_cache,
             gfx::vul::texture_2d_t* irradiance_texture,
-            gfx::vul::texture_2d_t* visibility_texture
+            gfx::vul::texture_2d_t* visibility_texture,
+            gfx::vul::texture_2d_t* filter_texture
         ) {
             using namespace gfx::vul;
             VkDescriptorImageInfo vdii[4096];
-            VkDescriptorImageInfo pvdii[2];
+            VkDescriptorImageInfo pvdii[3];
 
             auto* null_texture = texture_cache["null"];
             range_u64(i, 0, array_count(texture_cache.textures)) {
@@ -627,6 +628,10 @@ public:
             pvdii[1].imageLayout = visibility_texture->image_layout;
             pvdii[1].imageView = visibility_texture->image_view;
             pvdii[1].sampler = visibility_texture->sampler;
+
+            pvdii[2].imageLayout = filter_texture->image_layout;
+            pvdii[2].imageView = filter_texture->image_view;
+            pvdii[2].sampler = filter_texture->sampler;
     
             builder
                 .bind_image(0, vdii, array_count(vdii), (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -756,7 +761,8 @@ public:
 
             if (vkQueueSubmit(queue, 1, &submitInfo, fence) != VK_SUCCESS) {
                 zyy_error(__FUNCTION__, "failed to submit draw command buffer!");
-                std::terminate();
+                // std::terminate();
+                *(volatile int*)0 = 1;
             }
 
             VkPresentInfoKHR presentInfo{};
@@ -966,19 +972,19 @@ public:
         arena_t* arena
     ) noexcept {
         static_assert(Size > system_t::frame_arena_size);
-        auto* rs = arena_alloc_ctor<system_t>(arena, 1,
+        auto* rs = push_struct<system_t>(arena, 1,
             arena_sub_arena(arena, Size)
         );
         rs->vk_gfx = &state;
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
 
-        rs->permanent_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device); 
+        rs->permanent_descriptor_allocator = push_struct<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device); 
         range_u64(i, 0, array_count(rs->frames)) {
-            // rs->render_jobs[i] = (render_job_t*)arena_alloc(&rs->arena, 100000);
-            rs->frames[i].dynamic_descriptor_allocator = arena_alloc_ctor<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device);
+            // rs->render_jobs[i] = (render_job_t*)push_bytes(&rs->arena, 100000);
+            rs->frames[i].dynamic_descriptor_allocator = push_struct<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device);
         }
-        rs->descriptor_layout_cache = arena_alloc_ctor<gfx::vul::descriptor_layout_cache_t>(&rs->arena, 1, state.device); 
+        rs->descriptor_layout_cache = push_struct<gfx::vul::descriptor_layout_cache_t>(&rs->arena, 1, state.device); 
 
         rs->texture_cache.add(state.null_texture, "null");
 
@@ -1001,9 +1007,9 @@ public:
         state.create_storage_buffer(&rs->light_probe_ray_buffer);
         lighting::set_probes(*rs->vk_gfx, &rs->light_probes, 0, &rs->probe_storage_buffer.pool[0]);
         rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
-        lighting::init_textures(*rs->vk_gfx, &rs->light_probes);
+        lighting::init_textures(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
-        rs->scene_context = arena_alloc_ctor<scene_context_t>(&rs->arena, 1, state);
+        rs->scene_context = push_struct<scene_context_t>(&rs->arena, 1, state);
         
 
         create_render_pass(rs, state.device, state.swap_chain_image_format);
@@ -1032,7 +1038,7 @@ public:
 
         {
             arena_t ta = rs->arena; // temp arena
-            u32* pixels = arena_alloc<u32>(&ta, w * h);
+            u32* pixels = (u32*)push_bytes(&ta, w * h);
             range_u64(x, 0, w) {
                 range_u64(y, 0, h) {
                     pixels[y*w+x] = (u32)utl::rng::random_s::rand();
@@ -1056,7 +1062,7 @@ public:
         rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{1.f,2.f,3.f}),0.0f};
         rs->environment_storage_buffer.pool[0].sun.color = v4f{glm::normalize(v3f{0.3922f, 0.5686f, 0.902f}),0.0f};
 
-        rs->rt_cache = arena_alloc_ctor<rt_cache_t>(&rs->arena, 1, state);
+        rs->rt_cache = push_struct<rt_cache_t>(&rs->arena, 1, state);
 
         range_u64(i, 0, array_count(rs->frames)) {
             rs->frames[i].create_sync_objects(state.device);
@@ -1099,13 +1105,19 @@ public:
                     gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator),
                     // &rs->frame_images[0].texture
                     &rs->light_probes.irradiance_texture,
-                    &rs->light_probes.visibility_texture
+                    &rs->light_probes.visibility_texture,
+                    &rs->light_probes.filter_texture
                 );
             }
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
                 rs->frames[i].mesh_pass.build_buffer_sets(builder, buffers);
-                rs->frames[i].mesh_pass.bind_images(builder, rs->texture_cache, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture);
+                rs->frames[i].mesh_pass.bind_images(builder, 
+                    rs->texture_cache, 
+                    &rs->light_probes.irradiance_texture, 
+                    &rs->light_probes.visibility_texture,
+                    &rs->light_probes.filter_texture
+                );
                 rs->frames[i].mesh_pass.build_layout(state.device);
             }
             {
@@ -1245,7 +1257,7 @@ public:
 
         auto* meshes = &rs->mesh_cache.get(mesh_id);
         for (size_t i = 0; i < meshes->count; i++) {
-            // if (instance_count == 1) {
+            // if (instance_count == 1)
             for (size_t j = 0; j < instance_count && j < 1000; j++) { // @hardcoded limit for instancing
                 rs->get_frame_data().rt_compute_pass.add_to_tlas(
                     *rs->vk_gfx,
@@ -1387,7 +1399,12 @@ public:
                 auto builder = descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
                 mesh_pass.build_buffer_sets(builder, buffers);
                 // mesh_pass.bind_images(builder, rs->texture_cache);
-                mesh_pass.bind_images(builder, rs->texture_cache, &rs->light_probes.irradiance_texture, &rs->light_probes.visibility_texture);
+                mesh_pass.bind_images(builder, 
+                    rs->texture_cache, 
+                    &rs->light_probes.irradiance_texture, 
+                    &rs->light_probes.visibility_texture,
+                    &rs->light_probes.filter_texture
+                );
             }
 
             vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pass.pipeline_layout, 0, 1, &mesh_pass.sporadic_descriptors, 0, nullptr);
@@ -1510,7 +1527,7 @@ public:
         }
         if (!material) {
             zyy_info("rendering", "Creating material: {}", name);
-            material = arena_alloc_ctor<material_node_t>(&rs->arena, 1, std::move(p_material), shaders, shader_count);
+            material = push_struct<material_node_t>(&rs->arena, 1, std::move(p_material), shaders, shader_count);
             material->name.own(&rs->arena, name);
             material->pipeline = pipeline;
             material->pipeline_layout = pipeline_layout;
@@ -1608,7 +1625,7 @@ public:
         VkImageView depth_image_view,
         u32 w, u32 h
     ) {
-        rs->render_targets = arena_alloc_ctor<gfx::vul::framebuffer_t>(arena, 1);
+        rs->render_targets = push_struct<gfx::vul::framebuffer_t>(arena, 1);
         rs->render_target_count = 1;
         rs->render_targets->width = w;
         rs->render_targets->height = h;
@@ -1638,7 +1655,7 @@ public:
         }
 
 
-        rs->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, swap_chain_count);
+        rs->framebuffers = push_struct<VkFramebuffer>(arena, swap_chain_count);
         rs->framebuffer_count = safe_truncate_u64(swap_chain_count);
         for (size_t i = 0; i < swap_chain_count; i++) {
             VkImageView attachments[] = {

@@ -63,8 +63,8 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
 
     float total_weight = 0.0;
 
-    // vec3 biased_world_pos = p + (n * 0.02 + dir * 0.062);
-    vec3 biased_world_pos =     p + (n * 0.02);
+    vec3 biased_world_pos = p + (n * 0.02 + dir * 0.062);
+    // vec3 biased_world_pos =     p + (n * 0.02);
     uvec3 biased_probe_coord = light_probe_probe_index(settings, biased_world_pos);
     // uint biased_probe_id = index_1d(settings.dim, biased_probe_coord);
     // without offset
@@ -72,16 +72,6 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
 
     vec3 grid_distance = (biased_world_pos - biased_probe_true_pos);
     vec3 alpha = saturate(grid_distance / (settings.grid_size));
-    
-    // vec3 grid_size = light_probe_grid_size(settings);
-
-    // for (uint i = 1; i < 8; i++) {
-    //     grid_size = max(grid_size, abs(probes[i].p - probes[0].p));
-    // }
-
-    // vec3 cell_rcp = 1. / grid_size;
-
-    // vec3 alpha = saturate((p - probes[0].p) * cell_rcp);
 
     for (uint i = 0; i < 8; i++) {
 		uvec3 offset = uvec3(i, i>>1, i>>2) & uvec3(1);
@@ -103,7 +93,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
         vec3 tri = max(vec3(0.001), mix(1.0 - alpha, alpha, offset));
         float weight = 1.0;
 
-        float smooth_backface = 1.0;
+        float smooth_backface = 0.0;
         float wrap_shading = (dot(world_to_adj, n) + 1.0) * 0.5;
         float normal_shading = saturate(dot(world_to_adj, n));
         weight *= mix(normal_shading, sqr(wrap_shading) + 0.2, smooth_backface);
@@ -126,9 +116,15 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
         weight = max(0.00001, weight);
 		
         // seam bug is here
-        vec3 probe_irradiance = texture(uProbeSampler[0], probe_color_uv(adj_probe_coord, n, settings.dim, 1.0/textureSize(uProbeSampler[0],0).xy)).rgb;
+        vec3 probe_irradiance = textureLod(uProbeSampler[0], probe_color_uv(adj_probe_coord, n, settings.dim, 1.0/textureSize(uProbeSampler[0],0).xy), 0).rgb;
         // linear
         probe_irradiance = sqrt(max(vec3(0.001), probe_irradiance));
+
+        // vec2 filter_uv = encode_oct(n);// * 0.5 + 0.5;
+        vec2 filter_uv = encode_oct(-biased_to_adj) * 0.5 + 0.5;
+        vec3 stylized_filter = texture(uProbeSampler[2], filter_uv).rgb;
+
+        probe_irradiance *= stylized_filter;
 
         const float crush = 0.2;
         if (weight < crush) {

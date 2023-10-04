@@ -8,17 +8,22 @@
 
 BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto* input = &world->game_state->input();
+    auto& imgui = world->game_state->gui.state;
     auto pc = input->gamepads[0].is_connected ? gamepad_controller(input) : keyboard_controller(input);
     auto* physics = world->physics;
     auto* player = world->player;
     auto* rigidbody = player->physics.rigidbody;
     const bool is_on_ground = rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
     const bool is_on_wall = rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
+    const bool ignore_mouse = gfx::gui::im::want_mouse_capture(imgui);
+    const bool ignore_keyboard = gfx::gui::im::want_mouse_capture(imgui);
+
+
 
     player->camera_controller.transform = 
         player->transform;
     
-    const v3f move = pc.move_input;
+    v3f move = pc.move_input;
     const v2f head_move = pc.look_input;
 
     // auto& yaw = gs_debug_camera_active ? gs_debug_camera.yaw : player->camera_controller.yaw;
@@ -29,12 +34,15 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     const v3f forward = zyy::cam::get_direction(yaw, pitch);
     const v3f right   = glm::cross(forward, axis::up);
 
-    // if (gs_imgui_state && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false) {
+    if (!ignore_mouse) {
         yaw += head_move.x * dt;
         pitch -= head_move.y * dt;
-    // }
+    }
+    if (ignore_keyboard) {
+        move = v3f{0.0f};
+    }
 
-    const f32 move_speed = 45.0f * (pc.sprint ? 1.75f : 1.0f) * (rigidbody->is_on_surface() ? 1.0f : 0.33f);
+    // const f32 move_speed = 45.0f * (pc.sprint ? 1.75f : 1.0f) * (rigidbody->is_on_surface() ? 1.0f : 0.33f);
 
     // if (gs_debug_camera_active) {
     //     gs_debug_camera.transform.origin += ((forward * move.z + right * move.x + axis::up * move.y) * dt * move_speed);
@@ -109,7 +117,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
             // if (auto ray = physics->raycast_world(physics, ro, rd); ray.hit) {
                 // auto* rb = (physics::rigidbody_t*)ray.user_data;
                 math::ray_t gun_shot{ro, rd};
-                DEBUG_ADD_VARIABLE(gun_shot);
+                DEBUG_DIAGRAM(gun_shot);
                 // if (rb == player->physics.rigidbody) {
                 //     zyy_warn(__FUNCTION__, "player shot them self");
                 // }
@@ -124,9 +132,9 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
                 //     hit_entity = (zyy::entity_t*)rb->user_data;
                 //     rb->add_force_at_point(rd*50.0f, hp);
                 //     math::ray_t force{hp, rd};
-                //     DEBUG_ADD_VARIABLE(force);
+                //     DEBUG_DIAGRAM(force);
                 // } else {
-                //     DEBUG_ADD_VARIABLE(ray.point);
+                //     DEBUG_DIAGRAM(ray.point);
                 // }
 
                 // auto* hole = zyy::spawn(world, world->render_system(), zyy::db::misc::bullet_hole, hp);
@@ -145,10 +153,11 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
             // }
         }
         range_u64(bullet, 0, fired) {
-            zyy::wep::spawn_bullet(
+            auto* b = zyy::wep::spawn_bullet(
                 world, zyy::db::misc::bullet_01,
                 bullets[bullet], dt
             );
+            b->stats.effect = player->primary_weapon.entity->stats.effect;
         }
     }
 }

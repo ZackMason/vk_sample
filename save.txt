@@ -179,7 +179,7 @@ init_glfw(game_memory_t* game_memory) {
 void
 update_input(game_memory_t* game_memory, GLFWwindow* window) {
     app_input_t last_input;
-    std::memcpy(&last_input, &game_memory->input, sizeof(app_input_t));
+    utl::copy(&last_input, &game_memory->input, sizeof(app_input_t));
 
     app_input_reset(&game_memory->input);
 
@@ -405,13 +405,13 @@ LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
         msg += fmt::format("\nAttempted to access virtual address {}", (void*)info[1]);
         auto pressed = MessageBox(0, fmt::format("Exception at address {}\nCode: {}\nFlag: {}", address, msg!=""?msg:fmt::format("{}", code), flags).c_str(), 0, MB_ABORTRETRYIGNORE);
         if (pressed == IDRETRY) {
-            // std::memcpy(gs_physics_arena->start, gs_physics_restore_arena->start, gs_physics_restore_arena->top);
+            // utl::copy(gs_physics_arena->start, gs_physics_restore_arena->start, gs_physics_restore_arena->top);
             // *gs_app->physics = *gs_app_restore->physics;
             // gs_physics_arena->top = gs_physics_restore_arena->top;
 
-            // std::memcpy(gs_app->arena.start, gs_app_restore->arena.start, gs_app_restore->arena.top);
+            // utl::copy(gs_app->arena.start, gs_app_restore->arena.start, gs_app_restore->arena.top);
             // gs_app->arena.top = gs_app_restore->arena.top;
-            // std::memcpy(&gs_app->input, &gs_app_restore->input, sizeof(app_input_t));
+            // utl::copy(&gs_app->input, &gs_app_restore->input, sizeof(app_input_t));
 
             throw std::exception(msg.c_str());
         }
@@ -619,7 +619,7 @@ main(int argc, char* argv[]) {
 #ifdef MULTITHREAD_ENGINE
             std::lock_guard lock{render_lock};
 #endif 
-            std::memcpy(restore_physics_arena.start, physics_arena.start, physics_arena.top);
+            utl::copy(restore_physics_arena.start, physics_arena.start, physics_arena.top);
             *restore_point.physics = *game_memory.physics;
             restore_physics_arena.top = physics_arena.top;
 
@@ -629,21 +629,21 @@ main(int argc, char* argv[]) {
             }
             size_t copy_size = game_memory.arena.top;
             restore_point.arena = arena_create(VirtualAlloc(0, copy_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), copy_size);
-            std::memcpy(restore_point.arena.start, game_memory.arena.start, copy_size);
+            utl::copy(restore_point.arena.start, game_memory.arena.start, copy_size);
             restore_point.arena.top = game_memory.arena.top;
-            std::memcpy(&restore_point.input, &game_memory.input, sizeof(app_input_t));
+            utl::copy(&restore_point.input, &game_memory.input, sizeof(app_input_t));
         }
         if (game_memory.input.pressed.keys[key_id::F10]) {
 #ifdef MULTITHREAD_ENGINE
             std::lock_guard lock{render_lock};
 #endif 
-            std::memcpy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
+            utl::copy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
             *game_memory.physics = *restore_point.physics;
             physics_arena.top = restore_physics_arena.top;
 
-            std::memcpy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
+            utl::copy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
             game_memory.arena.top = restore_point.arena.top;
-            std::memcpy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
+            utl::copy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
         }
         if (game_memory.input.pressed.keys[key_id::P]) {
             p = new utl::profile_t{"win32::loop"};
@@ -676,13 +676,13 @@ main(int argc, char* argv[]) {
 #ifdef MULTITHREAD_ENGINE
                     std::lock_guard lock{render_lock};
 #endif 
-                    std::memcpy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
+                    utl::copy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
                     *game_memory.physics = *restore_point.physics;
                     physics_arena.top = restore_physics_arena.top;
 
-                    std::memcpy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
+                    utl::copy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
                     game_memory.arena.top = restore_point.arena.top;
-                    std::memcpy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
+                    utl::copy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
          
                 }
             } catch (std::exception & e) {

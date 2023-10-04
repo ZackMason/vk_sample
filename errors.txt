@@ -3,54 +3,28 @@
 [0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 18, vc 559, is 0, ic 2880
 [0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 1 meshes
 [0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 577, vc 658, is 2880, ic 3072
-[0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 3 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 1235, vc 96, is 5952, ic 204
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 1331, vc 162, is 6156, ic 288
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 1493, vc 2130, is 6444, ic 4074
 [0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 5 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 3623, vc 64, is 10518, ic 132
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 3687, vc 681, is 10650, ic 1158
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 4368, vc 269, is 11808, ic 420
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 4637, vc 440, is 12228, ic 780
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 5077, vc 1621, is 13008, ic 3126
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 1235, vc 64, is 5952, ic 132
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 1299, vc 681, is 6084, ic 1158
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 1980, vc 269, is 7242, ic 420
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 2249, vc 440, is 7662, ic 780
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 2689, vc 1621, is 8442, ic 3126
 [0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 1 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6698, vc 24, is 16134, ic 36
-[0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 17 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6722, vc 4, is 16170, ic 6
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6726, vc 4, is 16176, ic 6
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6730, vc 4, is 16182, ic 6
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6734, vc 4, is 16188, ic 6
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6738, vc 4, is 16194, ic 6
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6742, vc 4, is 16200, ic 6
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6746, vc 4, is 16206, ic 6
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6750, vc 4, is 16212, ic 6
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6754, vc 66, is 16218, ic 102
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6820, vc 66, is 16320, ic 102
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6886, vc 66, is 16422, ic 102
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6952, vc 66, is 16524, ic 102
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 7018, vc 66, is 16626, ic 102
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 7084, vc 66, is 16728, ic 102
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 7150, vc 66, is 16830, ic 102
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 7216, vc 2658, is 16932, ic 5184
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 9874, vc 622, is 22116, ic 1284
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 4310, vc 2288, is 11568, ic 12096
 [0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 1 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 10496, vc 768, is 23400, ic 1488
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6598, vc 24, is 23664, ic 36
 [0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 1 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 11264, vc 744, is 24888, ic 1656
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 6622, vc 744, is 23700, ic 1656
+[0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 2 meshes
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 7366, vc 448, is 25356, ic 2664
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 7814, vc 157, is 28020, ic 930
 [0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 1 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 12008, vc 2288, is 26544, ic 12096
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 7971, vc 24, is 28950, ic 36
 [0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 1 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 14296, vc 2288, is 38640, ic 12096
-[0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 1 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 16584, vc 24, is 50736, ic 36
-[0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 1 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 16608, vc 48, is 50772, ic 48
-[0m[1m[38;2;255;255;000m[warn][load_bin_mesh_data]: Loading 1 meshes
-[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 16656, vc 4, is 50820, ic 6
-[0m[1m[38;2;000;000;255m[profile][gfx::vul::descriptor_layout_cache_t::cleanup]:  2us
-[0m[1m[38;2;255;000;000m[error][exception_filter]: Exception at 0x7ffac471879b Code: Access Violation (read).
-The thread tried to read from or write to a virtual address for which it does not have the appropriate access.
-Attempted to access virtual address 0x116 Flag: 0
-[0m[1m[38;2;000;000;255m[profile][gfx::vul::descriptor_allocator_t::cleanup]:  1021ms
-[0m[1m[38;2;000;000;255m[profile][rendering::cleanup]:  1022ms
+[0m[1m[38;2;255;255;000m[warn][rendering::rt_cache_t::build_blas]: Building BLAS Mesh: vs 7995, vc 4, is 28986, ic 6
+[0m[1m[38;2;000;000;255m[profile][gfx::vul::descriptor_layout_cache_t::cleanup]:  100ns
+[0m[1m[38;2;000;000;255m[profile][gfx::vul::descriptor_allocator_t::cleanup]:  20ms
+[0m[1m[38;2;000;000;255m[profile][gfx::vul::descriptor_allocator_t::cleanup]:  13ms
+[0m[1m[38;2;000;000;255m[profile][gfx::vul::descriptor_allocator_t::cleanup]:  600ns
+[0m[1m[38;2;000;000;255m[profile][rendering::cleanup]:  75ms
 [0m

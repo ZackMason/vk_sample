@@ -110,6 +110,7 @@
     "cmake.configureOnOpen": false,
     "cSpell.words": [
       "gamepads",
+      "hitbuffer",
       "triplanar",
       "viewtok"
     ]

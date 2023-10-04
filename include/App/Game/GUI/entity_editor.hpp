@@ -91,7 +91,7 @@ struct entity_editor_t {
     }
 
     void edit_char(char* where, char what) {
-        auto* edit = arena_alloc_ctor<edit_event_t>(&undo_arena);
+        auto* edit = push_struct<edit_event_t>(&undo_arena);
         edit->type = edit_type_t::TEXT;
         edit->text_edit.where = where;
         edit->text_edit.change[Edit_From] = *where;
@@ -313,7 +313,7 @@ entity_editor_render(entity_editor_t* ee) {
                     ee->edit_char(ee->entity.gfx.mesh_name + i, mesh_name[i]);
                     ee->edit_char(mesh_name + i, 0);
                 }
-                // std::memcpy(ee->entity.gfx.mesh_name, mesh_name, mesh_pos);
+                // utl::copy(ee->entity.gfx.mesh_name, mesh_name, mesh_pos);
             }
             
             im::text(imgui, fmt_sv("-- Albedo Name: {}"sv, ee->entity.gfx.albedo_texture));

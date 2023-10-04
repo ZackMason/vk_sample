@@ -4,7 +4,7 @@
 
 world_generator_t*
 generate_world_test(arena_t* arena) {
-    auto* generator = arena_alloc<world_generator_t>(arena);
+    auto* generator = push_struct<world_generator_t>(arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -141,7 +141,7 @@ generate_sponza(arena_t* arena) {
 
 auto SPAWN_FIRE_PARTICLE(auto* world, auto pos, auto mat, auto size) {
     auto* ps = zyy::spawn(world, world->render_system(), zyy::db::particle::plasma, pos);
-    ps->gfx.particle_system = particle_system_create(&world->arena, 64);
+    ps->gfx.particle_system = particle_system_create(&world->particle_arena, 64);
     ps->gfx.instance(world->render_system()->instance_storage_buffer.pool, 64, 1);
     ps->gfx.material_id = mat;
     ps->gfx.particle_system->acceleration = v3f{axis::up*9.81f*0.1f};
@@ -167,8 +167,10 @@ generate_particle_test(arena_t* arena) {
     auto* generator = generate_world_test(arena);
 
     generator->add_step("Fire Particle", WORLD_STEP_TYPE_LAMBDA(environment) {
-        SPAWN_FIRE_PARTICLE(world, 5.0f*axis::right + axis::up, 5, 1.0f);
-        SPAWN_FIRE_PARTICLE(world, 5.0f*axis::right + axis::up, 4, 1.0f);
+        zyy::spawn(world, world->render_system(), zyy::db::particles::fire, 5.0f*axis::right + axis::up)->gfx.material_id=5;
+        zyy::spawn(world, world->render_system(), zyy::db::particles::fire, 5.0f*axis::right + axis::up)->gfx.material_id=4;
+        // SPAWN_FIRE_PARTICLE(world, 5.0f*axis::right + axis::up, 5, 1.0f);
+        // SPAWN_FIRE_PARTICLE(world, 5.0f*axis::right + axis::up, 4, 1.0f);
     });
     generator->add_step("Particle Spawner", WORLD_STEP_TYPE_LAMBDA(environment) {
         constexpr zyy::db::prefab_t spawner_p{
@@ -194,13 +196,13 @@ generate_particle_test(arena_t* arena) {
             auto* world = (zyy::world_t*)trigger->api->user_world;
 
             auto particle_prefab = zyy::db::misc::teapot_particle;
-            particle_prefab.coroutine = zyy::db::misc::co_kill_in_ten;
+            particle_prefab.coroutine = co_kill_in_ten;
 
             auto* teapot_particle = zyy::spawn(world, world->render_system(), particle_prefab);
 
             teapot_particle->gfx.material_id = 4;
-            teapot_particle->coroutine->start();
-            teapot_particle->gfx.particle_system = particle_system_create(&world->arena, 30000);
+            // teapot_particle->coroutine->start();
+            teapot_particle->gfx.particle_system = particle_system_create(&world->particle_arena, 30000);
             teapot_particle->gfx.instance(world->render_system()->instance_storage_buffer.pool, 30000, 1);
 
             teapot_particle->gfx.particle_system->spawn_rate = 0.02f;
@@ -226,7 +228,7 @@ generate_particle_test(arena_t* arena) {
 
 world_generator_t*
 generate_probe_test(arena_t* arena) {
-    auto* generator = arena_alloc<world_generator_t>(arena);
+    auto* generator = push_struct<world_generator_t>(arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -267,7 +269,7 @@ generate_probe_test(arena_t* arena) {
 
 world_generator_t*
 generate_room_03(arena_t* arena) {
-    auto* generator = arena_alloc<world_generator_t>(arena);
+    auto* generator = push_struct<world_generator_t>(arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
         world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -296,7 +298,7 @@ generate_room_03(arena_t* arena) {
 
 world_generator_t*
 generate_world_1(arena_t* arena) {
-    auto* generator = arena_alloc<world_generator_t>(arena);
+    auto* generator = push_struct<world_generator_t>(arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -306,6 +308,8 @@ generate_world_1(arena_t* arena) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 15.0f);
         player->physics.rigidbody->linear_dampening = 3.0f;
         SPAWN_GUN(zyy::db::weapons::smg, axis::forward * 15.0f + axis::up * 3.0f);
+
+        zyy::spawn(world, world->render_system(), zyy::db::items::lightning_powerup, axis::backward * 15.0f + axis::up * 3.0f);
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         // zyy::spawn(world, world->render_system(), zyy::db::rooms::sponza);
@@ -359,7 +363,8 @@ generate_world_1(arena_t* arena) {
                 }
             };
 
-        auto aabb = e_room->global_transform().xform_aabb(e_room->aabb);
+        auto aabb = e_room->aabb;
+        aabb.scale(v3f{1.1f, 1.0f, 1.1f});
 
         aabb.min.y = 0.0f;
         aabb.max.y *= 0.8f;
@@ -367,7 +372,7 @@ generate_world_1(arena_t* arena) {
         auto light_aabb = aabb;
         light_aabb.scale(v3f{0.5f});
 
-        range_u64(l, 0, 6) {
+        range_u64(l, 0, 0) {
             // spawn random lights
             rendering::create_point_light(
                 world->render_system(),
@@ -384,7 +389,7 @@ generate_world_1(arena_t* arena) {
 
 world_generator_t*
 generate_world_0(arena_t* arena) {
-    auto* generator = arena_alloc<world_generator_t>(arena);
+    auto* generator = push_struct<world_generator_t>(arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -467,7 +472,7 @@ generate_world_0(arena_t* arena) {
 
         teapot_particle->gfx.material_id = 4;
 
-        teapot_particle->gfx.particle_system = particle_system_create(&world->arena, 1000);
+        teapot_particle->gfx.particle_system = particle_system_create(&world->particle_arena, 1000);
         teapot_particle->gfx.instance(world->render_system()->instance_storage_buffer.pool, 1000, 1);
 
         teapot_particle->gfx.particle_system->spawn_rate = 0.0002f;
@@ -657,8 +662,8 @@ global_variable module_prefab_t gs_modules[] = {
     module_prefab_t{.prefab = make_room("res/models/modules/module_001.gltf"), .filter={.directions=RoomDirection_North}},
     module_prefab_t{.prefab = make_room("res/models/modules/module_002.gltf"), .filter={.directions=RoomDirection_North|RoomDirection_West}},
     module_prefab_t{.prefab = make_room("res/models/modules/module_003.gltf"), .filter={.directions=RoomDirection_North|RoomDirection_West|RoomDirection_East}},
-    module_prefab_t{.prefab = make_room("res/models/modules/module_005.gltf"), .filter={.directions=RoomDirection_Vertical|RoomDirection_Horizontal}},
-    module_prefab_t{.prefab = make_room("res/models/modules/module_004.gltf"), .filter={.directions=RoomDirection_Up|RoomDirection_Horizontal}},
+    // module_prefab_t{.prefab = make_room("res/models/modules/module_005.gltf"), .filter={.directions=RoomDirection_Vertical|RoomDirection_Horizontal}},
+    // module_prefab_t{.prefab = make_room("res/models/modules/module_004.gltf"), .filter={.directions=RoomDirection_Up|RoomDirection_Horizontal}},
     module_prefab_t{.prefab = make_room("res/models/modules/module_006.gltf"), .filter={.directions=RoomDirection_Down|RoomDirection_Horizontal}},
 };
 
@@ -894,7 +899,7 @@ struct module_generator_t {
         return at(a)->direction[direction_index(direction)] != nullptr;
     }
 
-    void build_maze(u32 iters = 60) {
+    void build_maze(u32 iters = 160) {
         v3u p = random_tile();
 
         at(p)->type = ModuleType_Exit; // todo better exit placement
@@ -1030,7 +1035,7 @@ struct dungeon_generator_t {
 
 world_generator_t*
 generate_world_maze(arena_t* arena) {
-    auto* generator = arena_alloc<world_generator_t>(arena);
+    auto* generator = push_struct<world_generator_t>(arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;

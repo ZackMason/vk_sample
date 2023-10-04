@@ -39,7 +39,7 @@ namespace physics {
 static void 
 init_physx(api_t* api, arena_t* arena) {
     api->arena = arena;
-    physx_backend_t* backend = arena_alloc<physx_backend_t>(
+    physx_backend_t* backend = push_struct<physx_backend_t>(
         arena
     );
     api->backend = physx_init_backend(backend, arena);
@@ -51,9 +51,10 @@ init_physx(api_t* api, arena_t* arena) {
     api->add_rigidbody      = physx_add_rigidbody;
     api->remove_rigidbody   = physx_remove_rigidbody;
 
-    api->create_rigidbody   = physx_create_rigidbody;
-    api->create_collider    = physx_create_collider;
-    api->raycast_world      = physx_raycast_world;
+    api->create_rigidbody     = physx_create_rigidbody;
+    api->create_collider      = physx_create_collider;
+    api->raycast_world        = physx_raycast_world;
+    api->sphere_overlap_world = physx_sphere_overlap_world;
 
     api->create_scene       = physx_create_scene;
     api->destroy_scene      = physx_destroy_scene;

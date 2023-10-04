@@ -20,6 +20,7 @@ namespace zyy {
         game_state_t* game_state;
 
         arena_t arena;
+        arena_t particle_arena;
         frame_arena_t frame_arena;
         // arena_t frame_arena[2];
         // u64     frame_count{0};
@@ -42,7 +43,7 @@ namespace zyy {
 
         physics::api_t* physics{0};
 
-        utl::rng::random_t<utl::rng::xor64_random_t> entropy;
+        utl::rng::random_t<utl::rng::pcg_random_t> entropy;
 
         world_generator_t* world_generator{0};
 
@@ -205,12 +206,26 @@ namespace zyy {
                     .func=def.coroutine
                 }
             );
+            // Maybe start coroutines automatically? some are just stored and called by triggers
+            // have enum to describe behavior?
+            // entity->coroutine->start();
+        }
+
+        if (def.emitter) {
+            entity->gfx.particle_system = particle_system_create(&world->particle_arena, def.emitter->max_count);
+            entity->gfx.instance(world->render_system()->instance_storage_buffer.pool, def.emitter->max_count, 1);
+            particle_system_settings_t& settings = *entity->gfx.particle_system;
+            settings = *def.emitter;
         }
 
         switch(entity->type) {
             case entity_type::weapon:
                 entity->flags |= EntityFlags_Pickupable;
                 break;
+        }
+
+        if (def.effect) {
+            entity->stats.effect = *def.effect;
         }
 
         if (def.stats) {
@@ -240,6 +255,12 @@ namespace zyy {
             }
             assert(rb);
             entity->physics.rigidbody = rb;
+
+            rb->on_collision = def.physics->on_collision;
+            rb->on_collision_end = def.physics->on_collision_end;
+            rb->on_trigger = def.physics->on_trigger;
+            rb->on_trigger_end = def.physics->on_trigger_end;
+            
             rb->position = pos;
             rb->orientation = entity->global_transform().get_orientation();
             std::string collider_name;
@@ -331,18 +352,20 @@ namespace zyy {
     static world_t*
     world_init(arena_t* arena, game_state_t* game_state, physics::api_t* phys_api) {
         TIMED_FUNCTION;
-        world_t* world = arena_alloc_ctor<world_t>(arena, 1);
+        world_t* world = push_struct<world_t>(arena, 1);
         world->game_state = game_state;
         world->physics = phys_api;
         phys_api->user_world = world;
         
         world->arena = arena_sub_arena(arena, megabytes(256));
+        world->particle_arena = arena_sub_arena(arena, megabytes(32));
 
-        world->frame_arena.arena[0] = arena_sub_arena(&world->arena, megabytes(8));
-        world->frame_arena.arena[1] = arena_sub_arena(&world->arena, megabytes(8));
+        constexpr umm frame_arena_size = megabytes(64);
+        world->frame_arena.arena[0] = arena_sub_arena(&world->arena, frame_arena_size);
+        world->frame_arena.arena[1] = arena_sub_arena(&world->arena, frame_arena_size);
 
 
-        // world->particle_cache = arena_alloc<particle_cache_t>(&world->arena);
+        // world->particle_cache = push_struct<particle_cache_t>(&world->arena);
 
         // world->particle_cache->instance_buffer = world->render_system()->instance_storage_buffer.pool.allocate(MAX_PARTICLE_SYSTEM_COUNT * 1024);
 

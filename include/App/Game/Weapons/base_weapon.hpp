@@ -1,6 +1,7 @@
 #pragma once
 
 #include "zyy_core.hpp"
+#include "weapon_common.hpp"
 #include "bullet.hpp"
 
 namespace zyy::item {
@@ -134,6 +135,9 @@ namespace zyy::wep {
 
             while(action.fire_time <= 0.0f) {
                 action.fire_time += fire_rate;
+                if (chamber_count == 0) {
+                    break;
+                }
                 chamber_count -= 1;
                 if (Platform.audio.play_sound) {
                     // Platform.audio.play_sound(sound_effects.fire);
@@ -141,7 +145,7 @@ namespace zyy::wep {
 
                 for (size_t bullet = 0; bullet < chamber_mult; bullet++) {
                     (*count)++;
-                    bullet_t* this_bullet = arena_alloc_ctor<bullet_t>(arena);
+                    bullet_t* this_bullet = push_struct<bullet_t>(arena);
                     if (bullets == nullptr) {
                         bullets = this_bullet;
                     }

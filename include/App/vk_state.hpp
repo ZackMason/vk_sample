@@ -99,12 +99,12 @@ struct texture_2d_t {
     u32 mip_levels{1};
     u8* pixels;
     umm pixel_size=4;
-    VkImage image;
-    VkImageView image_view;
+    VkImage image{VK_NULL_HANDLE};
+    VkImageView image_view{VK_NULL_HANDLE};
     VkImageLayout image_layout{VK_IMAGE_LAYOUT_UNDEFINED};
     VkFormat format{VK_FORMAT_R8G8B8A8_UNORM};
-    VkSampler sampler;
-    VkDeviceMemory vdm;
+    VkSampler sampler{VK_NULL_HANDLE};
+    VkDeviceMemory vdm{0};
 
     void calculate_mip_level() {
         mip_levels = static_cast<u32>(std::floor(std::log2(std::max(size.x, size.y)))) + 1;
@@ -485,8 +485,8 @@ struct state_t {
 
     void load_texture(texture_2d_t* texture, std::span<u8> data, arena_t* arena = 0);
     void load_texture(texture_2d_t* texture, std::string_view path, arena_t* arena);
-    void load_texture_sampler(texture_2d_t* texture, bool storage = false);
-    void load_texture_sampler(texture_2d_t* texture, std::string_view path, arena_t* arena);
+    void load_texture_sampler(texture_2d_t* texture, bool storage = false, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
+    void load_texture_sampler(texture_2d_t* texture, std::string_view path, arena_t* arena, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
     void load_font_sampler(arena_t* arena, texture_2d_t* texture, font_t* font);
 
     VkPipelineShaderStageCreateInfo load_shader(std::string_view name, VkShaderStageFlagBits stage);
@@ -588,13 +588,11 @@ struct quick_cmd_raii_t {
 
     auto& c() { return command_buffer; }
 
-    quick_cmd_raii_t(state_t* gfx) 
-        : _s{gfx}, command_buffer{gfx->begin_single_time_commands()}
-    {
-    }
-    virtual ~quick_cmd_raii_t() {
-        _s->end_single_time_commands(command_buffer);
-    }
+    quick_cmd_raii_t(state_t* gfx) ;
+    virtual ~quick_cmd_raii_t() ;
+    // {
+        // _s->end_single_time_commands(command_buffer);
+    // }
 };
 
 void create_descriptor_set_layouts(
@@ -1179,10 +1177,7 @@ void set_image_layout(
     VkImageLayout new_layout,
     VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
     VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
-) {
-    quick_cmd_raii_t c{state};
-    set_image_layout(c.command_buffer, image, aspect_mask, old_layout, new_layout, src_stage_mask, dst_stage_mask);
-}
+);
 
 void set_image_layout(
     state_t* state,
@@ -1192,14 +1187,12 @@ void set_image_layout(
     VkImageSubresourceRange subresourceRange,
     VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
     VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
-) {
-    quick_cmd_raii_t c{state};
-    set_image_layout(c.command_buffer, image, old_layout, new_layout, subresourceRange, src_stage_mask, dst_stage_mask);
-}
+);
 
 }; // namespace utl
 
 // extensions
+// struct SpvReflectShaderModule;
 void create_shader_objects_from_files(
     arena_t arena, const state_t& state,
     VkDescriptorSetLayout* descriptor_set_layout,

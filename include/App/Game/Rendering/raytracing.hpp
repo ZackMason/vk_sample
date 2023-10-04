@@ -305,8 +305,9 @@ struct rt_compute_pass_t {
     VkDevice device;
 
     acceleration_structure_t tlas;
-    VkAccelerationStructureInstanceKHR tlas_instances[8096<<2];
-    VkAccelerationStructureBuildGeometryInfoKHR tlas_geometry[8096<<2];
+    VkAccelerationStructureInstanceKHR tlas_instances[100'000];
+    VkAccelerationStructureBuildGeometryInfoKHR tlas_geometry[100'000];
+    
     u32 instance_count{0};
 
     gfx::vul::gpu_buffer_t instance_buffer;
@@ -327,7 +328,8 @@ struct rt_compute_pass_t {
         gfx::vul::gpu_buffer_t* point_lights,
         gfx::vul::descriptor_builder_t&& builder, 
         gfx::vul::texture_2d_t* irradiance_texture,
-        gfx::vul::texture_2d_t* visibility_texture
+        gfx::vul::texture_2d_t* visibility_texture,
+        gfx::vul::texture_2d_t* filter_texture
     ) {
         VkDescriptorBufferInfo buffer_info[9];
         u32 b = 0;
@@ -365,7 +367,7 @@ struct rt_compute_pass_t {
         descriptor_acceleration_structure_info.pAccelerationStructures    = &tlas.handle;
 
         VkDescriptorImageInfo vdii[4096];
-        VkDescriptorImageInfo ovdii[2];
+        VkDescriptorImageInfo ovdii[3];
 
         auto* null_texture = texture_cache["null"];
         range_u64(i, 0, array_count(texture_cache.textures)) {
@@ -392,10 +394,14 @@ struct rt_compute_pass_t {
         ovdii[1].imageView = visibility_texture->image_view;
         ovdii[1].sampler = visibility_texture->sampler;
 
+        ovdii[2].imageLayout = filter_texture->image_layout;
+        ovdii[2].imageView = filter_texture->image_view;
+        ovdii[2].sampler = filter_texture->sampler;
+
 
         builder
             .bind_buffer(0, buffer_info + 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, &descriptor_acceleration_structure_info)
-            .bind_image(1, ovdii, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_image(1, ovdii, array_count(ovdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_image(2, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
             .bind_buffer(3, buffer_info + 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_buffer(4, buffer_info + 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
@@ -511,9 +517,12 @@ struct rt_compute_pass_t {
         TIMED_FUNCTION;
         VkTransformMatrixKHR transform_matrix{};
         t = glm::transpose(t);
-        std::memcpy(&transform_matrix, &t, sizeof(transform_matrix));
+        utl::copy(&transform_matrix, &t, sizeof(transform_matrix));
         auto i = instance_count++;
         assert(instance_count < array_count(tlas_instances));
+        if (instance_count > array_count(tlas_instances)) {
+            zyy_error(__FUNCTION__, "TLAS OVERFLOW"); return;
+        }
         VkAccelerationStructureInstanceKHR& acceleration_structure_instance    = tlas_instances[i];
         acceleration_structure_instance.transform                              = transform_matrix;
         acceleration_structure_instance.instanceCustomIndex                    = gfx_id;

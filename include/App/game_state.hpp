@@ -115,7 +115,22 @@ struct game_state_t {
         std::atomic<u64> frame{0};
 
         arena_t  arena;
-    } gui;
+
+        gfx::gui::im::state_t state;
+        explicit gui_state_t() : state {
+            .ctx = ctx,
+            .theme = gfx::gui::theme_t {
+                .fg_color = gfx::color::rgba::gray,
+                .bg_color = gfx::color::rgba::black,
+                .text_color = gfx::color::rgba::cream,
+                .disabled_color = gfx::color::rgba::dark_gray,
+                .border_color = gfx::color::rgba::white,
+
+                .padding = 4.0f,
+                .margin = 8.0f
+            },
+        }{}
+    } gui{};
 
     struct debugging_t {
         debug_console_t* console;

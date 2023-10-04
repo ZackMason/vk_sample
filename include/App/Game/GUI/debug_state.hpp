@@ -267,7 +267,7 @@ struct debug_state_t {
     template <typename T>
     debug_variable_t* add_variable(T val, std::string_view name) {
         std::lock_guard lock{ticket};
-        auto* var = first_free ? first_free : arena_alloc<debug_variable_t>(&arena);
+        auto* var = first_free ? first_free : push_struct<debug_variable_t>(&arena);
         if (first_free) { 
             node_next(first_free); 
             new (var) debug_variable_t;
@@ -283,7 +283,7 @@ struct debug_state_t {
         if constexpr (std::is_same_v<T, math::ray_t>) { var->type = debug_variable_type::RAY; }
         if constexpr (std::is_same_v<T, math::aabb_t<v3f>>) { var->type = debug_variable_type::AABB; }
         
-        std::memcpy(&var->as_u32, &val, sizeof(val));
+        utl::copy(&var->as_u32, &val, sizeof(val));
 
         node_push(var, variables);
         return var;
@@ -302,7 +302,7 @@ struct debug_state_t {
     debug_watcher_t* watch_variable(T* val, std::string_view name) {
         std::lock_guard lock{ticket};
         if (auto ovar = has_watch_variable((void*)val)) return ovar;
-        auto* var = arena_alloc<debug_watcher_t>(&watch_arena);
+        auto* var = push_struct<debug_watcher_t>(&watch_arena);
         var->name = name;
         if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_watcher_type::ENTITY; }
         if constexpr (std::is_same_v<T, const char>) { var->type = debug_watcher_type::CSTR; }
@@ -315,7 +315,7 @@ struct debug_state_t {
         if constexpr (std::is_same_v<T, math::ray_t>) { var->type = debug_watcher_type::RAY; }
         if constexpr (std::is_same_v<T, math::aabb_t<v3f>>) { var->type = debug_watcher_type::AABB; }
         
-        std::memcpy(&var->as_u32, &val, sizeof(val));
+        utl::copy(&var->as_u32, &val, sizeof(val));
 
         node_push(var, watcher);
         return var;
@@ -336,7 +336,7 @@ struct debug_state_t {
                 if constexpr (std::is_same_v<T, v3f>) { assert(n->type == debug_watcher_type::VEC3); }
                 if constexpr (std::is_same_v<T, math::ray_t>) { assert(n->type == debug_watcher_type::RAY); }
                 if constexpr (std::is_same_v<T, math::aabb_t<v3f>>) { assert(n->type == debug_watcher_type::AABB); }
-                std::memcpy(n->as_u32, &val, sizeof(T));
+                utl::copy(n->as_u32, &val, sizeof(T));
             }
         }
     }
@@ -400,7 +400,7 @@ console_add_command(
     assert(console->command_count < array_count(console->console_commands));
     debug_console_t::console_command_t& new_command = console->console_commands[console->command_count++];
 
-    std::memcpy(new_command.name, command_name.data(), std::min(array_count(new_command.name), command_name.size()));
+    utl::copy(new_command.name, command_name.data(), std::min(array_count(new_command.name), command_name.size()));
     // strncpy_s(new_command.name, array_count(new_command.name), command_name.data(), command_name.size()+1);
     new_command.command.command = command;
     new_command.command.data = user_data;
@@ -436,7 +436,7 @@ console_log(
         message->color = color;
         const auto write_count = std::min(array_count(message->text), text_size);
         utl::memzero(message->text, array_count(message->text));
-        std::memcpy(message->text, text.data(), write_count);
+        utl::copy(message->text, text.data(), write_count);
         text_size -= write_count;
 
         message->command.data = user_data;
@@ -488,16 +488,16 @@ draw_console(
 
 #ifdef DEBUG_STATE
     #define DEBUG_WATCH(var) DEBUG_STATE.watch_variable((var), #var)
-    #define DEBUG_ADD_VARIABLE(var) DEBUG_STATE.add_time_variable((var), #var)
-    #define DEBUG_ADD_VARIABLE_(var, time) DEBUG_STATE.add_time_variable((var), #var, (time))
+    #define DEBUG_DIAGRAM(var) DEBUG_STATE.add_time_variable((var), #var)
+    #define DEBUG_DIAGRAM_(var, time) DEBUG_STATE.add_time_variable((var), #var, (time))
     #define DEBUG_SET_FOCUS(point) DEBUG_STATE.focus_point = (point)
     #define DEBUG_SET_FOCUS_DISTANCE(distance) DEBUG_STATE.focus_distance = (distance)
     #define DEBUG_SET_TIMEOUT(time) DEBUG_STATE.timeout = (time)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport) DEBUG_STATE.draw(imgui, proj, view, viewport)
     #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui) DEBUG_STATE.draw_watch_window(imgui)
 #else
-    #define DEBUG_ADD_VARIABLE(var) 
-    #define DEBUG_ADD_VARIABLE(var, time)
+    #define DEBUG_DIAGRAM(var) 
+    #define DEBUG_DIAGRAM(var, time)
     #define DEBUG_SET_FOCUS(point) 
     #define DEBUG_SET_TIMEOUT(timeout)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport)

@@ -17,7 +17,7 @@ layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 } Sporadic;
 
 layout(binding = 1, set = 0, rgba16f) uniform image2D uProbeTexture[2];
-layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[2];
+layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[3];
 
 #define LIGHT_PROBE_BINDING_INDEX 4
 #define LIGHT_PROBE_SET_INDEX 0
@@ -217,8 +217,8 @@ void main() {
 
 
 
-    uint remaining_rays = 128;
-    // uint remaining_rays = 64;
+    // uint remaining_rays = 128;
+    uint remaining_rays = 64;
     uint offset = 0;
 
     uint start_index = probe_ray_start(probe_id, odd_frame);

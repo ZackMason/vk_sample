@@ -101,18 +101,18 @@ namespace zyy {
 
     inline ecs_world_t*
     world_init(arena_t* arena, u64 capacity) {
-        auto* w = arena_alloc_ctor<ecs_world_t>(arena, 1);
+        auto* w = push_struct<ecs_world_t>(arena, 1);
 
         w->capacity = 
         w->components.script_count =
         w->components.transform_count = 
         w->components.static_mesh_count = capacity;
         
-        w->entities = arena_alloc_ctor<entity::scriptable_entity_t>(arena, w->capacity, uid::invalid_id);
-        w->scripts = arena_alloc_ctor<script::entity_script_t*>(arena, w->capacity, nullptr);
-        w->components.scripts = arena_alloc_ctor<script::component_t>(arena, w->capacity);
-        w->components.transforms = arena_alloc_ctor<transform::component_t>(arena, w->capacity);
-        w->components.static_meshes = arena_alloc_ctor<static_mesh::component_t>(arena, w->capacity);
+        w->entities = push_struct<entity::scriptable_entity_t>(arena, w->capacity, uid::invalid_id);
+        w->scripts = push_struct<script::entity_script_t*>(arena, w->capacity, nullptr);
+        w->components.scripts = push_struct<script::component_t>(arena, w->capacity);
+        w->components.transforms = push_struct<transform::component_t>(arena, w->capacity);
+        w->components.static_meshes = push_struct<static_mesh::component_t>(arena, w->capacity);
 
         return w;
     }
@@ -176,7 +176,7 @@ namespace zyy::script {
         template <typename ScriptClass>
         script_ptr create_script(arena_t* arena, zyy::scriptable_entity_t entity) {
             assert(entity.is_valid());
-            return arena_alloc_ctor<ScriptClass>(arena, 1, entity);
+            return push_struct<ScriptClass>(arena, 1, entity);
         }
     };
 };

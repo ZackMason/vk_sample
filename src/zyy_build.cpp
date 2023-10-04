@@ -13,6 +13,9 @@ platform_api_t Platform;
 #include "App/game_state.cpp"
 #include "App/vk_state.cpp"
 
+#include "App/zyy_lightning_effect.cpp"
+#include "App/zyy_weapon_common.cpp"
+
 #if ZYY_INTERNAL
 debug_table_t gs_debug_table;
 size_t gs_main_debug_record_size = __COUNTER__;

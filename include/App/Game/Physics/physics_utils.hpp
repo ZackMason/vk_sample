@@ -76,7 +76,7 @@ private:
         }
 
         arena.top = align16(arena.top);
-        auto* ptr = arena_alloc(&arena, size + sizeof(size_t)*2) + sizeof(size_t)*2;
+        auto* ptr = push_bytes(&arena, size + sizeof(size_t)*2) + sizeof(size_t)*2;
         *get_size(ptr) = size;
         return ptr;
     }
@@ -89,7 +89,7 @@ private:
         if (empty_block) {
             node_pop(block, empty_block);
         } else {
-            block = arena_alloc_ctor<mem_block_t>(&heap_arena);
+            block = push_struct<mem_block_t>(&heap_arena);
         }
         block->data = (std::byte*)ptr;
         block->size = *get_size(block->data); // need to find a way to get size......

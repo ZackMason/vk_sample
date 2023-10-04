@@ -62,11 +62,6 @@ namespace rendering::lighting {
         // u32 backface_count{0};
     };
 
-    // struct probe_ray_result_t {
-    //     v3f radiance;
-    //     f32 depth;
-    //     v3f direction;
-    // };
 
     struct probe_ray_result_t {
         v2u direction_depth;
@@ -98,6 +93,7 @@ namespace rendering::lighting {
 
         gfx::vul::texture_2d_t irradiance_texture;
         gfx::vul::texture_2d_t visibility_texture;
+        gfx::vul::texture_2d_t filter_texture;
     };
 
     v3u index_3d(v3u dim, u32 idx) {
@@ -121,7 +117,17 @@ namespace rendering::lighting {
     constexpr u32 PROBE_VISIBILITY_TOTAL = PROBE_VISIBILITY_DIM + 2 * PROBE_PADDING;
 
     static void
-    init_textures(gfx::vul::state_t& gfx, probe_box_t* probe_box) {
+    init_textures(gfx::vul::state_t& gfx, probe_box_t* probe_box, arena_t* arena = 0) {
+
+        if (probe_box->filter_texture.image == 0) {
+            if (arena) {
+                // gfx.load_texture_sampler(&probe_box->filter_texture, "res/textures/painted_noise.png", arena);
+                gfx.load_texture_sampler(&probe_box->filter_texture, "res/textures/white.png", arena);
+            } else {
+                zyy_warn(__FUNCTION__, "Tried to load ddgi filter but no arena");
+            }
+        }
+
         // probe_box->irradiance_texture.format = VK_FORMAT_A2R10G10B10_UNORM_PACK32;
         const u32 PROBE_MAX_COUNT_SQRT = (u32)std::sqrt(PROBE_MAX_COUNT);
         probe_box->irradiance_texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -143,6 +149,21 @@ namespace rendering::lighting {
         gfx.create_texture(&probe_box->visibility_texture, visibility_width, visibility_height, 4, 0, 0, 2*4);
         gfx.load_texture_sampler(&probe_box->irradiance_texture, true);
         gfx.load_texture_sampler(&probe_box->visibility_texture, true);
+
+        gfx::vul::set_object_name(gfx.device, (u64)probe_box->irradiance_texture.image, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "DDGI Irradiance Image");
+        gfx::vul::set_object_name(gfx.device, (u64)probe_box->irradiance_texture.image_view, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT, "DDGI Irradiance Image View");
+        gfx::vul::set_object_name(gfx.device, (u64)probe_box->irradiance_texture.sampler, VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT, "DDGI Irradiance Sampler"); 
+        gfx::vul::set_object_name(gfx.device, (u64)probe_box->irradiance_texture.vdm,  VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, "DDGI Irradiance Device Memory");
+        
+        gfx::vul::set_object_name(gfx.device, (u64)probe_box->visibility_texture.image, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "DDGI Visibility Image");
+        gfx::vul::set_object_name(gfx.device, (u64)probe_box->visibility_texture.image_view, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT, "DDGI Visibility Image View");
+        gfx::vul::set_object_name(gfx.device, (u64)probe_box->visibility_texture.sampler, VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT, "DDGI Visibility Sampler"); 
+        gfx::vul::set_object_name(gfx.device, (u64)probe_box->visibility_texture.vdm,  VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, "DDGI Visibility Device Memory");
+
+        const umm irradiance_size = irradiance_width * irradiance_height * 2 * sizeof(f32);
+        const umm visibility_size = visibility_width * visibility_height * 2 * sizeof(f32);
+        zyy_info(__FUNCTION__, "Irradiance Texture Size: {}Kb", irradiance_size/kilobytes(1));
+        zyy_info(__FUNCTION__, "Visibility Texture Size: {}Kb", visibility_size/kilobytes(1));
     }
 
     static void 
@@ -159,7 +180,7 @@ namespace rendering::lighting {
         probe_box->settings.dim = probe_count;
         probe_box->aabb.max = probe_box->aabb.min + v3f{probe_count} * step_size;
         const u32 total_probe_count = probe_count.x * probe_count.y * probe_count.z;
-        probe_box->probes = arena?arena_alloc_ctor<probe_t>(arena, total_probe_count):probes?probes:0;
+        probe_box->probes = arena?push_struct<probe_t>(arena, total_probe_count):probes?probes:0;
         probe_box->probe_count = total_probe_count;
         probe_box->settings.aabb_min = probe_box->aabb.min;
         probe_box->settings.aabb_max = probe_box->aabb.max;

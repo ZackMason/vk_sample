@@ -1,6 +1,5 @@
 #pragma once
 
-
 struct dialog_window_t {
     u64 write_pos{0};
     char text_buffer[512];
@@ -11,7 +10,6 @@ struct dialog_window_t {
     v2f size{100.0f};
     b32 done{0};
     b32 open{0};
-
 
     dialog_window_t& set_title(std::string_view title_) {
         title = title_;
@@ -62,6 +60,7 @@ struct dialog_window_t {
             clear();
         }
     }
+
     void into(i32& i) {
         if (done) {
             i = (i32)std::atoi(text_buffer);
@@ -69,9 +68,9 @@ struct dialog_window_t {
         }
     }
 
-    void into(char* t, size_t tsize) {
+    void into(std::span<char> t) {
         if (done) {
-            std::memcpy(t, text_buffer, std::min(tsize, write_pos));
+            utl::copy(t.data(), text_buffer, std::min(t.size(), write_pos));
             clear();
         }
     }
@@ -89,10 +88,10 @@ load_save_particle_dialog(
 
     dialog_box
         .set_title(load?"Load Particle System":"Save Particle System")
-        .set_description("Enter the nameof the file")
+        .set_description("Enter filename")
         .set_position(v2f{400.0f,300.0f})
         .draw(imgui)
-        .into(file, array_count(file));
+        .into(file);
 
     if (!file[0]) {
         return false;
@@ -113,7 +112,7 @@ watch_game_state(game_state_t* game_state) {
     DEBUG_WATCH(time_scale)->max_f32 = 2.0f;
     // auto* window_size = &game_state->game_memory->config.graphics_config.window_size;
     // DEBUG_WATCH(window_size);
-    DEBUG_WATCH(&gs_imgui_state->theme.shadow_distance);
+    DEBUG_WATCH(&game_state->gui.state.theme.shadow_distance);
 
     DEBUG_WATCH(&gs_rtx_on)->max_u32 = 2;
     auto* rtx_super_sample = &game_state->render_system->rt_cache->constants.super_sample;
@@ -207,6 +206,7 @@ draw_gui(game_memory_t* game_memory) {
         &DEBUG_STATE.watch_arena,
 #endif
         &game_state->game_world->arena,
+        &game_state->game_world->particle_arena,
         &game_state->game_world->frame_arena.arena[0],
         &game_state->game_world->frame_arena.arena[1],
         // &game_state->game_world->physics->default_allocator.arena,
@@ -219,6 +219,7 @@ draw_gui(game_memory_t* game_memory) {
         &game_state->gui.indices[!(frame&1)].pool,
         &game_state->render_system->instance_storage_buffer.pool,
         &game_state->render_system->scene_context->entities.pool,
+        &game_state->render_system->job_storage_buffers[(frame&1)].pool,
     };
 
     const char* display_arena_names[] = {
@@ -233,6 +234,7 @@ draw_gui(game_memory_t* game_memory) {
         "- Debug Watch Arena",
 #endif
         "- World Arena",
+        "- World Particle Arena",
         "- World Frame 0",
         "- World Frame 1",
         // "- Physics Arena",
@@ -245,6 +247,7 @@ draw_gui(game_memory_t* game_memory) {
         "- 2D Index",
         "- Instance Buffer",
         "- Entity Buffer",
+        "- Render Job Buffer",
     };
 
     // std::lock_guard lock{game_state->render_system->ticket};
@@ -263,6 +266,24 @@ draw_gui(game_memory_t* game_memory) {
             &game_state->default_font
         );
     }
+    if ((gs_jump_load_time -= dt) > 0.0f) {
+        gfx::gui::string_render(
+            &game_state->gui.ctx, 
+            string_t{}.view("State Reset"),
+            game_state->gui.ctx.screen_size/v2f{2.0f,4.0f} - gfx::font_get_size(&game_state->default_font, "State Reset")/2.0f, 
+            gfx::color::to_color32(v4f{0.80f, .9f, .70f, gs_jump_load_time}),
+            &game_state->default_font
+        );
+    }
+    if ((gs_jump_save_time -= dt) > 0.0f) {
+        gfx::gui::string_render(
+            &game_state->gui.ctx, 
+            string_t{}.view("State Saved"),
+            game_state->gui.ctx.screen_size/v2f{2.0f,4.0f} - gfx::font_get_size(&game_state->default_font, "State Saved")/2.0f, 
+            gfx::color::to_color32(v4f{0.80f, .9f, .70f, gs_jump_save_time}),
+            &game_state->default_font
+        );
+    }
     if (game_state->time_text_anim > 0.0f) {
         gfx::gui::string_render(
             &game_state->gui.ctx, 
@@ -271,23 +292,8 @@ draw_gui(game_memory_t* game_memory) {
         );
     }
 
-    local_persist gfx::gui::im::state_t state{
-        .ctx = game_state->gui.ctx,
-        .theme = gfx::gui::theme_t {
-            .fg_color = gfx::color::rgba::gray,
-            // .bg_color = gfx::color::rgba::purple,
-            .bg_color = gfx::color::rgba::black,
-            // .bg_color = gfx::color::rgba::dark_gray,
-            .text_color = gfx::color::rgba::cream,
-            .disabled_color = gfx::color::rgba::dark_gray,
-            .border_color = gfx::color::rgba::white,
+    auto& state = game_state->gui.state;
 
-            .padding = 4.0f,
-            .margin = 8.0f
-        },
-    };
-
-    gs_imgui_state = &state;
 
 #ifdef DEBUG_STATE 
         DEBUG_STATE_DRAW(state, render_system->projection, render_system->view, render_system->viewport());
@@ -781,15 +787,15 @@ draw_gui(game_memory_t* game_memory) {
             if (is_selected) {
                 selected_entity = e;
                 if (e->gfx.mesh_id) {
-                    gfx::gui::draw_mesh(
-                        &state.ctx,
-                        &game_state->render_system->mesh_cache.get(e->gfx.mesh_id),
-                        &game_state->render_system->scene_context->vertices.pool[0],
-                        &game_state->render_system->scene_context->indices.pool[0],
-                        e->global_transform().to_matrix(),
-                        gfx::color::to_color32(v4f{1.0f, 1.0f, 0.1f, 0.5f})
-                        // gfx::color::rgba::yellow
-                    );
+                    // gfx::gui::draw_mesh(
+                    //     &state.ctx,
+                    //     &game_state->render_system->mesh_cache.get(e->gfx.mesh_id),
+                    //     &game_state->render_system->scene_context->vertices.pool[0],
+                    //     &game_state->render_system->scene_context->indices.pool[0],
+                    //     e->global_transform().to_matrix(),
+                    //     gfx::color::to_color32(v4f{1.0f, 1.0f, 0.1f, 0.5f})
+                    //     // gfx::color::rgba::yellow
+                    // );
                 }
             }
             bool not_player = e != game_state->game_world->player;
@@ -995,6 +1001,50 @@ draw_gui(game_memory_t* game_memory) {
         viewport.images[1] = 2;
         viewport.images[2] = 1;
         viewport.images[3] = 2;
+
+        if constexpr (false) {
+
+        local_persist v2f p0{0.125f};
+        local_persist v2f p1{0.25f};
+        local_persist v2f p2{0.50f};
+        local_persist v2f p3{0.750f};
+        local_persist v2f p4{0.650f};
+        local_persist v2f p5{0.150f};
+        
+        local_persist math::aabb_t<v2f> point_screen{v2f{600.0f,200.0f}, v2f{1100.0f,300.0f}};
+        const math::aabb_t<v2f> screen{v2f{0.0f}, v2f{state.ctx.screen_size}};
+        const math::aabb_t<v2f> prange{v2f{0.0f}, v2f{1.0f}};
+
+        im::point_edit(state, &point_screen.min, screen, screen, gfx::color::rgba::blue);
+        im::point_edit(state, &point_screen.max, screen, screen, gfx::color::rgba::blue);
+        im::point_edit(state, &p0, point_screen, prange, gfx::color::rgba::white);
+        im::derivative_edit(state, p0, &p1, point_screen, prange, gfx::color::rgba::white);
+        im::point_edit(state, &p2, point_screen, prange, gfx::color::rgba::white);
+        im::derivative_edit(state, p2, &p3, point_screen, prange, gfx::color::rgba::white);
+        im::point_edit(state, &p4, point_screen, prange, gfx::color::rgba::white);
+        im::derivative_edit(state, p4, &p5, point_screen, prange, gfx::color::rgba::white);
+
+        gfx::gui::draw_curve(&state.ctx, std::span<v2f,4>{&p0,4}, point_screen, 32, 2.0f, gfx::color::rgba::white);
+        gfx::gui::draw_curve(&state.ctx, std::span<v2f,4>{&p0,4}, point_screen, 32, 6.0f, gfx::color::rgba::yellow);
+
+        gfx::gui::draw_curve(&state.ctx, std::span<v2f,4>{&p2,4}, point_screen, 32, 2.0f, gfx::color::rgba::white);
+        gfx::gui::draw_curve(&state.ctx, std::span<v2f,4>{&p2,4}, point_screen, 32, 6.0f, gfx::color::rgba::yellow);
+
+        gfx::gui::draw_line(&state.ctx, point_screen.sample(p0),point_screen.sample(p0+p1), 2.0f, gfx::color::rgba::white);
+        gfx::gui::draw_line(&state.ctx, point_screen.sample(p2),point_screen.sample(p2+p3), 2.0f, gfx::color::rgba::white);
+        gfx::gui::draw_line(&state.ctx, point_screen.sample(p4),point_screen.sample(p4+p5), 2.0f, gfx::color::rgba::white);
+        gfx::gui::draw_line(&state.ctx, point_screen.sample(p0),point_screen.sample(p0+p1), 6.0f, gfx::color::rgba::black);
+        gfx::gui::draw_line(&state.ctx, point_screen.sample(p2),point_screen.sample(p2+p3), 6.0f, gfx::color::rgba::black);
+        gfx::gui::draw_line(&state.ctx, point_screen.sample(p4),point_screen.sample(p4+p5), 6.0f, gfx::color::rgba::black);
+        // gfx::gui::draw_line(&state.ctx, point_screen.sample(p1),point_screen.sample(p2), 2.0f, gfx::color::rgba::white);
+        // gfx::gui::draw_line(&state.ctx, point_screen.sample(p2),point_screen.sample(p3), 2.0f, gfx::color::rgba::white);
+
+        // gfx::gui::draw_line(&state.ctx, point_screen.sample(p0),point_screen.sample(p1), 6.0f, gfx::color::rgba::black);
+        // gfx::gui::draw_line(&state.ctx, point_screen.sample(p1),point_screen.sample(p2), 6.0f, gfx::color::rgba::black);
+        // gfx::gui::draw_line(&state.ctx, point_screen.sample(p2),point_screen.sample(p3), 6.0f, gfx::color::rgba::black);
+
+        gfx::gui::draw_rect(&state.ctx, point_screen, gfx::color::rgba::gray);
+        }
 
         // viewport.h_split[0] = 0.5f;
         // viewport.v_split[0] = 0.5f;

@@ -96,7 +96,7 @@ create_mesh_descriptor_set(
         }
     };
 
-    std::memcpy(create_info.write_descriptor_sets, write_info.write_descriptor_sets, sizeof(VkWriteDescriptorSet)*5);
+    ::utl::copy(create_info.write_descriptor_sets, write_info.write_descriptor_sets, sizeof(VkWriteDescriptorSet)*5);
 
     u32 copy_count = 0;
     for (size_t i = 0; i < create_info.descriptor_count; i++) {
@@ -111,10 +111,10 @@ create_mesh_pipeline(
     VkRenderPass render_pass, 
     const mesh_pipeline_info_t& pipeline_desc
 ) {
-    pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
+    pipeline_state_t* pipeline = push_struct<pipeline_state_t>(arena, 1);
 
     const auto stack_mark = arena_get_mark(arena); 
-    pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
+    pipeline_state_t::create_info_t* create_info = push_struct<pipeline_state_t::create_info_t>(arena, 1);
 
     create_info->cull_mode = VK_CULL_MODE_BACK_BIT;
 
@@ -159,13 +159,13 @@ create_mesh_pipeline(
 
 pipeline_state_t*
 create_skybox_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
-    pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
+    pipeline_state_t* pipeline = push_struct<pipeline_state_t>(arena, 1);
 
     // pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
-    // pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
+    // pipeline->framebuffers = push_struct<VkFramebuffer>(arena, state->swap_chain_images.size());
 
     const auto stack_mark = arena_get_mark(arena); 
-    pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
+    pipeline_state_t::create_info_t* create_info = push_struct<pipeline_state_t::create_info_t>(arena, 1);
 
     create_info->cull_mode = VK_CULL_MODE_FRONT_BIT;
     create_info->write_depth = false;
@@ -223,13 +223,13 @@ create_skybox_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass)
 
 pipeline_state_t*
 create_gui_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
-    pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
+    pipeline_state_t* pipeline = push_struct<pipeline_state_t>(arena, 1);
 
     // pipeline->framebuffer_count = safe_truncate_u64(state->swap_chain_images.size());
-    // pipeline->framebuffers = arena_alloc_ctor<VkFramebuffer>(arena, state->swap_chain_images.size());
+    // pipeline->framebuffers = push_struct<VkFramebuffer>(arena, state->swap_chain_images.size());
 
     const auto stack_mark = arena_get_mark(arena); 
-    pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
+    pipeline_state_t::create_info_t* create_info = push_struct<pipeline_state_t::create_info_t>(arena, 1);
 
     create_info->vertex_shader = "./res/shaders/bin/gui.vert.spv";
     create_info->fragment_shader = "./res/shaders/bin/gui.frag.spv";
@@ -301,10 +301,10 @@ create_gui_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
 
 pipeline_state_t*
 create_debug_pipeline(arena_t* arena, state_t* state, VkRenderPass render_pass) {
-    pipeline_state_t* pipeline = arena_alloc_ctor<pipeline_state_t>(arena, 1);
+    pipeline_state_t* pipeline = push_struct<pipeline_state_t>(arena, 1);
 
     const auto stack_mark = arena_get_mark(arena); 
-    pipeline_state_t::create_info_t* create_info = arena_alloc_ctor<pipeline_state_t::create_info_t>(arena, 1);
+    pipeline_state_t::create_info_t* create_info = push_struct<pipeline_state_t::create_info_t>(arena, 1);
 
     create_info->topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;    
     create_info->line_width = 1.0f;

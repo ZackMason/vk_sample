@@ -95,7 +95,8 @@ begin_rt_pass(
                     // rs->get_frame_data().dynamic_descriptor_allocator
                 ),
                 &rs->light_probes.irradiance_texture,
-                &rs->light_probes.visibility_texture
+                &rs->light_probes.visibility_texture,
+                &rs->light_probes.filter_texture
             );
         }
     #endif
@@ -152,8 +153,8 @@ begin_rt_pass(
             &hit_shader_sbt_entry,
             &callable_shader_sbt_entry,
             width,
-            128,
-            // 64,
+            //128,
+            64,
             1);
 
 

@@ -234,6 +234,28 @@ struct raycast_result_t {
     const void* user_data{0};
 };
 
+struct sweep_hit_t {
+    const void* user_data{0};
+    v3f point{};
+};
+
+struct sweep_hitbuffer_t {
+    arena_t*        temp_arena{0};
+    sweep_hit_t*    hits{0};
+    u64             hit_count{0};
+};
+
+struct overlap_hit_t {
+    const void* user_data{0};
+    // v3f point{}; // doesnt make sense for overlap
+};
+
+struct overlap_hitbuffer_t {
+    arena_t*        temp_arena{0};
+    overlap_hit_t*  hits{0};
+    u64             hit_count{0};
+};
+
 struct api_t;
 
 // Note(Zack): Functions for the api to
@@ -244,6 +266,7 @@ using create_rigidbody_function = rigidbody_t*(*)(api_t*, void* entity, rigidbod
 using create_collider_function = collider_t*(*)(api_t*, rigidbody_t*, collider_shape_type, void* collider_info);
 using simulate_function = void(*)(api_t*, f32 dt);
 using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd);
+using sphere_overlap_world_function = overlap_hitbuffer_t*(*)(const api_t*, arena_t* arena, v3f o, f32 radius);
 
 using collider_set_trigger_function = void(*)(collider_t*, bool);
 
@@ -278,9 +301,11 @@ struct export_dll api_t {
 
     create_rigidbody_function   create_rigidbody{0};
     create_collider_function    create_collider{0};
-    raycast_world_function      raycast_world{0};
     create_scene_function       create_scene{0};
     destroy_scene_function      destroy_scene{0};
+
+    raycast_world_function          raycast_world{0};
+    sphere_overlap_world_function   sphere_overlap_world{0};
 
     // rigidbody_set_active_function rigidbody_set_active{0};
     collider_set_trigger_function collider_set_trigger{0};

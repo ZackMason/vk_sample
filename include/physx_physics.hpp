@@ -144,7 +144,7 @@ struct physx_backend_t {
 inline static physx_backend_t*
 physx_init_backend(physx_backend_t* pb, arena_t* arena) {
     assert(pb);
-    pb->state = arena_alloc_ctor<physx_state_t>(
+    pb->state = push_struct<physx_state_t>(
         arena, 1,
         *arena, megabytes(512)
     );
@@ -330,7 +330,7 @@ physx_create_rigidbody_impl(
             desc.radius = .5f;
             desc.climbingMode = PxCapsuleClimbingMode::eEASY;
             desc.behaviorCallback = nullptr;
-            desc.reportCallback = arena_alloc<character_hit_report>(api->arena);
+            desc.reportCallback = push_struct<character_hit_report>(api->arena);
             desc.material = ps->state->physics->createMaterial(0.5f, 0.5f, 0.1f);
             auto* controller = ps->world->controller_manager->createController(desc);
             controller->setPosition({position.x, position.y, position.z});
@@ -469,12 +469,12 @@ physx_create_scene(api_t* api, const void* filter = 0) {
     auto* ps = get_physx(api);
     assert(ps->state);
     
-    ps->world = arena_alloc<physics::physics_world_t>(api->arena);
-    // ps->world = arena_alloc<physics::physics_world_t>(api->arena);
+    ps->world = push_struct<physics::physics_world_t>(api->arena);
+    // ps->world = push_struct<physics::physics_world_t>(api->arena);
     if (filter) {
-        physics::physics_world_init(ps->state, ps->world, arena_alloc<rigidbody_event_callback>(api->arena), (physx::PxSimulationFilterShader)filterShader);
+        physics::physics_world_init(ps->state, ps->world, push_struct<rigidbody_event_callback>(api->arena), (physx::PxSimulationFilterShader)filterShader);
     } else {
-        physics::physics_world_init(ps->state, ps->world, arena_alloc<rigidbody_event_callback>(api->arena), filterShader);
+        physics::physics_world_init(ps->state, ps->world, push_struct<rigidbody_event_callback>(api->arena), filterShader);
     }
 
     // ps->world->scene->setSimulationEventCallback(new rigidbody_event_callback);
@@ -507,6 +507,35 @@ physx_create_collider(api_t* api, rigidbody_t* rigidbody, collider_shape_type ty
     
     rigidbody->colliders[rigidbody->collider_count-1].rigidbody = rigidbody;
     return &rigidbody->colliders[rigidbody->collider_count-1];
+}
+
+overlap_hitbuffer_t*
+physx_sphere_overlap_world(const api_t* api, arena_t* arena, v3f o, f32 radius) {
+    TIMED_FUNCTION;
+    auto* ps = get_physx(api);
+    PxSphereGeometry sphere{radius};
+    PxTransform pos{};
+    pos.p = pvec(o);
+    pos.q = {0.0f, 0.0f, 0.0f, 1.0f};
+    const PxU32 hits_size = 512;
+    PxOverlapHit hits[512];
+    PxOverlapBuffer hit(hits, hits_size);
+    // PxOverlapBuffer hit;
+
+    bool status = ps->world->scene->overlap(sphere, pos, hit);
+
+    if (status) {
+        auto* buffer = push_struct<overlap_hitbuffer_t>(arena);
+        range_u32(i, 0, hit.getNbTouches()) {
+            auto* r = push_struct<overlap_hit_t>(arena);
+            r->user_data = hit.getTouch(i).actor->userData;
+            if (buffer->hits==nullptr) buffer->hits = r;
+            buffer->hit_count++;
+        }
+        return buffer;
+    } else {
+        return nullptr;
+    }
 }
 
 raycast_result_t

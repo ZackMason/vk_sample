@@ -11,10 +11,11 @@
 #include "sky.glsl"
 
 
+
 layout(location = 2) rayPayloadInEXT bool shadowed;
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[2];
+layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[3];
 layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];
 
 #define LIGHT_PROBE_SET_INDEX 0
@@ -193,6 +194,10 @@ void main()
     // data.color
     // data.light_solution = light_solution;
 }
+
+
+
+
 
 
 

@@ -85,7 +85,7 @@ inline static particle_cache_t*
 particle_cache_create(
     arena_t* arena
 ) {
-    auto* cache = arena_alloc<particle_cache_t>(arena);
+    auto* cache = push_struct<particle_cache_t>(arena);
     
     return cache;
 }
@@ -283,8 +283,8 @@ particle_system_create(
     arena_t* particle_arena = 0,
     u64 seed = 0
 ) {
-    auto* system = arena_alloc<particle_system_t>(system_arena);
-    system->particles = arena_alloc<particle_t>(particle_arena?particle_arena:system_arena, max_particle_count);
+    auto* system = push_struct<particle_system_t>(system_arena);
+    system->particles = push_struct<particle_t>(particle_arena?particle_arena:system_arena, max_particle_count);
 
     system->max_count = max_particle_count;
     system->live_count = 0;

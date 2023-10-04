@@ -88,7 +88,7 @@ world_generator_add_step(
     world_generation_step_type step_type,
     void(*step_fn)(zyy::world_t*)
 ) {
-    auto* step = arena_alloc<world_generation_step_t>(generator->arena);
+    auto* step = push_struct<world_generation_step_t>(generator->arena);
     step->name = step_name;
     step->type = step_type;
     step->function = step_fn;

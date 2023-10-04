@@ -6,6 +6,7 @@
 
 #include "App/Game/Util/camera.hpp"
 #include "App/Game/Weapons/base_weapon.hpp"
+#include "App/Game/Items/base_item.hpp"
 #include "App/Game/Entity/entity_concept.hpp"
 #include "App/Game/Entity/brain.hpp"
 #include "App/Game/Rendering/particle.hpp"
@@ -59,8 +60,12 @@ struct health_t {
     f32 current{0.0f};
 
     bool damage(f32 x) {
-        current -= x;
-        return current <= 0.0f;
+        if (max > 0.0f) {
+            current -= x;
+            return current <= 0.0f;
+        } else {
+            return false;
+        }
     }
 
     constexpr health_t(f32 v = 0.0f) noexcept
@@ -233,6 +238,7 @@ struct entity_t {
     struct stats_t {
         character_stats_t character{};
         wep::base_weapon_t weapon{};
+        item::effect_t effect{};
     } stats{};
 
     entity_ref_t primary_weapon{0};
@@ -262,7 +268,7 @@ struct entity_t {
     void queue_free() noexcept {
         assert(uid::is_valid(id));
         assert(((flags & EntityFlags_Dead) == 0) && "Should not have access to dead entities");
-        zyy_info(__FUNCTION__, "Killing entity: {} - {}", (void*)this, name.c_str() ? name.c_str() : "<null>");
+        // zyy_info(__FUNCTION__, "Killing entity: {} - {}", (void*)this, name.c_str() ? name.c_str() : "<null>");
         flags |= EntityFlags_Dying;
         
         auto* child = first_child;

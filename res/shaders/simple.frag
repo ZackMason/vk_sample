@@ -8,8 +8,8 @@
 
 
 layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
-layout( set = 4, binding = 1 ) uniform sampler2D uProbeTexture[2];
-layout( set = 4, binding = 1 ) uniform sampler2D uProbeSampler[2];
+// layout( set = 4, binding = 1 ) uniform sampler2D uProbeTexture[3];
+layout( set = 4, binding = 1 ) uniform sampler2D uProbeSampler[3];
 
 #define LIGHT_PROBE_SET_READ_WRITE readonly
 #define LIGHT_PROBE_SET_INDEX 5
@@ -25,7 +25,6 @@ layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 	int		uNumInstances;
 	float 	uTime;
 } Sporadic;
-
 
 struct ObjectData {
 	mat4 model;
@@ -267,12 +266,23 @@ main( )
 
 	if (lit_material > 0) {
 		// rgb = 10.0 * max(NoL, material.ao) * (Fd + Fr * ec * r_env);
-		rgb = Fd + Fr * ec ;
+		// rgb = Fd + Fr * ec ;
+		// rgb = Fd;
+		// rgb += light_solution.indirect.diffuse;
+		// vec3 diffuse = Fd + light_solution.indirect.diffuse;
+		// diffuse = floor(diffuse * 3.0)/3.0;
+		// rgb = diffuse;
+
 	} else {
 		rgb = albedo * material.emission;
 	}
 
 	rgb = vec3(0.0);
+
+	{	// quantize lighting
+		// light_solution.indirect.diffuse = floor(light_solution.indirect.diffuse * 8.0) / 8.0;
+	}
+
 	apply_light(surface, light_solution, rgb);
 
 	rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
@@ -288,6 +298,12 @@ main( )
 
 	fFragColor = vec4( rgb, alpha * alpha * alpha);
 }
+
+
+
+
+
+
 
 
 

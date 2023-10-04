@@ -13,7 +13,7 @@
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0, rgba16f) uniform image2D uProbeTexture[2];
-layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[2];
+layout(binding = 1, set = 0) uniform sampler2D uProbeSampler[3];
 
 layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];
 
@@ -73,7 +73,7 @@ void main()
     uvec3 probe_coord = index_1d(probe_settings.dim, probe_id);
 
     vec3 grid_size = light_probe_grid_size(probe_settings);
-    float grid_max_distance  = max(grid_size.x, max(grid_size.y, grid_size.z)) * 1.5;
+    float grid_max_distance  = max(grid_size.x, max(grid_size.y, grid_size.z)) * 2.0;
 
 	float tmin = 0.0;
 	float tmax = 10000.0;

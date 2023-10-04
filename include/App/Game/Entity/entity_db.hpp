@@ -3,6 +3,20 @@
 #include "App/Game/Entity/entity.hpp"
 #include "App/Game/GUI/debug_state.hpp"
 #include "App/Game/Rendering/particle.hpp"
+#include "App/Game/Items/lightning_effect.hpp"
+#include "App/Game/Items/items_common.hpp"
+
+void co_kill_in_ten(coroutine_t* co, frame_arena_t& frame_arena) {
+    auto* e = (zyy::entity_t*)co->data;
+
+    co_begin(co);
+
+        co_wait(co, 10.0f);
+        e->queue_free();
+
+    co_end(co);
+}
+
 
 namespace zyy::db {
 
@@ -27,7 +41,10 @@ struct prefab_t {
     struct physics_t {
         u32 flags{PhysicsEntityFlags_None};
         physics::rigidbody_on_collision_function on_collision{0};
+        physics::rigidbody_on_collision_function on_collision_end{0};
         physics::rigidbody_on_collision_function on_trigger{0};
+        physics::rigidbody_on_collision_function on_trigger_end{0};
+
 
         struct shape_t {
             physics::collider_shape_type shape{physics::collider_shape_type::NONE};
@@ -48,6 +65,7 @@ struct prefab_t {
     std::optional<physics_t> physics{};
 
     std::optional<particle_system_settings_t> emitter{};
+    std::optional<item::effect_t> effect{};
 
     brain_type brain_type = brain_type::invalid;
 
@@ -60,7 +78,7 @@ struct prefab_t {
     prefab_t& operator=(const prefab_t& o) {
         if (this != &o) {
             puts("Copy entity def");
-            std::memcpy(this, &o, sizeof(*this));
+            utl::copy(this, &o, sizeof(*this));
         }
         return *this;
     }
@@ -81,7 +99,7 @@ load_from_file(arena_t temp_arena, std::string_view path) {
     const size_t size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::byte* data = arena_alloc(&temp_arena, size);
+    std::byte* data = push_bytes(&temp_arena, size);
     file.read((char*)data, size);
     utl::memory_blob_t loader{data};
 
@@ -89,6 +107,8 @@ load_from_file(arena_t temp_arena, std::string_view path) {
 
     return entity;
 }
+
+
 
 #define DB_ENTRY static constexpr prefab_t
 
@@ -222,8 +242,8 @@ void co_platform(coroutine_t* co, frame_arena_t& frame_arena) {
         *start = y_pos;
         *end = math::fcmp(*start, 20.0f) ? 0.0f : 20.0f;
 
-        DEBUG_ADD_VARIABLE(e->physics.rigidbody->position.y);
-        DEBUG_ADD_VARIABLE(v3f(e->physics.rigidbody->position.x, *end, e->physics.rigidbody->position.z));
+        DEBUG_DIAGRAM(e->physics.rigidbody->position.y);
+        DEBUG_DIAGRAM(v3f(e->physics.rigidbody->position.x, *end, e->physics.rigidbody->position.z));
 
         // Platform.audio.play_sound(assets::sounds::unlock.id);
 
@@ -261,17 +281,6 @@ platform_3x3 {
         },
     },
 };
-
-void co_kill_in_ten(coroutine_t* co, frame_arena_t& frame_arena) {
-    auto* e = (zyy::entity_t*)co->data;
-
-    co_begin(co);
-
-        co_wait(co, 10.0f);
-        e->queue_free();
-
-    co_end(co);
-}
 
 DB_ENTRY
 bullet_hole {
@@ -590,6 +599,32 @@ map_01 {
 
 namespace items {
 
+DB_ENTRY
+lightning_powerup {
+    .type = entity_type::item,
+    .type_name = "lightning_powerup",
+    .gfx = {
+        .mesh_name = "res/models/utah-teapot.obj",
+    },
+    .physics = prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .on_trigger = zyy::item::pickup_item,
+        .shapes = {
+            prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .flags = 1,
+                .sphere = {
+                    .radius = 3.0f,
+                },
+            },
+        },
+    },
+    .effect = zyy::item::effect_t {
+        .on_hit_effect = lightning_on_hit_effect,
+    }
+
+};
+
 }; //namespace items
 
 namespace weapons {
@@ -672,6 +707,9 @@ DB_ENTRY
 fire {
     .type = entity_type::environment,
     .type_name = "fire",
+    .gfx = {
+        .mesh_name = "res/models/particles/particle_02.gltf",
+    },
     .emitter = particle_system_settings_t {
         .template_particle = particle_t {
             .position = v3f(0.0),
@@ -680,6 +718,7 @@ fire {
             .scale = 1.0f,
             .velocity = axis::up * 0.10f,
         },
+        .max_count = 64,
         .acceleration = v3f{axis::up*9.81f*0.1f},
         .velocity_random = math::aabb_t<v3f>(planes::xz*-.0050f, v3f(.0050f)),
         .angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f)),
@@ -688,7 +727,62 @@ fire {
         .scale_over_life_time = math::aabb_t<f32>(0.06f, 0.01f),
         .emitter_type = particle_emitter_type::box,
         .box = math::aabb_t<v3f>(v3f(-.10f), v3f(.10f)),
-        
+    },
+};
+
+DB_ENTRY
+sparks {
+    .type = entity_type::environment,
+    .type_name = "sparks",
+    .gfx = {
+        .mesh_name = "res/models/particles/particle_02.gltf",
+    },
+    .coroutine = co_kill_in_ten,
+    .emitter = particle_system_settings_t {
+        .template_particle = particle_t {
+            .position = v3f(0.0),
+            .life_time = 10.50f,
+            .color = v4f{0.4f, 0.3f, 0.9f, 1.0f},
+            .scale = 1.0f,
+            .velocity = axis::up * 0.80f,
+        },
+        .max_count = 32,
+        .acceleration = v3f{axis::up*9.81f*-0.1f},
+        .velocity_random = math::aabb_t<v3f>(planes::xz*-5.50f, v3f(5.50f)),
+        // .angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f)),
+        .stream_rate = 1,
+        .spawn_rate = 0.002f,
+        .scale_over_life_time = math::aabb_t<f32>(0.2f, 0.05f),
+        .emitter_type = particle_emitter_type::box,
+        .box = math::aabb_t<v3f>(v3f(-.10f), v3f(.10f)),
+    },
+};
+
+DB_ENTRY
+beam {
+    .type = entity_type::environment,
+    .type_name = "sparks",
+    .gfx = {
+        .mesh_name = "res/models/particles/particle_02.gltf",
+    },
+    .coroutine = co_kill_in_ten,
+    .emitter = particle_system_settings_t {
+        .template_particle = particle_t {
+            .position = v3f(0.0),
+            .life_time = 10.50f,
+            .color = v4f{0.4f, 0.3f, 0.9f, 1.0f},
+            .scale = 1.0f,
+            .velocity = axis::up * 0.0f,
+        },
+        .max_count = 32,
+        .acceleration = v3f{0.0f},
+        .velocity_random = math::aabb_t<v3f>(planes::xz*-.50f, v3f(.50f)),
+        // .angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f)),
+        .stream_rate = 1,
+        .spawn_rate = 0.002f,
+        .scale_over_life_time = math::aabb_t<f32>(0.1f, 0.025f),
+        .emitter_type = particle_emitter_type::box,
+        .box = math::aabb_t<v3f>(v3f(-.10f), v3f(.10f)),
     },
 };
 

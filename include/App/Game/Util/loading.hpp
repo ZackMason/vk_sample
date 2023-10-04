@@ -25,7 +25,7 @@ load_bin_mesh_data(
 
     results.count = blob.deserialize<u64>();
     zyy_warn(__FUNCTION__, "Loading {} meshes", results.count);
-    results.meshes  = arena_alloc_ctor<gfx::mesh_view_t>(arena, results.count);
+    results.meshes  = push_struct<gfx::mesh_view_t>(arena, results.count);
 
     for (size_t i = 0; i < results.count; i++) {
         std::string name = blob.deserialize<std::string>();
@@ -42,7 +42,7 @@ load_bin_mesh_data(
 
         gfx::vertex_t* v = vertices->allocate(vertex_count);
 
-        std::memcpy(v, blob.read_data(), vertex_bytes);
+        utl::copy(v, blob.read_data(), vertex_bytes);
         blob.advance(vertex_bytes);
 
         const size_t index_count = blob.deserialize<u64>();
@@ -50,7 +50,7 @@ load_bin_mesh_data(
         results.meshes[i].index_count = safe_truncate_u64(index_count);
 
         u32* tris = indices->allocate(index_count);
-        std::memcpy(tris, blob.read_data(), index_bytes);
+        utl::copy(tris, blob.read_data(), index_bytes);
         blob.advance(index_bytes);
 
         new (&results.meshes[i].aabb) math::aabb_t<v3f>();

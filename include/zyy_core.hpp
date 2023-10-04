@@ -898,6 +898,19 @@ memzero(void* buffer, umm size) {
     std::memset(buffer, 0, size);
 }
 
+void*
+copy(void* dst, const void* src, umm size) {
+    return std::memcpy(dst, src, size);
+}
+
+constexpr void*
+ccopy(void* dst, const void* src, umm size) {
+    for (umm i = 0; i < size; i++) {
+        *(char*)dst = *((char*)src + i);
+    }
+    return dst;
+}
+
 }; // namespace utl
 
 
@@ -906,6 +919,7 @@ arena_create(void* p, size_t bytes) noexcept {
     arena_t arena;
     arena.start = (std::byte*)p;
     arena.size = bytes;
+    arena.top = 0;
     return arena;
 }
 
@@ -931,10 +945,12 @@ arena_clear(arena_t* arena) {
 
 inline void
 arena_begin_sweep(arena_t* arena) {
-    arena->top = 0;
+    arena_clear(arena);
 }
 
 inline void arena_sweep_keep(arena_t* arena, std::byte* one_past_end) {
+    assert(one_past_end > arena->start);
+    assert(arena->start + arena->size > one_past_end);
     umm size = one_past_end - arena->start;
     arena->top = std::max(size, arena->top);
 }
@@ -953,33 +969,9 @@ arena_get_top(arena_t* arena) {
     (arena)->size > gigabytes(1) ? "Gb" : (arena)->size > megabytes(1) ? "Mb" : (arena)->size > kilobytes(1) ? "Kb" : "B",\
     ((f64((arena)->top) / f64((arena)->size)) * 100.0)))
     
-template <typename T>
-inline T*
-arena_alloc(arena_t* arena) {
-    std::byte* p_start = arena->start + arena->top;
-    arena->top += sizeof(T);
-
-    new (p_start) T();
-
-    assert(arena->top <= arena->size && "Arena overflow");
-
-    return (T*)p_start;
-}
-
-template <typename T>
-inline T*
-arena_alloc(arena_t* arena, size_t count) {
-    T* first = arena_alloc<T>(arena);
-
-    for(size_t i = 1; i < count; i++) {
-        arena_alloc<T>(arena);
-    }
-
-    return first;
-}
 
 inline std::byte*
-arena_alloc(arena_t* arena, size_t bytes) {
+push_bytes(arena_t* arena, size_t bytes) {
     std::byte* p_start = arena->start + arena->top;
     arena->top += bytes;
 
@@ -990,8 +982,8 @@ arena_alloc(arena_t* arena, size_t bytes) {
 
 template <typename T>
 inline T*
-arena_alloc_ctor(arena_t* arena, size_t count = 1) {
-    T* t = reinterpret_cast<T*>(arena_alloc(arena, sizeof(T) * count));
+push_struct(arena_t* arena, size_t count = 1) {
+    T* t = reinterpret_cast<T*>(push_bytes(arena, sizeof(T) * count));
     for (size_t i = 0; i < count; i++) {
         new (t + i) T();
     }
@@ -1000,17 +992,8 @@ arena_alloc_ctor(arena_t* arena, size_t count = 1) {
 
 template <typename T, typename ... Args>
 inline T*
-arena_alloc_ctor(arena_t* arena, size_t count, Args&& ... args) {
-    T* t = reinterpret_cast<T*>(arena_alloc(arena, sizeof(T) * count));
-    for (size_t i = 0; i < count; i++) {
-        new (t + i) T(std::forward<Args>(args)...);
-    }
-    return t;
-}
-
-template <typename T, typename ... Args>
-T* arena_emplace(arena_t* arena, size_t count, Args&& ... args) {
-    T* t = reinterpret_cast<T*>(arena_alloc(arena, sizeof(T) * count));
+push_struct(arena_t* arena, size_t count, Args&& ... args) {
+    T* t = reinterpret_cast<T*>(push_bytes(arena, sizeof(T) * count));
     for (size_t i = 0; i < count; i++) {
         new (t + i) T(std::forward<Args>(args)...);
     }
@@ -1020,7 +1003,7 @@ T* arena_emplace(arena_t* arena, size_t count, Args&& ... args) {
 arena_t 
 arena_sub_arena(arena_t* arena, size_t size) {
     arena_t res;
-    res.start = arena_alloc(arena, size);
+    res.start = push_bytes(arena, size);
     res.size = size;
     res.top = 0;
     return res;
@@ -1032,18 +1015,20 @@ arena_create_frame_arena(
     size_t bytes
 ) {
     frame_arena_t frame;
-    frame.arena[0].start = arena_alloc(arena, bytes);
-    frame.arena[1].start = arena_alloc(arena, bytes);
+    frame.arena[0].start = push_bytes(arena, bytes);
+    frame.arena[1].start = push_bytes(arena, bytes);
     frame.arena[0].size = bytes;
     frame.arena[1].size = bytes;
+    frame.arena[0].top = 0;
+    frame.arena[1].top = 0;
     return frame;
 }
 
 arena_t* co_stack(coroutine_t* coro, frame_arena_t& frame_arena) {
     // if (coro->running == false) return 0;
     if (coro->stack) {
-        auto* stack = (u8*)arena_alloc(&frame_arena.get(), coro->stack_size);
-        std::memcpy(stack, coro->stack, coro->stack_size);
+        auto* stack = (u8*)push_bytes(&frame_arena.get(), coro->stack_size);
+        utl::copy(stack, coro->stack, coro->stack_size);
         coro->stack = stack;
         coro->stack_size = coro->stack_top = 0;
         return 0;
@@ -1061,7 +1046,7 @@ T* co_push_stack_(coroutine_t* coro, arena_t* arena, umm count = 1) {
     T* data = (T*)(coro->stack + coro->stack_top);
     coro->stack_top += sizeof(T) * count;
     coro->stack_size += sizeof(T) * count;
-    if (arena) { arena_alloc<T>(arena, count); }
+    if (arena) { push_struct<T>(arena, count); }
     return data;
 }
 
@@ -1271,7 +1256,7 @@ struct pool_t : public arena_t {
     }
 
     T* allocate(size_t p_count) {
-        return (T*)arena_alloc(this, sizeof(T) * p_count);
+        return (T*)push_bytes(this, sizeof(T) * p_count);
     }
 
     void free(T* ptr) {
@@ -1340,8 +1325,8 @@ struct string_t {
     
     string_t& own(arena_t* arena, std::string_view str) {
         size = str.size();
-        data = (char*)arena_alloc(arena, size+1);
-        std::memcpy(data, str.data(), size);
+        data = (char*)push_bytes(arena, size+1);
+        utl::copy(data, str.data(), size);
         data[size] = 0;
         owns = true;
         return *this;
@@ -1430,26 +1415,26 @@ namespace reflect {
 
         template<typename Obj, typename Value>
         void set_value(Obj& obj, Value v) const noexcept {
-            std::memcpy((std::byte*)&obj + offset, &v, sizeof(Value));
+            utl::copy((std::byte*)&obj + offset, &v, sizeof(Value));
         }
         
         template<typename Value>
         void set_value_raw(std::byte* obj, Value v) const noexcept {
-            std::memcpy(obj + offset, &v, sizeof(Value));
+            utl::copy(obj + offset, &v, sizeof(Value));
         }
 
         
         // read value from obj into memory
         object_t get_value_raw(std::byte* obj, std::byte* memory) const noexcept {
             object_t var{type, memory};
-            std::memcpy(var.data, obj + offset, size);
+            utl::copy(var.data, obj + offset, size);
             return var;
         }
 
         template<typename Obj>
         object_t get_value(Obj& obj, std::byte* memory) const noexcept {
             object_t var{type, memory};
-            std::memcpy(var.data, ((std::byte*)&obj + offset), size);
+            utl::copy(var.data, ((std::byte*)&obj + offset), size);
             return var;
         }
     };
@@ -1666,6 +1651,11 @@ namespace swizzle {
 };
 
 namespace math {
+    template <typename SamplerType>
+    concept CSampler = requires(SamplerType sampler, f32 t) {
+        { sampler.sample(t) } -> std::same_as<typename SamplerType::type>;
+    };
+
     constexpr v2f from_polar(f32 angle, f32 radius = 1.0f) noexcept {
         return v2f{glm::cos(angle), glm::sin(angle)} * radius;
     }
@@ -1750,6 +1740,56 @@ namespace math {
         return p * 360.0f;
     }
 
+    // TODO(Zack) add bspline for camera
+    
+    template<typename T>
+    T hermite(float t, const T& p1, const T& s1, const T& p2, const T& s2) noexcept {
+        return 
+            p1 * ((1.0f + 2.0f * t) * ((1.0f - t) * (1.0f - t))) +
+            s1 * (t * ((1.0f - t) * (1.0f - t))) +
+            p2 * ((t * t) * (3.0f - 2.0f * t)) +
+            s2 * ((t * t) * (t - 1.0f));
+    }
+
+    struct curve_t {
+        struct point_t {
+            v2f position{};
+            f32 left_tangent{0.0f};
+            f32 right_tangent{0.0f};
+        };
+
+        umm count{0};
+        std::array<point_t, 16> points{};
+    };
+
+    struct cat_curve_t {
+        using type = v2f;
+        std::array<type,4> p{};
+
+        f32 get_t(f32 t, f32 alpha, auto p0, auto p1) {
+            auto d = p1-p0;
+            float a = glm::dot(d,d);
+            float b = glm::pow(a, 0.5f*alpha);
+            return b+t;
+        }
+
+        type sample(f32 t, f32 alpha = 0.5f) {
+            float t0=0.0f;
+            float t1=get_t(t0,alpha,p[0],p[1]);
+            float t2=get_t(t1,alpha,p[1],p[2]);
+            float t3=get_t(t2,alpha,p[2],p[3]);
+            t=glm::mix(t1,t2,t);
+            auto A1 = (t1-t)/(t1-t0)*p[0]+(t-t0)/(t1-t0)*p[1];
+            auto A2 = (t2-t)/(t2-t1)*p[1]+(t-t1)/(t2-t1)*p[2];
+            auto A3 = (t3-t)/(t3-t2)*p[2]+(t-t2)/(t3-t2)*p[3];
+            auto B1 = (t2-t)/(t2-t0)*A1+(t-t0)/(t2-t0)*A2;
+            auto B2 = (t3-t)/(t3-t1)*A2+(t-t1)/(t3-t1)*A3;
+            auto C  = (t2-t)/(t2-t1)*B1+(t-t1)/(t2-t1)*B2;
+            return C;
+        }
+
+    };
+
     struct triangle_t {
         std::array<v3f,3> p;
 
@@ -1793,6 +1833,10 @@ namespace math {
     struct circle_t {
         v2f origin{0.0f};
         f32 radius{0.0f};
+
+        bool contains(v2f p) {
+            return glm::distance2(origin, p) < radius * radius;
+        }
     };
 
     
@@ -1910,8 +1954,8 @@ struct aabb_t {
     T center() const {
         return (max+min)/2.0f;
     }
-
-    T sample(f32 a) const {
+    
+    T sample(T a) const {
         return size() * a + min;
     }
 
@@ -2360,7 +2404,7 @@ struct material_info_t {
     material_info_t& operator=(const material_info_t& o) {
         if (this == &o) { return *this; }
         
-        std::memcpy(this, &o, sizeof(material_info_t));
+        utl::copy(this, &o, sizeof(material_info_t));
 
         return *this;
     }
@@ -2415,7 +2459,7 @@ struct mesh_builder_t {
     build(arena_t* arena) {
         gfx::mesh_list_t m;
         m.count = 1;
-        m.meshes = arena_alloc_ctor<gfx::mesh_view_t>(arena, 1);
+        m.meshes = push_struct<gfx::mesh_view_t>(arena, 1);
         m.meshes[0].vertex_start = vertex_start;
         m.meshes[0].vertex_count = vertex_count;
         m.meshes[0].index_start = index_start;
@@ -3086,6 +3130,31 @@ namespace gui {
         i[5] = v_start + 3;
     }
 
+    void
+    draw_curve(
+        ctx_t* ctx,
+        std::span<v2f,4> p, 
+        math::aabb_t<v2f> rect,
+        u32 res,
+        f32 line_width,
+        u32 color
+    ) {
+        math::cat_curve_t c;
+        c.p[0] = p[0];
+        c.p[1] = p[1];
+        c.p[2] = p[2];
+        c.p[3] = p[3];
+        for (u32 i = 0; i < res-1; i++) {
+            f32 t0 = f32(i)/f32(res-1);
+            f32 t1 = f32(i+1)/f32(res-1);
+            auto p0 = math::hermite(t0, p[0], p[1], p[2], p[3]) * rect.size() + rect.min;
+            auto p1 = math::hermite(t1, p[0], p[1], p[2], p[3]) * rect.size() + rect.min;
+            // auto p0 = c.sample(t0) * rect.size() + rect.min;
+            // auto p1 = c.sample(t1) * rect.size() + rect.min;
+            draw_line(ctx, p0, p1, line_width, color);
+        }
+    }
+
     inline void 
     draw_arc(
         ctx_t* ctx,
@@ -3415,10 +3484,18 @@ namespace gui {
 
             bool next_same_line{false};
             v2f saved_cursor;
+
+            f32 time() const {
+                return ctx.input->time;
+            }
+
+            f32 anim(f32 s = 1.0f) const {
+                return cosf(time()*s)*0.5f+0.5f;
+            }
         };
 
         widget_t* new_widget(state_t& imgui, sid_t id) {
-            auto* w = arena_alloc_ctor<widget_t>(&imgui.arena, 1);
+            auto* w = push_struct<widget_t>(&imgui.arena, 1);
             w->id = id;
 
             return w;
@@ -3437,12 +3514,8 @@ namespace gui {
         inline void
         clear(state_t& imgui) {
             range_u64(i, 0, array_count(imgui.panels)) {
-                // imgui.panels[i] = {};
                 imgui.panels[i].draw_cursor = v2f{0.0f};
-                // imgui.panels[i].max = imgui.panels[i].min;
             }
-            // imgui.panel->draw_cursor = v2f{0.0f};
-            // imgui.active = 0;
         }
 
         inline void
@@ -3765,6 +3838,71 @@ namespace gui {
                     imgui.gizmo_axis_wdir = v3f{0.0f};
                 }
             }
+        }
+
+        inline void
+        point_edit(
+            state_t& imgui,
+            v2f* point, 
+            math::aabb_t<v2f> rect, // where on screen to draw
+            math::aabb_t<v2f> range,
+            color32 color,
+            color32 outline_color = gfx::color::rgba::black,
+            f32 radius = 8.0f
+        ) {
+            const u64 pnt_id = (u64)point;
+
+            const auto t = (*point - range.min) / range.size();
+            
+            math::circle_t circle;
+            circle.origin = t * rect.size() + rect.min;
+            circle.radius = radius;
+
+            color = imgui.hot.id == pnt_id ? gfx::color::to_color32(glm::mix(
+                gfx::color::to_color3(imgui.theme.active_color), 
+                gfx::color::to_color3(color), 
+                imgui.anim(5.0f))) : color;
+
+            draw_circle(imgui, circle.origin, circle.radius - 2.0f, color);
+            draw_circle(imgui, circle.origin, circle.radius, outline_color);
+
+            auto [x,y] = imgui.ctx.input->mouse.pos;
+
+            if (imgui.active.id == pnt_id) {
+                if (imgui.hot.id == pnt_id) {
+                    const auto mt = (v2f{x,y} - rect.min)/rect.size();
+                    *point = mt * range.size() + range.min;
+                }
+                if (!imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = 0;
+                }
+            } else if (imgui.hot.id == pnt_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = pnt_id;
+                }
+            }
+
+            if (circle.contains(v2f{x,y})) {
+                imgui.hot = pnt_id;
+            } else if (imgui.hot.id == pnt_id && imgui.ctx.input->mouse.buttons[0] == false) {
+                imgui.hot.id = 0;
+            }
+        }
+
+        inline void
+        derivative_edit(
+            state_t& imgui,
+            v2f point,
+            v2f* derivative, 
+            math::aabb_t<v2f> rect, // where on screen to draw
+            math::aabb_t<v2f> range,
+            color32 color,
+            color32 outline_color = gfx::color::rgba::black,
+            f32 radius = 8.0f
+        ) {
+            *derivative = point+*derivative;
+            point_edit(imgui, derivative, rect, range, color, outline_color, radius);
+            *derivative = *derivative-point;
         }
 
         inline void
@@ -4126,7 +4264,7 @@ namespace gui {
             }
 
             const auto t = fmt_str("{}", *val);
-            std::memcpy(text_buffer, t.data(), t.size());
+            utl::copy(text_buffer, t.data(), t.size());
 
             text_edit(imgui, text_buffer, &write, "float_edit"_sid);
             
@@ -4337,10 +4475,10 @@ font_load(
 {
     font->size = size;
 
-    font->bitmap = (u8*)arena_alloc(arena, font->pixel_count*font->pixel_count);
+    font->bitmap = (u8*)push_bytes(arena, font->pixel_count*font->pixel_count);
     size_t stack_mark = arena_get_mark(arena);
 
-        font->ttf_buffer = (u8*)arena_alloc(arena, 1<<20);
+        font->ttf_buffer = (u8*)push_bytes(arena, 1<<20);
         
         FILE* file;
         fopen_s(&file, path.data(), "rb");
@@ -4667,6 +4805,34 @@ struct xor32_random_t {
     }
 };
 
+struct pcg_random_t {
+    uint64_t state;
+    constexpr static uint32_t max = std::numeric_limits<uint32_t>::max();
+    constexpr static u64 mult = 6364136223846793005ui64;
+    constexpr static u64 incr = 1442695040888963407ui64;
+
+    u32 rotr32(u32 x, u32 r) {
+        return x>>r|x<<(-(i32)r&31);
+    }
+
+    void randomize() {
+        constexpr u64 comp_time_entropy = sid(__TIME__) ^ sid(__DATE__);
+        const u64 this_entropy = utl::rng::fnv_hash_u64((std::uintptr_t)this);
+        const u64 pid_entropy = utl::rng::fnv_hash_u64(RAND_GETPID);
+    
+        state = static_cast<uint32_t>(time(0)) ^ (u32)(comp_time_entropy ^ this_entropy ^ pid_entropy);
+        state = (u32)utl::rng::fnv_hash_u64(state);
+    };
+
+    uint32_t rand() {
+        u64 x = state;
+        u32 count = (u32)(x>>59);
+        state = x * mult + incr;
+        x^=x>>18;
+        return rotr32((u32)(x>>27), count);
+    }
+};
+
 template <typename Generator>
 struct random_t {
     Generator rng;
@@ -4746,7 +4912,7 @@ struct random_t {
 };
 
 struct random_s {
-    inline static random_t<xor64_random_t> state{0};
+    inline static random_t<pcg_random_t> state{0};
 
     template <typename T>
     static auto choice(const T& indexable) -> const typename T::value_type& {
@@ -4766,7 +4932,7 @@ struct random_s {
     static float randf() {
         return state.randf();
     }
-    static uint64_t rand() {
+    static u32 rand() {
         return state.rand();
     }
     // random normal
@@ -4836,6 +5002,31 @@ f32 fbm(v2f uv) {
 
 
 };
+
+template <typename Key, typename Value>
+struct hash_trie_t {
+    hash_trie_t<Key, Value>* child[4]={};
+    Key key={};
+    Value value={};
+
+};
+template <typename Key, typename Value>
+Value* hash_trie_get_insert(hash_trie_t<Key,Value>** map, Key key, arena_t* arena=0) {
+    for (u64 h = std::hash<Key>{}(key); *map; h>>=2) {
+        if (key == (*map)->key) {
+            return &(*map)->value;
+        }
+        map = &(*map)->child[h>>62];
+    }
+    if (!arena) {
+        return 0;
+    }
+    *map = push_struct<hash_trie_t<Key, Value>>(arena);
+    **map = {};
+    (*map)->key = key;
+    return &(*map)->value;
+}
+
 
 // todo(zack): add way to make different sized ones
 static constexpr u64 hash_size = 0xffff;
@@ -5080,7 +5271,7 @@ struct free_list_t {
             free_count -= 1;
             return node;
         } else {
-            T* node = (T*)arena_alloc(arena, sizeof(T));
+            T* node = (T*)push_bytes(arena, sizeof(T));
             new (node) T();
             
             deque.push_back(node);
@@ -5223,7 +5414,7 @@ struct offset_array_t {
 
     offset_array_t() = default;
     explicit offset_array_t(arena_t* arena, size_t p_count) 
-        : data{arena_alloc_ctor<T>(arena, p_count)}, count{p_count}
+        : data{push_struct<T>(arena, p_count)}, count{p_count}
     {
     }
 
@@ -5311,9 +5502,9 @@ struct memory_blob_t {
     template <typename T>
     void serialize(arena_t* arena, const T& obj) {
         // note(zack): probably dont need to actually pass in arena, but it is safer(?) and more clear
-        arena_alloc(arena, sizeof(T));
+        push_bytes(arena, sizeof(T));
 
-        std::memcpy(&data[serialize_offset], (std::byte*)&obj, sizeof(T));
+        utl::copy(&data[serialize_offset], (std::byte*)&obj, sizeof(T));
 
         allocate<T>();
         serialize_offset += sizeof(T);
@@ -5340,9 +5531,9 @@ struct memory_blob_t {
         // note(zack): probably dont need to actually pass in arena, but it is safer(?) and more clear
         serialize(arena, obj.size());
 
-        arena_alloc(arena, obj.size());
+        push_bytes(arena, obj.size());
 
-        std::memcpy(&data[serialize_offset], (std::byte*)obj.data(), obj.size());
+        utl::copy(&data[serialize_offset], (std::byte*)obj.data(), obj.size());
 
         allocate(obj.size());
         serialize_offset += obj.size();
@@ -5408,7 +5599,7 @@ struct memory_blob_t {
         // return *(T*)(data+t_offset);
 
         T t;
-        std::memcpy(&t, (T*)(data + t_offset), sizeof(T));
+        utl::copy(&t, (T*)(data + t_offset), sizeof(T));
 
         return t;
         // return std::bit_cast<T>(*(T*)(data + t_offset));
@@ -5516,7 +5707,7 @@ load_pack_file(
     assert(meta == magic::meta);
     assert(vers == magic::vers);
 
-    pack_file_t* packed_file = arena_alloc_ctor<pack_file_t>(arena, 1);
+    pack_file_t* packed_file = push_struct<pack_file_t>(arena, 1);
 
     packed_file->file_count = loader.deserialize<u64>();
     packed_file->resource_size = loader.deserialize<u64>();
@@ -5525,7 +5716,7 @@ load_pack_file(
     assert(table_start == magic::table_start);
 
     // need to load strings into string_t
-    packed_file->table = arena_alloc_ctor<resource_table_entry_t>(arena, packed_file->file_count);
+    packed_file->table = push_struct<resource_table_entry_t>(arena, packed_file->file_count);
     size_t table_size = sizeof(resource_table_entry_t) * packed_file->file_count;
     loader.deserialize<u64>();
     for (size_t i = 0; i < packed_file->file_count; i++) {
@@ -5536,12 +5727,12 @@ load_pack_file(
         entry->size = loader.deserialize<u64>();
     }
     
-    packed_file->resources = arena_alloc_ctor<resource_t>(arena, packed_file->file_count);
+    packed_file->resources = push_struct<resource_t>(arena, packed_file->file_count);
     loader.deserialize<u64>();
     for (size_t i = 0; i < packed_file->file_count; i++) {
         size_t resource_size = packed_file->resources[i].size = loader.deserialize<u64>();
-        packed_file->resources[i].data = arena_alloc(arena, packed_file->resources[i].size);
-        std::memcpy(packed_file->resources[i].data, loader.read_data(), resource_size);
+        packed_file->resources[i].data = push_bytes(arena, packed_file->resources[i].size);
+        utl::copy(packed_file->resources[i].data, loader.read_data(), resource_size);
         loader.advance(resource_size);
     }
 
@@ -5616,13 +5807,13 @@ struct config_t {
     void set_name(auto x) {
         auto v=fmt::format("{}", x);
         assert(v.size() < array_count(name));
-        std::memcpy(name, v.data(), v.size());
+        utl::copy(name, v.data(), v.size());
     }
 
     void set(auto x) {
         auto v=fmt::format("{}", x);
         assert(v.size() < array_count(value));
-        std::memcpy(value, v.data(), v.size());
+        utl::copy(value, v.data(), v.size());
     }
 
     f32 as_float() const {
@@ -5681,14 +5872,14 @@ read_config(
             assert(name.size() < array_count(c->name));
             assert(value.size() < array_count(c->value));
 
-            c = arena_alloc<config_t>(arena);
+            c = push_struct<config_t>(arena);
             *config = *config?*config:c;
             
             utl::memzero(c, sizeof(config_t));
 
             zyy_info(__FUNCTION__, "{}: {}", name, value);            
-            std::memcpy(c->name, name.data(), name.size());
-            std::memcpy(c->value, value.data(), value.size());
+            utl::copy(c->name, name.data(), name.size());
+            utl::copy(c->value, value.data(), value.size());
             *count += 1;
         } else {
             success = false;
