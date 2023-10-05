@@ -357,10 +357,17 @@ namespace zyy {
         world->physics = phys_api;
         phys_api->user_world = world;
         
-        world->arena = arena_sub_arena(arena, megabytes(256));
-        world->particle_arena = arena_sub_arena(arena, megabytes(32));
+        // world->arena = arena_sub_arena(arena, megabytes(256));
+        // world->particle_arena = arena_sub_arena(arena, megabytes(32));
+        // world->particle_arena = arena_create(megabytes(32));
 
-        constexpr umm frame_arena_size = megabytes(64);
+        world->arena = arena_create(megabytes(64));
+        world->particle_arena = arena_create(megabytes(8));
+        // world->frame_arena = {};
+        // world->frame_arena.arena[0] = arena_create(megabytes(1));
+        // world->frame_arena.arena[1] = arena_create(megabytes(1));
+
+        constexpr umm frame_arena_size = megabytes(4);
         world->frame_arena.arena[0] = arena_sub_arena(&world->arena, frame_arena_size);
         world->frame_arena.arena[1] = arena_sub_arena(&world->arena, frame_arena_size);
 

@@ -265,7 +265,7 @@ entity_editor_render(entity_editor_t* ee) {
             im::same_line(imgui);
             if (im::text(imgui, "Accept"sv)) {
                 if (show_load) {
-                    ee->entity = zyy::db::load_from_file(game_state->main_arena, fmt_sv("./res/entity/{}", file_view));
+                    ee->entity = zyy::db::load_from_file(&game_state->main_arena, fmt_sv("./res/entity/{}", file_view));
                 } else { // show_save
                     std::ofstream file{fmt_str("./res/entity/{}", file_view), std::ios::binary};
                     file.write((const char*)&ee->entity, sizeof(zyy::db::prefab_t));

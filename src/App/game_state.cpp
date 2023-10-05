@@ -186,8 +186,9 @@ app_init_graphics(game_memory_t* game_memory) {
 
     gfx::vul::state_t& vk_gfx = game_state->gfx;
     {
-        temp_arena_t t = game_state->main_arena;
-        game_state->gfx.init(&game_memory->config, &t);
+        auto memory = begin_temporary_memory(&game_state->main_arena);
+        game_state->gfx.init(&game_memory->config, memory.arena);
+        end_temporary_memory(memory);
     }
     // make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.3f}, v3f{0.6f}, 2.0f);
     // texture_add_border(&vk_gfx.null_texture, v3f{0.9f}, 4);
@@ -615,8 +616,8 @@ app_on_init(game_memory_t* game_memory) {
 
     assets::sounds::load();
     game_state->debug_state = push_struct<debug_state_t>(main_arena, 1, game_memory->input.time);
-    game_state->debug_state->arena = arena_sub_arena(main_arena, megabytes(8));
-    game_state->debug_state->watch_arena = arena_sub_arena(main_arena, megabytes(8));
+    game_state->debug_state->arena = arena_create();
+    game_state->debug_state->watch_arena = arena_create(megabytes(4));
 
 
     gs_debug_state = game_state->debug_state;    
@@ -1009,7 +1010,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
 
     arena_begin_sweep(&world->render_system()->instance_storage_buffer.pool);
-    arena_begin_sweep(&world->particle_arena);
+    // arena_begin_sweep(&world->particle_arena);
 
     for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
         auto* e = game_state->game_world->entities + i;
@@ -1034,7 +1035,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
         if (e->gfx.particle_system) {
             auto* ps = e->gfx.particle_system;
-            arena_sweep_keep(&world->particle_arena, (std::byte*)(ps->particles + ps->max_count));
+            // arena_sweep_keep(&world->particle_arena, (std::byte*)(ps->particles + ps->max_count));
             particle_system_update(e->gfx.particle_system, e->global_transform(), dt);
             particle_system_build_matrices(
                 e->gfx.particle_system, 

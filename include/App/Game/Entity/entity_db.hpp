@@ -85,7 +85,7 @@ struct prefab_t {
 };
 
 inline static prefab_t 
-load_from_file(arena_t temp_arena, std::string_view path) {
+load_from_file(arena_t* arena, std::string_view path) {
     prefab_t entity;
 
     std::ifstream file{path.data(), std::ios::binary};
@@ -99,11 +99,20 @@ load_from_file(arena_t temp_arena, std::string_view path) {
     const size_t size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::byte* data = push_bytes(&temp_arena, size);
+    // we might not just be reading from the file 
+    // so we use arena to read the whole file
+    // and go through serialization
+
+    auto temp = begin_temporary_memory(arena);
+
+    std::byte* data = push_bytes(temp.arena, size);
     file.read((char*)data, size);
+    
     utl::memory_blob_t loader{data};
 
     entity = loader.deserialize<prefab_t>();
+
+    end_temporary_memory(temp);
 
     return entity;
 }

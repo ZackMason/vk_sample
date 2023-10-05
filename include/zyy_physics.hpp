@@ -8,6 +8,9 @@
 #define PHYSICS_MAX_COLLIDER_COUNT 256
 #define PHYSICS_MAX_CHARACTER_COUNT 512
 
+struct platform_api_t;
+
+
 namespace physics {
 
 struct api_t;
@@ -284,7 +287,9 @@ using rigidbody_set_ccd_function = void(*)(rigidbody_t*, bool);
 using rigidbody_set_mass_function = void(*)(rigidbody_t*, f32);
 using rigidbody_set_collision_flags_function = void(*)(rigidbody_t*);
 
+
 struct export_dll api_t {
+    platform_api_t* Platform{0};
     backend_type type;
     void*        backend{nullptr};
 

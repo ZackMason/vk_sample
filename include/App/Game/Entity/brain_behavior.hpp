@@ -102,10 +102,9 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     if (pc.fire1 && player->primary_weapon.entity 
         // && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false
     ) {
-
-        temp_arena_t fire_arena = world->frame_arena.get();
+        auto fire_arena = begin_temporary_memory(&world->frame_arena.get());
         u64 fired{0};
-        auto* bullets = player->primary_weapon.entity->stats.weapon.fire(&fire_arena, dt, &fired);
+        auto* bullets = player->primary_weapon.entity->stats.weapon.fire(fire_arena.arena, dt, &fired);
 
         range_u64(bullet, 0, fired) {
             auto ro = player->camera_controller.transform.origin + forward * 1.7f;
@@ -159,6 +158,8 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
             );
             b->stats.effect = player->primary_weapon.entity->stats.effect;
         }
+
+        end_temporary_memory(fire_arena);
     }
 }
 

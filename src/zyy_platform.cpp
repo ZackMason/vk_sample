@@ -38,12 +38,52 @@ struct access_violation_exception : public std::exception {
     }
 };
 
-void win32_free(void* ptr){
-    VirtualFree(ptr, 0, MEM_RELEASE);
+constexpr umm OVERFLOW_PAD_SIZE = 8*5;//1024<<0;
+
+struct win32_memory_block_t {
+    win32_memory_block_t* next{0};
+    win32_memory_block_t* prev{0};
+    // void* start;
+    size_t size{0};
+
+    u8 pad[OVERFLOW_PAD_SIZE] = {};
+};
+
+static_assert(sizeof(win32_memory_block_t) == 64);
+
+global_variable win32_memory_block_t allocated_blocks;
+global_variable std::mutex allocation_ticket{};
+
+void win32_free(void* ptr) {
+    auto* free_block = (win32_memory_block_t*)((u8*)ptr - sizeof(win32_memory_block_t));
+
+    {
+        std::lock_guard lock{allocation_ticket};
+        dlist_remove(free_block);
+    }
+    auto result = VirtualFree(free_block, 0, MEM_RELEASE);
+
+    assert(result);
 }
 
-void* win32_alloc(size_t size){
-    return VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+void* win32_alloc(size_t size) {
+    // void* memory = malloc(size + sizeof(win32_memory_block_t));
+    // utl::memzero(memory, size + sizeof(win32_memory_block_t));
+
+    void* memory = VirtualAlloc(0, size + sizeof(win32_memory_block_t), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    assert(memory);
+
+    auto* block = (win32_memory_block_t*)memory;
+    new (block) win32_memory_block_t;
+    block->size = size;
+    
+    auto* head = &allocated_blocks;
+    {
+        std::lock_guard lock{allocation_ticket};
+        dlist_insert(head, block);
+    }
+    
+    return (u8*)memory + sizeof(win32_memory_block_t);
 }
 
 template <typename T>
@@ -53,6 +93,20 @@ T* win32_alloc(){
     return t;
 }
 
+bool check_buffer_overflow() {
+    u8 sample[OVERFLOW_PAD_SIZE] = {};
+
+    for(auto* block = allocated_blocks.next;
+        block != &allocated_blocks;
+        block = block->next
+    ) {
+        if (auto diff = utl::memdif(block->pad, sample, OVERFLOW_PAD_SIZE)) {
+            zyy_error(__FUNCTION__, "Buffer Underflow detected: {} - {} bytes", (void*)block, diff);
+            return true;
+        }
+    }
+    return false;
+}
 
 FILETIME gs_game_dll_write_time;
 
@@ -442,6 +496,9 @@ int
 main(int argc, char* argv[]) {
     _set_error_mode(_OUT_TO_MSGBOX);
     SetUnhandledExceptionFilter(exception_filter);
+
+    dlist_init(&allocated_blocks);
+
     create_meta_data_dir();
 
     zyy_info("win32", "Loading Platform Layer");
@@ -509,6 +566,7 @@ main(int argc, char* argv[]) {
                 GetProcAddress((HMODULE)physics_dll, "physics_init_api")
             );
         init_physics(game_memory.physics, physics::backend_type::PHYSX, &physics_arena);
+        *game_memory.physics->Platform = Platform;
     }
 
 #if USE_SDL
@@ -608,6 +666,9 @@ main(int argc, char* argv[]) {
     });
 
     while(game_memory.running && !glfwWindowShouldClose(window)) {
+        if (check_buffer_overflow()) { 
+            zyy_error("memory", "buffer overflow detected");
+        }
         utl::profile_t* p = 0;
         if (game_memory.input.pressed.keys[key_id::O]) {
             local_persist bool captured = false;

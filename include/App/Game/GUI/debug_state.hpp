@@ -97,13 +97,25 @@ struct debug_state_t {
     debug_variable_t* first_free{0};
 
     debug_watcher_t* watcher{0};
+    debug_watcher_t* free_watch{0};
 
     char watcher_needle[64];
     size_t watcher_wpos{0};
 
-    void begin_frame() {
-        watcher = nullptr;
+    debug_watcher_t* create_watcher() {
+        if (free_watch) {
+            auto* v = free_watch;
+            node_next(free_watch);
+            new (v) debug_watcher_t;
+            return v;
+        } else {
+            return push_struct<debug_watcher_t>(&watch_arena);
+        }
+    }
 
+    void begin_frame() {
+        // node_push(watcher, free_watch);
+        watcher = nullptr;
         arena_clear(&watch_arena);
     }
 
@@ -302,7 +314,7 @@ struct debug_state_t {
     debug_watcher_t* watch_variable(T* val, std::string_view name) {
         std::lock_guard lock{ticket};
         if (auto ovar = has_watch_variable((void*)val)) return ovar;
-        auto* var = push_struct<debug_watcher_t>(&watch_arena);
+        auto* var = create_watcher();
         var->name = name;
         if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_watcher_type::ENTITY; }
         if constexpr (std::is_same_v<T, const char>) { var->type = debug_watcher_type::CSTR; }

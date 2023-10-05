@@ -11,6 +11,7 @@
 
 #include "custom_physics.hpp"
 
+platform_api_t Platform;
 
 #if ZYY_INTERNAL
 debug_table_t gs_debug_table;
@@ -108,6 +109,7 @@ using namespace physics;
 export_fn(void)
 physics_init_api(api_t* api, backend_type type, arena_t* arena) {
     assert(api && arena);
+    api->Platform = &Platform;
     switch (api->type = type) {
         case backend_type::CUSTOM: {
             init_custom(api, arena);

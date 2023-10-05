@@ -187,8 +187,14 @@ namespace planes {
 
 struct arena_settings_t {
     size_t alignment{0};
-    size_t minimum_block_size{0};
-    u8     dynamic{0};
+    size_t minimum_block_size{1024*1024}; // tune this
+    u8     fixed{0};
+};
+
+struct arena_block_footer_t {
+    std::byte* base{0};
+    size_t size{0};
+    size_t used{0};
 };
 
 struct arena_t {
@@ -196,7 +202,15 @@ struct arena_t {
     size_t top{0};
     size_t size{0};
 
-    arena_settings_t settings;
+    u32 block_count{0};
+
+    arena_settings_t settings{};
+};
+
+struct temporary_arena_t {
+    arena_t* arena{0};
+    std::byte* base{0};
+    umm used{0};
 };
 
 struct frame_arena_t {
@@ -902,6 +916,11 @@ void*
 copy(void* dst, const void* src, umm size) {
     return std::memcpy(dst, src, size);
 }
+template <typename T, typename S>
+T*
+copy(T* dst, const S* src) {
+    return (utl::copy(dst, src, std::min(sizeof T, sizeof S)), dst);
+}
 
 constexpr void*
 ccopy(void* dst, const void* src, umm size) {
@@ -916,10 +935,30 @@ ccopy(void* dst, const void* src, umm size) {
 
 inline arena_t
 arena_create(void* p, size_t bytes) noexcept {
-    arena_t arena;
+    arena_t arena{};
     arena.start = (std::byte*)p;
     arena.size = bytes;
     arena.top = 0;
+    arena.block_count = 0;
+    arena.settings.fixed = 1;
+    arena.settings.minimum_block_size = 0;
+    
+    return arena;
+}
+
+inline arena_t
+arena_create(umm minimum_block_size = 0) noexcept {
+    arena_t arena{};
+    arena.start = 0;
+    arena.top = 0;
+    arena.settings.fixed = 0;
+    arena.size = 0;
+    arena.block_count = 0;
+    if (minimum_block_size) {
+        arena.settings.minimum_block_size = minimum_block_size;
+    } else {
+        arena.settings.minimum_block_size = 1024*1024;
+    }
     return arena;
 }
 
@@ -938,15 +977,6 @@ arena_set_mark(arena_t* arena, size_t m) noexcept {
     arena->top = m;
 }
 
-inline void
-arena_clear(arena_t* arena) {
-    arena->top = 0;
-}
-
-inline void
-arena_begin_sweep(arena_t* arena) {
-    arena_clear(arena);
-}
 
 inline void arena_sweep_keep(arena_t* arena, std::byte* one_past_end) {
     assert(one_past_end > arena->start);
@@ -958,6 +988,11 @@ inline void arena_sweep_keep(arena_t* arena, std::byte* one_past_end) {
 inline std::byte*
 arena_get_top(arena_t* arena) {
     return arena->start + arena->top;
+}
+
+arena_block_footer_t*
+arena_get_footer(arena_t* arena) {
+    return (arena_block_footer_t*)(arena->start + arena->size);
 }
 
 #define arena_display_info(arena, name) \
@@ -972,12 +1007,36 @@ arena_get_top(arena_t* arena) {
 
 inline std::byte*
 push_bytes(arena_t* arena, size_t bytes) {
-    std::byte* p_start = arena->start + arena->top;
-    arena->top += bytes;
+    if (!arena->settings.fixed) {
+        if(arena->top + bytes >= arena->size) {
+            umm block_size = std::max(bytes + sizeof(arena_block_footer_t), arena->settings.minimum_block_size);
+            block_size = std::max(block_size, 1024ui64*1024ui64);
 
+            arena_block_footer_t footer;
+            footer.base = arena->start;
+            footer.size = arena->size;
+            footer.used = arena->top;
+
+            arena->start = (std::byte*)Platform.allocate(block_size);
+            arena->top = 0;
+            arena->size = block_size - sizeof(arena_block_footer_t);
+
+            if (footer.base) {
+                *arena_get_footer(arena) = footer;
+            }
+
+            arena->block_count++;
+        }
+    }
+
+    assert(arena->start);
+
+    std::byte* start = arena->start + arena->top;
+
+    arena->top += bytes;
     assert(arena->top <= arena->size && "Arena overflow");
 
-    return p_start;
+    return start;
 }
 
 template <typename T>
@@ -1000,13 +1059,19 @@ push_struct(arena_t* arena, size_t count, Args&& ... args) {
     return t;
 }
 
+template <typename T>
+inline T*
+bootstrap_arena(umm offset, umm minimum_block_size = 0) {
+    arena_t arena = arena_create(minimum_block_size);
+    auto* obj = push_struct<T>(&arena);
+    *((arena_t*)((u8*)obj + offset)) = arena;
+    return obj;
+}
+
+
 arena_t 
 arena_sub_arena(arena_t* arena, size_t size) {
-    arena_t res;
-    res.start = push_bytes(arena, size);
-    res.size = size;
-    res.top = 0;
-    return res;
+    return arena_create(push_bytes(arena, size), size);
 }
 
 inline frame_arena_t
@@ -1014,14 +1079,62 @@ arena_create_frame_arena(
     arena_t* arena, 
     size_t bytes
 ) {
-    frame_arena_t frame;
-    frame.arena[0].start = push_bytes(arena, bytes);
-    frame.arena[1].start = push_bytes(arena, bytes);
-    frame.arena[0].size = bytes;
-    frame.arena[1].size = bytes;
-    frame.arena[0].top = 0;
-    frame.arena[1].top = 0;
+    frame_arena_t frame{};
+    frame.arena[0] = arena_sub_arena(arena, bytes);
+    frame.arena[1] = arena_sub_arena(arena, bytes);
     return frame;
+}
+
+inline void
+arena_begin_sweep(arena_t* arena) {
+    assert(arena->block_count == 0);
+    arena->top = 0;
+}
+
+void
+arena_free_block(arena_t* arena) {
+    assert(arena->block_count);
+    auto* block = (void*)arena->start;
+
+    auto* footer = arena_get_footer(arena);
+
+    arena->start = footer->base;
+    arena->top = footer->used;
+    arena->size = footer->size;
+
+    Platform.free(block);
+    arena->block_count--;
+}
+
+inline void
+arena_clear(arena_t* arena) {
+    // zyy_warn(__FUNCTION__, "Arena cleared: {}", (void*)arena);
+    if (arena->settings.fixed) {
+        arena->top = 0;
+    } else {
+        while(arena->block_count) {
+            arena_free_block(arena);
+        }
+    }
+}
+
+temporary_arena_t
+begin_temporary_memory(arena_t* arena) {
+    temporary_arena_t temporary{};
+    temporary.arena = arena;
+    temporary.base = arena->start;
+    temporary.used = arena->top;
+    return temporary;
+};
+
+void 
+end_temporary_memory(temporary_arena_t memory) {
+    auto* arena = memory.arena;
+    while(arena->start != memory.base) {
+        arena_free_block(arena);
+    }
+    arena->top = memory.used;
+    // arena->temporary_count--;
 }
 
 arena_t* co_stack(coroutine_t* coro, frame_arena_t& frame_arena) {
@@ -1214,7 +1327,9 @@ struct pool_t : public arena_t {
     }
     size_t capacity{0};
 
-    pool_t() = default;
+    pool_t() {
+        settings.fixed = 1;
+    }
 
     explicit pool_t(T* data, size_t _cap) 
         : capacity{_cap}
@@ -1272,7 +1387,8 @@ struct pool_t : public arena_t {
                 (data() + i)->~T();
             }
         }
-        arena_clear(this);
+        top = 0;
+        // arena_clear(this);
     }    
 };
 
