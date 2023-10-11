@@ -47,10 +47,10 @@ void main() {
             }
             color.a = step(0.25, color.a);
         } else {
-            color.rgb = aces_film(color.rgb);
+            // color.rgb = aces_film(color.rgb);
             // color.rgb = vec3(voUV, 0.0);
             // color.a = 1.0;
-            color.rgb = pow(color.rgb, vec3(1.0/2.2));
+            // color.rgb = pow(color.rgb, vec3(1.0/2.2));
         }
     }
 

@@ -251,41 +251,20 @@ main( )
 
 	// light_solution.direct.diffuse += max(0.0, NoL);
 	light_solution.indirect.diffuse += light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
-	// light_solution.indirect.specular += light_probe_irradiance(vWorldPos,  reflect(V,N), reflect(V,N), probe_settings) * 1.0;
-
-	vec3 Fr = (D * S) * F; // specular lobe
-
-
-
-
-	vec3 Fd = albedo * max(0.0, NoL) * filament_Burley(roughness, NoV, NoL, LoH); // diffuse lobe
-
-
-	vec3 ec = (vec3(1.0) - F0) * 0.725 + F0 * 0.07; // @hardcoded no idea what these should be
-	Fr *= 0.0;
-
-	if (lit_material > 0) {
-		// rgb = 10.0 * max(NoL, material.ao) * (Fd + Fr * ec * r_env);
-		// rgb = Fd + Fr * ec ;
-		// rgb = Fd;
-		// rgb += light_solution.indirect.diffuse;
-		// vec3 diffuse = Fd + light_solution.indirect.diffuse;
-		// diffuse = floor(diffuse * 3.0)/3.0;
-		// rgb = diffuse;
-
-	} else {
-		rgb = albedo * material.emission;
-	}
-
-	rgb = vec3(0.0);
-
+	
 	{	// quantize lighting
 		// light_solution.indirect.diffuse = floor(light_solution.indirect.diffuse * 8.0) / 8.0;
 	}
 
-	apply_light(surface, light_solution, rgb);
+	if (lit_material > 0) {
+		rgb = vec3(0.0);
+		apply_light(surface, light_solution, rgb);
+	} else {
+		rgb = albedo * material.emission * 10.0;
+	}
+	
 
-	rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
+	// rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
 	
 	// rgb = V;
 

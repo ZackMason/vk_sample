@@ -71,7 +71,7 @@ namespace rendering::lighting {
     struct probe_settings_t {
         v3f aabb_min;
         v3f aabb_max;
-        // math::aabb_t<v3f> aabb;
+        // math::rect3d_t aabb;
         v3u dim{100,10,100};
         v3f grid_size{0.0f};
         f32 hysteresis{0.02f};
@@ -80,7 +80,7 @@ namespace rendering::lighting {
     };
 
     struct probe_box_t {
-        math::aabb_t<v3f> aabb;
+        math::rect3d_t aabb;
         // f32 grid_size{4.0f};
         // f32 grid_size{15.0f};
         // f32 grid_size{1.0f + 1.618033f};
@@ -180,7 +180,11 @@ namespace rendering::lighting {
         probe_box->settings.dim = probe_count;
         probe_box->aabb.max = probe_box->aabb.min + v3f{probe_count} * step_size;
         const u32 total_probe_count = probe_count.x * probe_count.y * probe_count.z;
-        probe_box->probes = arena?push_struct<probe_t>(arena, total_probe_count):probes?probes:0;
+        if (arena) {
+            tag_array(probe_box->probes, probe_t, arena, total_probe_count);
+        } else {
+            probe_box->probes = probes;
+        }
         probe_box->probe_count = total_probe_count;
         probe_box->settings.aabb_min = probe_box->aabb.min;
         probe_box->settings.aabb_max = probe_box->aabb.max;

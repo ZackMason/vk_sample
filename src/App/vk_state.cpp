@@ -824,7 +824,7 @@ void state_t::find_device(arena_t* arena) {
         zyy_error("vulkan", "No Physical Device Found, You Must Be Poor LOL");
         std::terminate();
     }
-    VkPhysicalDevice* devices = push_struct<VkPhysicalDevice>(arena, device_count);
+    tag_array(VkPhysicalDevice* devices, VkPhysicalDevice, arena, device_count);
     vkEnumeratePhysicalDevices(instance, &device_count, devices);
 
     for(const auto& phys_device: std::span{devices, device_count}) {
@@ -994,7 +994,7 @@ void create_shader_objects(
     assert(shader_count <= 10);
 
     auto& device = state.device;
-    VkShaderCreateInfoEXT* shader_create_info = push_struct<VkShaderCreateInfoEXT>(&arena, shader_count);
+    tag_array(VkShaderCreateInfoEXT* shader_create_info, VkShaderCreateInfoEXT, &arena, shader_count);
     VkPushConstantRange vpcr{};
         vpcr.offset = 0;
 	    vpcr.size = push_constant_size;
@@ -1809,7 +1809,7 @@ state_t::load_font_sampler(
 ) {
     // need to convert R32 to RGBA
     const size_t image_size = font->pixel_count*font->pixel_count*4;
-    u8* t_pix = (u8*)push_bytes(arena, image_size);
+    tag_array(u8* t_pix, u8, arena, image_size);
     for (size_t i = 0; i < font->pixel_count * font->pixel_count; i++) {
         t_pix[4*i+0] = font->bitmap[i];
         t_pix[4*i+1] = 0;
@@ -2043,7 +2043,11 @@ state_t::create_texture(
     texture->size[1] = h;
     texture->channels= c;
     texture->pixel_size = pixel_size;
-    texture->pixels = arena ? (u8*)push_bytes(arena, w*h*c) : nullptr;
+    if (arena) {
+        tag_array(texture->pixels, u8, arena, u64(w*h*c));
+    } else {
+        texture->pixels = 0;
+    }
     if (arena && data) {
         ::utl::copy(texture->pixels, data, w*h*c*pixel_size);
     } else if (data) {
@@ -2062,7 +2066,7 @@ state_t::load_texture(
         if (texture->pixels) {
             zyy_warn(__FUNCTION__, "Leaking texture pixels");
         }
-        texture->pixels = (u8*)push_bytes(arena, image_size);
+        tag_array(texture->pixels, u8, arena, (u64)image_size);
         ::utl::copy(texture->pixels, data.data(), image_size);
     } else {
         texture->pixels = data.data();
@@ -2228,11 +2232,11 @@ state_t::load_texture_sampler(
         vsci.flags = 0;
         // vsci.magFilter = VK_FILTER_NEAREST;
         // vsci.minFilter = VK_FILTER_NEAREST;
-        vsci.magFilter = VK_FILTER_LINEAR;
-        vsci.minFilter = VK_FILTER_LINEAR;
-        vsci.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        vsci.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        vsci.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        vsci.magFilter = texture->filter;
+        vsci.minFilter = texture->filter;
+        vsci.addressModeU = texture->sampler_tiling_mode;
+        vsci.addressModeV = texture->sampler_tiling_mode;
+        vsci.addressModeW = texture->sampler_tiling_mode;
         vsci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
         vsci.mipLodBias = 0;
         vsci.anisotropyEnable = VK_TRUE;

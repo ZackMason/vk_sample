@@ -53,7 +53,7 @@ load_bin_mesh_data(
         utl::copy(tris, blob.read_data(), index_bytes);
         blob.advance(index_bytes);
 
-        new (&results.meshes[i].aabb) math::aabb_t<v3f>();
+        new (&results.meshes[i].aabb) math::rect3d_t();
         range_u64(j, 0, vertex_count) {
             results.meshes[i].aabb.expand(v[j].pos);
         }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "App/Game/Entity/zyy_entity_prefab.hpp"
 #include "base_weapon.hpp"
 #include "App/Game/Items/base_item.hpp"
 
@@ -15,9 +16,10 @@ zyy::entity_t* spawn_blood(
     zyy::world_t* world,
     v3f pos,
     u32 count,
-    zyy::db::prefab_t particle_prefab 
+    zyy::prefab_t particle_prefab 
 );
 void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other);
+void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other);
 
 
 

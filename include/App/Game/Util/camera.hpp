@@ -63,6 +63,9 @@ struct first_person_controller_t {
 
     math::transform_t transform{};
 
+    math::position_pid_t hand_controller{};
+    v3f last_position{};
+
     u32 prio = 1;
 
     f32 yaw{0};

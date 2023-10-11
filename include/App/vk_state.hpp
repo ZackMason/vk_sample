@@ -105,6 +105,8 @@ struct texture_2d_t {
     VkFormat format{VK_FORMAT_R8G8B8A8_UNORM};
     VkSampler sampler{VK_NULL_HANDLE};
     VkDeviceMemory vdm{0};
+    VkSamplerAddressMode sampler_tiling_mode{VK_SAMPLER_ADDRESS_MODE_REPEAT};
+    VkFilter filter{VK_FILTER_LINEAR};
 
     void calculate_mip_level() {
         mip_levels = static_cast<u32>(std::floor(std::log2(std::max(size.x, size.y)))) + 1;
@@ -1188,6 +1190,7 @@ void set_image_layout(
     VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
     VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
 );
+
 
 }; // namespace utl
 

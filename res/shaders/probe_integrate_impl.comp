@@ -286,6 +286,7 @@ void main() {
 
                     result += vec4(ray.depth * weight, ray.depth * ray.depth * weight, 1.0, weight);
         #else
+                    // ignore backface
                     if (ray.depth > 0.0) 
                     {
                         result += vec4(ray.radiance * weight, weight);
@@ -303,7 +304,6 @@ void main() {
         }
     #else
     #endif
-
 
         float epsilon = 1e-9f;
         

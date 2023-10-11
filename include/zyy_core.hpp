@@ -34,7 +34,8 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include "Windows.h"
-    
+#undef near
+#undef far
 
 bool check_for_debugger()
 {
@@ -197,6 +198,16 @@ struct arena_block_footer_t {
     size_t used{0};
 };
 
+struct allocation_tag_t {
+    const char* type_name;
+    const char* file_name;
+    const char* function_name;
+    u64 line_number;
+    u64 count;
+    allocation_tag_t* next;
+    char magic[4]={'A','T','A','G'};
+};
+
 struct arena_t {
     std::byte* start{0};
     size_t top{0};
@@ -204,10 +215,13 @@ struct arena_t {
 
     u32 block_count{0};
 
+    allocation_tag_t* tags{0};
+
     arena_settings_t settings{};
 };
 
 struct temporary_arena_t {
+    allocation_tag_t* last_tag{0};
     arena_t* arena{0};
     std::byte* base{0};
     umm used{0};
@@ -256,7 +270,6 @@ struct _auto_deferer_t {
         fn();
     }
 };
-
 
 #define VAR_CAT(a,b) a ## b
 #define VAR_CAT_(a,b) VAR_CAT(a, b)
@@ -770,6 +783,8 @@ struct game_memory_t {
 
     b32 running{true};
 
+    void* game_state{0};
+
     physics::api_t* physics{nullptr};
 };
 
@@ -811,6 +826,14 @@ struct window_t {
 #define node_last(list) do { while (list->next && list=list->next);} while(0)
 
 #define node_for(type, node, itr) for(type* itr = (node); (itr); node_next(itr))
+
+u32 node_count(auto* node) {
+    u32 result = 0;
+    node_for(auto, node, n) {
+        result += 1;
+    }
+    return result;
+}
 
 #define dlist_remove(ele) \
     (ele)->prev->next = (ele)->next; \
@@ -858,6 +881,10 @@ struct node_t {
 // allocators
 
 namespace utl {
+
+std::string_view trim_filename(std::string_view str) {
+    return str.substr(str.find_last_of('\\') + 1);
+}
 
 std::string_view get_extension(std::string_view str) {
     return str.substr(str.find_last_of('.') + 1);
@@ -942,7 +969,7 @@ arena_create(void* p, size_t bytes) noexcept {
     arena.block_count = 0;
     arena.settings.fixed = 1;
     arena.settings.minimum_block_size = 0;
-    
+    arena.tags = 0;
     return arena;
 }
 
@@ -953,6 +980,7 @@ arena_create(umm minimum_block_size = 0) noexcept {
     arena.top = 0;
     arena.settings.fixed = 0;
     arena.size = 0;
+    arena.tags = 0;
     arena.block_count = 0;
     if (minimum_block_size) {
         arena.settings.minimum_block_size = minimum_block_size;
@@ -960,6 +988,11 @@ arena_create(umm minimum_block_size = 0) noexcept {
         arena.settings.minimum_block_size = 1024*1024;
     }
     return arena;
+}
+
+static void 
+arena_add_tag(arena_t* arena, allocation_tag_t* tag) {
+    node_push(tag, arena->tags);
 }
 
 inline size_t
@@ -990,14 +1023,16 @@ arena_get_top(arena_t* arena) {
     return arena->start + arena->top;
 }
 
+// footer goes on end
 arena_block_footer_t*
 arena_get_footer(arena_t* arena) {
     return (arena_block_footer_t*)(arena->start + arena->size);
 }
 
 #define arena_display_info(arena, name) \
-    (fmt_sv("{}: {} {} / {} {} - {:.2}%", \
+    (fmt_sv("{}[{} Blocks]: {} {} / {} {} - {:.2}%", \
     (name), \
+    (arena)->block_count,\
     (arena)->top > gigabytes(1) ? (arena)->top/gigabytes(1) : (arena)->top > megabytes(1) ? (arena)->top/megabytes(1) : (arena)->top > kilobytes(1) ? (arena)->top / kilobytes(1) : (arena)->top,\
     (arena)->top > gigabytes(1) ? "Gb" : (arena)->top > megabytes(1) ? "Mb" : (arena)->top > kilobytes(1) ? "Kb" : "B",\
     (arena)->size > gigabytes(1) ? (arena)->size/gigabytes(1) : (arena)->size > megabytes(1) ? (arena)->size/megabytes(1) : (arena)->size > kilobytes(1) ? (arena)->size / kilobytes(1) : (arena)->size,\
@@ -1008,7 +1043,7 @@ arena_get_footer(arena_t* arena) {
 inline std::byte*
 push_bytes(arena_t* arena, size_t bytes) {
     if (!arena->settings.fixed) {
-        if(arena->top + bytes >= arena->size) {
+        if(arena->top + bytes >= arena->size) [[unlikely]] {
             umm block_size = std::max(bytes + sizeof(arena_block_footer_t), arena->settings.minimum_block_size);
             block_size = std::max(block_size, 1024ui64*1024ui64);
 
@@ -1017,7 +1052,9 @@ push_bytes(arena_t* arena, size_t bytes) {
             footer.size = arena->size;
             footer.used = arena->top;
 
+            assert(Platform.allocate);
             arena->start = (std::byte*)Platform.allocate(block_size);
+            assert(arena->start);
             arena->top = 0;
             arena->size = block_size - sizeof(arena_block_footer_t);
 
@@ -1038,6 +1075,33 @@ push_bytes(arena_t* arena, size_t bytes) {
 
     return start;
 }
+
+static allocation_tag_t*
+get_allocation_tag(void* ptr) {
+    auto* tag = ((allocation_tag_t*)ptr)-1;
+    if (tag->magic == std::string_view{"ATAG"}) {
+        return tag;
+    }
+    return 0;
+}
+
+#if ZYY_INTERNAL
+    #define tag_struct(src, type, arena, ...) \
+        arena_add_tag((arena), push_struct<allocation_tag_t>((arena), 1, allocation_tag_t{#type, __FILE__, __FUNCTION__, (u64)__LINE__, 1}));\
+        src = push_struct<type>((arena), 1, __VA_ARGS__);
+#else 
+    #define tag_struct(src, type, arena, ...) \
+        src = push_struct<type>((arena), 1, __VA_ARGS__);
+#endif
+
+#if ZYY_INTERNAL
+    #define tag_array(src, type, arena, count, ...) \
+        arena_add_tag((arena), push_struct<allocation_tag_t>((arena), 1, allocation_tag_t{#type, __FILE__, __FUNCTION__, (u64)__LINE__, (count)}));\
+        src = push_struct<type>((arena), (count), __VA_ARGS__);
+#else 
+    #define tag_array(src, type, arena, count, ...) \
+        src = push_struct<type>((arena), (count), __VA_ARGS__);
+#endif
 
 template <typename T>
 inline T*
@@ -1102,12 +1166,15 @@ arena_free_block(arena_t* arena) {
     arena->top = footer->used;
     arena->size = footer->size;
 
-    Platform.free(block);
+    assert(Platform.free);
+
     arena->block_count--;
+    Platform.free(block);
 }
 
 inline void
 arena_clear(arena_t* arena) {
+    arena->tags = 0;
     // zyy_warn(__FUNCTION__, "Arena cleared: {}", (void*)arena);
     if (arena->settings.fixed) {
         arena->top = 0;
@@ -1124,6 +1191,7 @@ begin_temporary_memory(arena_t* arena) {
     temporary.arena = arena;
     temporary.base = arena->start;
     temporary.used = arena->top;
+    temporary.last_tag = arena->tags;
     return temporary;
 };
 
@@ -1133,6 +1201,7 @@ end_temporary_memory(temporary_arena_t memory) {
     while(arena->start != memory.base) {
         arena_free_block(arena);
     }
+    arena->tags = memory.last_tag;
     arena->top = memory.used;
     // arena->temporary_count--;
 }
@@ -1320,38 +1389,46 @@ private:
     T* data{0};
 };
 
-template <typename T>
-struct pool_t : public arena_t {
-    size_t count() const {
-        return top/sizeof(T);
-    }
+#define pool_display_info(pool, name) \
+    (fmt_sv("{}: {} / {} - {:.2}%", \
+    (name), \
+    (pool)->top, \
+    (pool)->capacity, \
+    ((f64((pool)->top) / f64((pool)->capacity)) * 100.0)))
+
+struct pool_base_t {
+    size_t top = 0;
     size_t capacity{0};
+};
+
+template <typename T>
+struct pool_t : pool_base_t {
+    T* start = 0;
+
+    size_t count() const {
+        return top;
+    }
 
     pool_t() {
-        settings.fixed = 1;
+        capacity = 0;
+        start = 0;
+        top = 0;
     }
 
     explicit pool_t(T* data, size_t _cap) 
-        : capacity{_cap}
     {
-        start = (std::byte*)data;
-        size = _cap * sizeof(T);
+        top = 0;
+        capacity = _cap;
+        start = data;
     }
-
-    pool_t(arena_t* arena, size_t _cap)
-        : capacity{_cap}
-    {
-        auto sub_arena = arena_sub_arena(arena, _cap*sizeof(T));
-        start = sub_arena.start;
-        size = sub_arena.size;
-    }
-
+    
     T& operator[](size_t id) {
+        assert(id < capacity);
         return data()[id];
     }
 
     T& back() {
-        return operator[](count-1);
+        return operator[](count()-1);
     }
 
     T& front() {
@@ -1359,7 +1436,7 @@ struct pool_t : public arena_t {
     }
 
     T* data() {
-        return (T*)start;
+        return start;
     }
 
     T* create(size_t p_count) {
@@ -1370,14 +1447,16 @@ struct pool_t : public arena_t {
         return o;
     }
 
-    T* allocate(size_t p_count) {
-        return (T*)push_bytes(this, sizeof(T) * p_count);
+    T* allocate(size_t _count) {
+        T* o = start+top;
+        top+=_count;
+        return o;
     }
 
     void free(T* ptr) {
         ptr->~T();
         std::swap(*ptr, back());
-        count--;
+        top--;
     }
 
     // note(zack): calls T dtor
@@ -1856,6 +1935,79 @@ namespace math {
         return p * 360.0f;
     }
 
+    struct pid_controller_t {
+        enum struct mode {
+            velocity, error_rate_of_change,
+        };
+
+        f32 proportional_gain{0.8f};
+        f32 derivative_gain{0.3f};
+        f32 integral_gain{0.7f};
+        f32 integral_saturation{0.0f};
+
+        f32 output_min{-1.0f};
+        f32 output_max{1.0f};
+        mode derivative_mode{mode::error_rate_of_change};
+
+        f32 _integral{0.0f};
+        f32 _error_last{0.0f};
+        f32 _value_last{0.0f};
+        b32 _initialized{false};
+
+        void reset() {
+            _initialized = false;
+            _integral = 0.0f;
+        }
+
+        f32 compute(f32 dt, f32 current_value, f32 target_value) {
+            const f32 error = target_value - current_value;
+            const f32 P = proportional_gain * error;
+
+            _integral = glm::clamp(_integral + (error * dt), -integral_saturation, integral_saturation);
+            f32 I = integral_gain * _integral;
+
+            f32 error_derivative = (error-_error_last)/dt;
+            _error_last = error;
+
+            f32 value_derivative = (current_value-_value_last)/dt;
+            _value_last = current_value;
+
+            float D = 0.0f;
+            if (_initialized) {
+                D = derivative_gain * (derivative_mode == mode::velocity ?
+                    -value_derivative : error_derivative);
+            } else {
+                _initialized = 1;
+            }
+            return glm::clamp(P+I+D, output_min, output_max);
+        }
+    };
+
+    struct position_pid_t {
+        pid_controller_t x;
+        pid_controller_t y;
+        pid_controller_t z;
+
+        explicit position_pid_t(const pid_controller_t& o = pid_controller_t{}) 
+            : x{o}, y{o}, z{o}
+        {
+        }
+        position_pid_t& operator=(const pid_controller_t& o) {
+            x = o;
+            y = o;
+            z = o;
+            return *this;
+        }
+
+        v3f compute(f32 dt, v3f current_value, v3f target_value) {
+            return v3f {
+                x.compute(dt, current_value.x, target_value.x),
+                y.compute(dt, current_value.y, target_value.y),
+                z.compute(dt, current_value.z, target_value.z)
+            };
+        }
+    };
+
     // TODO(Zack) add bspline for camera
     
     template<typename T>
@@ -2140,6 +2292,10 @@ struct aabb_t {
     }
     
 };
+
+using range_t = aabb_t<f32>;
+using rect2d_t = aabb_t<v2f>;
+using rect3d_t = aabb_t<v3f>;
 
 static bool
 intersect(aabb_t<v2f> rect, v2f p) {
@@ -2536,7 +2692,7 @@ struct mesh_view_t {
 
     material_info_t material{};
 
-    math::aabb_t<v3f> aabb{};
+    math::rect3d_t aabb{};
 
 
     // for RTX
@@ -2547,7 +2703,7 @@ struct mesh_view_t {
 struct mesh_list_t {
     gfx::mesh_view_t* meshes{nullptr};
     size_t count{0};
-    math::aabb_t<v3f> aabb{};
+    math::rect3d_t aabb{};
 
 
     // mesh_list_t* next_lod{0};
@@ -2634,7 +2790,7 @@ struct mesh_builder_t {
         return *this;
     }
 
-    mesh_builder_t& add_box(math::aabb_t<v3f> box) {
+    mesh_builder_t& add_box(math::rect3d_t box) {
         math::triangle_t tris[6];
         const auto s = box.size();
         const auto p = box.min;
@@ -3100,7 +3256,7 @@ namespace gui {
     struct image_t;
     struct button_t;
 
-    struct widget_t : public math::aabb_t<v2f> {
+    struct widget_t : public math::rect2d_t {
         widget_t* parent{0};
         widget_t* first_child{0};
         widget_t* next_child{0};
@@ -3121,7 +3277,7 @@ namespace gui {
         }
     };
 
-    struct panel_t : public math::aabb_t<v2f> {
+    struct panel_t : public math::rect2d_t {
         sid_t name;
         v2f draw_cursor;
         v2f saved_cursor;
@@ -3250,7 +3406,7 @@ namespace gui {
     draw_curve(
         ctx_t* ctx,
         std::span<v2f,4> p, 
-        math::aabb_t<v2f> rect,
+        math::rect2d_t rect,
         u32 res,
         f32 line_width,
         u32 color
@@ -3355,7 +3511,7 @@ namespace gui {
     inline void
     draw_aabb(
         ctx_t* ctx,
-        math::aabb_t<v3f> aabb,
+        math::rect3d_t aabb,
         const m44& vp,
         f32 line_width,
         u32 color
@@ -3365,7 +3521,7 @@ namespace gui {
         const v3f syyy = v3f{0,size.y,0};
         const v3f szzz = v3f{0,0,size.z};
 
-        math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
+        math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
 
         if (viewable.contains(math::world_to_screen(vp, aabb.min)) == false) {return;}
         if (viewable.contains(math::world_to_screen(vp, aabb.center())) == false) {return;}
@@ -3442,7 +3598,7 @@ namespace gui {
     inline void
     draw_rect(
         ctx_t* ctx,
-        math::aabb_t<v2f> box,
+        math::rect2d_t box,
         std::span<u32, 4> colors
     ) {
         const u32 v_start = safe_truncate_u64(ctx->vertices->count());
@@ -3472,7 +3628,7 @@ namespace gui {
     inline void
     draw_rect(
         ctx_t* ctx,
-        math::aabb_t<v2f> box,
+        math::rect2d_t box,
         u32 color
     ) {
         const u32 v_start = safe_truncate_u64(ctx->vertices->count());
@@ -3503,8 +3659,8 @@ namespace gui {
     inline void
     draw_rect(
         ctx_t* ctx,
-        math::aabb_t<v2f> box,
-        u32 tex, math::aabb_t<v2f> uvs, u32 color = color::rgba::white
+        math::rect2d_t box,
+        u32 tex, math::rect2d_t uvs, u32 color = color::rgba::white
     ) {
         const u32 v_start = safe_truncate_u64(ctx->vertices->count());
         const u32 i_start = safe_truncate_u64(ctx->indices->count());
@@ -3538,42 +3694,36 @@ namespace gui {
     inline void
     draw_round_rect(
         ctx_t* ctx,
-        math::aabb_t<v2f> box,
+        math::rect2d_t box,
         f32 radius,
         u32 color,
         u32 num_segments = 20
     ) {
-        math::aabb_t<v2f> inner{box.min+radius, box.max-radius};
+        math::rect2d_t inner{box.min+radius, box.max-radius};
 
-
-        //top
-        draw_rect(ctx, math::aabb_t<v2f>{box.min + v2f{radius,0}, inner.max-v2f{0,inner.size().y}}, color);
-        //bot
-        draw_rect(ctx, math::aabb_t<v2f>{inner.min + v2f{0,inner.size().y}, inner.max+v2f{0,radius}}, color);
-        //left
-        draw_rect(ctx, math::aabb_t<v2f>{box.min + v2f{0,radius}, inner.max-v2f{inner.size().x,0}}, color);
-        //right
-        draw_rect(ctx, math::aabb_t<v2f>{inner.max - v2f{0,inner.size().y}, inner.max+v2f{radius,0}}, color);
-
-        draw_rect(ctx, inner, color);
+        draw_rect(ctx, math::rect2d_t{box.min + v2f{radius,0}, inner.max+v2f{0,radius}}, color);
+        draw_rect(ctx, math::rect2d_t{box.min + v2f{0,radius}, inner.max+v2f{radius,0}}, color);
         
-        draw_circle(ctx, inner.min, radius, color, num_segments);
-        draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments);
-        draw_circle(ctx, inner.max, radius, color, num_segments);
-        draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments);
+        draw_circle(ctx, inner.min, radius, color, num_segments, 0.25f, 0.5f);
+        draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments, 0.25f, 0.25f);
+        draw_circle(ctx, inner.max, radius, color, num_segments, 0.25f, 0.0f);
+        draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments, 0.25f, 0.750f);
     }   
     
 
     namespace im {
+        constexpr u64 id_ignore_clear_flag = 0b1;
         struct ui_id_t {
             u64 owner;
             u64 id;
             u64 index;
+            u64 flags{id_ignore_clear_flag};
 
             ui_id_t& operator=(u64 id_) {
                 id = id_;
                 owner = 0;
                 index = 0;
+                flags = id_ignore_clear_flag;
                 return *this;
             }
         };
@@ -3581,7 +3731,9 @@ namespace gui {
         struct state_t {
             ctx_t& ctx;
 
-            arena_t arena;
+            // arena_t arena;
+
+            v2f drag_start{};
 
             f32 gizmo_scale_start{};
             v2f draw_cursor{0.0f}; 
@@ -3592,6 +3744,7 @@ namespace gui {
 
             theme_t theme;
 
+            ui_id_t stealing;
             ui_id_t hot;
             ui_id_t active;
 
@@ -3599,7 +3752,16 @@ namespace gui {
             panel_t* panel{this->panels};
 
             bool next_same_line{false};
+            b32 saw_hot{0};
+            b32 saw_active{0};
             v2f saved_cursor;
+
+            u64 verify_id(u64 ptr) {
+                u64 id = (ptr);
+                saw_hot |= hot.id == id;
+                saw_active |= active.id == id;
+                return id;
+            }
 
             f32 time() const {
                 return ctx.input->time;
@@ -3610,12 +3772,12 @@ namespace gui {
             }
         };
 
-        widget_t* new_widget(state_t& imgui, sid_t id) {
-            auto* w = push_struct<widget_t>(&imgui.arena, 1);
-            w->id = id;
+        // widget_t* new_widget(state_t& imgui, sid_t id) {
+        //     auto* w = push_struct<widget_t>(&imgui.arena, 1);
+        //     w->id = id;
 
-            return w;
-        }
+        //     return w;
+        // }
 
         inline void
         indent(state_t& imgui, v2f offset) {
@@ -3629,6 +3791,25 @@ namespace gui {
 
         inline void
         clear(state_t& imgui) {
+            if (imgui.stealing.id) {
+                imgui.hot = imgui.active = imgui.stealing;
+            }
+            if (imgui.hot.flags == id_ignore_clear_flag) {
+                imgui.hot.flags &= ~0b1;
+            } else {
+                if (imgui.saw_hot == 0) {
+                    imgui.hot = 0;
+                }
+            }
+            if (imgui.active.flags == id_ignore_clear_flag) {
+                imgui.active.flags &= ~0b1;
+            } else {
+                if (imgui.saw_active == 0) {
+                    imgui.active = 0;
+                }
+            }
+            imgui.saw_hot = 0;
+            imgui.saw_active = 0;
             range_u64(i, 0, array_count(imgui.panels)) {
                 imgui.panels[i].draw_cursor = v2f{0.0f};
             }
@@ -3647,7 +3828,7 @@ namespace gui {
             v2f pos = v2f{0.0f},
             v2f size = v2f{-1.0f}
         ) {
-            const sid_t pnl_id = sid(name.sv());
+            const sid_t pnl_id = imgui.verify_id(sid(name.sv()));
 
             imgui.panel++;
             assert((void*)imgui.panel != (void*)&imgui.panel && "End of nested panels");
@@ -3675,7 +3856,7 @@ namespace gui {
             v3f pos
         ) {
             const v3f spos = math::world_to_screen(vp, pos);
-            math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
+            math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
 
             if (viewable.contains(spos)) {
                 const v2f screen = v2f{spos} * imgui.ctx.screen_size;
@@ -3739,7 +3920,7 @@ namespace gui {
             color32 color, f32 show_distance, u32 res = 16
         ) {
             const v3f spos = math::world_to_screen(vp, pos);
-            math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
+            math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
 
             if (viewable.contains(spos)) {
                 const v3f offset = math::world_to_screen(vp, pos + axis::up * radius);
@@ -3772,7 +3953,7 @@ namespace gui {
             const m44& vp
         ) {
             const v3f spos = math::world_to_screen(vp, *pos);
-            math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
+            math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
 
             if (viewable.contains(spos)) {
                 const v2f screen = v2f{spos} * imgui.ctx.screen_size;
@@ -3827,7 +4008,7 @@ namespace gui {
             draw_gizmo(imgui, pos, vp);
 
             const v3f spos = math::world_to_screen(vp, *pos);
-            math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{1.0f}};
+            math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
 
             const auto is_gizmo_id = [](u64 id){
                 switch(id) {
@@ -3870,8 +4051,9 @@ namespace gui {
                     if (math::intersect(rc, mouse)) {giz_id = "gizmo_right"_sid;} else
                     if (math::intersect(uc, mouse)) {giz_id = "gizmo_up"_sid;} else
                     if (math::intersect(fc, mouse)) {giz_id = "gizmo_forward"_sid;}
-
                 }
+                imgui.verify_id(giz_id);
+
                 const bool clicked = imgui.ctx.input->pressed.mouse_btns[0];
                 const bool released = imgui.ctx.input->released.mouse_btns[0];
                 if (is_gizmo_id(imgui.active.id)) {
@@ -3960,13 +4142,13 @@ namespace gui {
         point_edit(
             state_t& imgui,
             v2f* point, 
-            math::aabb_t<v2f> rect, // where on screen to draw
-            math::aabb_t<v2f> range,
+            math::rect2d_t rect, // where on screen to draw
+            math::rect2d_t range,
             color32 color,
             color32 outline_color = gfx::color::rgba::black,
             f32 radius = 8.0f
         ) {
-            const u64 pnt_id = (u64)point;
+            const u64 pnt_id = imgui.verify_id((u64)point);
 
             const auto t = (*point - range.min) / range.size();
             
@@ -4010,8 +4192,8 @@ namespace gui {
             state_t& imgui,
             v2f point,
             v2f* derivative, 
-            math::aabb_t<v2f> rect, // where on screen to draw
-            math::aabb_t<v2f> range,
+            math::rect2d_t rect, // where on screen to draw
+            math::rect2d_t range,
             color32 color,
             color32 outline_color = gfx::color::rgba::black,
             f32 radius = 8.0f
@@ -4027,17 +4209,17 @@ namespace gui {
             color32* color,
             v2f size = v2f{64.0f}
         ) {
-            const u64 clr_id = (u64)color;
+            const u64 clr_id = imgui.verify_id((u64)color);
             v3f color_hsv = glm::hsvColor(color::to_color3(*color));
             
             v2f tmp_cursor = imgui.panel->draw_cursor;
             tmp_cursor.x += imgui.theme.padding;
 
-            math::aabb_t<v2f> box;
+            math::rect2d_t box;
             box.expand(tmp_cursor);
             box.expand(tmp_cursor + size);
 
-            math::aabb_t<v2f> hue_box;
+            math::rect2d_t hue_box;
 
             color32 rect_colors[4]= {
                 color::rgba::white,
@@ -4057,7 +4239,7 @@ namespace gui {
 
             const size_t res = 4;
             range_u64(i, 0, res) {
-                math::aabb_t<v2f> hue_seg;
+                math::rect2d_t hue_seg;
                 hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i)/f32(res)} + v2f{imgui.theme.padding, 0.0f});
                 hue_seg.expand(box.min + box.size() * v2f{1.0f, f32(i+1)/f32(res)} + v2f{8.0f, 0.0f} + v2f{imgui.theme.padding,0.0f});
 
@@ -4117,13 +4299,193 @@ namespace gui {
         image(
             state_t& imgui,
             u32 bind_index,
-            math::aabb_t<v2f> screen,
-            math::aabb_t<v2f> uv = math::aabb_t<v2f>{v2f{0.0f}, v2f{1.0f}},
+            math::rect2d_t screen,
+            math::rect2d_t uv = math::rect2d_t{v2f{0.0f}, v2f{1.0f}},
             u32 color = color::rgba::white
         ) {
             draw_rect(&imgui.ctx, screen, bind_index, uv, color);
         }
  
+        inline void
+        float_drag_id(
+            state_t& imgui,
+            u64 id,
+            f32* val,
+            f32 step = 0.1f,
+            f32 min = std::numeric_limits<f32>::min(),
+            f32 max = std::numeric_limits<f32>::max(),
+            v2f size = v2f{64.0f, 16.0f}
+        ) {
+            const u64 drg_id = imgui.verify_id(id);
+
+            v2f tmp_cursor = imgui.panel->draw_cursor;
+            v2f save_draw = tmp_cursor;
+            tmp_cursor.x += 8.0f;
+            math::rect2d_t box;
+            math::rect2d_t prc_box;
+
+            const b32 is_clamped = (min != std::numeric_limits<f32>::min());
+                        
+            const f32 prc = 
+                is_clamped ?
+                glm::clamp((*val - min) / (max - min), 0.0f, 1.0f) : 
+                1.0f;
+
+            box.expand(tmp_cursor);
+            box.expand(tmp_cursor + size);
+
+            prc_box.expand(tmp_cursor + 2.0f);
+            prc_box.expand(prc_box.min + (size - 4.0f) * v2f{prc, 1.0f});
+            imgui.panel->expand(box.max + imgui.theme.padding);
+
+            tmp_cursor = box.center() - font_get_size(imgui.ctx.font, fmt_sv("{:.2f}", *val)) * 0.5f;
+            string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tmp_cursor, imgui.theme.text_color);
+            draw_rect(&imgui.ctx, prc_box, imgui.active.id == drg_id ? imgui.theme.active_color : imgui.theme.fg_color);
+            draw_rect(&imgui.ctx, box, imgui.theme.bg_color);
+            box.max += v2f{1.0f};
+            box.min -= v2f{1.0f};
+            draw_rect(&imgui.ctx, box, imgui.theme.fg_color);
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            const v2f offset = v2f{x,y} - imgui.drag_start;
+            // expand all the way to get prc box size
+            prc_box.expand(prc_box.min + (size - 4.0f) * v2f{1.0f});
+
+            const f32 dist_prc = glm::min(offset.x, offset.y) / 32.0f;
+            const f32 m_prc = dist_prc;
+
+            // if (imgui.stealing.id == drg_id) {
+            //     imgui.active = imgui.stealing;
+            // }
+
+            if (imgui.active.id == drg_id) {
+                // if (imgui.hot.id == drg_id) 
+                {
+                    auto add = m_prc * step;
+                    *val = *val + add;
+                    if (is_clamped) {
+                        *val = glm::clamp(*val, min, max);
+                    }
+                    imgui.drag_start = v2f{x,y};
+                    imgui.stealing = drg_id;
+                }
+                if (!imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = 0;
+                    imgui.stealing = 0;
+                }
+            } else if (imgui.hot.id == drg_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = drg_id;
+                    imgui.drag_start = v2f{x,y};
+                }
+            }
+
+            if (box.contains(v2f{x,y})) {
+                imgui.hot = drg_id;
+            }
+
+            if (imgui.next_same_line) {
+                imgui.next_same_line = false;
+                imgui.panel->draw_cursor.x += box.size().x + imgui.theme.padding;
+            } else {
+                imgui.panel->draw_cursor.y += box.size().y + imgui.theme.padding;
+                imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
+            }
+        }
+
+        inline void
+        float_drag(
+            state_t& imgui,
+            f32* val,
+            f32 step = 0.1f,
+            f32 min = std::numeric_limits<f32>::min(),
+            f32 max = std::numeric_limits<f32>::max(),
+            v2f size = v2f{64.0f, 16.0f}
+        ) {
+            float_drag_id(imgui, (u64)val, val, step, min, max, size);
+        }
+
+        inline void
+        float2_drag(
+            state_t& imgui,
+            v2f* val,
+            f32 step = 0.1f,
+            f32 min = std::numeric_limits<f32>::min(),
+            f32 max = std::numeric_limits<f32>::max(),
+            v2f size = v2f{64.0f, 16.0f}
+        ) {
+            auto theme = imgui.theme;
+            same_line(imgui);
+            theme.fg_color = gfx::color::rgba::red;
+            indent(imgui, v2f{28.0f,0.0f});
+            float_drag_id(imgui, (u64)&val->x, &val->x, step, min, max, size);
+            theme.fg_color = gfx::color::rgba::green;
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            float_drag_id(imgui, (u64)&val->y, &val->y, step, min, max, size);
+            imgui.theme = theme;
+        }
+
+        inline void
+        float3_drag(
+            state_t& imgui,
+            v3f* val,
+            f32 step = 0.1f,
+            f32 min = std::numeric_limits<f32>::min(),
+            f32 max = std::numeric_limits<f32>::max(),
+            v2f size = v2f{64.0f, 16.0f}
+        ) {
+            auto theme = imgui.theme;
+            same_line(imgui);
+            theme.fg_color = gfx::color::rgba::red;
+            indent(imgui, v2f{28.0f,0.0f});
+            float_drag_id(imgui, (u64)&val->x, &val->x, step, min, max, size);
+            same_line(imgui);
+            theme.fg_color = gfx::color::rgba::green;
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            float_drag_id(imgui, (u64)&val->y, &val->y, step, min, max, size);
+            theme.fg_color = gfx::color::rgba::blue;
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            float_drag_id(imgui, (u64)&val->z, &val->z, step, min, max, size);
+            imgui.theme = theme;
+        }
+
+        inline void
+        float4_drag(
+            state_t& imgui,
+            v4f* val,
+            f32 step = 0.1f,
+            f32 min = std::numeric_limits<f32>::min(),
+            f32 max = std::numeric_limits<f32>::max(),
+            v2f size = v2f{64.0f, 16.0f}
+        ) {
+            auto theme = imgui.theme;
+            same_line(imgui);
+            theme.fg_color = gfx::color::rgba::red;
+            indent(imgui, v2f{28.0f,0.0f});
+            float_drag_id(imgui, (u64)&val->x, &val->x, step, min, max, size);
+            same_line(imgui);
+            theme.fg_color = gfx::color::rgba::green;
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            float_drag_id(imgui, (u64)&val->y, &val->y, step, min, max, size);
+            theme.fg_color = gfx::color::rgba::blue;
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            float_drag_id(imgui, (u64)&val->z, &val->z, step, min, max, size);
+            theme.fg_color = gfx::color::rgba::purple;
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            indent(imgui, v2f{28.0f,0.0f});
+            float_drag_id(imgui, (u64)&val->w, &val->w, step, min, max, size);
+            imgui.theme = theme;
+        }
+
         inline void
         float_slider_id(
             state_t& imgui,
@@ -4133,13 +4495,13 @@ namespace gui {
             f32 max = 1.0f,
             v2f size = v2f{64.0f, 16.0f}
         ) {
-            const u64 sld_id = id;
+            const u64 sld_id = imgui.verify_id(id);
 
             v2f tmp_cursor = imgui.panel->draw_cursor;
             v2f save_draw = tmp_cursor;
             tmp_cursor.x += 8.0f;
-            math::aabb_t<v2f> box;
-            math::aabb_t<v2f> prc_box;
+            math::rect2d_t box;
+            math::rect2d_t prc_box;
             const f32 prc = glm::clamp((*val - min) / (max - min), 0.0f, 1.0f);
             box.expand(tmp_cursor);
             box.expand(tmp_cursor + size);
@@ -4199,7 +4561,7 @@ namespace gui {
             f32 max = 1.0f,
             v2f size = v2f{64.0f, 16.0f}
         ) {
-            const u64 sld_id = (u64)val;
+            const u64 sld_id = imgui.verify_id((u64)val);
             float_slider_id(imgui, sld_id, val, min, max, size);
         }
        
@@ -4210,7 +4572,7 @@ namespace gui {
             std::string_view text,
             bool* toggle_state = 0         
         ) {
-            const sid_t txt_id = sid(text);
+            const sid_t txt_id = imgui.verify_id(sid(text));
             bool result = toggle_state ? *toggle_state : false;
 
             constexpr f32 text_pad = 4.0f;
@@ -4220,7 +4582,7 @@ namespace gui {
             const f32 start_x = imgui.panel->draw_cursor.x;
             temp_cursor.x += text_pad;
 
-            math::aabb_t<v2f> text_box;
+            math::rect2d_t text_box;
             text_box.expand(temp_cursor);
             text_box.expand(temp_cursor + font_size);
 
@@ -4270,7 +4632,7 @@ namespace gui {
             sid_t txt_id_ = 0,
             bool* toggle_state = 0         
         ) {
-            const sid_t txt_id = txt_id_ ? txt_id_ : sid(text);
+            const sid_t txt_id = imgui.verify_id(txt_id_ ? txt_id_ : sid(text));
             bool result = toggle_state ? *toggle_state : false;
 
             constexpr f32 text_pad = 4.0f;
@@ -4281,7 +4643,7 @@ namespace gui {
             const f32 start_x = imgui.panel->draw_cursor.x;
             temp_cursor.x += text_pad + imgui.theme.padding;
 
-            math::aabb_t<v2f> text_box;
+            math::rect2d_t text_box;
             text_box.expand(temp_cursor);
             text_box.expand(temp_cursor + min_size);
             text_box.expand(temp_cursor + font_size);
@@ -4340,9 +4702,9 @@ namespace gui {
             if (!value_count) {
                 return;
             }
-            const u64 hst_id = (uintptr_t)values;
+            const u64 hst_id = imgui.verify_id((u64)values);
 
-            math::aabb_t<v2f> bg_box;
+            math::rect2d_t bg_box;
             const auto start = bg_box.min = imgui.panel->draw_cursor + imgui.theme.padding;
             bg_box.max = start + size;
 
@@ -4350,7 +4712,7 @@ namespace gui {
 
             range_u64(i, 0, value_count) {
                 f32 perc = f32(i)/f32(value_count);
-                math::aabb_t<v2f> box;
+                math::rect2d_t box;
                 box.min = start + v2f{box_size.x*i, 0.0f};
                 box.max = start + v2f{box_size.x*(i+1), size.y*(1.0f-(values[i]/max))};
                 draw_rect(&imgui.ctx, box, imgui.theme.fg_color);
@@ -4374,7 +4736,9 @@ namespace gui {
         ) {
             local_persist char text_buffer[256];
             local_persist size_t write=0;
-            if (imgui.active.id != "float_edit"_sid) {
+            u64 id = imgui.verify_id((u64)val);
+
+            if (imgui.active.id != id) {
                 utl::memzero(text_buffer, array_count(text_buffer));
                 write = 0;
             }
@@ -4382,7 +4746,7 @@ namespace gui {
             const auto t = fmt_str("{}", *val);
             utl::copy(text_buffer, t.data(), t.size());
 
-            text_edit(imgui, text_buffer, &write, "float_edit"_sid);
+            text_edit(imgui, text_buffer, &write, id);
             
             *val = (f32)std::atof(text_buffer);
         }
@@ -4394,8 +4758,8 @@ namespace gui {
             sid_t id = 0,
             v2f size = v2f{16.0f}
         ) {
-            const sid_t btn_id = id ? id : (sid_t)var;
-            math::aabb_t<v2f> box;
+            const u64 btn_id = imgui.verify_id(id ? id : (u64)var);
+            math::rect2d_t box;
             v2f temp_cursor = imgui.panel->draw_cursor + v2f{imgui.theme.padding};
             box.min = temp_cursor;
             box.max = temp_cursor + v2f{size};
@@ -4470,8 +4834,8 @@ namespace gui {
             v2f size = v2f{16.0f},
             u8 font_size = 16
         ) {
-            const sid_t btn_id = btn_id_ ? btn_id_ : sid(name);
-            math::aabb_t<v2f> box;
+            const u64 btn_id = imgui.verify_id(btn_id_ ? btn_id_ : sid(name));
+            math::rect2d_t box;
             box.min = imgui.panel->draw_cursor + v2f{4.0f, 0.0f};
             box.max = imgui.panel->draw_cursor + v2f{size};
 
@@ -4537,7 +4901,6 @@ namespace gui {
             f32 min = 0.0f,
             f32 max = 1.0f
         ) {
-
             const auto theme = imgui.theme;
 
             imgui.theme.fg_color = gfx::color::rgba::red;
@@ -4568,8 +4931,8 @@ namespace gui {
 struct font_t {
     struct glyph_t {
         char c{};
-        math::aabb_t<v2f> screen{};
-        math::aabb_t<v2f> texture{};
+        math::rect2d_t screen{};
+        math::rect2d_t texture{};
     };
     f32 size{12.0f};
     u32 pixel_count{512>>1};
@@ -4615,8 +4978,8 @@ font_get_glyph(font_t* font, f32 x, f32 y, char c)
 #ifdef STB_TRUETYPE_IMPLEMENTATION
 {
 
-    math::aabb_t<v2f> screen{};
-    math::aabb_t<v2f> texture{};
+    math::rect2d_t screen{};
+    math::rect2d_t texture{};
     
     stbtt_aligned_quad q;
     stbtt_GetBakedQuad(font->cdata, font->pixel_count, font->pixel_count, c - 32, &x,&y, &q, 1);
@@ -5014,11 +5377,11 @@ struct random_t {
         return indexable[rng.rand()%indexable.size()];
     }
 
-    f32 range(const math::aabb_t<f32>& range) {
+    f32 range(const math::range_t& range) {
         return this->randf() * range.size() + range.min;
     }
 
-    v3f aabb(const math::aabb_t<v3f>& box) {
+    v3f aabb(const math::rect3d_t& box) {
         return v3f{
             (this->randf() * (box.max.x - box.min.x)) + box.min.x,
             (this->randf() * (box.max.y - box.min.y)) + box.min.y,
@@ -5823,7 +6186,7 @@ load_pack_file(
     assert(meta == magic::meta);
     assert(vers == magic::vers);
 
-    pack_file_t* packed_file = push_struct<pack_file_t>(arena, 1);
+    tag_struct(pack_file_t* packed_file, pack_file_t, arena);
 
     packed_file->file_count = loader.deserialize<u64>();
     packed_file->resource_size = loader.deserialize<u64>();
@@ -5832,7 +6195,7 @@ load_pack_file(
     assert(table_start == magic::table_start);
 
     // need to load strings into string_t
-    packed_file->table = push_struct<resource_table_entry_t>(arena, packed_file->file_count);
+    tag_array(packed_file->table, resource_table_entry_t, arena, packed_file->file_count);
     size_t table_size = sizeof(resource_table_entry_t) * packed_file->file_count;
     loader.deserialize<u64>();
     for (size_t i = 0; i < packed_file->file_count; i++) {
@@ -5843,11 +6206,11 @@ load_pack_file(
         entry->size = loader.deserialize<u64>();
     }
     
-    packed_file->resources = push_struct<resource_t>(arena, packed_file->file_count);
+    tag_array(packed_file->resources, resource_t, arena, packed_file->file_count);
     loader.deserialize<u64>();
     for (size_t i = 0; i < packed_file->file_count; i++) {
         size_t resource_size = packed_file->resources[i].size = loader.deserialize<u64>();
-        packed_file->resources[i].data = push_bytes(arena, packed_file->resources[i].size);
+        tag_array(packed_file->resources[i].data, std::byte, arena, packed_file->resources[i].size);
         utl::copy(packed_file->resources[i].data, loader.read_data(), resource_size);
         loader.advance(resource_size);
     }
@@ -5988,7 +6351,7 @@ read_config(
             assert(name.size() < array_count(c->name));
             assert(value.size() < array_count(c->value));
 
-            c = push_struct<config_t>(arena);
+            tag_struct(c, config_t, arena);
             *config = *config?*config:c;
             
             utl::memzero(c, sizeof(config_t));

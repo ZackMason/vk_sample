@@ -119,28 +119,22 @@ void main()
     // else if (abs(direction.z) > abs(direction.y) && abs(direction.z) > abs(direction.x)) { color.rgb = vec3(0,0,direction.z > 0.0 ? 1.0 : 0.5); }
     
 
+    // backface
     if (data.distance < 0.0) { 
-        // backface
         atomicAdd(probes[probe_id].ray_back_count, 1<<16);
-    // } else if (data.distance > tmax) { // fix sky distance
-        // data.distance = grid_max_distance;
     }
-
-    // color = sqrt(color);
     
-
     result.radiance = max(vec3(0.0), color);
-    result.depth = min(grid_max_distance, data.distance);
+    result.depth = data.distance;//min(grid_max_distance, data.distance);
 
     uint result_start_index = probe_ray_start(probe_id, odd_frame);
 
     ProbeRayPacked packed_ray;
-    packed_ray.direction_depth = uvec2(pack_normal(result.direction.xyz), asuint(data.distance));
+    packed_ray.direction_depth = uvec2(pack_normal(result.direction.xyz), asuint(result.depth));
     packed_ray.radiance = pack_half3(result.radiance);
-    // packed_ray.radiance = uvec2(pack_rgbe(result.radiance), 0);
+    
 
     packed_probe_results[result_start_index + i] = packed_ray;
-    // probe_results[result_start_index + i] = result;
     
     atomicAdd(probes[probe_id].ray_back_count, 1);
 }

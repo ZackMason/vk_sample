@@ -60,7 +60,7 @@ struct Environment {
 void apply_light(in Surface surface, in TotalLight light, inout vec3 color) {
     vec3 diffuse = light.direct.diffuse / 3.14159 + light.indirect.diffuse;
     vec3 specular = light.direct.specular + light.indirect.specular;
-    color = surface.albedo * diffuse;
+    color += surface.albedo * diffuse;
     color += specular;
     color += surface.emissive;
     color = max(vec3(0.0), color);

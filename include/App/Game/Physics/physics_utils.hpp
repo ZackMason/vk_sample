@@ -36,10 +36,9 @@ public:
     arena_t heap_arena{};
     arena_t arena{};
     
-    arena_heap_t(arena_t& parent_arena, size_t size) {
-        arena = arena_sub_arena(&parent_arena, size);
-        arena.start = (std::byte*)align16((std::uintptr_t)arena.start);
-        heap_arena = arena_sub_arena(&arena, kilobytes(512));
+    arena_heap_t(size_t size) {
+        arena = arena_create(size);        
+        heap_arena = arena_create(kilobytes(128));
     }
 
 private:
@@ -89,7 +88,7 @@ private:
         if (empty_block) {
             node_pop(block, empty_block);
         } else {
-            block = push_struct<mem_block_t>(&heap_arena);
+            tag_struct(block, mem_block_t, &heap_arena);
         }
         block->data = (std::byte*)ptr;
         block->size = *get_size(block->data); // need to find a way to get size......
@@ -102,10 +101,9 @@ private:
 
 class error_callback_t : public physx::PxErrorCallback {
 public:
-    virtual void reportError(physx::PxErrorCode::Enum code, const char* message, const char* file,
-        int line)
+    virtual void reportError(physx::PxErrorCode::Enum code, const char* message, const char* file, int line)
     {
-        zyy_error("physx", "PhysX Error Callback: {}:{} -\n\t{}\n", file, line, message);
+        zyy_error("physx", "PhysX Error Callback({}): {}:{} -\n\t{}\n", (u32)code, file, line, message);
     }
 };
 

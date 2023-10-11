@@ -60,8 +60,7 @@ global_variable u32 gs_rtx_on = 0;
 
 inline game_state_t*
 get_game_state(game_memory_t* mem) {
-    // note(zack): App should always be the first thing initialized in perm_memory
-    return (game_state_t*)mem->arena.start;
+    return (game_state_t*)mem->game_state;
 }
 
 void 
@@ -138,7 +137,6 @@ texture_add_border(gfx::vul::texture_2d_t* texture, v3f c1, u32 size) {
 
 inline static gfx::vul::texture_2d_t*
 make_error_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size) {
-    // auto* tex = push_struct<gfx::vul::texture_2d_t>(arena);
     return make_grid_texture(arena,
 							 tex,
 							 size,
@@ -148,7 +146,7 @@ make_error_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size) {
 
 inline static gfx::vul::texture_2d_t*
 make_error_texture(arena_t* arena, u32 size) {
-    auto* tex = push_struct<gfx::vul::texture_2d_t>(arena);
+    tag_struct(auto* tex, gfx::vul::texture_2d_t, arena);
     return make_grid_texture(arena,
 							 tex,
 							 size,
@@ -158,7 +156,7 @@ make_error_texture(arena_t* arena, u32 size) {
 
 inline static gfx::vul::texture_2d_t*
 make_noise_texture(arena_t* arena, u32 size) {
-    auto* tex = push_struct<gfx::vul::texture_2d_t>(arena);
+    tag_struct(auto* tex, gfx::vul::texture_2d_t, arena);
     *tex = {};
 
     tex->size[0] = tex->size[1] = size;
@@ -204,7 +202,7 @@ app_init_graphics(game_memory_t* game_memory) {
     // make_error_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256);
     vk_gfx.load_texture_sampler(&vk_gfx.null_texture);
 
-    game_state->render_system = rendering::init<megabytes(512)>(vk_gfx, &game_state->main_arena);
+    game_state->render_system = rendering::init<megabytes(32)>(vk_gfx, &game_state->main_arena);
     game_state->render_system->resource_file = game_state->resource_file;
     vk_gfx.create_vertex_buffer(&game_state->gui.vertices[0]);
     vk_gfx.create_index_buffer(&game_state->gui.indices[0]);
@@ -350,24 +348,21 @@ app_init_graphics(game_memory_t* game_memory) {
     }
 
     {
-        temp_arena_t ta = game_state->texture_arena;
-        gfx::font_load(&ta, &game_state->large_font, "./res/fonts/Go-Mono-Bold.ttf", 24.0f);
-        gfx::font_load(&ta, &game_state->default_font, "./res/fonts/Go-Mono-Bold.ttf", 18.0f);
-        game_state->default_font_texture = push_struct<gfx::vul::texture_2d_t>(&game_state->texture_arena, 1);
+        temporary_arena_t temp = begin_temporary_memory(&game_state->texture_arena);
+
+        gfx::font_load(temp.arena, &game_state->large_font, "./res/fonts/Go-Mono-Bold.ttf", 24.0f);
+        gfx::font_load(temp.arena, &game_state->default_font, "./res/fonts/Go-Mono-Bold.ttf", 18.0f);
+        tag_struct(game_state->default_font_texture, gfx::vul::texture_2d_t, &game_state->texture_arena);
         
         vk_gfx.load_font_sampler(
-            &ta,
+            temp.arena  ,
             game_state->default_font_texture,
             &game_state->default_font);
 
-
+        // end_temporary_memory(temp);
     }
 
-
-
     set_ui_textures(game_state);
-
-
 
 
     if (1)
@@ -462,7 +457,7 @@ app_init_graphics(game_memory_t* game_memory) {
         }
         { // 2
             auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::reddish);
-            unlit_mat.flags = gfx::material_lit;
+            unlit_mat.flags = 0;//gfx::material_lit;
             unlit_mat.emission = 10.0f;
 
             make_material("unlit", unlit_mat);
@@ -507,6 +502,15 @@ app_init_graphics(game_memory_t* game_memory) {
 
             make_material("particle-blue", unlit_mat);
         }
+        { // 8  smoke
+            auto unlit_mat = gfx::material_t::plastic(v4f{0.6f, 0.6f, 0.6f, 1.0f});
+            unlit_mat.flags = gfx::material_lit;
+            unlit_mat.roughness = 0.70f;
+            unlit_mat.emission = 0.30f;
+            
+
+            make_material("smoke", unlit_mat);
+        }
         make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
         make_material("gold-metal", gfx::material_t::plastic(gfx::color::v4::yellow));
         make_material("silver-metal", gfx::material_t::plastic(gfx::color::v4::white));
@@ -533,6 +537,22 @@ app_init_graphics(game_memory_t* game_memory) {
             assets::shaders::tonemap_frag,
             rs->get_frame_data().postprocess_pass.descriptor_layouts,
             rs->get_frame_data().postprocess_pass.descriptor_count
+        );
+
+        rs->shader_cache.load(
+            rs->arena, 
+            vk_gfx,
+            assets::shaders::upscale_frag,
+            rs->get_frame_data().bloom_pass.descriptor_layouts,
+            rs->get_frame_data().bloom_pass.descriptor_count
+        );
+
+        rs->shader_cache.load(
+            rs->arena, 
+            vk_gfx,
+            assets::shaders::downsample_frag,
+            rs->get_frame_data().bloom_pass.descriptor_layouts,
+            rs->get_frame_data().bloom_pass.descriptor_count
         );
 
         rs->shader_cache.load(
@@ -584,7 +604,7 @@ app_init_graphics(game_memory_t* game_memory) {
     };
 
     for (size_t i = 0; i < array_count(game_state->gui.ctx.dyn_font); i++) {
-        game_state->gui.ctx.dyn_font[i] = push_struct<gfx::font_t>(&game_state->texture_arena);
+        tag_struct(game_state->gui.ctx.dyn_font[i], gfx::font_t, &game_state->texture_arena);
         gfx::font_load(&game_state->texture_arena, game_state->gui.ctx.dyn_font[i], "./res/fonts/Go-Mono-Bold.ttf", (f32)i+1);
     }
 }
@@ -593,7 +613,7 @@ export_fn(void)
 app_on_init(game_memory_t* game_memory) {
     TIMED_FUNCTION;
     Platform = game_memory->platform;
-
+    game_memory->game_state = push_bytes(&game_memory->arena, sizeof(game_state_t));
     game_state_t* game_state = get_game_state(game_memory);
     new (game_state) game_state_t{game_memory, game_memory->arena};
     
@@ -603,28 +623,26 @@ app_on_init(game_memory_t* game_memory) {
     arena_t* main_arena = &game_state->main_arena;
     arena_t* string_arena = &game_state->string_arena;
 
-    game_state->temp_arena = arena_sub_arena(&game_state->main_arena, megabytes(4));
-    game_state->string_arena = arena_sub_arena(&game_state->main_arena, megabytes(16));
-    game_state->mesh_arena = arena_sub_arena(&game_state->main_arena, megabytes(512));
-    game_state->texture_arena = arena_sub_arena(&game_state->main_arena, megabytes(32));
-    game_state->game_arena = arena_sub_arena(&game_state->main_arena, megabytes(512));
-    game_state->gui.arena = arena_sub_arena(main_arena, megabytes(8));
+    game_state->temp_arena = arena_create(megabytes(4));
+    game_state->string_arena = arena_create(megabytes(16));
+    game_state->mesh_arena = arena_create(megabytes(32));
+    game_state->texture_arena = arena_create(megabytes(16));
+    game_state->gui.arena = arena_create(megabytes(8));
 
     defer {
         arena_clear(&game_state->temp_arena);
     };
 
     assets::sounds::load();
-    game_state->debug_state = push_struct<debug_state_t>(main_arena, 1, game_memory->input.time);
+    tag_struct(game_state->debug_state, debug_state_t, main_arena, game_memory->input.time);
     game_state->debug_state->arena = arena_create();
     game_state->debug_state->watch_arena = arena_create(megabytes(4));
-
 
     gs_debug_state = game_state->debug_state;    
 
     using namespace std::string_view_literals;
 #ifdef ZYY_INTERNAL
-    game_state->debug.console = push_struct<debug_console_t>(main_arena);
+    tag_struct(game_state->debug.console, debug_console_t, main_arena);
 
     console_add_command(game_state->debug.console, "help", [](void* data) {
         auto* console = (debug_console_t*)data;
@@ -732,10 +750,13 @@ app_on_init(game_memory_t* game_memory) {
         physics->create_scene(physics, 0);
         zyy_info("app_init", "Created physics scene");
     }
-    game_state->game_world = zyy::world_init(&game_state->game_arena, game_state, physics);
-
     app_init_graphics(game_memory);
 
+    game_state->game_world = zyy::world_init(game_state, physics);
+
+
+    zyy::world_init_effects(game_state->game_world);
+    
     zyy::world_init_effects(game_state->game_world);
 
     {
@@ -816,9 +837,11 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
     }
     if (input->pressed.keys[key_id::F5]) {
         zyy::world_destroy_all(game_state->game_world);
-        game_state->game_world->world_generator = nullptr;
-        game_state->game_world->player = nullptr;
-        game_state->game_world->effects.blood_splat_count = 0;
+        zyy::world_free(game_state->game_world);
+        game_state->render_system->instance_storage_buffer.pool.clear();
+        game_state->render_system->scene_context->entities.pool.clear();
+        game_state->render_system->scene_context->entity_count = 0;
+        game_state->game_world = zyy::world_init(game_state, game_state->game_memory->physics);
     }
 
     if (input->gamepads[0].is_connected) {
@@ -863,7 +886,25 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     //     v3f tr_pos = v3f{5.0f} + v3f{std::sinf(input->time), 0.0f, std::cosf(input->time)};
     //     tr.tick(dt, tr_pos);
     // }
-    
+    {
+        TIMED_BLOCK(PhysicsStep);
+
+        // if (game_state->time_scale == 1.0f) {
+            // world->physics->simulate(world->physics, step);
+        //     accum = 0.0f;
+        // } else {
+            // if (accum >= step) {
+                // accum -= step;
+                if (world->physics) {
+                    world->physics->simulate(world->physics, dt);
+                } else {
+                    zyy_warn("game", "No physics in world");
+                }
+            // }
+        // }
+    }
+    zyy::world_update_kinematic_physics(game_state->game_world);
+
         
     {
         TIMED_BLOCK(GameplayUpdatePostSimulate);
@@ -917,27 +958,13 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
     zyy::world_kill_free_queue(game_state->game_world);
 
-    zyy::world_update_kinematic_physics(game_state->game_world);
-
+   
     // local_persist f32 accum = 0.0f;
     // const u32 sub_steps = 1;
     // const f32 step = 1.0f/(60.0f*sub_steps);
 
     // accum += f32(dt > 0.0f) * std::min(dt, step*15);
     // if (dt > 0.0f)
-    {
-        TIMED_BLOCK(PhysicsStep);
-
-        // if (game_state->time_scale == 1.0f) {
-            // world->physics->simulate(world->physics, step);
-        //     accum = 0.0f;
-        // } else {
-            // if (accum >= step) {
-                // accum -= step;
-                world->physics->simulate(world->physics, dt);
-            // }
-        // }
-    }
 
     for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
         auto* e = game_state->game_world->entities + i;
@@ -958,15 +985,15 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         //     // e->transform.set_rotation(orientation);
         // }
 
-        if(e->primary_weapon.entity) {
-            auto forward = -e->primary_weapon.entity->transform.basis[2];
-        //     e->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
-        //     e->primary_weapon.entity->transform.set_scale(v3f{3.0f});
-            e->primary_weapon.entity->transform.origin =
-                e->global_transform().origin +
-                forward + axis::up * 0.3f;
-        //         //  0.5f * (right + axis::up);
-        }
+        // if(e->primary_weapon.entity) {
+        //     auto forward = -e->primary_weapon.entity->transform.basis[2];
+        // //     e->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
+        // //     e->primary_weapon.entity->transform.set_scale(v3f{3.0f});
+        //     e->primary_weapon.entity->transform.origin =
+        //         e->global_transform().origin +
+        //         forward + axis::up * 0.3f;
+        // //         //  0.5f * (right + axis::up);
+        // }
     }
 
     std::lock_guard lock{game_state->render_system->ticket};
@@ -996,9 +1023,9 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
 
     if (world->player) {
-        world->player->camera_controller.transform.origin = world->player->physics.rigidbody->position + 
-            axis::up * world->player->camera_controller.head_height + axis::up * world->player->camera_controller.head_offset;
-        world->player->camera_controller.translate(v3f{0.0f});
+        // world->player->camera_controller.transform.origin = world->player->physics.rigidbody->position + 
+        //     axis::up * world->player->camera_controller.head_height + axis::up * world->player->camera_controller.head_offset;
+        // world->player->camera_controller.translate(v3f{0.0f});
     
         DEBUG_SET_FOCUS(world->player->global_transform().origin);
     }
@@ -1009,7 +1036,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     // make sure not to allocate from buffer during sweep
 
 
-    arena_begin_sweep(&world->render_system()->instance_storage_buffer.pool);
+    // arena_begin_sweep(&world->render_system()->instance_storage_buffer.pool);
     // arena_begin_sweep(&world->particle_arena);
 
     for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
@@ -1030,7 +1057,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         }
 
         if (e->gfx.buffer) {
-            arena_sweep_keep(&world->render_system()->instance_storage_buffer.pool, e->gfx.instance_end());
+            // arena_sweep_keep(&world->render_system()->instance_storage_buffer.pool, e->gfx.instance_end());
         }
 
         if (e->gfx.particle_system) {
@@ -1063,7 +1090,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         );
     }
 
-    arena_sweep_keep(&world->render_system()->instance_storage_buffer.pool, (std::byte*)(world->effects.blood_splats + world->effects.blood_splat_max));
+    // arena_sweep_keep(&world->render_system()->instance_storage_buffer.pool, (std::byte*)(world->effects.blood_splats + world->effects.blood_splat_max));
     zyy::world_render_bloodsplat(world);
 
     // game_state->render_system->ticket.unlock();
@@ -1374,10 +1401,10 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
             blend_fn[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
             blend_fn[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
             blend_fn[0].alphaBlendOp = VK_BLEND_OP_ADD;
-            // ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
+            ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
             VkBool32 fb_blend[1] { true };
             ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
-            // ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
+            ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
             {
                 VkVertexInputBindingDescription2EXT vertexInputBinding{};
                 vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
@@ -1404,35 +1431,9 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
         }
     
         { // UI START
-            // if (vk_gfx.compute_index != vk_gfx.graphics_index) {
-            // if (gs_rtx_on) {
-            //     gfx::vul::utl::insert_image_memory_barrier(
-            //         command_buffer,
-            //         rs->frame_images[6].texture.image,
-            //         0,
-            //         VK_ACCESS_SHADER_READ_BIT,
-            //         VK_IMAGE_LAYOUT_GENERAL,
-            //         VK_IMAGE_LAYOUT_GENERAL,
-            //         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            //         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            //         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-            //         vk_gfx.compute_index,
-            //         vk_gfx.graphics_index
-            //     );
-            // }
-            // } else {
-            //     gfx::vul::utl::insert_image_memory_barrier(
-            //         command_buffer,
-            //         rs->frame_images[frame_count%2].texture.image,
-            //         VK_ACCESS_SHADER_WRITE_BIT,
-            //         VK_ACCESS_SHADER_READ_BIT,
-            //         VK_IMAGE_LAYOUT_GENERAL,
-            //         VK_IMAGE_LAYOUT_GENERAL,
-            //         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            //         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            //         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
-            //     );
-            // }
+           
+            rendering::draw_bloom(rs, command_buffer, &rs->frame_images[frame_count%2].texture);
+
             gfx::vul::begin_debug_marker(command_buffer, "Post Process Pass");
 
             gfx::vul::utl::insert_image_memory_barrier(
@@ -1654,6 +1655,12 @@ app_on_update(game_memory_t* game_memory) {
     }
     u32 image_index = wait_for_frame(game_state);
     rendering::begin_frame(game_state->render_system);
+
+#ifdef DEBUG_STATE
+        if (gs_debug_state) {
+            DEBUG_STATE.begin_frame();
+        }
+#endif
 
     switch (scene_state) {
         case 0: // Editor

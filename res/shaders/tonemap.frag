@@ -18,6 +18,7 @@ layout(push_constant) uniform PPParams {
 } uParameters;
 
 #define uColor (uTextures[0])
+#define uBloom (uTextures[1])
 #define uTonemap (uint(floor(uParameters.data.data[0])))
 #define uExposure (uParameters.data.data[1])
 #define uContrast (uParameters.data.data[2])
@@ -56,6 +57,8 @@ vec3 reinhard(vec3 x) {
 
 void main() {
     vec3 color = texture(uColor, vUV).rgb;
+    vec3 bloom = texture(uBloom, vUV).rgb;
+    color = mix(color, bloom, 0.04);
     if (uTonemap == ACES) { color = aces_film(color); }
     if (uTonemap == REIN) { color = reinhard(color); }
     if (uTonemap == EXPO) { color = vec3(1.0) - exp(-color * uExposure); }

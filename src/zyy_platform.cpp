@@ -12,9 +12,9 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include "Windows.h"
-#include "commdlg.h"
 #undef near
 #undef far
+// #include "commdlg.h"
 
 // #define MULTITHREAD_ENGINE
 platform_api_t Platform;
@@ -40,6 +40,11 @@ struct access_violation_exception : public std::exception {
 
 constexpr umm OVERFLOW_PAD_SIZE = 8*5;//1024<<0;
 
+struct win32_saved_block_t {
+    u64 base;
+    u64 size;
+};
+
 struct win32_memory_block_t {
     win32_memory_block_t* next{0};
     win32_memory_block_t* prev{0};
@@ -49,10 +54,125 @@ struct win32_memory_block_t {
     u8 pad[OVERFLOW_PAD_SIZE] = {};
 };
 
+void* get_base_pointer(win32_memory_block_t* block) {
+    return block+1;
+}
+win32_memory_block_t* get_block_pointer(void* ptr) {
+    return (win32_memory_block_t*)ptr-1;
+}
+
 static_assert(sizeof(win32_memory_block_t) == 64);
 
+global_variable HANDLE gs_loop_file;
+
 global_variable win32_memory_block_t allocated_blocks;
+global_variable win32_memory_block_t freed_blocks;
 global_variable std::mutex allocation_ticket{};
+global_variable std::mutex free_ticket{};
+
+void free_all_used_blocks() {
+    auto* head = &freed_blocks;
+    std::lock_guard lock{free_ticket};
+
+    for (auto* block = head->next;
+        block != head;
+        node_next(block)
+    ) {
+        auto result = VirtualFree(block, 0, MEM_RELEASE);
+        assert(result);
+        dlist_remove(block);
+    }
+}
+
+HANDLE win32_begin_loop_file(std::string_view file_name) {
+    HANDLE file = CreateFileA(
+        file_name.data(), 
+        GENERIC_WRITE, 
+        0, 
+        0, 
+        CREATE_ALWAYS, 
+        FILE_ATTRIBUTE_NORMAL, 
+        0);
+    assert(file);
+    return file;
+}
+
+HANDLE win32_end_loop_file(std::string_view file_name, HANDLE file) {
+    if (file) {
+        auto r = CloseHandle(file);
+        assert(r);
+        file = 0;
+    }
+    file = CreateFileA(
+        file_name.data(), 
+        GENERIC_READ, 
+        0, 
+        0, 
+        OPEN_EXISTING, 
+        FILE_ATTRIBUTE_NORMAL, 
+        0);
+    assert(file);
+    return file;
+}
+
+void win32_save_blocks_to_file(HANDLE file, win32_memory_block_t* head) {
+    bool result;
+    DWORD bytes_written;
+    for (auto* block = head->next;
+        block != head;
+        node_next(block)
+    ) {
+        assert(block->size < std::numeric_limits<DWORD>::max());
+        win32_saved_block_t saved = {};
+        void* base = get_base_pointer(block);
+        assert(base);
+        saved.base = (u64)base;
+        saved.size = block->size;
+        result = WriteFile(file, &saved, sizeof(saved), &bytes_written, 0);
+        result = WriteFile(file, base, (DWORD)block->size, &bytes_written, 0);
+        assert(result);
+    }
+    win32_saved_block_t terminator = {}; // I'll be (the) back
+    result = WriteFile(file, &terminator, sizeof(terminator), &bytes_written, 0);
+    assert(result);
+}
+
+void win32_read_blocks_from_file(HANDLE file, win32_memory_block_t* head) {
+    assert(file);
+    bool result;
+    DWORD bytes_read;
+    u64 blocks_loaded = 0;
+    u64 bytes_loaded = 0;
+    head->prev = head->next = head;
+    for (;;) {
+        win32_saved_block_t saved = {};
+        result = ReadFile(file, &saved, sizeof(saved), &bytes_read, 0);
+        assert(result);
+        if (saved.base) {
+            blocks_loaded++;
+            bytes_loaded += saved.size;
+
+            void* base = (void*)saved.base;
+            zyy_info(__FUNCTION__, "Loading block: {} - {}Mb", base, saved.size/megabytes(1));
+            auto* block = get_block_pointer(base);
+            dlist_insert_as_last(head, block);
+            result = ReadFile(file, base, (u32)saved.size, &bytes_read, 0);
+            assert(result);
+        } else {
+            break;
+        }
+    }
+    zyy_info(__FUNCTION__, "Done Loading Loop: {} Blocks - {}Mb", blocks_loaded, bytes_loaded/megabytes(1));
+}
+
+void win32_load_loop_file(HANDLE file) {
+    free_all_used_blocks();
+    win32_read_blocks_from_file(file, &allocated_blocks);
+}
+
+void win32_save_loop_file(HANDLE file) {
+    win32_save_blocks_to_file(file, &allocated_blocks);
+}
 
 void win32_free(void* ptr) {
     auto* free_block = (win32_memory_block_t*)((u8*)ptr - sizeof(win32_memory_block_t));
@@ -61,15 +181,43 @@ void win32_free(void* ptr) {
         std::lock_guard lock{allocation_ticket};
         dlist_remove(free_block);
     }
+
+#if ZYY_INTERNAL
+    {
+        auto* head = &freed_blocks;
+        std::lock_guard lock{free_ticket};
+        dlist_insert_as_last(head, free_block);
+    }
+#else
     auto result = VirtualFree(free_block, 0, MEM_RELEASE);
 
     assert(result);
+#endif
 }
 
 void* win32_alloc(size_t size) {
-    // void* memory = malloc(size + sizeof(win32_memory_block_t));
-    // utl::memzero(memory, size + sizeof(win32_memory_block_t));
-
+#if ZYY_INTERNAL
+    {
+        auto* head = &freed_blocks;
+        std::lock_guard lock{free_ticket};
+        for (auto* block = head->next;
+            block != head;
+            node_next(block)
+        ) {
+            if (block->size / 2 > size) {
+                continue;
+            }
+            dlist_remove(block);
+            {
+                std::lock_guard alock{allocation_ticket};
+                dlist_insert_as_last(&allocated_blocks, block);
+            }
+            utl::memzero(block+1, block->size);
+            return block+1;
+        }
+    }
+#endif
+    zyy_info(__FUNCTION__, "Allocating: {}", size);
     void* memory = VirtualAlloc(0, size + sizeof(win32_memory_block_t), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     assert(memory);
 
@@ -80,14 +228,14 @@ void* win32_alloc(size_t size) {
     auto* head = &allocated_blocks;
     {
         std::lock_guard lock{allocation_ticket};
-        dlist_insert(head, block);
+        dlist_insert_as_last(head, block);
     }
     
     return (u8*)memory + sizeof(win32_memory_block_t);
 }
 
 template <typename T>
-T* win32_alloc(){
+T* win32_alloc() {
     auto* t = (T*)win32_alloc(sizeof(T));
     new (t) T();
     return t;
@@ -106,6 +254,11 @@ bool check_buffer_overflow() {
         }
     }
     return false;
+}
+
+void
+write_blocks_to_file(std::string_view file_name) {
+
 }
 
 FILETIME gs_game_dll_write_time;
@@ -498,6 +651,8 @@ main(int argc, char* argv[]) {
     SetUnhandledExceptionFilter(exception_filter);
 
     dlist_init(&allocated_blocks);
+    dlist_init(&freed_blocks);
+    // gs_loop_file = win32_begin_loop_file("state1.zyy");
 
     create_meta_data_dir();
 
@@ -513,13 +668,13 @@ main(int argc, char* argv[]) {
     game_memory_t game_memory{};
     game_memory.platform = Platform;
 
-    constexpr size_t application_memory_size = gigabytes(2);
-    game_memory.arena = arena_create(VirtualAlloc(0, application_memory_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), application_memory_size);
+    // constexpr size_t application_memory_size = gigabytes(2);
+    game_memory.arena = arena_create(megabytes(256));
 
-    game_memory_t restore_point;
-    restore_point.arena.start = 0;
+    // game_memory_t restore_point;
+    // restore_point.arena.start = 0;
  
-    assert(game_memory.arena.start);
+    // assert(game_memory.arena.start);
 
     auto& config = game_memory.config;
     load_graphics_config(&game_memory);
@@ -547,16 +702,14 @@ main(int argc, char* argv[]) {
     };
 
     void* physics_dll = LoadLibraryA(".\\build\\zyy_physics.dll");
-    arena_t physics_arena = arena_create(win32_alloc(gigabytes(2)), gigabytes(2));
-    arena_t restore_physics_arena = arena_create(win32_alloc(gigabytes(2)), gigabytes(2));
+    arena_t physics_arena = arena_create(megabytes(32));
+    
 
     if (physics_dll)
     {
         zyy_info("win32", "Initializing Physics");
-        game_memory.physics = win32_alloc<physics::api_t>();
-        restore_point.physics = win32_alloc<physics::api_t>();
-        restore_point.physics->arena = &restore_physics_arena;
-
+        game_memory.physics = push_struct<physics::api_t>(&physics_arena);
+    
         game_memory.physics->collider_count =
         game_memory.physics->character_count =
         game_memory.physics->rigidbody_count = 0;
@@ -565,8 +718,9 @@ main(int argc, char* argv[]) {
             reinterpret_cast<physics::init_function>(
                 GetProcAddress((HMODULE)physics_dll, "physics_init_api")
             );
-        init_physics(game_memory.physics, physics::backend_type::PHYSX, &physics_arena);
+        init_physics(game_memory.physics, physics::backend_type::PHYSX, &Platform, &physics_arena);
         *game_memory.physics->Platform = Platform;
+        zyy_info("win32", "Physics Loaded");
     }
 
 #if USE_SDL
@@ -677,28 +831,21 @@ main(int argc, char* argv[]) {
         }
 
         if (game_memory.input.pressed.keys[key_id::F8]) {
-            const auto dif = utl::memdif((const u8*)physics_arena.start, (const u8*)restore_physics_arena.start, restore_physics_arena.top);
-            const auto undif = restore_physics_arena.top - dif;
-            zyy_info("memdif", "dif {} bytes, undif {} megabytes", dif, undif/megabytes(1));
+            // const auto dif = utl::memdif((const u8*)physics_arena.start, (const u8*)restore_physics_arena.start, restore_physics_arena.top);
+            // const auto undif = restore_physics_arena.top - dif;
+            // zyy_info("memdif", "dif {} bytes, undif {} megabytes", dif, undif/megabytes(1));
         }
 
         if (game_memory.input.pressed.keys[key_id::F9]) {
 #ifdef MULTITHREAD_ENGINE
             rendering_lock.lock();
 #endif 
-            utl::copy(restore_physics_arena.start, physics_arena.start, physics_arena.top);
-            *restore_point.physics = *game_memory.physics;
-            restore_physics_arena.top = physics_arena.top;
-
-            if (restore_point.arena.start) {
-                VirtualFree(restore_point.arena.start, 0, MEM_RELEASE);
-                restore_point.arena.start = 0;
+            if (gs_loop_file) {
+                CloseHandle(gs_loop_file);
             }
-            size_t copy_size = game_memory.arena.top;
-            restore_point.arena = arena_create(VirtualAlloc(0, copy_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE), copy_size);
-            utl::copy(restore_point.arena.start, game_memory.arena.start, copy_size);
-            restore_point.arena.top = game_memory.arena.top;
-            utl::copy(&restore_point.input, &game_memory.input, sizeof(app_input_t));
+            gs_loop_file = win32_begin_loop_file("state1.zyy");
+            win32_save_loop_file(gs_loop_file);
+            
 #ifdef MULTITHREAD_ENGINE
             rendering_lock.unlock();
 #endif 
@@ -707,13 +854,14 @@ main(int argc, char* argv[]) {
 #ifdef MULTITHREAD_ENGINE
             rendering_lock.lock();
 #endif 
-            utl::copy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
-            *game_memory.physics = *restore_point.physics;
-            physics_arena.top = restore_physics_arena.top;
-
-            utl::copy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
-            game_memory.arena.top = restore_point.arena.top;
-            utl::copy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
+            if (gs_loop_file) {
+                gs_loop_file = win32_end_loop_file("state1.zyy", gs_loop_file);
+                win32_load_loop_file(gs_loop_file);
+                CloseHandle(gs_loop_file);
+                gs_loop_file = 0;
+            } else {
+                zyy_warn("loop", "No loop file");
+            }
 #ifdef MULTITHREAD_ENGINE
             rendering_lock.unlock();
 #endif 
@@ -757,13 +905,13 @@ main(int argc, char* argv[]) {
 #ifdef MULTITHREAD_ENGINE
                     rendering_lock.lock();
 #endif 
-                    utl::copy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
-                    *game_memory.physics = *restore_point.physics;
-                    physics_arena.top = restore_physics_arena.top;
+                    // utl::copy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
+                    // *game_memory.physics = *restore_point.physics;
+                    // physics_arena.top = restore_physics_arena.top;
 
-                    utl::copy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
-                    game_memory.arena.top = restore_point.arena.top;
-                    utl::copy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
+                    // utl::copy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
+                    // game_memory.arena.top = restore_point.arena.top;
+                    // utl::copy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
 #ifdef MULTITHREAD_ENGINE
                     rendering_lock.unlock();
 #endif 

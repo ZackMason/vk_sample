@@ -4,7 +4,7 @@
 #include "zyy_core.hpp"
 
 #include "App/Game/Entity/entity.hpp"
-#include "App/Game/Entity/entity_db.hpp"
+#include "App/Game/Entity/zyy_entity_prefab.hpp"
 
 #include "App/game_state.hpp"
 
@@ -91,7 +91,7 @@ struct entity_editor_t {
     }
 
     void edit_char(char* where, char what) {
-        auto* edit = push_struct<edit_event_t>(&undo_arena);
+        tag_struct(auto* edit, edit_event_t, &undo_arena);
         edit->type = edit_type_t::TEXT;
         edit->text_edit.where = where;
         edit->text_edit.change[Edit_From] = *where;
@@ -106,7 +106,7 @@ struct entity_editor_t {
 
     v3f* selection{0};
 
-    zyy::db::prefab_t entity;
+    zyy::prefab_t entity;
 
     zyy::world_t* editor_world{0};
 
@@ -127,7 +127,7 @@ struct entity_editor_t {
         undo_arena = arena_sub_arena(&game_state->main_arena, megabytes(1));
         dlist_init(&redo_sentinel);
         dlist_init(&undo_sentinel);
-        editor_world = zyy::world_init(&game_state->main_arena, game_state, game_state->game_memory->physics);
+        editor_world = zyy::world_init(game_state, game_state->game_memory->physics);
     }
 };
 
@@ -265,10 +265,10 @@ entity_editor_render(entity_editor_t* ee) {
             im::same_line(imgui);
             if (im::text(imgui, "Accept"sv)) {
                 if (show_load) {
-                    ee->entity = zyy::db::load_from_file(&game_state->main_arena, fmt_sv("./res/entity/{}", file_view));
+                    ee->entity = zyy::load_from_file(&game_state->main_arena, fmt_sv("./res/entity/{}", file_view));
                 } else { // show_save
                     std::ofstream file{fmt_str("./res/entity/{}", file_view), std::ios::binary};
-                    file.write((const char*)&ee->entity, sizeof(zyy::db::prefab_t));
+                    file.write((const char*)&ee->entity, sizeof(zyy::prefab_t));
                 }
                 show_save = show_load = false;
             }
@@ -323,7 +323,7 @@ entity_editor_render(entity_editor_t* ee) {
         
         if (im::text(imgui, "Physics"sv, &show_physics)) {
             if (!ee->entity.physics) {
-                ee->entity.physics.emplace(zyy::db::prefab_t::physics_t{});
+                ee->entity.physics.emplace(zyy::prefab_t::physics_t{});
             }
             if (im::text(imgui, "Clear"sv)) {
                 ee->entity.physics.reset();

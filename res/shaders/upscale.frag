@@ -12,10 +12,11 @@ layout(push_constant, scalar) uniform PPParams {
     PPMaterial data;
 } uParameters;
 
-layout(binding = 0, set = 0) uniform sampler2D uTextures[2];
+layout(binding = 0, set = 0) uniform sampler2D uTextures[13];
 
-#define uRead uTextures[0]
 #define kFilterRadius (uParameters.data.data[0])
+#define kTextureIndex int(uParameters.data.data[1])
+#define uRead uTextures[kTextureIndex]
 
 layout ( location = 0 ) in vec2 vUV;
 layout ( location = 0 ) out vec4 fFragColor;

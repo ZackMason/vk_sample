@@ -53,8 +53,7 @@ vec3 light_probe_local_pos_normalized(LightProbeSettings settings, vec3 p) {
 
 // funkiness here with saturate
 ivec3 light_probe_probe_index(LightProbeSettings settings, vec3 p) {
-    vec3 grid = light_probe_grid_size(settings);
-    return ivec3(floor((light_probe_local_pos_normalized(settings, p)) * (vec3(settings.dim))));
+    return clamp(ivec3(floor(light_probe_local_pos_normalized(settings, p) * vec3(settings.dim))), ivec3(0), ivec3(settings.dim-1));
 }
 
 // line bug is effected by dir
@@ -93,7 +92,7 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
         vec3 tri = max(vec3(0.001), mix(1.0 - alpha, alpha, offset));
         float weight = 1.0;
 
-        float smooth_backface = 0.0;
+        float smooth_backface = 1.0;
         float wrap_shading = (dot(world_to_adj, n) + 1.0) * 0.5;
         float normal_shading = saturate(dot(world_to_adj, n));
         weight *= mix(normal_shading, sqr(wrap_shading) + 0.2, smooth_backface);
@@ -121,10 +120,10 @@ vec3 light_probe_irradiance(vec3 p, vec3 dir, vec3 n, LightProbeSettings setting
         probe_irradiance = sqrt(max(vec3(0.001), probe_irradiance));
 
         // vec2 filter_uv = encode_oct(n);// * 0.5 + 0.5;
-        vec2 filter_uv = encode_oct(-biased_to_adj) * 0.5 + 0.5;
-        vec3 stylized_filter = texture(uProbeSampler[2], filter_uv).rgb;
+        // vec2 filter_uv = encode_oct(-biased_to_adj) * 0.5 + 0.5;
+        // vec3 stylized_filter = texture(uProbeSampler[2], filter_uv).rgb;
 
-        probe_irradiance *= stylized_filter;
+        // probe_irradiance *= stylized_filter;
 
         const float crush = 0.2;
         if (weight < crush) {

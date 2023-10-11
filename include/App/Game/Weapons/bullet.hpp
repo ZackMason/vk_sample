@@ -2,13 +2,13 @@
 
 #include "zyy_core.hpp"
 
+
 namespace zyy {
     struct entity_t;
     struct world_t;
-}
-namespace zyy::db {
     struct prefab_t;
 }
+
 namespace zyy::item {
     struct effect_t;
 }
@@ -28,10 +28,19 @@ namespace zyy::wep {
         bullet_type type{bullet_type::SIZE};
     };
 
+    using spawn_bullet_function = zyy::entity_t* (*)(
+        zyy::world_t*,
+        const zyy::prefab_t&,
+        bullet_t        
+    );
+
     zyy::entity_t* spawn_bullet(
         zyy::world_t* world,
-        const zyy::db::prefab_t& prefab,
-        bullet_t bullet,
-        f32 dt
-    );
+        const zyy::prefab_t& prefab,
+        bullet_t bullet);
+
+    zyy::entity_t* spawn_rocket(
+        zyy::world_t* world,
+        const zyy::prefab_t& prefab,
+        bullet_t bullet);
 }

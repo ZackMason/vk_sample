@@ -135,6 +135,8 @@ watch_game_state(game_state_t* game_state) {
     DEBUG_WATCH(probe_hysteresis)->max_f32 = 0.1f;
     DEBUG_WATCH(probe_gi_boost)->max_f32 = 2.0f;
     DEBUG_WATCH(probe_depth_sharpness)->max_f32 = 100.0f;
+
+    DEBUG_WATCH(&bloom_filter_radius)->max_f32 = 0.01f;
 }
 
 void 
@@ -147,7 +149,6 @@ set_ui_textures(game_state_t* game_state) {
     auto descriptor_set_layout_binding = gfx::vul::utl::descriptor_set_layout_binding(
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, array_count(ui_textures)
     );
-
     for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = game_state->default_font_texture; }
     ui_textures[1] = &rs->frame_images[0].texture;
     ui_textures[2] = &rs->light_probes.irradiance_texture;
@@ -168,11 +169,13 @@ set_ui_textures(game_state_t* game_state) {
         gui_pipeline.set_layouts, gui_pipeline.set_count, sizeof(m44)*2
     );
 
+
     game_state->default_font_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
         gui_pipeline.set_layouts[0],
         ui_textures, array_count(ui_textures)
     );
+    
 
 }
 
@@ -200,7 +203,6 @@ draw_gui(game_memory_t* game_memory) {
         &game_state->string_arena,
         &game_state->mesh_arena,
         &game_state->texture_arena,
-        &game_state->game_arena,
 #ifdef DEBUG_STATE
         &DEBUG_STATE.arena,
         &DEBUG_STATE.watch_arena,
@@ -213,6 +215,8 @@ draw_gui(game_memory_t* game_memory) {
         // &game_state->game_world->physics->default_allocator.heap_arena,
         &game_state->render_system->arena,
         &game_state->render_system->frame_arena,
+    };
+    utl::pool_base_t* display_pools[] = {
         &game_state->render_system->scene_context->vertices.pool,
         &game_state->render_system->scene_context->indices.pool,
         &game_state->gui.vertices[!(frame&1)].pool,
@@ -228,7 +232,6 @@ draw_gui(game_memory_t* game_memory) {
         "- String Arena",
         "- Mesh Arena",
         "- Texture Arena",
-        "- Game Arena",
 #ifdef DEBUG_STATE
         "- Debug Arena",
         "- Debug Watch Arena",
@@ -241,6 +244,8 @@ draw_gui(game_memory_t* game_memory) {
         // "- Physics Heap",
         "- Rendering Arena",
         "- Rendering Frame Arena",
+    };
+    const char* display_pool_names[] = {
         "- 3D Vertex",
         "- 3D Index",
         "- 2D Vertex",
@@ -300,7 +305,6 @@ draw_gui(game_memory_t* game_memory) {
         if (gs_show_watcher) {
             DEBUG_STATE_DRAW_WATCH_WINDOW(state);
         }
-        DEBUG_STATE.begin_frame();
 #endif
 
     // state.theme.bg_color = 
@@ -335,7 +339,13 @@ draw_gui(game_memory_t* game_memory) {
 
         auto* world = game_state->game_world;
         if (world->world_generator == nullptr) {
-            im::begin_panel(state, "World Select"sv, v2f{350,350}, v2f{800, 600});
+            const math::rect2d_t screen{v2f{0.0f}, v2f{state.ctx.screen_size}};
+            local_persist math::rect2d_t world_rect{v2f{550,350}, v2f{800, 600}};
+
+            im::point_edit(state, &world_rect.min, screen, screen, gfx::color::rgba::red);
+            im::point_edit(state, &world_rect.max, screen, screen, gfx::color::rgba::red);
+        
+            im::begin_panel(state, "World Select"sv, world_rect.min, world_rect.size());
 
             #define WORLD_GUI(name) if (im::text(state, #name)) {world->world_generator = generate_##name(&world->arena); }
             WORLD_GUI(world_maze);
@@ -684,8 +694,8 @@ draw_gui(game_memory_t* game_memory) {
                                 im::vec3(state, point_lights[i].pos, -25.0f, 25.0f);
                                 im::vec3(state, point_lights[i].col, 0.0f, 3.0f);
 
-                                im::float_slider(state, &point_lights[i].range, 1.0, 100.0);
-                                im::float_slider(state, &point_lights[i].power, 1.0, 1000.0);
+                                im::float_drag(state, &point_lights[i].range, 1.0f);
+                                im::float_drag(state, &point_lights[i].power, 1.0f);
 
                                 widget_pos = (v3f*)&point_lights[i].pos;
                             }
@@ -737,9 +747,36 @@ draw_gui(game_memory_t* game_memory) {
             }
 
             local_persist bool show_arenas = false;
+            local_persist bool open_arena[256];
+            local_persist u32 offset[256];
             if (im::text(state, "Memory"sv, &show_arenas)) {
                 for (size_t i = 0; i < array_count(display_arenas); i++) {
-                    im::text(state, arena_display_info(display_arenas[i], display_arena_names[i]));
+                    if (im::text(state, arena_display_info(display_arenas[i], display_arena_names[i]), open_arena+i)) {
+                        auto tag_count = node_count(display_arenas[i]->tags);
+                        im::text(state, fmt_sv("- Tags: {}", tag_count));
+                        if (im::text(state, "Next")) {
+                            offset[i] = (offset[i]+1)%tag_count;
+                        }
+                        auto* start = display_arenas[i]->tags;
+                        u32 skip=0;
+                        for(;start;node_next(start)) {
+                            if (skip++ == offset[i]) break;
+                        }
+                        skip = 0;
+                        node_for(auto, start, tag) {
+                            if (skip++ > 10) { break; }                            
+                            im::text(state, fmt_sv("--- {}[{}]: {}() | {}({})", tag->type_name, tag->count, tag->function_name, utl::trim_filename(tag->file_name), tag->line_number));
+                        }
+                        if (tag_count > 10) {
+                            node_for(auto, display_arenas[i]->tags, tag) {
+                                if (skip++ > 10) { break; }                            
+                                im::text(state, fmt_sv("--- {}[{}]: {}() | {}({})", tag->type_name, tag->count, tag->function_name, utl::trim_filename(tag->file_name), tag->line_number));
+                            }
+                        }
+                    }
+                }
+                for (size_t i = 0; i < array_count(display_pools); i++) {
+                    im::text(state, pool_display_info(display_pools[i], display_pool_names[i]));
                 }
             }
 
@@ -875,6 +912,10 @@ draw_gui(game_memory_t* game_memory) {
                 if (e->gfx.particle_system) {
                     auto* ps = e->gfx.particle_system;
                     im::text(state, fmt_sv("Particle System - {} / {}", ps->live_count, ps->max_count));
+                    auto* alloc_info = get_allocation_tag(ps);
+                    if (alloc_info) {
+                        im::text(state, fmt_sv("- Particle Alloc Info: {}({})", alloc_info->file_name, alloc_info->line_number));
+                    }
                     im::text(state, "- Particle Template");
 
                     if (im::text(state, "--- Save: ")) {
@@ -971,9 +1012,9 @@ draw_gui(game_memory_t* game_memory) {
             selected_entity->physics.rigidbody->set_transform(selected_entity->global_transform().to_matrix());
         }
 
-        local_persist math::aabb_t<v2f> depth_uv{v2f{0.0}, v2f{0.04, 0.2}};
-        local_persist math::aabb_t<v2f> color_uv{v2f{0.0}, v2f{0.04, 0.2}};
-        // local_persist math::aabb_t<v2f> color_uv{v2f{0.0}, v2f{0.01, 0.15}};
+        local_persist math::rect2d_t depth_uv{v2f{0.0}, v2f{0.04, 0.2}};
+        local_persist math::rect2d_t color_uv{v2f{0.0}, v2f{0.04, 0.2}};
+        // local_persist math::rect2d_t color_uv{v2f{0.0}, v2f{0.01, 0.15}};
 
         if (input->keys[key_id::UP]) { depth_uv.add(v2f{0.0f, -0.01}); }
         if (input->keys[key_id::DOWN]) { depth_uv.add(v2f{0.0f, 0.01}); }
@@ -1011,9 +1052,9 @@ draw_gui(game_memory_t* game_memory) {
         local_persist v2f p4{0.650f};
         local_persist v2f p5{0.150f};
         
-        local_persist math::aabb_t<v2f> point_screen{v2f{600.0f,200.0f}, v2f{1100.0f,300.0f}};
-        const math::aabb_t<v2f> screen{v2f{0.0f}, v2f{state.ctx.screen_size}};
-        const math::aabb_t<v2f> prange{v2f{0.0f}, v2f{1.0f}};
+        local_persist math::rect2d_t point_screen{v2f{600.0f,200.0f}, v2f{1100.0f,300.0f}};
+        const math::rect2d_t screen{v2f{0.0f}, v2f{state.ctx.screen_size}};
+        const math::rect2d_t prange{v2f{0.0f}, v2f{1.0f}};
 
         im::point_edit(state, &point_screen.min, screen, screen, gfx::color::rgba::blue);
         im::point_edit(state, &point_screen.max, screen, screen, gfx::color::rgba::blue);
@@ -1051,8 +1092,8 @@ draw_gui(game_memory_t* game_memory) {
 
         // draw_viewport(state, &viewport);
 
-        // const math::aabb_t<v2f> screen{v2f{0.0f}, state.ctx.screen_size};
-        // im::image(state, 2, math::aabb_t<v2f>{v2f{state.ctx.screen_size.x - 400, 0.0f}, v2f{state.ctx.screen_size.x, 400.0f}});
+        // const math::rect2d_t screen{v2f{0.0f}, state.ctx.screen_size};
+        // im::image(state, 2, math::rect2d_t{v2f{state.ctx.screen_size.x - 400, 0.0f}, v2f{state.ctx.screen_size.x, 400.0f}});
     }
 
     arena_set_mark(&game_state->string_arena, string_mark);

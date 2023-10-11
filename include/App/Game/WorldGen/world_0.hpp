@@ -1,10 +1,11 @@
 #pragma once
 
 #include "App/Game/WorldGen/world_gen.hpp"
+#include "App/Game/Entity/entity_db.hpp"
 
 world_generator_t*
 generate_world_test(arena_t* arena) {
-    auto* generator = push_struct<world_generator_t>(arena);
+    tag_struct(auto* generator, world_generator_t, arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -26,17 +27,17 @@ generate_homebase(arena_t* arena) {
     auto* generator = generate_world_test(arena);
 
     generator->add_step("Building Base", WORLD_STEP_TYPE_LAMBDA(environment) {
-        constexpr zyy::db::prefab_t base{
+        constexpr zyy::prefab_t base{
             .type = zyy::entity_type::environment,
             .type_name = "Homebase",
             .gfx = {
                 .mesh_name = "res/models/rooms/homebase.gltf",
                 .material = gfx::material_t::metal(gfx::color::v4::light_gray),
             },
-            .physics = zyy::db::prefab_t::physics_t {
+            .physics = zyy::prefab_t::physics_t {
                 .flags = zyy::PhysicsEntityFlags_Static,
                 .shapes = {
-                    zyy::db::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+                    zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
                 },
             },
         };
@@ -60,8 +61,13 @@ generate_homebase(arena_t* arena) {
             auto* equip_gun = zyy::spawn(world, world->render_system(), equip_prefab);  \
             equip_gun->flags &= ~zyy::EntityFlags_Pickupable;\
             equip_gun->parent = 0;\
-            other_e->primary_weapon.entity = equip_gun; \
-            self->queue_free(); \
+            if (other_e->primary_weapon.entity==0){\
+                other_e->primary_weapon.entity = equip_gun; \
+                self->queue_free(); \
+            }else if (other_e->secondary_weapon.entity==0){\
+                other_e->secondary_weapon.entity = equip_gun; \
+                self->queue_free(); \
+            } else {equip_gun->queue_free();}\
         }   \
     }; } while(0)
             // equip_gun->transform.origin = other_e->transform.origin;
@@ -146,11 +152,11 @@ auto SPAWN_FIRE_PARTICLE(auto* world, auto pos, auto mat, auto size) {
     ps->gfx.material_id = mat;
     ps->gfx.particle_system->acceleration = v3f{axis::up*9.81f*0.1f};
     ps->gfx.particle_system->spawn_rate = 0.02f;
-    ps->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>(0.06f * size, 0.01f * size);
-    ps->gfx.particle_system->velocity_random = math::aabb_t<v3f>(planes::xz*-.0050f, v3f(.0050f));
-    ps->gfx.particle_system->angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));
+    ps->gfx.particle_system->scale_over_life_time = math::range_t(0.06f * size, 0.01f * size);
+    ps->gfx.particle_system->velocity_random = math::rect3d_t(planes::xz*-.0050f, v3f(.0050f));
+    ps->gfx.particle_system->angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f));
     ps->gfx.particle_system->emitter_type = particle_emitter_type::box;
-    ps->gfx.particle_system->box = math::aabb_t<v3f>(v3f(-.10f), v3f(.10f));
+    ps->gfx.particle_system->box = math::rect3d_t(v3f(-.10f), v3f(.10f));
     ps->gfx.particle_system->stream_rate = 1;
     ps->gfx.particle_system->template_particle = particle_t {
         .position = v3f(0.0),
@@ -173,13 +179,13 @@ generate_particle_test(arena_t* arena) {
         // SPAWN_FIRE_PARTICLE(world, 5.0f*axis::right + axis::up, 4, 1.0f);
     });
     generator->add_step("Particle Spawner", WORLD_STEP_TYPE_LAMBDA(environment) {
-        constexpr zyy::db::prefab_t spawner_p{
+        constexpr zyy::prefab_t spawner_p{
             .type = zyy::entity_type::environment,
             .type_name = "Spawner",
-            .physics = zyy::db::prefab_t::physics_t {
+            .physics = zyy::prefab_t::physics_t {
                 .flags = zyy::PhysicsEntityFlags_Static,
                 .shapes = {
-                    zyy::db::prefab_t::physics_t::shape_t{
+                    zyy::prefab_t::physics_t::shape_t{
                         .shape = physics::collider_shape_type::BOX,
                         .flags = 1,
                         .box = {
@@ -206,11 +212,11 @@ generate_particle_test(arena_t* arena) {
             teapot_particle->gfx.instance(world->render_system()->instance_storage_buffer.pool, 30000, 1);
 
             teapot_particle->gfx.particle_system->spawn_rate = 0.02f;
-            teapot_particle->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>(1.0f, 0.0f);
-            teapot_particle->gfx.particle_system->velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));
-            teapot_particle->gfx.particle_system->angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));
+            teapot_particle->gfx.particle_system->scale_over_life_time = math::range_t(1.0f, 0.0f);
+            teapot_particle->gfx.particle_system->velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f));
+            teapot_particle->gfx.particle_system->angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f));
             teapot_particle->gfx.particle_system->emitter_type = particle_emitter_type::box;
-            teapot_particle->gfx.particle_system->box = math::aabb_t<v3f>(v3f(-1.0f), v3f(1.0f));
+            teapot_particle->gfx.particle_system->box = math::rect3d_t(v3f(-1.0f), v3f(1.0f));
             teapot_particle->gfx.particle_system->stream_rate = 10;
             
             teapot_particle->gfx.particle_system->template_particle = particle_t {
@@ -228,7 +234,7 @@ generate_particle_test(arena_t* arena) {
 
 world_generator_t*
 generate_probe_test(arena_t* arena) {
-    auto* generator = push_struct<world_generator_t>(arena);
+    tag_struct(auto* generator, world_generator_t, arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -240,12 +246,12 @@ generate_probe_test(arena_t* arena) {
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         zyy::spawn(world, world->render_system(), zyy::db::misc::platform_1000, axis::down);
-        zyy::db::prefab_t prefab {
+        zyy::prefab_t prefab {
             .gfx = {
                 .mesh_name = "res/models/rooms/house_01.gltf"
             }
         };
-        zyy::db::prefab_t shaderball_prefab {
+        zyy::prefab_t shaderball_prefab {
             .gfx = {
                 .mesh_name = "res/models/dragon.gltf"
             }
@@ -269,7 +275,7 @@ generate_probe_test(arena_t* arena) {
 
 world_generator_t*
 generate_room_03(arena_t* arena) {
-    auto* generator = push_struct<world_generator_t>(arena);
+    tag_struct(auto* generator, world_generator_t, arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
         world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -281,7 +287,7 @@ generate_room_03(arena_t* arena) {
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         zyy::spawn(world, world->render_system(), zyy::db::misc::platform_1000, axis::down);
-        zyy::db::prefab_t prefab = zyy::db::rooms::room_03;
+        zyy::prefab_t prefab = zyy::db::rooms::room_03;
         auto* room = zyy::spawn(world, world->render_system(), prefab);
         room->gfx.material_id = 1;
 
@@ -298,7 +304,7 @@ generate_room_03(arena_t* arena) {
 
 world_generator_t*
 generate_world_1(arena_t* arena) {
-    auto* generator = push_struct<world_generator_t>(arena);
+    tag_struct(auto* generator, world_generator_t, arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -307,7 +313,9 @@ generate_world_1(arena_t* arena) {
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 15.0f);
         player->physics.rigidbody->linear_dampening = 3.0f;
-        SPAWN_GUN(zyy::db::weapons::smg, axis::forward * 15.0f + axis::up * 3.0f);
+        // SPAWN_GUN(zyy::db::weapons::smg, axis::forward * 15.0f + axis::up * 3.0f);
+        SPAWN_GUN(zyy::db::weapons::rifle, axis::forward * 15.0f + axis::up * 3.0f);
+        SPAWN_GUN(zyy::db::weapons::rpg, axis::forward * 25.0f + axis::up * 3.0f);
 
         zyy::spawn(world, world->render_system(), zyy::db::items::lightning_powerup, axis::backward * 15.0f + axis::up * 3.0f);
     });
@@ -336,13 +344,13 @@ generate_world_1(arena_t* arena) {
 
             co_end(co);
         };
-        enemy_room.physics = zyy::db::prefab_t::physics_t {
+        enemy_room.physics = zyy::prefab_t::physics_t {
             .flags = zyy::PhysicsEntityFlags_Static,
             .shapes = {
-                zyy::db::prefab_t::physics_t::shape_t{
+                zyy::prefab_t::physics_t::shape_t{
                     .shape = physics::collider_shape_type::TRIMESH,
                 },
-                zyy::db::prefab_t::physics_t::shape_t{
+                zyy::prefab_t::physics_t::shape_t{
                     .shape = physics::collider_shape_type::SPHERE,
                     .flags = 1,
                     .sphere = {
@@ -364,7 +372,7 @@ generate_world_1(arena_t* arena) {
             };
 
         auto aabb = e_room->aabb;
-        aabb.scale(v3f{1.1f, 1.0f, 1.1f});
+        aabb.scale(v3f{1.2f, 1.0f, 1.2f});
 
         aabb.min.y = 0.0f;
         aabb.max.y *= 0.8f;
@@ -381,7 +389,7 @@ generate_world_1(arena_t* arena) {
             );
         }
 
-        world->render_system()->light_probes.grid_size = 8.0f;
+        world->render_system()->light_probes.grid_size = 10.0f;
         rendering::update_probe_aabb(world->render_system(), aabb);
     });
     return generator;
@@ -389,7 +397,7 @@ generate_world_1(arena_t* arena) {
 
 world_generator_t*
 generate_world_0(arena_t* arena) {
-    auto* generator = push_struct<world_generator_t>(arena);
+    tag_struct(auto* generator, world_generator_t, arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -434,13 +442,13 @@ generate_world_0(arena_t* arena) {
 
             co_end(co);
         };
-        enemy_room.physics = zyy::db::prefab_t::physics_t {
+        enemy_room.physics = zyy::prefab_t::physics_t {
             .flags = zyy::PhysicsEntityFlags_Static,
             .shapes = {
-                zyy::db::prefab_t::physics_t::shape_t{
+                zyy::prefab_t::physics_t::shape_t{
                     .shape = physics::collider_shape_type::TRIMESH,
                 },
-                zyy::db::prefab_t::physics_t::shape_t{
+                zyy::prefab_t::physics_t::shape_t{
                     .shape = physics::collider_shape_type::SPHERE,
                     .flags = 1,
                     .sphere = {
@@ -476,9 +484,9 @@ generate_world_0(arena_t* arena) {
         teapot_particle->gfx.instance(world->render_system()->instance_storage_buffer.pool, 1000, 1);
 
         teapot_particle->gfx.particle_system->spawn_rate = 0.0002f;
-        teapot_particle->gfx.particle_system->scale_over_life_time = math::aabb_t<f32>(1.0f, 0.0f);
-        teapot_particle->gfx.particle_system->velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));
-        teapot_particle->gfx.particle_system->angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f));
+        teapot_particle->gfx.particle_system->scale_over_life_time = math::range_t(1.0f, 0.0f);
+        teapot_particle->gfx.particle_system->velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f));
+        teapot_particle->gfx.particle_system->angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f));
         
         teapot_particle->gfx.particle_system->template_particle = particle_t {
             .position = v3f(0.0),
@@ -545,7 +553,7 @@ generate_world_0(arena_t* arena) {
 
 zyy::entity_t* spawn_torch(zyy::world_t* world, v3f pos, f32 rotation = 0.0f) {
     auto prefab = zyy::db::misc::torch_01;
-    zyy::db::prefab_t null_prefab{};
+    zyy::prefab_t null_prefab{};
     prefab.children[0].entity = &null_prefab;
     auto* torch = zyy::spawn(world, world->render_system(), prefab, pos);
     torch->transform.set_rotation(v3f{0.0f, rotation, 0.0f});
@@ -560,7 +568,7 @@ zyy::entity_t* spawn_torch(zyy::world_t* world, v3f pos, f32 rotation = 0.0f) {
 }   
 zyy::entity_t* spawn_door(zyy::world_t* world, v3f pos, f32 rotation = 0.0f) {
     auto prefab = zyy::db::misc::door;
-    // zyy::db::prefab_t null_prefab{};
+    // zyy::prefab_t null_prefab{};
     // prefab.children[0].entity = &null_prefab;
     auto* torch = zyy::spawn(world, world->render_system(), prefab, pos);
     torch->transform.set_rotation(v3f{0.0f, rotation, 0.0f});
@@ -572,7 +580,7 @@ zyy::entity_t* spawn_door(zyy::world_t* world, v3f pos, f32 rotation = 0.0f) {
     return torch;
 }   
 
-zyy::entity_t* spawn_room(zyy::world_t* world, zyy::db::prefab_t prefab, v3f pos = v3f{0.0f}) {
+zyy::entity_t* spawn_room(zyy::world_t* world, zyy::prefab_t prefab, v3f pos = v3f{0.0f}) {
     auto* room = zyy::spawn(world, world->render_system(), prefab, pos);
     room->gfx.material_id = 1;
     // room->flags |= (zyy::EntityFlags_Pickupable);
@@ -623,14 +631,14 @@ enum ModuleType {
 };
 
 #define make_room(name) \
-    zyy::db::prefab_t {\
+    zyy::prefab_t {\
         .gfx = {\
             .mesh_name = name,\
         },\
-        .physics = zyy::db::prefab_t::physics_t {\
+        .physics = zyy::prefab_t::physics_t {\
             .flags = zyy::PhysicsEntityFlags_Static,\
             .shapes = {\
-                zyy::db::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},\
+                zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},\
             },\
         },\
     }
@@ -649,7 +657,7 @@ struct module_filter_t {
 };
 
 struct module_prefab_t {
-    zyy::db::prefab_t prefab{};
+    zyy::prefab_t prefab{};
     // u32 directions{0};
     module_filter_t filter{};
 
@@ -671,7 +679,7 @@ struct room_module_t {
     v3u coord{};
     u32 type{ModuleType_Room};
 
-    zyy::db::prefab_t prefab{};
+    zyy::prefab_t prefab{};
 
     union {
         struct {
@@ -962,8 +970,8 @@ struct module_generator_t {
     }
 
     
-    math::aabb_t<v3f> aabb() const {
-        math::aabb_t<v3f> t{};
+    math::rect3d_t aabb() const {
+        math::rect3d_t t{};
         t.expand(v3f{0.0f});
         t.expand(tile_to_world(dim+v3u{1}));
         return t;
@@ -986,7 +994,7 @@ struct dungeon_generator_t {
 
 
     
-    zyy::db::prefab_t rooms[4] = {
+    zyy::prefab_t rooms[4] = {
         make_room("res/models/rooms/room_02.gltf"),
         make_room("res/models/rooms/room_03.gltf"),
         make_room("res/models/rooms/room_04.gltf"),
@@ -1035,7 +1043,7 @@ struct dungeon_generator_t {
 
 world_generator_t*
 generate_world_maze(arena_t* arena) {
-    auto* generator = push_struct<world_generator_t>(arena);
+    tag_struct(auto* generator, world_generator_t, arena);
     generator->arena = arena;
     generator->add_step("Environment", WORLD_STEP_TYPE_LAMBDA(environment) {
        world->render_system()->environment_storage_buffer.pool[0].fog_density = 0.01f;
@@ -1043,7 +1051,7 @@ generate_world_maze(arena_t* arena) {
     });
     generator->add_step("Player", WORLD_STEP_TYPE_LAMBDA(player) {
         auto* player = zyy::spawn(world, world->render_system(), zyy::db::characters::assassin, axis::up * 3.0f + axis::forward * 15.0f);
-        SPAWN_GUN(zyy::db::weapons::smg, v3f(1.5f, 4.5f, 0.0f));
+        SPAWN_GUN(zyy::db::weapons::smg, v3f(-10.5f, 4.5f, 0.0f));
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         zyy::spawn(world, world->render_system(), zyy::db::misc::platform_1000, axis::down);

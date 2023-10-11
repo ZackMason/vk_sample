@@ -30,23 +30,23 @@ struct particle_system_settings_t {
 
     u32 max_count{1024};
 
-    math::aabb_t<v3f> aabb{};
+    math::rect3d_t aabb{};
 
     v3f acceleration{axis::down * 9.81f};
-    math::aabb_t<v3f> velocity_random{v3f{0.0f}, v3f{0.0f}};
-    math::aabb_t<v3f> angular_velocity_random{v3f{0.0f}, v3f{0.0f}};
+    math::rect3d_t velocity_random{v3f{0.0f}, v3f{0.0f}};
+    math::rect3d_t angular_velocity_random{v3f{0.0f}, v3f{0.0f}};
     u32 stream_rate{1}; // number of particles spawned before the system picks a new velocity, useful for streams
 
     f32 spawn_rate{0.0f};
 
-    math::aabb_t<f32> life_random{0.0f, 0.0f};
+    math::range_t life_random{0.0f, 0.0f};
 
-    math::aabb_t<f32> scale_over_life_time{1.0f, 1.0f};
+    math::range_t scale_over_life_time{1.0f, 1.0f};
 
     particle_emitter_type emitter_type{particle_emitter_type::sphere};
     union {
         math::sphere_t sphere{v3f{0.0f}, 1.0f};
-        math::aabb_t<v3f> box;
+        math::rect3d_t box;
     };
 };
 
@@ -85,7 +85,7 @@ inline static particle_cache_t*
 particle_cache_create(
     arena_t* arena
 ) {
-    auto* cache = push_struct<particle_cache_t>(arena);
+    tag_struct(auto* cache, particle_cache_t, arena);
     
     return cache;
 }
@@ -283,8 +283,8 @@ particle_system_create(
     arena_t* particle_arena = 0,
     u64 seed = 0
 ) {
-    auto* system = push_struct<particle_system_t>(system_arena);
-    system->particles = push_struct<particle_t>(particle_arena?particle_arena:system_arena, max_particle_count);
+    tag_struct(auto* system, particle_system_t, system_arena);
+    tag_array(system->particles, particle_t, particle_arena?particle_arena:system_arena, max_particle_count);
 
     system->max_count = max_particle_count;
     system->live_count = 0;

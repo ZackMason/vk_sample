@@ -4,7 +4,7 @@
 
 #include "App/game_state.hpp"
 #include "App/Game/Entity/entity.hpp"
-#include "App/Game/Entity/entity_db.hpp"
+#include "App/Game/Entity/zyy_entity_prefab.hpp"
 #include "App/Game/Rendering/render_system.hpp"
 
 
@@ -113,6 +113,8 @@ namespace zyy {
             e->id = world->next_entity_id++;
             add_entity_to_id_hash(world, e);
         }
+
+        e->world = world;
         // e->gfx.particle_system = 0;
         return e;
     }
@@ -154,7 +156,7 @@ namespace zyy {
     spawn(
         world_t* world,
         rendering::system_t* rs,
-        const db::prefab_t& def,
+        const zyy::prefab_t& def,
         const v3f& pos = {}
     ) {
         using namespace std::string_view_literals;
@@ -162,6 +164,8 @@ namespace zyy {
         utl::res::pack_file_t* resource_file = world->game_state->resource_file;
 
         entity_t* entity = world_create_entity(world);
+
+        entity->coroutine = std::nullopt;
 
         assert(entity);
         assert(uid::is_valid(entity->id));
@@ -349,39 +353,39 @@ namespace zyy {
 #include "App/Game/Entity/brain_behavior.hpp"
 
 namespace zyy {
+
+    static void 
+    world_free(world_t* world) {
+        arena_clear(&world->arena);
+        arena_clear(&world->particle_arena);
+    }
+
+    void world_init_effects(world_t* world) {
+        world->render_system()->instance_storage_buffer.pool.clear();
+        world->effects.blood_splats = world->render_system()->instance_storage_buffer.pool.allocate(world->effects.blood_splat_max = 16'000);
+    }
+    
     static world_t*
-    world_init(arena_t* arena, game_state_t* game_state, physics::api_t* phys_api) {
+    world_init(game_state_t* game_state, physics::api_t* phys_api) {
         TIMED_FUNCTION;
-        world_t* world = push_struct<world_t>(arena, 1);
+        
+        world_t* world = bootstrap_arena<world_t>(offsetof(world_t, arena), megabytes(64));
         world->game_state = game_state;
         world->physics = phys_api;
         phys_api->user_world = world;
         
-        // world->arena = arena_sub_arena(arena, megabytes(256));
-        // world->particle_arena = arena_sub_arena(arena, megabytes(32));
-        // world->particle_arena = arena_create(megabytes(32));
-
-        world->arena = arena_create(megabytes(64));
         world->particle_arena = arena_create(megabytes(8));
-        // world->frame_arena = {};
-        // world->frame_arena.arena[0] = arena_create(megabytes(1));
-        // world->frame_arena.arena[1] = arena_create(megabytes(1));
-
-        constexpr umm frame_arena_size = megabytes(4);
+        
+        // frame arenas cant be dynamic, because their blocks will be freed
+        constexpr umm frame_arena_size = megabytes(32);
         world->frame_arena.arena[0] = arena_sub_arena(&world->arena, frame_arena_size);
         world->frame_arena.arena[1] = arena_sub_arena(&world->arena, frame_arena_size);
 
-
-        // world->particle_cache = push_struct<particle_cache_t>(&world->arena);
-
-        // world->particle_cache->instance_buffer = world->render_system()->instance_storage_buffer.pool.allocate(MAX_PARTICLE_SYSTEM_COUNT * 1024);
+        world_init_effects(world);
 
         return world;
     }
 
-    void world_init_effects(world_t* world) {
-        world->effects.blood_splats = world->render_system()->instance_storage_buffer.pool.allocate(world->effects.blood_splat_max = 16'000);
-    }
 
     void world_place_bloodsplat(
         world_t* world, const m44& transform
@@ -394,7 +398,7 @@ namespace zyy {
         world_t* world
     ) {
         if (world->effects.blood_splat_count) {
-            // no gfx id, kinda scuffed
+            // no gfx id, kinda scuffed (might be a bug)
             rendering::submit_job(
                 world->render_system(), 
                 rendering::get_mesh_id(world->render_system(), "res/models/misc/bloodsplat_02.gltf"),
@@ -555,6 +559,8 @@ namespace zyy {
             }
         }
         world_kill_free_queue(w);
+        w->entity_count = 0;
+        w->entity_capacity = 0;
     }
 
     static void 

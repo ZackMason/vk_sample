@@ -6,6 +6,7 @@
 #include "App/vk_state.hpp"
 
 #include "App/Game/Util/loading.hpp"
+#include "App/Game/GUI/debug_state.hpp"
 
 #include "scene.hpp"
 #include "lighting.hpp"
@@ -48,7 +49,7 @@ namespace rendering {
         utl::deque<link_t> meshes;
 
         u64 add(arena_t* arena, const gfx::mesh_list_t& r) {
-            link_t* link = push_struct<link_t>(arena, 1);
+            tag_struct(link_t* link, link_t, arena);
             link->mesh = r;
             meshes.push_back(link);
             return meshes.size() - 1;
@@ -279,7 +280,7 @@ public:
         }
 
         // @hash
-        link_t shaders[64<<2]{};
+        link_t shaders[64<<3]{};
 
         void reload_all(
             arena_t arena,
@@ -507,12 +508,26 @@ public:
             
         }
 
-        void bind_images(gfx::vul::descriptor_builder_t& builder, gfx::vul::texture_2d_t* texture) {
+        void bind_image(gfx::vul::descriptor_builder_t& builder, gfx::vul::texture_2d_t* texture) {
             using namespace gfx::vul;
             VkDescriptorImageInfo vdii[1];
                 vdii[0].imageLayout = texture->image_layout;
                 vdii[0].imageView = texture->image_view;
                 vdii[0].sampler = texture->sampler;
+
+            builder
+                .bind_image(0, vdii, array_count(vdii), (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .build(texture_descriptor, descriptor_layouts[0]);
+        }
+        void bind_images(gfx::vul::descriptor_builder_t& builder, gfx::vul::texture_2d_t* textures) {
+            using namespace gfx::vul;
+            VkDescriptorImageInfo vdii[2];
+                vdii[0].imageLayout = textures[0].image_layout;
+                vdii[0].imageView = textures[0].image_view;
+                vdii[0].sampler = textures[0].sampler;
+                vdii[1].imageLayout = textures[1].image_layout;
+                vdii[1].imageView = textures[1].image_view;
+                vdii[1].sampler = textures[1].sampler;
 
             builder
                 .bind_image(0, vdii, array_count(vdii), (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Sampler, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -709,6 +724,8 @@ public:
         }
     };
 
+    #include "bloom_pass.hpp"
+
     // for double buffering
     struct frame_data_t {
         VkSemaphore present_semaphore, render_semaphore;
@@ -718,9 +735,10 @@ public:
         VkCommandBuffer command_buffer;
 
         pp_pass_t postprocess_pass{};
-        pp_pass_t bloom_pass[2];
+        // pp_pass_t bloom_pass[2];
         mesh_pass_t mesh_pass{};
         anim_pass_t anim_pass{};
+        bloom_pass_t bloom_pass{};
         rt_compute_pass_t rt_compute_pass{};
 
         gfx::vul::descriptor_allocator_t* dynamic_descriptor_allocator{nullptr};
@@ -802,7 +820,7 @@ public:
 
     
     struct system_t {
-        inline static constexpr umm  frame_arena_size = megabytes(64);
+        inline static constexpr umm  frame_arena_size = megabytes(4);
         inline static constexpr u32     frame_overlap = 2;
 
         inline static constexpr umm max_scene_skinned_vertex_count{1'000'000};
@@ -972,19 +990,19 @@ public:
         arena_t* arena
     ) noexcept {
         static_assert(Size > system_t::frame_arena_size);
-        auto* rs = push_struct<system_t>(arena, 1,
-            arena_sub_arena(arena, Size)
-        );
+        tag_struct(auto* rs, system_t, arena, arena_sub_arena(arena, Size));
         rs->vk_gfx = &state;
+        rs->width = (u32)state.depth_stencil_texture.size.x;
+        rs->height = (u32)state.depth_stencil_texture.size.y;
         utl::str_hash_create(rs->mesh_hash);
         rs->frame_arena = arena_sub_arena(&rs->arena, system_t::frame_arena_size);
 
-        rs->permanent_descriptor_allocator = push_struct<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device); 
+        tag_struct(rs->permanent_descriptor_allocator, gfx::vul::descriptor_allocator_t, &rs->arena, state.device); 
         range_u64(i, 0, array_count(rs->frames)) {
             // rs->render_jobs[i] = (render_job_t*)push_bytes(&rs->arena, 100000);
-            rs->frames[i].dynamic_descriptor_allocator = push_struct<gfx::vul::descriptor_allocator_t>(&rs->arena, 1, state.device);
+            tag_struct(rs->frames[i].dynamic_descriptor_allocator, gfx::vul::descriptor_allocator_t, &rs->arena, state.device);
         }
-        rs->descriptor_layout_cache = push_struct<gfx::vul::descriptor_layout_cache_t>(&rs->arena, 1, state.device); 
+        tag_struct(rs->descriptor_layout_cache, gfx::vul::descriptor_layout_cache_t, &rs->arena, state.device); 
 
         rs->texture_cache.add(state.null_texture, "null");
 
@@ -1009,8 +1027,7 @@ public:
         rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;
         lighting::init_textures(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
-        rs->scene_context = push_struct<scene_context_t>(&rs->arena, 1, state);
-        
+        tag_struct(rs->scene_context, scene_context_t, &rs->arena, state);
 
         create_render_pass(rs, state.device, state.swap_chain_image_format);
         create_framebuffers(
@@ -1036,17 +1053,9 @@ public:
         state.create_depth_stencil_image(&rs->frame_images[4].texture, w, h);
         state.create_depth_stencil_image(&rs->frame_images[5].texture, w, h);
 
-        {
-            arena_t ta = rs->arena; // temp arena
-            u32* pixels = (u32*)push_bytes(&ta, w * h);
-            range_u64(x, 0, w) {
-                range_u64(y, 0, h) {
-                    pixels[y*w+x] = (u32)utl::rng::random_s::rand();
-                }
-            }
-            state.create_texture(&rs->frame_images[6].texture, w, h, 4, 0, (u8*)pixels);
-            state.load_texture_sampler(&rs->frame_images[6].texture, true);
-        }
+        // not used?
+        state.create_texture(&rs->frame_images[6].texture, w, h, 4, 0, 0);
+        state.load_texture_sampler(&rs->frame_images[6].texture, true);
 
         range_u64(i,0,rs->frame_overlap)
             state.create_storage_buffer(&rs->job_storage_buffers[i]);
@@ -1062,7 +1071,7 @@ public:
         rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{1.f,2.f,3.f}),0.0f};
         rs->environment_storage_buffer.pool[0].sun.color = v4f{glm::normalize(v3f{0.3922f, 0.5686f, 0.902f}),0.0f};
 
-        rs->rt_cache = push_struct<rt_cache_t>(&rs->arena, 1, state);
+        tag_struct(rs->rt_cache, rt_cache_t, &rs->arena, state);
 
         range_u64(i, 0, array_count(rs->frames)) {
             rs->frames[i].create_sync_objects(state.device);
@@ -1123,7 +1132,16 @@ public:
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
                 
-                rs->frames[i].postprocess_pass.bind_images(builder, rs->texture_cache["null"]);
+                rs->frames[i].bloom_pass.initialize(state, v2i{(i32)rs->width, (i32)rs->height}, 5);
+                rs->frames[i].bloom_pass.fill_textures(&state.null_texture);
+                rs->frames[i].bloom_pass.bind_images(builder);
+                rs->frames[i].bloom_pass.build_layout(state);
+            }
+            {
+                auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
+                gfx::vul::texture_2d_t textures[2]= {*rs->texture_cache["null"], *rs->texture_cache["null"]};
+                rs->frames[i].postprocess_pass.bind_images(builder, textures);
+                // rs->frames[i].postprocess_pass.bind_images(builder, rs->texture_cache["null"]);
                 rs->frames[i].postprocess_pass.build_layout(state);
             }
         }
@@ -1499,7 +1517,7 @@ public:
         return rs->mesh_cache.get(utl::str_hash_find(rs->mesh_hash, name));
     }
 
-    inline math::aabb_t<v3f>
+    inline math::rect3d_t
     get_mesh_aabb(
         system_t* rs,
         std::string_view name
@@ -1527,7 +1545,7 @@ public:
         }
         if (!material) {
             zyy_info("rendering", "Creating material: {}", name);
-            material = push_struct<material_node_t>(&rs->arena, 1, std::move(p_material), shaders, shader_count);
+            tag_struct(material, material_node_t, &rs->arena, std::move(p_material), shaders, shader_count);
             material->name.own(&rs->arena, name);
             material->pipeline = pipeline;
             material->pipeline_layout = pipeline_layout;
@@ -1770,7 +1788,8 @@ public:
         auto& pp_pass = rs->get_frame_data().postprocess_pass;
         auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
         // pp_pass.build_buffer_sets(builder);
-        pp_pass.bind_images(builder, texture);
+        gfx::vul::texture_2d_t textures[2]={*texture, *rs->get_frame_data().bloom_pass.mip_chain[0].texture};
+        pp_pass.bind_images(builder, textures);
 
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pp_pass.pipeline_layout, 0, 1, &pp_pass.texture_descriptor, 0, nullptr);
         // vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pp_pass.pipeline_layout, 1, 1, &pp_pass.parameters_descriptor, 0, nullptr);
@@ -1791,8 +1810,159 @@ public:
         vkCmdDraw(command_buffer, 3, 1, 0, 0);
     };
 
+    inline void
+    draw_bloom(
+        system_t* rs, 
+        VkCommandBuffer command_buffer,
+        gfx::vul::texture_2d_t* texture
+    ) {
+        gfx::vul::begin_debug_marker(command_buffer, "Bloom Pass");
+
+        TIMED_FUNCTION;
+        auto& ext = rs->vk_gfx->ext;
+        auto& khr = rs->vk_gfx->khr;
+
+
+        auto scissor = gfx::vul::utl::rect2D(rs->width, rs->height, 0, 0);
+        ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
+        ext.vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_NONE);
+        ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        
+
+        auto& pass = rs->get_frame_data().bloom_pass;
+
+        auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->get_frame_data().dynamic_descriptor_allocator);
+        
+        pass.fill_textures(texture);
+        pass.bind_images(builder);
+
+        pass.bind_descriptors(command_buffer);
+
+        VkShaderEXT downscale_shaders[] = {
+            *rs->shader_cache[assets::shaders::screen_vert.filename],
+            *rs->shader_cache[assets::shaders::downsample_frag.filename]
+        };
+        VkShaderEXT upscale_shaders[] = {
+            *rs->shader_cache[assets::shaders::screen_vert.filename],
+            *rs->shader_cache[assets::shaders::upscale_frag.filename]
+        };
+        VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
+
+        i32 p=0;
+        range_u32(i, 0, pass.mip_count) {
+            auto& mip = pass.mip_chain[i];
+            pass.parameters.data[0] = (f32)p++;
+
+            auto viewport = gfx::vul::utl::viewport((f32)mip.size.x, (f32)mip.size.y, 0.0f, 1.0f);
+            ext.vkCmdSetViewportWithCountEXT(command_buffer, 1, &viewport);
+
+            // bind mip as render target
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                mip.texture->image,
+                0,
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+            
+            VkRenderingAttachmentInfoKHR colorAttachment{};
+            colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+            colorAttachment.imageView = mip.texture->image_view;
+            colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+            colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
+
+            VkRenderingInfoKHR renderingInfo{};
+            renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+            renderingInfo.renderArea = { 0, 0, (u32)mip.size.x, (u32)mip.size.y };
+            renderingInfo.layerCount = 1;
+            renderingInfo.colorAttachmentCount = 1;
+            renderingInfo.pColorAttachments = &colorAttachment;
+            khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
+
+            ext.vkCmdBindShadersEXT(command_buffer, 2, stages, downscale_shaders);
+            pass.push_constants(command_buffer);
+
+            vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+            khr.vkCmdEndRenderingKHR(command_buffer);
+
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                mip.texture->image,
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_ACCESS_SHADER_READ_BIT,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+                
+        }
+        pass.parameters.data[0] = 0.0025f;
+
+        for (int i = static_cast<int>(pass.mip_count) - 1; i > 0; i--) {
+            const auto& mip = pass.mip_chain[i];
+            const auto& next_mip = pass.mip_chain[i-1];
+            
+            pass.parameters.data[1] = f32(i + 1.0f);
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                next_mip.texture->image,
+                0,
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+            
+            VkRenderingAttachmentInfoKHR colorAttachment{};
+            colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+            colorAttachment.imageView = next_mip.texture->image_view;
+            colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+            colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
+
+            VkRenderingInfoKHR renderingInfo{};
+            renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+            renderingInfo.renderArea = { 0, 0, (u32)next_mip.size.x, (u32)next_mip.size.y };
+            renderingInfo.layerCount = 1;
+            renderingInfo.colorAttachmentCount = 1;
+            renderingInfo.pColorAttachments = &colorAttachment;
+            khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
+
+            ext.vkCmdBindShadersEXT(command_buffer, 2, stages, upscale_shaders);
+            auto viewport = gfx::vul::utl::viewport((f32)next_mip.size.x, (f32)next_mip.size.y, 0.0f, 1.0f);
+            ext.vkCmdSetViewportWithCountEXT(command_buffer, 1, &viewport);
+
+            pass.push_constants(command_buffer);
+            pass.bind_descriptors(command_buffer);
+        
+            vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+            khr.vkCmdEndRenderingKHR(command_buffer);
+
+            gfx::vul::utl::insert_image_memory_barrier(
+                command_buffer,
+                next_mip.texture->image,
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_ACCESS_SHADER_READ_BIT,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+        }
+    };
+
     void
-    update_probe_aabb(system_t* rs, const math::aabb_t<v3f>& aabb) {
+    update_probe_aabb(system_t* rs, const math::rect3d_t& aabb) {
         rs->light_probes.aabb = aabb;
         lighting::update_probe_positions(&rs->light_probes);
         rs->light_probe_settings_buffer.pool[0] = rs->light_probes.settings;

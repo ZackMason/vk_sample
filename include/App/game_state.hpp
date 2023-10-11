@@ -20,11 +20,12 @@ struct player_controller_t {
     v3f move_input;
     v2f look_input;
 
-    bool fire1;
+    b32 fire1;
     f32 iron_sight;
 
-    bool jump;
-    bool sprint;
+    b32 jump;
+    b32 sprint;
+    b32 swap;
 };
 
 inline static player_controller_t 
@@ -47,10 +48,11 @@ gamepad_controller(app_input_t* input) {
     pc.iron_sight = input->gamepads->left_trigger > 0.0f;
     pc.jump = input->gamepads->buttons[button_id::action_down].is_held;
     pc.sprint = input->gamepads->buttons[button_id::action_right].is_held;
+    pc.swap =  input->gamepads->buttons[button_id::action_left].is_held;
     return pc;
 }
 
-inline static player_controller_t 
+inline static player_controller_t
 keyboard_controller(app_input_t* input) {
     player_controller_t pc{};
     pc.move_input = v3f{
@@ -74,6 +76,7 @@ keyboard_controller(app_input_t* input) {
     pc.iron_sight = input->mouse.buttons[1];
     pc.jump = input->keys[key_id::SPACE];
     pc.sprint = input->keys[key_id::LEFT_SHIFT];
+    pc.swap = input->pressed.keys[key_id::X] || input->pressed.keys[key_id::TAB];
     return pc;
 }
 
@@ -88,7 +91,6 @@ struct game_state_t {
     arena_t             string_arena;
     arena_t             mesh_arena;
     arena_t             texture_arena;
-    arena_t             game_arena;
 
     debug_state_t* debug_state{0};
 

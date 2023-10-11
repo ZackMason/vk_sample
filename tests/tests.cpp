@@ -139,15 +139,15 @@ struct transform {
     v3f origin;
     v3f rotation;
     v3f scale;
-    math::aabb_t<v3f> aabb;
+    math::rect3d_t aabb;
 };
 
 
-REFLECT_TYPE(math::aabb_t<v3f>) {
-    REFLECT_TYPE_INFO(math::aabb_t<v3f>)
+REFLECT_TYPE(math::rect3d_t) {
+    REFLECT_TYPE_INFO(math::rect3d_t)
     }
-    .REFLECT_PROP(math::aabb_t<v3f>, min)
-    .REFLECT_PROP(math::aabb_t<v3f>, max);
+    .REFLECT_PROP(math::rect3d_t, min)
+    .REFLECT_PROP(math::rect3d_t, max);
 
 };
 
@@ -454,7 +454,7 @@ int main(int argc, char** argv) {
     });
 
     RUN_TEST("ray")
-        math::aabb_t<v3f> box;
+        math::rect3d_t box;
         box.expand(v3f{-1.0f});
         box.expand(v3f{1.0f});
         math::ray_t ray;
@@ -738,8 +738,8 @@ int main(int argc, char** argv) {
         blob.serialize(&arena, p0);
         blob.serialize(&arena, p1);
 
-        auto r0 = blob.deserialize<zyy::db::prefab_t>();
-        auto r1 = blob.deserialize<zyy::db::prefab_t>();
+        auto r0 = blob.deserialize<zyy::prefab_t>();
+        auto r1 = blob.deserialize<zyy::prefab_t>();
         
         TEST_ASSERT(r0.stats->health.max == 120);
         TEST_ASSERT(r0.type_name == "soldier"sv);

@@ -48,7 +48,7 @@ if "%~2"=="game" (
 )
 
 if "%~1"=="win32" (
-    cl %OptimizationFlags% -DZYY_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\src\zyy_platform.cpp /link %LinkFlags% %SDLLinkFlags% glfw3.lib /OUT:game.exe
+    cl %OptimizationFlags% -DZYY_INTERNAL=1 %IncludeFlags% %CompilerFlags% ..\src\zyy_platform.cpp /link %LinkFlags% %SDLLinkFlags% glfw3.lib /OUT:game.exe
 )
 
 if "%~1"=="physics" (

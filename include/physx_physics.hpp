@@ -146,7 +146,7 @@ physx_init_backend(physx_backend_t* pb, arena_t* arena) {
     assert(pb);
     pb->state = push_struct<physx_state_t>(
         arena, 1,
-        *arena, megabytes(512)
+        megabytes(16)
     );
 
     init_physx_state(*pb->state);
@@ -264,8 +264,8 @@ physx_remove_rigidbody(api_t* api, rigidbody_t* rb) {
     assert(ps->world->scene);
     if (rb->type == rigidbody_type::CHARACTER) {
         auto* controller = (physx::PxController*)rb->api_data;
-        
         ps->world->scene->removeActor(*controller->getActor());
+        controller->release();
         for (u64 i = 0; i < api->character_count; i++) {
             if (api->characters[i] == rb) {
                 std::swap(api->characters[i], api->characters[--api->character_count]);

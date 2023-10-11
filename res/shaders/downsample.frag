@@ -12,14 +12,13 @@ layout(push_constant, scalar) uniform PPParams {
     PPMaterial data;
 } uParameters;
 
-layout(binding = 0, set = 0) uniform sampler2D uTextures[2];
+layout(binding = 0, set = 0) uniform sampler2D uTextures[13];
 
-#define uRead uTextures[0]
 #define kMipLevel int(uParameters.data.data[0])
+#define uRead uTextures[kMipLevel]
 
 layout ( location = 0 ) in vec2 vUV;
 layout ( location = 0 ) out vec4 fFragColor;
-
 
 void main() {
     vec2 texel_size = 1.0/textureSize(uRead,0).xy;

@@ -2,6 +2,7 @@
 
 #include "App/Game/Entity/brain.hpp"
 #include "App/Game/Entity/entity.hpp"
+#include "App/Game/Entity/entity_db.hpp"
 #include "App/Game/Physics/player_movement.hpp"
 
 #define BRAIN_BEHAVIOR_FUNCTION(name) static void name(zyy::world_t* world, zyy::entity_t* entity, brain_t* brain, f32 dt)
@@ -18,6 +19,12 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     const bool ignore_mouse = gfx::gui::im::want_mouse_capture(imgui);
     const bool ignore_keyboard = gfx::gui::im::want_mouse_capture(imgui);
 
+    if (pc.swap) {
+        std::swap(
+            player->primary_weapon.entity,
+            player->secondary_weapon.entity
+        );
+    }
 
 
     player->camera_controller.transform = 
@@ -81,7 +88,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         // player->primary_weapon.entity->transform.set_scale(v3f{3.0f});
         player->primary_weapon.entity->transform.origin =
             player->global_transform().origin +
-            forward + axis::up * 0.3f;
+            forward + axis::up * .9f;
             //  0.5f * (right + axis::up);
     }
     rigidbody->angular_velocity = v3f{0.0f};
@@ -92,69 +99,69 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     player->camera_controller.transform.origin = player->transform.origin + axis::up * 1.0f;
 
     const auto stepped = player->camera_controller.walk_and_bob(dt * (pc.sprint ? 1.75f : 1.0f), glm::length(swizzle::xz(move)) > 0.0f && is_on_ground, move.x);
+    player->camera_controller.transform.origin += 
+        axis::up * player->camera_controller.head_height + 
+        axis::up * player->camera_controller.head_offset;
+    player->camera_controller.translate(v3f{0.0f});
+
+    auto& hand_pid_x = player->camera_controller.hand_controller.x;
+    auto& hand_pid_y = player->camera_controller.hand_controller.y;
+    auto& hand_pid_z = player->camera_controller.hand_controller.z;
+    DEBUG_WATCH(&hand_pid_x.proportional_gain);
+    DEBUG_WATCH(&hand_pid_y.proportional_gain);
+    DEBUG_WATCH(&hand_pid_z.proportional_gain);
+    DEBUG_WATCH(&hand_pid_x.derivative_gain);
+    DEBUG_WATCH(&hand_pid_x.derivative_gain);
+    DEBUG_WATCH(&hand_pid_y.derivative_gain);
+    DEBUG_WATCH(&hand_pid_y.integral_gain);
+    DEBUG_WATCH(&hand_pid_z.integral_gain);
+    DEBUG_WATCH(&hand_pid_z.integral_gain);
+
+    // if(player->primary_weapon.entity) {
+    //     auto fforward = -player->primary_weapon.entity->transform.basis[2];
+    //     player->primary_weapon.entity->transform.origin += 
+    //         player->camera_controller.hand_controller.compute(dt,
+    //             player->primary_weapon.entity->transform.origin,
+    //             player->global_transform().origin +
+    //             forward + axis::up * 0.3f);
+
+    //     player->camera_controller.last_position = player->primary_weapon.entity->transform.origin;
+
+    // }
+    
+    
     if (stepped) {
         // Platform.audio.play_sound(0x1);
     }
 
+    auto* weapon_entity = player->primary_weapon.entity;
+    auto& weapon = player->primary_weapon.entity->stats.weapon;
+
     if (player->primary_weapon.entity) {
-        player->primary_weapon.entity->stats.weapon.update(dt);
+        weapon.update(dt);
     }
-    if (pc.fire1 && player->primary_weapon.entity 
+    if (!ignore_mouse && pc.fire1 && player->primary_weapon.entity 
         // && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false
     ) {
         auto fire_arena = begin_temporary_memory(&world->frame_arena.get());
         u64 fired{0};
-        auto* bullets = player->primary_weapon.entity->stats.weapon.fire(fire_arena.arena, dt, &fired);
+        auto* bullets = weapon.fire(fire_arena.arena, dt, &fired);
 
         range_u64(bullet, 0, fired) {
-            auto ro = player->camera_controller.transform.origin + forward * 1.7f;
+            auto ro = weapon_entity->global_transform().origin + forward * 1.7f;
             auto r_angle = utl::rng::random_s::randf() * 1000.0f;
             auto r_radius = utl::rng::random_s::randf() * bullets[bullet].spread;
             v2f polar{math::from_polar(r_angle, r_radius)};
             auto rd = glm::normalize(forward * 10.0f + right * polar.x + axis::up * polar.y);
             bullets[bullet].ray = math::ray_t{ro, rd};
-            // if (auto ray = physics->raycast_world(physics, ro, rd); ray.hit) {
-                // auto* rb = (physics::rigidbody_t*)ray.user_data;
-                math::ray_t gun_shot{ro, rd};
-                DEBUG_DIAGRAM(gun_shot);
-                // if (rb == player->physics.rigidbody) {
-                //     zyy_warn(__FUNCTION__, "player shot them self");
-                // }
-                // auto hp = (ray.point);
-                // zyy::entity_t* hit_entity=0;
-                // if (rb->type == physics::rigidbody_type::DYNAMIC ||
-                //     rb->type == physics::rigidbody_type::KINEMATIC
-                // ) {
-                //     // rb->inverse_transform_direction
-                //     // auto f = rb->inverse_transform_direction(rd);
-                //     // rb->add_force(rd*1.0f);
-                //     hit_entity = (zyy::entity_t*)rb->user_data;
-                //     rb->add_force_at_point(rd*50.0f, hp);
-                //     math::ray_t force{hp, rd};
-                //     DEBUG_DIAGRAM(force);
-                // } else {
-                //     DEBUG_DIAGRAM(ray.point);
-                // }
-
-                // auto* hole = zyy::spawn(world, world->render_system(), zyy::db::misc::bullet_hole, hp);
-                // hole->transform.set_rotation(world->entropy.randnv<v3f>() * 100.0f);
-                // hole->coroutine->start();
-                // if (hit_entity) {
-                //     if (hit_entity->stats.character.health.max) {
-                //         if (hit_entity->stats.character.health.damage(bullets[bullet].damage)) {
-                //             hit_entity->queue_free();
-                //         }
-                //     }
-                //     // auto local_pos = hole->global_transform().origin - hit_entity->global_transform().origin;
-                //     hit_entity->add_child(hole, true);
-                //     hole->transform.origin = hit_entity->global_transform().inv_xform(hp);
-                // }
-            // }
+            math::ray_t gun_shot{ro, rd};
+            DEBUG_DIAGRAM(gun_shot);
         }
+        
         range_u64(bullet, 0, fired) {
-            auto* b = zyy::wep::spawn_bullet(
-                world, zyy::db::misc::bullet_01,
-                bullets[bullet], dt
+            auto* b = weapon.bullet_fn(
+                world, zyy::db::misc::plasma_bullet,
+                bullets[bullet]
             );
             b->stats.effect = player->primary_weapon.entity->stats.effect;
         }

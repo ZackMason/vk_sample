@@ -359,7 +359,7 @@ struct export_dll api_t {
 #endif
 };
 
-using init_function = void(__cdecl *)(api_t* api, backend_type type, arena_t* arena);
+using init_function = void(__cdecl *)(api_t* api, backend_type type, platform_api_t* platform, arena_t* arena);
 
 void collider_t::set_trigger(bool x) {
     rigidbody->api->collider_set_trigger(this, x);

@@ -17,104 +17,7 @@
 
 namespace zyy {
 
-
-// most of these should be inferred from entity data
-enum EntityFlags : u64 {
-    EntityFlags_Breakpoint = BIT(0),
-    // EntityFlags_Spatial = BIT(1), // is this really needed??
-    // EntityFlags_Renderable = BIT(2), // is this really needed??
-    EntityFlags_Pickupable = BIT(3),
-    EntityFlags_Interactable = BIT(4),
-    EntityFlags_Dying = BIT(11),
-    EntityFlags_Dead = BIT(12),
-};
-
-enum PhysicsEntityFlags {
-    PhysicsEntityFlags_None = 0,
-    PhysicsEntityFlags_Static = BIT(0),
-    PhysicsEntityFlags_Dynamic = BIT(1),
-    PhysicsEntityFlags_Trigger = BIT(2),
-    PhysicsEntityFlags_Character = BIT(3),
-    PhysicsEntityFlags_Kinematic = BIT(4),
-};
-
-enum struct entity_type {
-    environment,
-
-    player,
-    bad,
-
-    weapon,
-    weapon_part,
-    item,
-
-    trigger,
-
-    effect,
-
-    SIZE
-};
-
-struct health_t {
-    f32 max{0.0f};
-    f32 current{0.0f};
-
-    bool damage(f32 x) {
-        if (max > 0.0f) {
-            current -= x;
-            return current <= 0.0f;
-        } else {
-            return false;
-        }
-    }
-
-    constexpr health_t(f32 v = 0.0f) noexcept
-        : max{v}, current{v} {}
-};
-
-struct movement_t {
-    f32 move_speed{1.0f};
-};
-
-struct character_stats_t {
-    health_t health{};
-    movement_t movement{};
-};
-
-struct entity_coroutine_t {
-    // entity_coroutine_t* next{0};
-    coroutine_t coroutine;
-
-    bool _is_running = false;
-
-    void start() {
-        if (!_is_running) {
-            coroutine.line=0;
-            _is_running = true;
-        } else {
-            // zyy_warn(__FUNCTION__, "{} tried to start coroutine that is already running", coroutine.data);
-        }
-    }
-    inline void run(frame_arena_t& frame_arena) {
-        if (func && _is_running) {
-            func(&coroutine, frame_arena);
-            _is_running = coroutine.running;
-        }
-    }
-    void (*func)(coroutine_t*, frame_arena_t&);
-};
-
-DEFINE_TYPED_ID(entity_id);
-
-struct entity_t;
-
-struct entity_ref_t {
-    entity_t* entity;
-    entity_id id;
-
-    entity_t* operator->();
-};
-
+struct world_t;
 struct world_t;
 
 // using entity_update_function = void(*)(entity_t*, world_t*);
@@ -127,6 +30,8 @@ struct entity_t {
     u64         tag{0};
     string_t    name;
 
+    world_t*    world{0};
+
     entity_t*   next{nullptr};
     entity_t*   parent{nullptr};
     entity_t*   next_id_hash{nullptr};
@@ -137,7 +42,17 @@ struct entity_t {
     brain_id    brain_id{uid::invalid_id};
 
     math::transform_t   transform;
-    math::aabb_t<v3f>        aabb;
+    // math::transform_t   _global_transform;
+
+    math::rect3d_t        aabb;
+
+    void dirty_transform() {
+        flags |= EntityFlags_DirtyTransform;
+        
+        for (auto* child = first_child; child; node_next(child)) {
+            child->dirty_transform();
+        }
+    }
 
     math::transform_t global_transform() const {
         if (parent) {
@@ -265,19 +180,22 @@ struct entity_t {
             ((flags & (EntityFlags_Dying|EntityFlags_Dead)) == 0);
     }
 
-    void queue_free() noexcept {
+    void queue_free(b32 and_children = 1) noexcept {
         assert(uid::is_valid(id));
         assert(((flags & EntityFlags_Dead) == 0) && "Should not have access to dead entities");
         // zyy_info(__FUNCTION__, "Killing entity: {} - {}", (void*)this, name.c_str() ? name.c_str() : "<null>");
         flags |= EntityFlags_Dying;
         
-        auto* child = first_child;
-        for (;child; child = child->next_child) {
-            child->queue_free();
+        if (and_children) {
+            auto* child = first_child;
+            for (;child; child = child->next_child) {
+                child->queue_free();
+            }
         }
     }
 
     void remove_child(entity_t* child) {
+        auto child_transform = child->global_transform();
         entity_t* last=first_child;
         if (last==child) {
             first_child = first_child->next_child;
@@ -287,11 +205,13 @@ struct entity_t {
                 if (c == child) {
                     last->next_child  = c->next_child;
                     child->parent = nullptr;
-                    return;
+
+                    break;
                 }
                 last = c;
             }
         }
+        child->transform = child_transform;
     }
 
     void add_child(entity_t* child, bool maintain_world_pos = false) {

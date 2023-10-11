@@ -32,6 +32,7 @@ struct debug_watcher_t {
 
     union {
         char* as_cstr;
+        void* as_vptr;
         b32* as_b32;
         u32* as_u32;
         i32* as_i32;
@@ -39,7 +40,7 @@ struct debug_watcher_t {
         f64* as_f64;
         v2f* as_v2f;
         v3f* as_v3f;
-        // math::aabb_t<v3f> as_aabb;
+        // math::rect3d_t as_aabb;
         zyy::entity_t* as_entt;
         math::ray_t* as_ray;
     };
@@ -77,7 +78,7 @@ struct debug_variable_t {
         f64 as_f64;
         v2f as_v2f;
         v3f as_v3f;
-        math::aabb_t<v3f> as_aabb{};
+        math::rect3d_t as_aabb{};
         math::ray_t as_ray;
     };
 };
@@ -109,14 +110,24 @@ struct debug_state_t {
             new (v) debug_watcher_t;
             return v;
         } else {
-            return push_struct<debug_watcher_t>(&watch_arena);
+            // return push_struct<debug_watcher_t>(&watch_arena);
+            tag_struct(auto* result, debug_watcher_t, &watch_arena);
+            return result;
         }
     }
 
     void begin_frame() {
-        // node_push(watcher, free_watch);
+        if (watcher) {
+            if (free_watch) {
+                auto* free_last = free_watch;
+                while(free_last->next) { node_next(free_last); }
+                node_push(free_last, watcher);
+            } else {
+                free_watch = watcher;
+            }
+        }
         watcher = nullptr;
-        arena_clear(&watch_arena);
+        // arena_clear(&watch_arena);
     }
 
     void show_entity(gfx::gui::im::state_t& imgui, debug_watcher_t* var) {
@@ -176,7 +187,7 @@ struct debug_state_t {
                     im::text(imgui, fmt_sv("{}: ", var->name));
                 }
                 if (var->type == debug_watcher_type::FLOAT32) {
-                    im::float_slider(imgui, var->as_f32, var->min_f32, var->max_f32);
+                    im::float_drag(imgui, var->as_f32);
                 } else if (var->type == debug_watcher_type::UINT32) {
                     f32 t = (f32)*var->as_u32;
                     im::float_slider_id(imgui, (u64)var->as_u32, &t, (f32)var->min_u32, (f32)var->max_u32);
@@ -221,7 +232,7 @@ struct debug_state_t {
             }
         }
 
-        math::aabb_t<v3f> viewable{v3f{0.0f}, v3f{viewport.z, viewport.w, 1.0f}};
+        math::rect3d_t viewable{v3f{0.0f}, v3f{viewport.z, viewport.w, 1.0f}};
         node_for(auto, variables, var) {
             // im::text(imgui, var->name);
             if (var->type == debug_variable_type::VEC3) {
@@ -293,7 +304,7 @@ struct debug_state_t {
         if constexpr (std::is_same_v<T, v2f>) { var->type = debug_variable_type::VEC2; }
         if constexpr (std::is_same_v<T, v3f>) { var->type = debug_variable_type::VEC3; }
         if constexpr (std::is_same_v<T, math::ray_t>) { var->type = debug_variable_type::RAY; }
-        if constexpr (std::is_same_v<T, math::aabb_t<v3f>>) { var->type = debug_variable_type::AABB; }
+        if constexpr (std::is_same_v<T, math::rect3d_t>) { var->type = debug_variable_type::AABB; }
         
         utl::copy(&var->as_u32, &val, sizeof(val));
 
@@ -303,7 +314,7 @@ struct debug_state_t {
 
     debug_watcher_t* has_watch_variable(void* ptr) {
         node_for(auto, watcher, var) {
-            if ((void*)var->as_u32 == ptr) {
+            if (var->as_vptr == ptr) {
                 return var;
             }
         }
@@ -313,7 +324,7 @@ struct debug_state_t {
     template <typename T>
     debug_watcher_t* watch_variable(T* val, std::string_view name) {
         std::lock_guard lock{ticket};
-        if (auto ovar = has_watch_variable((void*)val)) return ovar;
+        if (auto cached = has_watch_variable((void*)val)) return cached;
         auto* var = create_watcher();
         var->name = name;
         if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_watcher_type::ENTITY; }
@@ -325,9 +336,9 @@ struct debug_state_t {
         if constexpr (std::is_same_v<T, v2f>) { var->type = debug_watcher_type::VEC2; }
         if constexpr (std::is_same_v<T, v3f>) { var->type = debug_watcher_type::VEC3; }
         if constexpr (std::is_same_v<T, math::ray_t>) { var->type = debug_watcher_type::RAY; }
-        if constexpr (std::is_same_v<T, math::aabb_t<v3f>>) { var->type = debug_watcher_type::AABB; }
+        if constexpr (std::is_same_v<T, math::rect3d_t>) { var->type = debug_watcher_type::AABB; }
         
-        utl::copy(&var->as_u32, &val, sizeof(val));
+        utl::copy(&var->as_vptr, &val, sizeof(val));
 
         node_push(var, watcher);
         return var;
@@ -347,8 +358,8 @@ struct debug_state_t {
                 if constexpr (std::is_same_v<T, v2f>) { assert(n->type == debug_watcher_type::VEC2); }
                 if constexpr (std::is_same_v<T, v3f>) { assert(n->type == debug_watcher_type::VEC3); }
                 if constexpr (std::is_same_v<T, math::ray_t>) { assert(n->type == debug_watcher_type::RAY); }
-                if constexpr (std::is_same_v<T, math::aabb_t<v3f>>) { assert(n->type == debug_watcher_type::AABB); }
-                utl::copy(n->as_u32, &val, sizeof(T));
+                if constexpr (std::is_same_v<T, math::rect3d_t>) { assert(n->type == debug_watcher_type::AABB); }
+                utl::copy(n->as_vptr, &val, sizeof(T));
             }
         }
     }

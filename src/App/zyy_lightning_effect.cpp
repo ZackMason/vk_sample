@@ -10,7 +10,10 @@ void spawn_beam(
     auto p = (p1 + p2) * 0.5f;
     auto dist = glm::distance(p1, p2) * 0.50f;
 
+    // auto prefab = zyy::db::particle::orb;
     auto prefab = zyy::db::particles::beam;
+    prefab.emitter->template_particle.life_time = 10.50f;
+    prefab.emitter->template_particle.velocity = v3f{0.0f};
     // prefab.emitter->max_count = (u32)(dist/(0.6f));
 
     auto* sparks = zyy::spawn(w, w->render_system(), prefab, p);
@@ -29,77 +32,6 @@ void spawn_beam(
     DEBUG_DIAGRAM(p);
 }
 
-void lightning_on_hit_effect_impl2(
-    zyy::world_t* w, 
-    zyy::item::effect_t* effect,
-    zyy::entity_t* entity,
-    v3f p, v3f n,
-    lightning_cache_t* cache
-) {
-    TIMED_FUNCTION;
-
-    assert(w);
-    assert(effect);
-    assert(entity);
-
-    arena_t* arena = &w->frame_arena.get();
-
-    auto* b = utl::hash_trie_get_insert(&cache, entity, arena);
-
-    if (*b) {
-        // zyy_info(__FUNCTION__, "Already hit");
-    } else {
-        if (entity->stats.character.health.damage(1.0f)) {
-            entity->queue_free();
-        }
-
-        // auto* sparks = zyy::spawn(w, w->render_system(), zyy::db::particles::sparks, p);
-        // sparks->coroutine->start();
-        // sparks->gfx.material_id = 7;
-
-        auto temp_arena = *arena;
-
-        auto* near = w->physics->sphere_overlap_world(
-            w->physics,
-            &temp_arena,
-            entity->global_transform().origin,
-            20.0f
-        );
-
-        *b = 1;
-
-        if (near) {
-            u32 actual_hit = 0;
-            range_u64(i, 0, near->hit_count) {
-                auto* rb = (physics::rigidbody_t*)near->hits[i].user_data;
-                auto* e = (zyy::entity_t*)rb->user_data;
-
-                if (e == entity || e->type != zyy::entity_type::bad) {
-                    continue;
-                }
-
-                if (*utl::hash_trie_get_insert(&cache, e, arena) == 1) {
-                    continue;
-                }
-
-                actual_hit++;
-
-                spawn_beam(w, e, entity);
-
-                lightning_on_hit_effect_impl2(
-                    w, 
-                    effect,
-                    e,
-                    e->global_transform().origin, axis::up,
-                    cache
-                );
-            }
-            // zyy_info(__FUNCTION__, "hit: {}", actual_hit);
-        } else {
-            // zyy_warn(__FUNCTION__, "No Lightning hit");
-        }
-    }
-}
 
 void lightning_on_hit_effect_impl(
     zyy::world_t* w, 
@@ -116,8 +48,9 @@ void lightning_on_hit_effect_impl(
     assert(entity);
 
 
-    arena_t temp = w->arena;
-    arena_t* arena = &temp; 
+    // arena_t temp = arena_create(kilobytes(1));
+    auto memory = begin_temporary_memory(&w->arena);
+    arena_t* arena = memory.arena; 
     // auto mark = arena_get_mark(arena);
     arena_t stack_arena = w->frame_arena.get();
 
@@ -172,6 +105,10 @@ void lightning_on_hit_effect_impl(
             // zyy_info(__FUNCTION__, "hit: {} {}/{}", (void*)e, actual_hit, near->hit_count);
         }
     }
+
+    end_temporary_memory(memory);
+
+    // arena_clear(&temp);
     // arena_set_mark(arena, mark);
 
 }

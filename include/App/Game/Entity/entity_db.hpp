@@ -1,5 +1,6 @@
 #pragma once
 
+#include "App/Game/Entity/zyy_entity_prefab.hpp"
 #include "App/Game/Entity/entity.hpp"
 #include "App/Game/GUI/debug_state.hpp"
 #include "App/Game/Rendering/particle.hpp"
@@ -17,109 +18,9 @@ void co_kill_in_ten(coroutine_t* co, frame_arena_t& frame_arena) {
     co_end(co);
 }
 
-
 namespace zyy::db {
 
-struct prefab_t {
-    entity_type type{entity_type::environment};
-    char type_name[128]{0};
-
-    struct gfx_t {
-        // string_t mesh_name{};
-        char mesh_name[128]{0};
-        gfx::material_t material{};
-        char albedo_texture[128]{0};
-        char normal_texture[128]{0};
-        
-        char animations[128]{0};
-    } gfx;
-
-    void (*coroutine)(coroutine_t*, frame_arena_t&){0};
-    std::optional<character_stats_t> stats{};
-    std::optional<wep::base_weapon_t> weapon{};
-
-    struct physics_t {
-        u32 flags{PhysicsEntityFlags_None};
-        physics::rigidbody_on_collision_function on_collision{0};
-        physics::rigidbody_on_collision_function on_collision_end{0};
-        physics::rigidbody_on_collision_function on_trigger{0};
-        physics::rigidbody_on_collision_function on_trigger_end{0};
-
-
-        struct shape_t {
-            physics::collider_shape_type shape{physics::collider_shape_type::NONE};
-            u32 flags{};
-            union {
-                struct box_t {
-                    v3f size{};
-                } box;
-                math::sphere_t sphere;
-                struct capsule_t {
-                    f32 radius;
-                    f32 height;
-                } capsule;
-            };
-        };
-        std::optional<shape_t> shapes[8]{}; 
-    };
-    std::optional<physics_t> physics{};
-
-    std::optional<particle_system_settings_t> emitter{};
-    std::optional<item::effect_t> effect{};
-
-    brain_type brain_type = brain_type::invalid;
-
-    struct child_t {
-        const prefab_t* entity{0};
-        v3f                 offset{0.0f};
-    };
-    child_t children[10]{};
-
-    prefab_t& operator=(const prefab_t& o) {
-        if (this != &o) {
-            puts("Copy entity def");
-            utl::copy(this, &o, sizeof(*this));
-        }
-        return *this;
-    }
-};
-
-inline static prefab_t 
-load_from_file(arena_t* arena, std::string_view path) {
-    prefab_t entity;
-
-    std::ifstream file{path.data(), std::ios::binary};
-
-    if(!file.is_open()) {
-        zyy_error("res", "Failed to open file");
-        return entity;
-    }
-
-    file.seekg(0, std::ios::end);
-    const size_t size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    // we might not just be reading from the file 
-    // so we use arena to read the whole file
-    // and go through serialization
-
-    auto temp = begin_temporary_memory(arena);
-
-    std::byte* data = push_bytes(temp.arena, size);
-    file.read((char*)data, size);
-    
-    utl::memory_blob_t loader{data};
-
-    entity = loader.deserialize<prefab_t>();
-
-    end_temporary_memory(temp);
-
-    return entity;
-}
-
-
-
-#define DB_ENTRY static constexpr prefab_t
+#define DB_ENTRY static constexpr zyy::prefab_t
 
 namespace misc {
 
@@ -156,17 +57,17 @@ teapot {
             50
         },
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Dynamic,
     #if 1 // use convex
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::CONVEX,
             },
         },
     #else 
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::SPHERE,
                 .sphere = {
                     .radius = 1.0f,
@@ -185,10 +86,10 @@ door {
         .mesh_name = "res/models/environment/door_02.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Kinematic,
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::BOX,
                 // .flags = 1,
                 .box = {
@@ -223,10 +124,10 @@ platform_1000 {
         .mesh_name = "res/models/platform_1000x1000.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::BOX,
                 .box = {
                     .size = v3f{1000.0f, 1.0f, 1000.0f},
@@ -270,16 +171,16 @@ platform_3x3 {
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
     .coroutine = co_platform,
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Kinematic | PhysicsEntityFlags_Trigger,
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::BOX,
                 .box = {
                     .size = v3f{3.0f, .2f, 3.0f},
                 },
             },
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::BOX,
                 .flags = 1,
                 .box = {
@@ -311,13 +212,56 @@ bullet_01 {
         .mesh_name = "res/models/bullet_01.gltf",
     },
     .coroutine = co_kill_in_ten,
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Dynamic,
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::SPHERE,
                 .sphere = {
-                    .radius = 0.1f,
+                    .radius = 0.135f,
+                },
+            },
+        },
+    },
+};
+
+DB_ENTRY
+plasma_bullet {
+    .type = entity_type::bad,
+    .type_name = "plasma_bullet",
+    .gfx = {
+        .mesh_name = "res/models/particles/particle_03.gltf",
+    },
+    .coroutine = co_kill_in_ten,
+    .physics = zyy::prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Dynamic,
+        .shapes = {
+            zyy::prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .sphere = {
+                    .radius = 0.135f,
+                },
+            },
+        },
+    },
+};
+
+
+DB_ENTRY
+rocket_bullet {
+    .type = entity_type::bad,
+    .type_name = "rocket_bullet",
+    .gfx = {
+        .mesh_name = "res/models/guns/rocket_01.gltf",
+    },
+    .coroutine = co_kill_in_ten,
+    .physics = zyy::prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Dynamic,
+        .shapes = {
+            zyy::prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .sphere = {
+                    .radius = 0.135f,
                 },
             },
         },
@@ -349,6 +293,35 @@ plasma {
     },
 };
 
+DB_ENTRY
+orb {
+    .type = entity_type::environment,
+    .type_name = "orb_particle",
+    .gfx = {
+        .mesh_name = "res/models/particles/particle_03.gltf",
+        .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+    .coroutine = co_kill_in_ten,
+    .emitter = particle_system_settings_t {
+        .template_particle = particle_t {
+            .position = v3f(0.0),
+            .life_time = 0.50f,
+            .color = gfx::color::v4::purple,
+            .scale = 1.0f,
+            .velocity = axis::up * 5.0f,
+        },
+        .world_space = 1,
+        .max_count = 64,
+        .velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f)),
+        .angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f)),
+        .stream_rate = 1,
+        .spawn_rate = 0.005f,
+        .scale_over_life_time = math::range_t(0.50f, 0.0f),
+        .emitter_type = particle_emitter_type::box,
+        .box = math::rect3d_t(v3f(-0.10f), v3f(0.10f)),
+    },
+};
+
 } // namespace particle
 
 namespace environmental {
@@ -373,6 +346,16 @@ bloodsplat_01 {
     },
 };
 
+// ps->gfx.particle_system->spawn_rate = 0.005f;
+// ps->gfx.particle_system->scale_over_life_time = math::range_t(3.0f, 2.50f);
+// ps->gfx.particle_system->velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f));
+// ps->gfx.particle_system->angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f));
+// ps->gfx.particle_system->emitter_type = particle_emitter_type::box;
+// ps->gfx.particle_system->box = math::rect3d_t(v3f(-0.10f), v3f(0.10f));
+// ps->gfx.particle_system->stream_rate = 
+// ps->gfx.particle_system->_stream_count = 1;
+
+
 DB_ENTRY
 blood_01 {
     .type = entity_type::environment,
@@ -380,6 +363,23 @@ blood_01 {
     .gfx = {
         .mesh_name = "res/models/misc/blood_01.gltf",
         .material = gfx::material_t::plastic(gfx::color::v4::light_gray),
+    },
+    .emitter = particle_system_settings_t {
+        .template_particle = particle_t {
+            .position = v3f(0.0),
+            .life_time = 10.0f,
+            .color = gfx::color::v4::purple,
+            .scale = 1.0f,
+            .velocity = axis::up * 5.0f,
+        },
+        .max_count = 64,
+        .velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f)),
+        .angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f)),
+        .stream_rate = 1,
+        .spawn_rate = 0.005f,
+        .scale_over_life_time = math::range_t(3.0f, 2.50f),
+        .emitter_type = particle_emitter_type::box,
+        .box = math::rect3d_t(v3f(-0.10f), v3f(0.10f)),
     },
 };
 
@@ -443,10 +443,10 @@ city_test_01 {
         .mesh_name = "res/models/city_test_01.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
         },
     },
 };
@@ -459,10 +459,10 @@ temple_01 {
         .mesh_name = "res/models/rooms/temple_01.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
         },
     },
 };
@@ -475,10 +475,10 @@ parkcore_01 {
         .mesh_name = "res/models/rooms/parkcore_01.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
         },
     },
 };
@@ -490,10 +490,10 @@ parkcore_02 {
         .mesh_name = "res/models/rooms/parkcore_02.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
         },
     },
 };
@@ -506,10 +506,10 @@ room_03 {
         .mesh_name = "res/models/rooms/room_03.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
         },
     },
 };
@@ -522,10 +522,10 @@ tower_01 {
         .mesh_name = "res/models/rooms/tower_01.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
         },
     },
 };
@@ -538,11 +538,11 @@ sponza {
         .mesh_name = "res/models/Sponza.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
-            // prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            // zyy::prefab_t::physics_t::shape_t{
             //     .shape = physics::collider_shape_type::SPHERE,
             //     .flags = 1,
             //     .sphere = {
@@ -564,10 +564,10 @@ room_01 {
         // .mesh_name = "res/models/rooms/rock_room_test.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
         },
     },
 };
@@ -580,10 +580,10 @@ room_0 {
         .mesh_name = "res/models/rooms/room_0.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
         },
     },
 };
@@ -596,10 +596,10 @@ map_01 {
         .mesh_name = "res/models/map_01.obj",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
         },
     },
 };
@@ -615,11 +615,11 @@ lightning_powerup {
     .gfx = {
         .mesh_name = "res/models/utah-teapot.obj",
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .on_trigger = zyy::item::pickup_item,
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::SPHERE,
                 .flags = 1,
                 .sphere = {
@@ -647,10 +647,76 @@ shotgun {
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_shotgun(),
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .flags = 1,
+                .sphere = {
+                    .radius = 1.0f,
+                },
+            },
+        },
+    },
+};
+
+DB_ENTRY
+knife_bullet {
+    .type = entity_type::weapon,
+    .type_name = "knife_bullet",
+    .gfx = {
+        .mesh_name = "res/models/guns/knife_01.gltf",
+    },
+    .coroutine = co_kill_in_ten,
+    .physics = zyy::prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Dynamic,
+        .shapes = {
+            zyy::prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .sphere = {
+                    .radius = 0.25f,
+                },
+            },
+        },
+    },
+};
+
+DB_ENTRY
+knife {
+    .type = entity_type::weapon,
+    .type_name = "knives",
+    .gfx = {
+        .mesh_name = "res/models/guns/knife_01.gltf",
+    },
+    .weapon = wep::create_knife(),
+    .physics = zyy::prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            zyy::prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .flags = 1,
+                .sphere = {
+                    .radius = 1.0f,
+                },
+            },
+        },
+    },
+};
+
+DB_ENTRY
+rpg {
+    .type = entity_type::weapon,
+    .type_name = "rpg",
+    .gfx = {
+        .mesh_name = "res/models/guns/rpg_01.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
+    },
+    .weapon = wep::create_rpg(),
+    .physics = zyy::prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::SPHERE,
                 .flags = 1,
                 .sphere = {
@@ -664,16 +730,16 @@ shotgun {
 DB_ENTRY
 smg {
     .type = entity_type::weapon,
-    .type_name = "shotgun",
+    .type_name = "smg",
     .gfx = {
         .mesh_name = "res/models/guns/smg_01.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_rifle(),
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::SPHERE,
                 .flags = 1,
                 .sphere = {
@@ -689,10 +755,22 @@ rifle {
     .type = entity_type::weapon,
     .type_name = "rifle",
     .gfx = {
-        .mesh_name = "res/models/rifle.obj",
+        .mesh_name = "res/models/guns/rifle_01.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::dark_gray),
     },
     .weapon = wep::create_rifle(),
+    .physics = zyy::prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            zyy::prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::SPHERE,
+                .flags = 1,
+                .sphere = {
+                    .radius = 1.0f,
+                },
+            },
+        },
+    },
 };
 
 DB_ENTRY
@@ -729,13 +807,13 @@ fire {
         },
         .max_count = 64,
         .acceleration = v3f{axis::up*9.81f*0.1f},
-        .velocity_random = math::aabb_t<v3f>(planes::xz*-.0050f, v3f(.0050f)),
-        .angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f)),
+        .velocity_random = math::rect3d_t(planes::xz*-.0050f, v3f(.0050f)),
+        .angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f)),
         .stream_rate = 1,
         .spawn_rate = 0.02f,
-        .scale_over_life_time = math::aabb_t<f32>(0.06f, 0.01f),
+        .scale_over_life_time = math::range_t(0.06f, 0.01f),
         .emitter_type = particle_emitter_type::box,
-        .box = math::aabb_t<v3f>(v3f(-.10f), v3f(.10f)),
+        .box = math::rect3d_t(v3f(-.10f), v3f(.10f)),
     },
 };
 
@@ -757,13 +835,13 @@ sparks {
         },
         .max_count = 32,
         .acceleration = v3f{axis::up*9.81f*-0.1f},
-        .velocity_random = math::aabb_t<v3f>(planes::xz*-5.50f, v3f(5.50f)),
-        // .angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f)),
+        .velocity_random = math::rect3d_t(planes::xz*-5.50f, v3f(5.50f)),
+        // .angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f)),
         .stream_rate = 1,
         .spawn_rate = 0.002f,
-        .scale_over_life_time = math::aabb_t<f32>(0.2f, 0.05f),
+        .scale_over_life_time = math::range_t(0.2f, 0.05f),
         .emitter_type = particle_emitter_type::box,
-        .box = math::aabb_t<v3f>(v3f(-.10f), v3f(.10f)),
+        .box = math::rect3d_t(v3f(-.10f), v3f(.10f)),
     },
 };
 
@@ -785,13 +863,13 @@ beam {
         },
         .max_count = 32,
         .acceleration = v3f{0.0f},
-        .velocity_random = math::aabb_t<v3f>(planes::xz*-.50f, v3f(.50f)),
-        // .angular_velocity_random = math::aabb_t<v3f>(v3f(-4.0f), v3f(4.0f)),
+        .velocity_random = math::rect3d_t(planes::xz*-.50f, v3f(.50f)),
+        // .angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f)),
         .stream_rate = 1,
         .spawn_rate = 0.002f,
-        .scale_over_life_time = math::aabb_t<f32>(0.1f, 0.025f),
+        .scale_over_life_time = math::range_t(0.1f, 0.025f),
         .emitter_type = particle_emitter_type::box,
-        .box = math::aabb_t<v3f>(v3f(-.10f), v3f(.10f)),
+        .box = math::rect3d_t(v3f(-.10f), v3f(.10f)),
     },
 };
 
@@ -815,10 +893,10 @@ skull {
             .move_speed = 90.0f,
         },
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Dynamic,
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::SPHERE,
                 .sphere = {
                     .radius = 1.0f,
@@ -850,10 +928,10 @@ soldier {
             .move_speed = 1.0f,
         },
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Character | PhysicsEntityFlags_Dynamic,
         .shapes = {
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::SPHERE,
                 .sphere = {
                     .radius = 1.0f,
@@ -886,10 +964,10 @@ assassin {
             .move_speed = 1.3f,
         },
     },
-    .physics = prefab_t::physics_t {
+    .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Character,
         .shapes = { 
-            prefab_t::physics_t::shape_t{
+            zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::CAPSULE,
                 .capsule = {
                     .radius = 1.0f,
@@ -906,7 +984,7 @@ assassin {
 using namespace std::string_view_literals;
 
 template <size_t N>
-using entity_lut_t = std::array<std::pair<std::string_view, const prefab_t*>, N>;
+using entity_lut_t = std::array<std::pair<std::string_view, const zyy::prefab_t*>, N>;
 
 constexpr static entity_lut_t<2> gs_database{{
     {"pistol", &weapons::pistol},
@@ -914,7 +992,7 @@ constexpr static entity_lut_t<2> gs_database{{
 }};
 
 template <size_t N>
-constexpr const prefab_t*
+constexpr const zyy::prefab_t*
 query(
     std::string_view name,
     const entity_lut_t<N>& database

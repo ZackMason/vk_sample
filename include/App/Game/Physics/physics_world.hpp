@@ -20,8 +20,8 @@ namespace physics {
     };
 
     struct physx_state_t {
-        physx_state_t(arena_t& arena, size_t size) 
-            : default_allocator{arena, size}
+        physx_state_t(size_t size) 
+            : default_allocator{size}
         {
         }
         
@@ -39,6 +39,8 @@ namespace physics {
         physx_state_t& state
     ) {
         using namespace physx;
+        // local_persist PxDefaultAllocator gDefaultAllocatorCallback;
+        // state.foundation = PxCreateFoundation(PX_PHYSICS_VERSION, gDefaultAllocatorCallback, state.error_callback);
         state.foundation = PxCreateFoundation(PX_PHYSICS_VERSION, state.default_allocator, state.error_callback);
 
         assert(state.foundation);
@@ -195,6 +197,8 @@ namespace physics {
         physx::PxSimulationFilterShader filter_shader = physx::PxDefaultSimulationFilterShader
     ) {
         assert(world);
+        assert(state->physics);
+        assert(state->dispatcher);
 
         zyy_info("physx", "physics_world_init: {}", (void*)world);
         world->state = state;

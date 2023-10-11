@@ -92,8 +92,7 @@ vec3 probe_position(uvec3 probe_coord, vec3 grid_size, vec3 min_pos) {
 
 uvec2 probe_color_pixel(uvec3 probeCoord, uvec3 dim)
 {
-	return probeCoord.xz * PROBE_IRRADIANCE_TOTAL + uvec2(probeCoord.y * dim.x * PROBE_IRRADIANCE_TOTAL, 0) + 1;
-}
+	return probeCoord.xz * PROBE_IRRADIANCE_TOTAL + uvec2(probeCoord.y * dim.x * PROBE_IRRADIANCE_TOTAL, 0) + 1;}
 
 ivec2 probe_color_texel(uvec3 probeCoord, vec3 direction, uvec3 dim)
 {

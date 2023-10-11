@@ -2,6 +2,7 @@
 
 #include "zyy_core.hpp"
 #include "App/vk_state.hpp"
+#include "App/Game/Rendering/lighting.hpp"
 
 namespace rendering {
 

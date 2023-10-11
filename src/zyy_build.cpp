@@ -9,10 +9,13 @@
 platform_api_t Platform;
 
 
-#include "App/bullet.cpp"
+global_variable f32 bloom_filter_radius = 0.0025f;
+
+
 #include "App/game_state.cpp"
 #include "App/vk_state.cpp"
 
+#include "App/bullet.cpp"
 #include "App/zyy_lightning_effect.cpp"
 #include "App/zyy_weapon_common.cpp"
 

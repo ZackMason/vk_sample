@@ -107,7 +107,8 @@ init_custom(api_t* api, arena_t* arena) {
 using namespace physics;
 
 export_fn(void)
-physics_init_api(api_t* api, backend_type type, arena_t* arena) {
+physics_init_api(api_t* api, backend_type type, platform_api_t* platform, arena_t* arena) {
+    Platform = *platform;
     assert(api && arena);
     api->Platform = &Platform;
     switch (api->type = type) {

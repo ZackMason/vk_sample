@@ -1,8 +1,10 @@
 #pragma once
 
 #include "zyy_core.hpp"
-#include "weapon_common.hpp"
+
+
 #include "bullet.hpp"
+
 
 namespace zyy::item {
     struct effect_t;
@@ -83,6 +85,7 @@ namespace zyy::wep {
         weapon_action_t action{};
 
         item::effect_t* effects{};
+        spawn_bullet_function bullet_fn{spawn_bullet};
 
         struct sound_effects_t {
             u64 reload{0x2};
@@ -145,6 +148,7 @@ namespace zyy::wep {
 
                 for (size_t bullet = 0; bullet < chamber_mult; bullet++) {
                     (*count)++;
+                    // Todo(Zack): tag this
                     bullet_t* this_bullet = push_struct<bullet_t>(arena);
                     if (bullets == nullptr) {
                         bullets = this_bullet;
@@ -181,6 +185,28 @@ namespace zyy::wep {
     }
 
     constexpr inline base_weapon_t 
+    create_rpg() noexcept {
+        base_weapon_t rpg{
+            .fire_rate = 1.0f,
+            .load_speed = 1.0f,
+            .chamber_speed = 0.5f,
+            .chamber_count = 1,
+            .chamber_max = 1,
+            .chamber_mult = 1,
+            .stats = wep::weapon_stats_t {
+                .damage = 10.0f,
+                .pen = 1.0f
+            },
+            .clip = wep::ammo_clip_t {
+                .current = 4,
+                .max = 4
+            },
+            .bullet_fn = spawn_rocket,
+        };
+        return rpg;
+    }
+
+    constexpr inline base_weapon_t 
     create_rifle() noexcept {
         base_weapon_t rifle{
             .fire_rate = 0.1f,
@@ -196,7 +222,28 @@ namespace zyy::wep {
             .clip = wep::ammo_clip_t {
                 .current = 30,
                 .max = 30
-            }
+            },
+        };
+        return rifle;
+    }
+
+    constexpr inline base_weapon_t 
+    create_knife() noexcept {
+        base_weapon_t rifle{
+            .fire_rate = 0.3f,
+            .load_speed = 1.0f,
+            .chamber_speed = 0.05f,
+            .chamber_count = 1,
+            .chamber_max = 1,
+            .chamber_mult = 1,
+            .stats = wep::weapon_stats_t {
+                .damage = 4.0f,
+                .pen = 3.0f
+            },
+            .clip = wep::ammo_clip_t {
+                .current = 8,
+                .max = 8
+            },
         };
         return rifle;
     }

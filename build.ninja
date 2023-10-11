@@ -49,7 +49,7 @@ rule compile_shader
 
 build build\zyy_platform.obj: compile_cpp src\zyy_platform.cpp
   outputs = $out
-  opt_flags = $OptimizationFlags -DZYY_INTERNAL=0
+  opt_flags = $OptimizationFlags -DZYY_INTERNAL=1
   include_flags = /I include /I include\vendor /I include\vendor\SDL /I $VULKAN_SDK\include
   link_flags = $lflags /LIBPATH:$VULKAN_SDK\lib /LIBPATH:lib\debug vulkan-1.lib $sdl_lflags glfw3.lib
   random = $out.rnd
@@ -68,7 +68,7 @@ build build\zyy_build.obj: compile_cpp src\zyy_build.cpp
   
 build build\zyy_build.dll: link_dll build\zyy_build.obj 
   outputs = $out
-  opt_flags = $OptimizationFlags -DZYY_INTERNAL=0
+  opt_flags = $OptimizationFlags -DZYY_INTERNAL=1
   link_flags = $lflags /LIBPATH:$VULKAN_SDK\lib /LIBPATH:lib\debug vulkan-1.lib 
   random = $out.rnd
 
@@ -102,7 +102,7 @@ default build\zyy_physics.dll
 
 build res\shaders\bin\closesthit.rchit.spv: compile_shader res/shaders/closesthit.rchit
 build res\shaders\bin\probe_raygen.rgen.spv: compile_shader res/shaders/probe_raygen.rgen
-build res\shaders\bin\raygen.rgen.spv: compile_shader res/shaders/raygen.rgen
+#build res\shaders\bin\raygen.rgen.spv: compile_shader res/shaders/raygen.rgen
 build res\shaders\bin\anyhit.rahit.spv: compile_shader res/shaders/anyhit.rahit
 build res\shaders\bin\miss.rmiss.spv: compile_shader res/shaders/miss.rmiss
 build res\shaders\bin\shadow.rmiss.spv: compile_shader res/shaders/shadow.rmiss
@@ -115,6 +115,7 @@ build res\shaders\bin\screen.vert.spv: compile_shader res/shaders/screen.vert
 
 build res\shaders\bin\invert.frag.spv: compile_shader res/shaders/invert.frag
 build res\shaders\bin\downsample.frag.spv: compile_shader res/shaders/downsample.frag
+build res\shaders\bin\upscale.frag.spv: compile_shader res/shaders/upscale.frag
 build res\shaders\bin\tonemap.frag.spv: compile_shader res/shaders/tonemap.frag
 build res\shaders\bin\skeletal.vert.spv: compile_shader res/shaders/skeletal.vert
 build res\shaders\bin\simple.vert.spv: compile_shader res/shaders/simple.vert
@@ -132,7 +133,7 @@ build res\shaders\bin\trail.frag.spv: compile_shader res/shaders/trail.frag
 
 default res/shaders/bin/closesthit.rchit.spv
 default res/shaders/bin/probe_raygen.rgen.spv
-default res/shaders/bin/raygen.rgen.spv
+#default res/shaders/bin/raygen.rgen.spv
 default res/shaders/bin/anyhit.rahit.spv
 default res/shaders/bin/miss.rmiss.spv
 default res/shaders/bin/shadow.rmiss.spv
@@ -143,6 +144,7 @@ default res/shaders/bin/probe_integrate.comp.spv
 default res/shaders/bin/screen.vert.spv
 default res/shaders/bin/invert.frag.spv
 default res/shaders/bin/downsample.frag.spv
+default res/shaders/bin/upscale.frag.spv
 default res/shaders/bin/tonemap.frag.spv
 #default res/shaders/bin/skeletal.vert.spv
 default res/shaders/bin/simple.vert.spv
