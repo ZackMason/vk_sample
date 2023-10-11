@@ -217,8 +217,8 @@ void main() {
 
 
 
-    // uint remaining_rays = 128;
-    uint remaining_rays = 64;
+    uint remaining_rays = 128;
+    // uint remaining_rays = 64;
     uint offset = 0;
 
     uint start_index = probe_ray_start(probe_id, odd_frame);

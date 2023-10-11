@@ -14,6 +14,8 @@ struct IndirectIndexedDraw {
 #define MATERIAL_LIT       1
 #define MATERIAL_TRIPLANAR 2
 #define MATERIAL_BILLBOARD 4
+#define MATERIAL_WIND      8
+#define MATERIAL_WATER    16
 
 struct Material {
 	vec4 albedo;
@@ -30,7 +32,8 @@ struct Material {
     uint normal_texture_id;
 
     float scale;
-    uint padding[3];
+    float reflectivity;
+    uint padding[2];
 };
 
 vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)

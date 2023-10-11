@@ -2838,9 +2838,11 @@ using color3 = v3f;
 using color32 = u32;
 struct font_t;
 
-static constexpr u32 material_lit = (u32)BIT(0);
+static constexpr u32 material_lit       = (u32)BIT(0);
 static constexpr u32 material_triplanar = (u32)BIT(1);
 static constexpr u32 material_billboard = (u32)BIT(2);
+static constexpr u32 material_wind      = (u32)BIT(3);
+static constexpr u32 material_water     = (u32)BIT(4);
 
 struct material_t {
     v4f albedo{};
@@ -2856,7 +2858,8 @@ struct material_t {
     u32 normal_id{0};
 
     f32 scale{1.0f};
-    u32 padding[3];
+    f32 reflectivity{0.0f};
+    u32 padding[2];
 
     static constexpr material_t plastic(const v4f& color, f32 roughness = 0.8f, u32 albedo_id = 0, u32 normal_id = 0) {
         return material_t {
@@ -4221,6 +4224,9 @@ namespace gui {
 
             math::rect2d_t hue_box;
 
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            const auto selection_color = color::rgba::white;
+
             color32 rect_colors[4]= {
                 color::rgba::white,
                 color::rgba::black,
@@ -4232,7 +4238,7 @@ namespace gui {
             f32 by = (1.0f-color_hsv.z) * box.size().y;
 
 
-            draw_circle(&imgui.ctx, box.min + v2f{bx,by}, 3.0f, color::rgba::white);
+            draw_circle(&imgui.ctx, box.min + v2f{bx,by}, 3.0f, selection_color);
             draw_circle(&imgui.ctx, box.min + v2f{bx,by}, 4.0f, color::rgba::black);
 
             draw_rect(&imgui.ctx, box, std::span{rect_colors});
@@ -4264,10 +4270,10 @@ namespace gui {
             f32 ty = hue_box.min.y + (color_hsv.x/360.0f)*hue_box.size().y;
             draw_circle(&imgui.ctx, v2f{tx,ty}, 5.0f, color::rgba::white, 3, 1.0f, 0.5f);
 
-            const auto [x,y] = imgui.ctx.input->mouse.pos;
             const f32 col_s = glm::max(x - box.min.x, 0.0f) / box.size().x;
             const f32 col_v = glm::max(y - box.min.y, 0.0f) / box.size().y;
             const f32 hue_prc = glm::max(y - hue_box.min.y, 0.0f) / hue_box.size().y;
+
 
             if (imgui.active.id == clr_id) {
                 if (imgui.hot.id == clr_id) {

@@ -106,11 +106,9 @@ begin_rt_pass(
             rs->light_probes.irradiance_texture.image,
             0,
             VK_ACCESS_SHADER_READ_BIT,
-            // VK_ACCESS_SHADER_WRITE_BIT,
             VK_IMAGE_LAYOUT_GENERAL,
             VK_IMAGE_LAYOUT_GENERAL,
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            // VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
             VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
             VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
@@ -153,8 +151,8 @@ begin_rt_pass(
             &hit_shader_sbt_entry,
             &callable_shader_sbt_entry,
             width,
-            //128,
-            64,
+            128,
+            // 64,
             1);
 
 

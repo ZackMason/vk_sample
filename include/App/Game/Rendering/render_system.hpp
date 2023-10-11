@@ -1132,7 +1132,7 @@ public:
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
                 
-                rs->frames[i].bloom_pass.initialize(state, v2i{(i32)rs->width, (i32)rs->height}, 5);
+                rs->frames[i].bloom_pass.initialize(state, v2i{(i32)rs->width, (i32)rs->height}, 3);
                 rs->frames[i].bloom_pass.fill_textures(&state.null_texture);
                 rs->frames[i].bloom_pass.bind_images(builder);
                 rs->frames[i].bloom_pass.build_layout(state);

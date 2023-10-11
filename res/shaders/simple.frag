@@ -5,7 +5,7 @@
 
 #include "utl.glsl"
 #include "pbr.glsl"
-
+#include "sky.glsl"
 
 layout( set = 4, binding = 0 ) uniform sampler2D uSampler[4096];
 // layout( set = 4, binding = 1 ) uniform sampler2D uProbeTexture[3];
@@ -173,7 +173,7 @@ main( )
 	Material material = uMaterialBuffer.materials[vMatId];
 
 	uint lit_material = material.flags & MATERIAL_LIT;
-
+	float reflectivity = material.reflectivity;
 
 	uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;
 
@@ -263,6 +263,12 @@ main( )
 		rgb = albedo * material.emission * 10.0;
 	}
 	
+	{
+		vec3 reflected_view = reflect(-V, N);
+
+    	rgb += reflectivity * sqrt(sqrt(max(vec3(0.0), sky_color(reflected_view, L)))); 
+	}
+    
 
 	// rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
 	

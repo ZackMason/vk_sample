@@ -848,7 +848,7 @@ sparks {
 DB_ENTRY
 beam {
     .type = entity_type::environment,
-    .type_name = "sparks",
+    .type_name = "beam",
     .gfx = {
         .mesh_name = "res/models/particles/particle_02.gltf",
     },

@@ -726,6 +726,12 @@ draw_gui(game_memory_t* game_memory) {
                             im::text(state, "Emission: ");
                             im::float_slider(state, &mat->emission, 0.0f, 30.0f);
 
+                            im::same_line(state);
+                            if (im::text(state, "Reflectivity: ")) {
+                                mat->reflectivity = 0.0f;
+                            }
+                            im::float_drag(state, &mat->reflectivity, 0.05f);
+
                             game_state->render_system->material_storage_buffer.pool[i] = *mat;
 
                         }

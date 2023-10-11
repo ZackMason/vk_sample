@@ -1401,10 +1401,10 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
             blend_fn[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
             blend_fn[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
             blend_fn[0].alphaBlendOp = VK_BLEND_OP_ADD;
-            ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
+            // ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
             VkBool32 fb_blend[1] { true };
             ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
-            ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
+            // ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
             {
                 VkVertexInputBindingDescription2EXT vertexInputBinding{};
                 vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;

@@ -41,3 +41,4 @@ libs.ninja
 .ninja_log
 .ninja_deps
 *.pdb
+*.zyy
