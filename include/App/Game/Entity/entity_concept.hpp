@@ -2,6 +2,8 @@
 #define GAME_ENTITY_CONCEPT_HPP
 
 #include "uid.hpp"
+#include "zyy_character_stats.hpp"
+#include "zyy_inventory.hpp"
 
 namespace zyy {
 
@@ -9,19 +11,9 @@ template <typename EntityType>
 concept CEntity = requires(EntityType entity) {
     requires std::derived_from<math::transform_t, decltype(entity.transform)>;
     requires std::is_same_v<uid::id_type, decltype(entity.id)>;
-    // requires std::is_same_v<uid::id_type, decltype(entity.parent_id)>;
 
     requires std::is_same_v<math::rect3d_t, decltype(entity.aabb)>;
-    // requires std::is_trivially_constructible_v<EntityType>;
 };
-
-#define GENERATE_BASE_ENTITY_BODY(Name) \
-    Name* next{nullptr};\
-    void* next_in_hash{nullptr};\
-    entity_id id{uid::invalid_id};\
-    math::transform_t transform;\
-    math::rect3d_t aabb;
-
     
 // most of these should be inferred from entity data
 enum EntityFlags : u64 {
@@ -60,32 +52,6 @@ enum struct entity_type {
     SIZE
 };
 
-struct health_t {
-    f32 max{0.0f};
-    f32 current{0.0f};
-
-    bool damage(f32 x) {
-        if (max > 0.0f) {
-            current -= x;
-            return current <= 0.0f;
-        } else {
-            return false;
-        }
-    }
-
-    constexpr health_t(f32 v = 0.0f) noexcept
-        : max{v}, current{v} {}
-};
-
-struct movement_t {
-    f32 move_speed{1.0f};
-};
-
-struct character_stats_t {
-    health_t health{};
-    movement_t movement{};
-};
-
 struct entity_coroutine_t {
     // entity_coroutine_t* next{0};
     coroutine_t coroutine;
@@ -120,8 +86,6 @@ struct entity_ref_t {
     entity_t* operator->();
 };
 
-
 }
-
 
 #endif

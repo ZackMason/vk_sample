@@ -34,7 +34,7 @@ struct dialog_window_t {
     dialog_window_t& draw(gfx::gui::im::state_t& imgui) {
         using namespace gfx::gui;
 
-        if (im::begin_panel(imgui, title, position, size)) {
+        if (im::begin_panel(imgui, title, &position, &size, &open)) {
 
             im::text(imgui, title);
             if (description.empty() == false) {
@@ -43,7 +43,7 @@ struct dialog_window_t {
 
             done = im::text_edit(imgui, text_buffer, &write_pos, "dialog_window::text_buffer"_sid);
 
-            im::end_panel(imgui);
+            im::end_panel(imgui, &size);
         }
 
         return *this;
@@ -319,7 +319,8 @@ draw_gui(game_memory_t* game_memory) {
             game_state->render_system->vp;
 
         if (gs_show_console) {
-            draw_console(state, game_state->debug.console, v2f{400.0, 0.0f});
+            local_persist v2f console_pos{400.0f, 0.0f};
+            draw_console(state, game_state->debug.console, &console_pos);
         }
         
 
@@ -344,48 +345,67 @@ draw_gui(game_memory_t* game_memory) {
 
             im::point_edit(state, &world_rect.min, screen, screen, gfx::color::rgba::red);
             im::point_edit(state, &world_rect.max, screen, screen, gfx::color::rgba::red);
-        
-            im::begin_panel(state, "World Select"sv, world_rect.min, world_rect.size());
-
-            #define WORLD_GUI(name) if (im::text(state, #name)) {world->world_generator = generate_##name(&world->arena); }
-            WORLD_GUI(world_maze);
-            WORLD_GUI(room_03);
-            WORLD_GUI(world_0);
-            WORLD_GUI(world_1);
-            WORLD_GUI(forest);
-            WORLD_GUI(probe_test);
-            WORLD_GUI(world_test);
-            WORLD_GUI(homebase);
-            WORLD_GUI(sponza);
-            WORLD_GUI(particle_test);
-            WORLD_GUI(crash_test);
-            #undef WORLD_GUI
-            im::end_panel(state);
+            
+            local_persist v2f world_size = world_rect.size();
+            local_persist b32 world_open = 1;
+            if (im::begin_panel(state, "World Select"sv, &world_rect.min, &world_size, &world_open)) {
+                #define WORLD_GUI(name) if (im::text(state, #name)) {world->world_generator = generate_##name(&world->arena); }
+                    WORLD_GUI(world_maze);
+                    WORLD_GUI(room_03);
+                    WORLD_GUI(town_01);
+                    WORLD_GUI(world_0);
+                    WORLD_GUI(world_1);
+                    WORLD_GUI(forest);
+                    WORLD_GUI(probe_test);
+                    WORLD_GUI(world_test);
+                    WORLD_GUI(homebase);
+                    WORLD_GUI(sponza);
+                    WORLD_GUI(particle_test);
+                    WORLD_GUI(crash_test);
+                #undef WORLD_GUI
+                im::end_panel(state, &world_size);
+            }
         }
 
         if (world->world_generator && world->world_generator->is_done() == false) {
             auto* generator = world->world_generator;
-            im::begin_panel(state, "Loading"sv, v2f{350,350}, v2f{800, 600});
-            im::text(state, fmt_sv("Loading World {}/{}", generator->completed_count, generator->step_count));
-            const auto theme = state.theme;
-            state.theme.text_color = gfx::color::rgba::green;
-            auto* step = generator->first_step;
-            for (size_t i = 0; i < generator->completed_count && step; i++) {
-                im::text(state, fmt_sv("Step {}: {}", i, step->name));
-                node_next(step);
-            }
-            state.theme.text_color = gfx::color::rgba::purple;
-            if (generator->completed_count < generator->step_count) {
-                im::text(state, fmt_sv("Step {}: {}", generator->completed_count, step->name));
-            }
-            state.theme = theme;
 
-            state.hot = 0; state.active = 0; // @hack to clear ui state
-            im::end_panel(state);
+            local_persist v2f panel_pos{350,350};
+            local_persist v2f panel_size{800,600};
+            local_persist b32 panel_open = 1;
+
+            if (im::begin_panel(state, "Loading"sv, &panel_pos, &panel_size, &panel_open)) {
+                im::text(state, fmt_sv("Loading World {}/{}", generator->completed_count, generator->step_count));
+
+                const auto theme = state.theme;
+
+                state.theme.text_color = gfx::color::rgba::green;
+                auto* step = generator->first_step;
+                for (size_t i = 0; i < generator->completed_count && step; i++) {
+                    im::text(state, fmt_sv("Step {}: {}", i, step->name));
+                    node_next(step);
+                }
+
+                state.theme.text_color = gfx::color::rgba::purple;
+                    
+                if (generator->completed_count < generator->step_count) {
+                    im::text(state, fmt_sv("Step {}: {}", generator->completed_count, step->name));
+                }
+
+                state.theme = theme;
+
+                state.hot = 0; state.active = 0; // @hack to clear ui state
+                im::end_panel(state, &panel_size);
+            }
         }
 
         local_persist bool show_entities = false;
-        if (im::begin_panel(state, "Main UI"sv)) {
+        local_persist v2f main_pos = {};
+        local_persist v2f main_size = {};
+        local_persist b32 main_open = 1;
+
+
+        if (im::begin_panel(state, "Main UI"sv, &main_pos, &main_size, &main_open)) {
             local_persist bool show_player = false;
             local_persist bool show_stats = false;
             local_persist bool show_resources = false;
@@ -656,7 +676,8 @@ draw_gui(game_memory_t* game_memory) {
                                 im::text(state, fmt_sv("Ray Count: {}", p.ray_count()));
                                 im::text(state, fmt_sv("Backface Count: {}", p.backface_count()));
                                 
-                                im::end_panel(state);
+                                v2f s={};
+                                im::end_panel(state, &s);
                             }
                             state.theme = push_theme;
                         }
@@ -816,7 +837,7 @@ draw_gui(game_memory_t* game_memory) {
                 im::text(state, fmt_sv("- Speed: {}", glm::length(v)));
             }
 
-            im::end_panel(state);
+            im::end_panel(state, &main_size);
         }
 
         // for (zyy::entity_t* e = game_itr(game_state->game_world); e; e = e->next) {
@@ -905,7 +926,8 @@ draw_gui(game_memory_t* game_memory) {
                     e->queue_free();
                     // zyy::world_destroy_entity(game_state->game_world, e);
                     if (!te) {
-                        im::end_panel(state);
+                        v2f s ={};
+                        im::end_panel(state, &s);
                         break;
                     }
                     e = te;
@@ -987,8 +1009,8 @@ draw_gui(game_memory_t* game_memory) {
                         im::float_slider(state, &ps->sphere.radius, 0.0f, 10.0f, v2f{128.0f, 16.0f});
                     }
                 }
-                    
-                im::end_panel(state);
+                v2f e_panel_size = {};
+                im::end_panel(state, &e_panel_size);
             }
             if (!opened && (not_player && im::draw_hiding_circle_3d(
                 state, vp, e->global_transform().origin, 0.1f, 

@@ -8,5 +8,5 @@
 [ ] Imgui hot item wont clear if it isnt drawn next frame, such as labels that change their id every framed
 
 [ ] Controller drift
-
+[ ] Exporter bug with to many objects
 

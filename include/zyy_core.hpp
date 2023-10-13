@@ -3828,27 +3828,56 @@ namespace gui {
         begin_panel(
             state_t& imgui, 
             string_t name,
-            v2f pos = v2f{0.0f},
-            v2f size = v2f{-1.0f}
+            v2f* pos_,
+            v2f* size_,
+            b32* open
         ) {
+            auto pos = *pos_;
+            auto size = *size_;
             const sid_t pnl_id = imgui.verify_id(sid(name.sv()));
 
             imgui.panel++;
             assert((void*)imgui.panel != (void*)&imgui.panel && "End of nested panels");
 
             if (pos.x >= 0.0f && pos.y >= 0.0f) { 
-                imgui.panel->draw_cursor = pos+1.0f;
+                imgui.panel->draw_cursor = pos+imgui.theme.padding;
+                // imgui.panel->expand(pos);
             }
+
+            auto theme = imgui.theme;
+
+            const v2f text_size = font_get_size(imgui.ctx.font, name.sv());
+
+            math::rect2d_t title_bar{};
+            title_bar.min = pos + v2f{theme.padding};
+            title_bar.max = v2f{pos.x + glm::max(text_size.x + text_size.y + theme.padding * 2.0f, size.x), pos.y + text_size.y + theme.padding};
+
+            math::rect2d_t exit_button{};
+            exit_button.min = v2f{title_bar.max.x - text_size.y - theme.padding, title_bar.min.y};
+            exit_button.max = exit_button.min + v2f{text_size.y};
+            
+            draw_rect(&imgui.ctx, exit_button, color::rgba::red);
+
+            imgui.panel->draw_cursor = title_bar.min;
+            string_render(&imgui.ctx, name.sv(), &imgui.panel->draw_cursor, theme.text_color);
+
+            draw_rect(&imgui.ctx, title_bar, theme.bg_color);
+            title_bar.min -= 2.0f;
+            title_bar.max += 2.0f;
+            draw_rect(&imgui.ctx, title_bar, theme.fg_color);
+            
+            imgui.panel->draw_cursor.x = pos.x+theme.padding;
+            imgui.panel->draw_cursor.y = title_bar.max.y + theme.padding;
             imgui.panel->saved_cursor = imgui.panel->draw_cursor;
 
-            imgui.panel->max = imgui.panel->min = imgui.panel->draw_cursor;
+            imgui.panel->max = imgui.panel->min = pos;
             if (size.x > 0.0f && size.y > 0.0f) {
                 imgui.panel->expand(imgui.panel->draw_cursor + size);
             }
 
             imgui.panel->name = pnl_id;
             
-            return true;
+            return *open;
         }
 
         inline bool
@@ -3860,17 +3889,20 @@ namespace gui {
         ) {
             const v3f spos = math::world_to_screen(vp, pos);
             math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
+            b32 open=1;
 
             if (viewable.contains(spos)) {
-                const v2f screen = v2f{spos} * imgui.ctx.screen_size;
-                return begin_panel(imgui, name, screen);
+                v2f screen = v2f{spos} * imgui.ctx.screen_size;
+                v2f size = {};
+                return begin_panel(imgui, name, &screen, &size, &open);
             }
             return false;
         }
 
         inline void
         end_panel(
-            state_t& imgui
+            state_t& imgui,
+            v2f* size
         ) {
             imgui.panel->expand(imgui.panel->draw_cursor);
 
@@ -3892,6 +3924,8 @@ namespace gui {
                     imgui.hot.id = 0;
                 }
             }
+
+            // *size = imgui.panel->size();
             // imgui.panel->draw_cursor = v2f{0.0f};
             imgui.panel--;
         }

@@ -160,8 +160,12 @@ struct debug_state_t {
         using namespace gfx::gui;
 
         const auto theme = imgui.theme;
+
+        local_persist v2f watch_pos{imgui.ctx.screen_size*0.2f};
+        local_persist v2f watch_size{100.0f};
+        local_persist b32 watch_open{true};
  
-        if (im::begin_panel(imgui, "Watch Window", imgui.ctx.screen_size*0.2f)) {
+        if (im::begin_panel(imgui, "Watch Window", &watch_pos, &watch_size, &watch_open)) {
             im::text(imgui, "Watch Window");
 
             im::text_edit(imgui, watcher_needle, &watcher_wpos, "watcher_text_box"_sid);
@@ -203,7 +207,7 @@ struct debug_state_t {
             
             imgui.theme.bg_color = 0x0;
             imgui.theme.fg_color = 0x0;
-            im::end_panel(imgui);
+            im::end_panel(imgui, &watch_size);
         }
 
         imgui.theme = theme;
@@ -471,15 +475,17 @@ inline void
 draw_console(
     gfx::gui::im::state_t& imgui, 
     debug_console_t* console,
-    v2f pos
+    v2f* pos
 ) {
     using namespace gfx::gui;
     using namespace std::string_view_literals;
 
     const auto theme = imgui.theme;
     imgui.theme.border_radius = 1.0f;
+    local_persist v2f size={};
+    local_persist b32 open=1;
 
-    if (im::begin_panel(imgui, "Console"sv, pos, v2f{400.0f, 0.0f})) {
+    if (im::begin_panel(imgui, "Console"sv, pos, &size, &open)) {
         // draw_reverse(imgui, console->messages);
 
         for (u64 i = 10; i <= 10; i--) {
@@ -501,7 +507,7 @@ draw_console(
             console->text_size = 0;
         }
 
-        im::end_panel(imgui);
+        im::end_panel(imgui, &size);
     }
 
     imgui.theme = theme;
