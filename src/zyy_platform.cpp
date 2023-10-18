@@ -830,12 +830,7 @@ main(int argc, char* argv[]) {
             captured = !captured;
         }
 
-        if (game_memory.input.pressed.keys[key_id::F8]) {
-            // const auto dif = utl::memdif((const u8*)physics_arena.start, (const u8*)restore_physics_arena.start, restore_physics_arena.top);
-            // const auto undif = restore_physics_arena.top - dif;
-            // zyy_info("memdif", "dif {} bytes, undif {} megabytes", dif, undif/megabytes(1));
-        }
-
+        
         if (game_memory.input.pressed.keys[key_id::F9]) {
 #ifdef MULTITHREAD_ENGINE
             rendering_lock.lock();

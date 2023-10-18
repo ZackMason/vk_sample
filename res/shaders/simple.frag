@@ -253,7 +253,8 @@ main( )
 	light_solution.indirect.diffuse += light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
 	
 	{	// quantize lighting
-		// light_solution.indirect.diffuse = floor(light_solution.indirect.diffuse * 8.0) / 8.0;
+		// light_solution.indirect.diffuse = sqrt(light_solution.indirect.diffuse);
+		light_solution.indirect.diffuse = floor(light_solution.indirect.diffuse * 8.0 + .50) / 8.0;
 	}
 
 	if (lit_material > 0) {

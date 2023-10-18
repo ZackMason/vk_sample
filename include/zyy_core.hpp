@@ -11,6 +11,7 @@
 // #define fmt_sv(...) (std::string_view{fmt::format(__VA_ARGS__)})
 #define fmt_sv fmt::format
 #define println(...) do { fmt::print(__VA_ARGS__); } while(0)
+
 #define zyy_info(cat, str, ...) do { fmt::print(fg(fmt::color::white) | fmt::emphasis::bold, fmt_str("[info][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
 #define zyy_warn(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::yellow) | fmt::emphasis::bold, fmt_str("[warn][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
 #define zyy_error(cat, str, ...) do { fmt::print(stderr, fg(fmt::color::red) | fmt::emphasis::bold, fmt_str("[error][{}]: {}\n", cat, str), __VA_ARGS__); } while(0)
@@ -135,6 +136,71 @@ using m33 = glm::mat3x3;
 using m34 = glm::mat3x4;
 using m43 = glm::mat4x3;
 using m44 = glm::mat4x4;
+
+template <typename T>
+struct buffer 
+{
+    T* data;
+    u64 count;    
+};
+
+template <typename T, size_t N>
+struct stack_buffer : public std::array<T, N>
+{
+    using std::array<T,N>::array;
+
+    u64 _top{0};
+
+    u64 count() const {
+        return _top;
+    }
+
+    constexpr u64 capacity() const {
+        return N;
+    }
+
+    void clear() {
+        while(count()) {
+            pop();
+        }
+    }
+
+    b32 is_full() const {
+        return _top == N;
+    }
+
+    b32 empty() const {
+        return _top == 0;
+    }
+
+    std::span<T> view() {
+        return std::span<T>{this->data(), _top};
+    }
+
+    void push(const T& data) {
+        assert(count() < capacity());
+        this->data()[_top++] = (data);
+    }
+    void pop() {
+        assert(count());
+        this->data()[--_top].~T();
+    }
+
+    T& top() {
+        assert(count());
+        return this->data()[_top-1];
+    }
+
+    operator T*() {
+        return this->data();
+    }
+};
+
+template <size_t N, typename CharType>
+struct stack_string : public stack_buffer<CharType, N>
+{
+    using stack_buffer<CharType, N>::stack_buffer;
+};
 
 
 template<>
@@ -538,7 +604,6 @@ struct gamepad_t {
     f32 right_trigger{0.0f};
 
     gamepad_button_state_t buttons[button_id::SIZE];
-	
 };
 
 struct app_input_t {
@@ -1125,12 +1190,15 @@ push_struct(arena_t* arena, size_t count, Args&& ... args) {
 
 template <typename T>
 inline T*
-bootstrap_arena(umm offset, umm minimum_block_size = 0) {
-    arena_t arena = arena_create(minimum_block_size);
-    auto* obj = push_struct<T>(&arena);
+bootstrap_arena_(umm offset, umm minimum_block_size = 0) {
+    arena_t arena = arena_create(std::max(sizeof(T) + sizeof(arena_block_footer_t) + sizeof(allocation_tag_t), minimum_block_size));
+    tag_struct(auto* obj, T, &arena);
+    // auto* obj = push_struct<T>(&arena);
     *((arena_t*)((u8*)obj + offset)) = arena;
     return obj;
 }
+
+#define bootstrap_arena(type, ...) bootstrap_arena_<type>(offsetof(type, arena), __VA_ARGS__)
 
 
 arena_t 
@@ -2227,6 +2295,13 @@ struct aabb_t {
         return size() * a + min;
     }
 
+    void pull(T amount) {
+        aabb_t<T> t;
+        t.expand(min - amount);
+        t.expand(max + amount);
+        *this = t;
+    }
+
     void add(T amount) {
         aabb_t<T> t;
         t.expand(min + amount);
@@ -2296,6 +2371,14 @@ struct aabb_t {
 using range_t = aabb_t<f32>;
 using rect2d_t = aabb_t<v2f>;
 using rect3d_t = aabb_t<v3f>;
+
+v2f bottom_middle(rect2d_t r) {
+    return r.min + r.size() * v2f{0.5f, 1.0f};
+}
+
+v2f top_middle(rect2d_t r) {
+    return r.min + r.size() * v2f{0.5f, 0.0f};
+}
 
 static bool
 intersect(aabb_t<v2f> rect, v2f p) {
@@ -2705,6 +2788,7 @@ struct mesh_list_t {
     size_t count{0};
     math::rect3d_t aabb{};
 
+    std::string_view name{};
 
     // mesh_list_t* next_lod{0};
 };
@@ -3302,7 +3386,7 @@ namespace gui {
         ctx->indices->clear();
     }
 
-    inline void
+    inline v2f
     string_render(
         ctx_t* ctx,
         std::string_view text,
@@ -3310,6 +3394,7 @@ namespace gui {
         const color32& text_color = color::rgba::white,
         font_t* font = 0
     ) {
+        auto start = *position;
         font_render(0, font ? font : ctx->font, 
             text, 
             *position,
@@ -3318,9 +3403,10 @@ namespace gui {
             ctx->indices,
             text_color
         );
+        return *position - start;
     }
 
-    inline void
+    inline v2f
     string_render(
         ctx_t* ctx,
         std::string_view text,
@@ -3329,7 +3415,7 @@ namespace gui {
         font_t* font = 0
     ) {
         v2f cursor = position;
-        string_render(
+        return string_render(
             ctx,
             text,
             &cursor,
@@ -3707,10 +3793,15 @@ namespace gui {
         draw_rect(ctx, math::rect2d_t{box.min + v2f{radius,0}, inner.max+v2f{0,radius}}, color);
         draw_rect(ctx, math::rect2d_t{box.min + v2f{0,radius}, inner.max+v2f{radius,0}}, color);
         
-        draw_circle(ctx, inner.min, radius, color, num_segments, 0.25f, 0.5f);
-        draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments, 0.25f, 0.25f);
-        draw_circle(ctx, inner.max, radius, color, num_segments, 0.25f, 0.0f);
-        draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments, 0.25f, 0.750f);
+        draw_circle(ctx, inner.min, radius, color, num_segments);
+        draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments);
+        draw_circle(ctx, inner.max, radius, color, num_segments);
+        draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments);
+
+        // draw_circle(ctx, inner.min, radius, color, num_segments, 0.25f, 0.5f);
+        // draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments, 0.25f, 0.25f);
+        // draw_circle(ctx, inner.max, radius, color, num_segments, 0.25f, 0.0f);
+        // draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments, 0.25f, 0.750f);
     }   
     
 
@@ -5360,7 +5451,7 @@ struct random_t {
         return randf() * 2.0f - 1.0f;
     }
 
-    template <typename T>
+    template <typename T = v3f>
     T randv() {
         auto v = T{1.0f};
         for (decltype(T::length()) i = 0; i < T::length(); i++) {
@@ -5493,10 +5584,10 @@ struct hash_trie_t {
     hash_trie_t<Key, Value>* child[4]={};
     Key key={};
     Value value={};
-
 };
+
 template <typename Key, typename Value>
-Value* hash_trie_get_insert(hash_trie_t<Key,Value>** map, Key key, arena_t* arena=0) {
+Value* hash_get(hash_trie_t<Key,Value>** map, Key key, arena_t* arena=0) {
     for (u64 h = std::hash<Key>{}(key); *map; h>>=2) {
         if (key == (*map)->key) {
             return &(*map)->value;
@@ -5508,6 +5599,7 @@ Value* hash_trie_get_insert(hash_trie_t<Key,Value>** map, Key key, arena_t* aren
     }
     *map = push_struct<hash_trie_t<Key, Value>>(arena);
     **map = {};
+    // (*map)->value = {};
     (*map)->key = key;
     return &(*map)->value;
 }
@@ -6287,7 +6379,7 @@ std::string open_file(std::string_view name) {
 
 struct config_t {
     char name[64];
-    char value[128];
+    char value[256];
 
     void set_name(auto x) {
         auto v=fmt::format("{}", x);
@@ -6357,7 +6449,7 @@ read_config(
             assert(name.size() < array_count(c->name));
             assert(value.size() < array_count(c->value));
 
-            tag_struct(c, config_t, arena);
+            c = push_struct<config_t>(arena);
             *config = *config?*config:c;
             
             utl::memzero(c, sizeof(config_t));
@@ -6395,6 +6487,21 @@ i32 config_get_int(config_list_t* list, std::string_view name, i32 default_value
     return default_value;
 }
 
+config_t* load_config(arena_t* arena, const char* file_name, size_t* count) {
+    std::ifstream file{file_name};
+    
+    if(!file.is_open()) {
+        zyy_error(__FUNCTION__, "Failed to config file: {}", file_name);
+        return 0;
+    }
+    auto text = (std::stringstream{} << file.rdbuf()).str();
+
+    config_t* config{0};
+    read_config(arena, text, &config, count);
+    return config;
+}
+
+
 }; // namespace utl
 
 
@@ -6406,7 +6513,7 @@ inline T lerp(T a, T b, f32 t) {
 }
 template <typename T>
 inline T lerp_dt(T a, T b, f32 s, f32 dt) {
-    return lerp(b, a, std::pow(1.0f - s, dt));
+    return lerp(a, b, 1.0f - std::pow(s, dt));
 }
 template <typename T>
 inline T damp(T a, T b, f32 lambda, f32 dt) {

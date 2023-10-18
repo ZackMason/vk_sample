@@ -56,7 +56,6 @@ struct rt_cache_t {
         u64 scene;
         u32 frame{0};
         u32 super_sample{0};
-        // u32 sc
     };
     push_constants_t constants;
    
@@ -636,8 +635,8 @@ struct rt_compute_pass_t {
 
     void build_layout(VkDevice device_) {
         device = device_;
-        pipeline_layout[0] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[1], 1, sizeof(u32), VK_SHADER_STAGE_COMPUTE_BIT);
-        pipeline_layout[1] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[2], 1, sizeof(u32), VK_SHADER_STAGE_COMPUTE_BIT);
+        pipeline_layout[0] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[1], 1, sizeof(u32)*2, VK_SHADER_STAGE_COMPUTE_BIT);
+        pipeline_layout[1] = gfx::vul::create_pipeline_layout(device, &descriptor_set_layouts[2], 1, sizeof(u32)*2, VK_SHADER_STAGE_COMPUTE_BIT);
 
     }
 

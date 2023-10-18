@@ -1,5 +1,7 @@
 #include <zyy_core.hpp>
 
+global_variable b32 gs_debug_camera_active;
+
 #include "App/game_state.hpp"
 
 #include "skeleton.hpp"
@@ -21,9 +23,8 @@
 #include "App/Game/GUI/entity_editor.hpp"
 #include "App/Game/Physics/player_movement.hpp"
 
-
 #include "App/Game/Util/loading.hpp"
-
+#include "App/Game/Entity/zyy_entity_serialize.hpp"
 
 // global_variable f32 gs_dt;
 global_variable f32 gs_reload_time = 0.0f;
@@ -34,7 +35,6 @@ global_variable b32 gs_show_console=false;
 global_variable b32 gs_show_watcher=false;
 
 global_variable zyy::cam::first_person_controller_t gs_debug_camera;
-global_variable b32 gs_debug_camera_active;
 
 global_variable gfx::anim::skeleton_t* gs_skeleton;
 global_variable gfx::anim::animation_t* gs_animations;
@@ -76,10 +76,12 @@ draw_game_gui(game_memory_t* game_memory) {
 
     if (player->primary_weapon.entity) {
         const auto& weapon = player->primary_weapon.entity->stats.weapon;
+        const auto& stats = player->stats.character;
         const auto center = imgui.ctx.screen_size * 0.5f;
         gfx::gui::im::draw_circle(imgui, center, 2.0f, gfx::color::rgba::white);
         gfx::gui::im::draw_circle(imgui, center, 4.0f, gfx::color::rgba::light_gray);
         v2f weapon_display_start = imgui.ctx.screen_size * v2f{0.05f, 0.9f};
+        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", stats.health.current, stats.health.max), &weapon_display_start, gfx::color::rgba::white);
         gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", weapon.clip.current, weapon.clip.max), &weapon_display_start, gfx::color::rgba::white);
         gfx::gui::string_render(&imgui.ctx, fmt_sv("Chambered: {}", weapon.chamber_count), &weapon_display_start, gfx::color::rgba::white);
     }
@@ -511,6 +513,14 @@ app_init_graphics(game_memory_t* game_memory) {
 
             make_material("smoke", unlit_mat);
         }
+        { // 9
+            auto unlit_mat = gfx::material_t::plastic(v4f{0.18f, 0.83f, 0.13f, 1.0f});
+            unlit_mat.flags = 0;
+            unlit_mat.roughness = 1.0f;
+            unlit_mat.emission = 10.0f;
+
+            make_material("goo", unlit_mat);
+        }
         make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
         make_material("gold-metal", gfx::material_t::plastic(gfx::color::v4::yellow));
         make_material("silver-metal", gfx::material_t::plastic(gfx::color::v4::white));
@@ -594,7 +604,6 @@ app_init_graphics(game_memory_t* game_memory) {
             game_state->render_system->pipelines.sky.set_count
         );
     }
-  
 
     game_state->gui.ctx.font = &game_state->default_font;
     game_state->gui.ctx.input = &game_memory->input;
@@ -606,6 +615,17 @@ app_init_graphics(game_memory_t* game_memory) {
     for (size_t i = 0; i < array_count(game_state->gui.ctx.dyn_font); i++) {
         tag_struct(game_state->gui.ctx.dyn_font[i], gfx::font_t, &game_state->texture_arena);
         gfx::font_load(&game_state->texture_arena, game_state->gui.ctx.dyn_font[i], "./res/fonts/Go-Mono-Bold.ttf", (f32)i+1);
+    }
+
+    {
+        auto memory = begin_temporary_memory(&game_state->main_arena);
+
+        utl::config_list_t config{};
+        config.head = utl::load_config(memory.arena, "config.ini", &config.count);
+        game_state->render_system->light_probe_ray_count = 
+            utl::config_get_int(&config, "ddgi", 64);
+
+        end_temporary_memory(memory);
     }
 }
 
@@ -642,9 +662,10 @@ app_on_init(game_memory_t* game_memory) {
 
     using namespace std::string_view_literals;
 #ifdef ZYY_INTERNAL
-    tag_struct(game_state->debug.console, debug_console_t, main_arena);
+    tag_struct(gs_debug_state->console, debug_console_t, main_arena);
+    auto* console = gs_debug_state->console;
 
-    console_add_command(game_state->debug.console, "help", [](void* data) {
+    console_add_command(console, "help", [](void* data) {
         auto* console = (debug_console_t*)data;
         range_u64(i, 0, console->command_count) {
             console_log(
@@ -655,27 +676,28 @@ app_on_init(game_memory_t* game_memory) {
                 console->console_commands[i].command.data 
             );
         }
-    }, game_state->debug.console);
+    }, console);
 
-    console_add_command(game_state->debug.console, "noclip", [](void* data) {
+    console_add_command(console, "noclip", [](void* data) {
         // auto* console = (debug_console_t*)data;
         gs_debug_camera_active = !gs_debug_camera_active;
         
-    }, game_state->debug.console);
+    }, console);
 
     // time is broken during loops, this is a reminder
-    console_add_command(game_state->debug.console, "rtime", [](void* data) {
+    console_add_command(console, "rtime", [](void* data) {
         auto* game_state = (game_state_t*)data;
-        console_log(game_state->debug.console, fmt_sv("Run Time: {} seconds", game_state->input().time));
-    }, game_state);
+        auto* console = DEBUG_STATE.console;
+        console_log(console, fmt_sv("Run Time: {} seconds", game_state->input().time));
+    }, console);
 
-    console_add_command(game_state->debug.console, "build", [](void* data) {
+    console_add_command(console, "build", [](void* data) {
         // auto* console = (debug_console_t*)data;
         std::system("start /B ninja");
         
-    }, game_state->debug.console);
+    }, console);
 
-    console_add_command(game_state->debug.console, "code", [](void* data) {
+    console_add_command(console, "code", [](void* data) {
         auto* console = (debug_console_t*)data;
         const auto& message = console->last_message();
         auto i = std::string_view{message.text}.find_first_of("$");
@@ -689,9 +711,9 @@ app_on_init(game_memory_t* game_memory) {
             console_log(console, "Parse error", gfx::color::rgba::red);
         }
         
-    }, game_state->debug.console);
+    }, console);
 
-    console_add_command(game_state->debug.console, "run", [](void* data) {
+    console_add_command(console, "run", [](void* data) {
         auto* console = (debug_console_t*)data;
         const auto& message = console->last_message();
         auto i = std::string_view{message.text}.find_first_of("$");
@@ -705,9 +727,9 @@ app_on_init(game_memory_t* game_memory) {
             console_log(console, "Parse error", gfx::color::rgba::red);
         }
         
-    }, game_state->debug.console);
+    }, console);
 
-    console_add_command(game_state->debug.console, "dtimeout", [](void* data) {
+    console_add_command(console, "dtimeout", [](void* data) {
         auto* console = (debug_console_t*)data;
         const auto time = console->last_float();
         if (time) {
@@ -716,9 +738,9 @@ app_on_init(game_memory_t* game_memory) {
         } else {
             console_log(console, "Parse error", gfx::color::rgba::red);
         }
-    }, game_state->debug.console);
+    }, console);
 
-    console_add_command(game_state->debug.console, "fdist", [](void* data) {
+    console_add_command(console, "fdist", [](void* data) {
         auto* console = (debug_console_t*)data;
         const auto time = console->last_float();
         if (time) {
@@ -727,15 +749,15 @@ app_on_init(game_memory_t* game_memory) {
         } else {
             console_log(console, "Parse error", gfx::color::rgba::red);
         }
-    }, game_state->debug.console);
+    }, console);
 
-    // console_add_command(game_state->debug.console, "build", [](void* data) {
+    // console_add_command(console, "build", [](void* data) {
     //     // auto* console = (debug_console_t*)data;
     //     std::system("start /B build n game");
         
-    // }, game_state->debug.console);
+    // }, console);
 
-    console_log(game_state->debug.console, "Enter a command");
+    console_log(console, "Enter a command");
 
 #endif
 
@@ -768,6 +790,9 @@ app_on_init(game_memory_t* game_memory) {
         builder.add_box({v3f{-1.0f}, v3f{1.0f}});
         rendering::add_mesh(rs, "unit_cube", builder.build(&game_state->mesh_arena));
     }
+
+    gs_debug_camera.camera = &game_state->game_world->camera;
+    gs_debug_camera.prio = 100;
 
     using namespace gfx::color;
 
@@ -835,6 +860,13 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
             game_state->gui.state.active = 0;
         }
     }
+    if (input->pressed.keys[key_id::F4]) {
+        if (game_state->time_scale == 0.0f) {
+            game_state->time_scale = 1.0f;
+        } else {
+            game_state->time_scale = 0.0f;
+        }
+    }
     if (input->pressed.keys[key_id::F5]) {
         zyy::world_destroy_all(game_state->game_world);
         zyy::world_free(game_state->game_world);
@@ -842,6 +874,8 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
         game_state->render_system->scene_context->entities.pool.clear();
         game_state->render_system->scene_context->entity_count = 0;
         game_state->game_world = zyy::world_init(game_state, game_state->game_memory->physics);
+
+        gs_debug_camera.camera = &game_state->game_world->camera;
     }
 
     if (input->gamepads[0].is_connected) {
@@ -853,6 +887,20 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
             game_state->time_scale *= 2.0f;
             game_state->time_text_anim = 1.0f;
         }
+    } 
+    if (input->pressed.keys[key_id::F6]) {
+        if (game_state->time_scale==0.0f) {
+            game_state->time_scale = 1.0f;
+        }
+        game_state->time_scale *= 0.5f;
+        game_state->time_text_anim = 1.0f;
+    }
+    if (input->pressed.keys[key_id::F7]) {
+        if (game_state->time_scale==0.0f) {
+            game_state->time_scale = 1.0f;
+        }
+        game_state->time_scale *= 2.0f;
+        game_state->time_text_anim = 1.0f;
     }
 }
 
@@ -880,37 +928,24 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         // game_state->game_memory->input.pressed.keys[key_id::F10] = 1;
     }
 
-
-    // {
-    //     local_persist gfx::trail_renderer_t tr{};
-    //     v3f tr_pos = v3f{5.0f} + v3f{std::sinf(input->time), 0.0f, std::cosf(input->time)};
-    //     tr.tick(dt, tr_pos);
-    // }
     {
         TIMED_BLOCK(PhysicsStep);
+        
+        if (world->physics) {
+            world->physics->simulate(world->physics, dt);
+        } else {
+            zyy_warn("game", "No physics in world");
+        }
 
-        // if (game_state->time_scale == 1.0f) {
-            // world->physics->simulate(world->physics, step);
-        //     accum = 0.0f;
-        // } else {
-            // if (accum >= step) {
-                // accum -= step;
-                if (world->physics) {
-                    world->physics->simulate(world->physics, dt);
-                } else {
-                    zyy_warn("game", "No physics in world");
-                }
-            // }
-        // }
     }
-    zyy::world_update_kinematic_physics(game_state->game_world);
+    zyy::world_update_kinematic_physics(world);
 
         
     {
         TIMED_BLOCK(GameplayUpdatePostSimulate);
 
-        for (size_t i{0}; i < game_state->game_world->entity_capacity; i++) {
-            auto* e = game_state->game_world->entities + i;
+        for (size_t i{0}; i < world->entity_capacity; i++) {
+            auto* e = world->entities + i;
             auto brain_id = e->brain_id;
             if (e->flags & zyy::EntityFlags_Breakpoint) {
                 __debugbreak();
@@ -927,6 +962,11 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             const bool is_not_renderable = !e->is_renderable();
 
             e->coroutine->run(world->frame_arena);
+
+            if (is_physics_object && e->physics.impulse != v3f{0.0f}) {
+                e->physics.rigidbody->add_impulse(e->physics.impulse);
+                e->physics.impulse = {};
+            }
 
             if (brain_id != uid::invalid_id) {
                 world_update_brain(world, e, dt);
@@ -957,6 +997,35 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     app_on_input(game_state, input);
 
     zyy::world_kill_free_queue(game_state->game_world);
+
+    if (gs_debug_camera_active) {
+        auto& imgui = game_state->gui.state;
+        auto real_dt = input->dt;
+        auto pc = keyboard_controller(input);
+        const bool ignore_mouse = gfx::gui::im::want_mouse_capture(imgui);
+        const bool ignore_keyboard = gfx::gui::im::want_mouse_capture(imgui);
+
+        const v2f head_move = pc.look_input;
+
+        auto& yaw = gs_debug_camera.yaw;
+        auto& pitch = gs_debug_camera.pitch;
+
+        const v3f forward = zyy::cam::get_direction(yaw, pitch);
+        const v3f right   = glm::cross(forward, axis::up);
+
+        if (!ignore_mouse) {
+            yaw += head_move.x * real_dt;
+            pitch -= head_move.y * real_dt;
+        }
+
+        local_persist f32 debug_camera_move_speed = 9.0f;
+        DEBUG_WATCH(&debug_camera_move_speed);
+
+        if (ignore_mouse==0 && ignore_keyboard==0) {
+            gs_debug_camera.translate(real_dt * debug_camera_move_speed * (pc.move_input.z * forward + pc.move_input.x * right));
+        }
+        gs_debug_camera.translate(v3f{0.0f});
+    }
 
    
     // local_persist f32 accum = 0.0f;
@@ -1021,7 +1090,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
     world->camera.reset_priority();
 
-
+        
     if (world->player) {
         // world->player->camera_controller.transform.origin = world->player->physics.rigidbody->position + 
         //     axis::up * world->player->camera_controller.head_height + axis::up * world->player->camera_controller.head_offset;
@@ -1076,6 +1145,9 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         v4f bounds{e->aabb.center(), glm::max(glm::max(size.x, size.y), size.z) };
 
         // if (e->type == zyy::entity_type::player) continue;
+        auto instance_count = e->gfx.instance_count();
+
+        if (instance_count == 0) continue;
 
         rendering::submit_job(
             game_state->render_system, 
@@ -1085,7 +1157,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             bounds,
             e->gfx.gfx_id,
             e->gfx.gfx_entity_count,
-            e->gfx.instance_count(),
+            instance_count,
             e->gfx.instance_offset()
         );
     }
@@ -1106,6 +1178,7 @@ game_on_update(game_memory_t* game_memory) {
         world_generator->execute(game_state->game_world, [&](){draw_gui(game_memory);});
         std::lock_guard lock{game_state->render_system->ticket};
         set_ui_textures(game_state);
+        game_memory->input.keys[key_id::F9] = 1;
     // } else {
         // local_persist f32 accum = 0.0f;
         // const u32 sub_steps = 1;

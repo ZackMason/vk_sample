@@ -321,7 +321,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
         // Message is important enough to show
-        zyy_error("vk::validation", "Validation Layer: {}", pCallbackData->pMessage);
+        zyy_error("validation", "Validation Layer: {}", pCallbackData->pMessage);
         // std::terminate();
     }
 
@@ -2083,7 +2083,13 @@ state_t::load_texture(
 
     stbi_set_flip_vertically_on_load(true);
     texture->channels = 0;
-    u8* data = stbi_load(fmt_sv("{}.png", path).data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
+
+    u8* data;
+    if (::utl::has_extension(path, "png")) {
+        data = stbi_load(path.data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
+    } else {
+        data = stbi_load(fmt_sv("{}.png", path).data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
+    }
     if (!data) {
         data = stbi_load(fmt_sv("{}.jpg", path).data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
         texture->channels = 4;
@@ -2276,7 +2282,7 @@ state_t::load_texture_sampler(
         image_info.initialLayout = texture->image_layout;
 
         image_info.usage = 
-            (!storage ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
+            (VK_IMAGE_USAGE_TRANSFER_DST_BIT) |
             (!storage ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
             VK_IMAGE_USAGE_SAMPLED_BIT | 
             VK_IMAGE_USAGE_STORAGE_BIT | 

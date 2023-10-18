@@ -121,6 +121,17 @@ struct entity_ref_t {
 };
 
 
+#if ZYY_INTERNAL
+struct DEBUG_entity_meta_info_t {
+    const char* prefab_name;
+    const char* file_name;
+    const char* function;
+    u64         line_number;
+    f32         game_time;
+};
+
+#endif
+
 }
 
 

@@ -216,9 +216,12 @@ particle_system_update(
         if (system->live_count < system->max_count) {
             particle_system_spawn(system, transform);
         }
+
+        // special case
+        // to stop infinite loop when spawn_rate == 0.0f
         if (system->spawn_rate <= 0.0f) {
             system->spawn_timer = 0.0f;
-            break; // to stop infinite loop when spawn_rate == 0.0f
+            break; 
         }
     }
 
@@ -344,5 +347,6 @@ particle_system_settings_load(
 
     file.read((char*)&settings, size);
 }
+
 
 #endif

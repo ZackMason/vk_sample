@@ -130,7 +130,7 @@ void main()
     start_surface.normal = wn;
     start_surface.point = wp;
     start_surface.albedo = (albedo.rgb * material.albedo.rgb);
-    start_surface.emissive = material.emission * start_surface.albedo;
+    start_surface.emissive = material.emission * material.albedo.rgb;
 
     // DirectionalLight sun = uEnvironment.sun;
     // sun.color.rgb = sqrt(sqrt(max(vec3(0.0), sky_color(direction.xyz, sun.direction.xyz))));

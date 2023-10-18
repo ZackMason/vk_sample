@@ -57,8 +57,8 @@ keyboard_controller(app_input_t* input) {
     player_controller_t pc{};
     pc.move_input = v3f{
         f32(input->keys['D']) - f32(input->keys['A']),
-        0.0f,
-        // f32(input->keys['Q']) - f32(input->keys['E']),
+        // 0.0f,
+        f32(input->keys['Q']) - f32(input->keys['E']),
         f32(input->keys['W']) - f32(input->keys['S'])
     };
 
@@ -135,10 +135,7 @@ struct game_state_t {
     } gui{};
 
     struct debugging_t {
-        debug_console_t* console;
-
         bool show = false;
-
     } debug;
 
     zyy::world_t* game_world{0};

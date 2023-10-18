@@ -7,6 +7,24 @@
 
 #define BRAIN_BEHAVIOR_FUNCTION(name) static void name(zyy::world_t* world, zyy::entity_t* entity, brain_t* brain, f32 dt)
 
+void entity_blackboard_common(zyy::entity_t* entity) {
+    auto* brain = &entity->brain;
+    auto* rng = utl::hash_get(&brain->blackboard.points, "rng"sv, brain->blackboard.arena);
+    auto* rng_move = utl::hash_get(&brain->blackboard.points, "rng_move"sv, brain->blackboard.arena);
+    auto* self = utl::hash_get(&brain->blackboard.points, "self"sv, brain->blackboard.arena);
+    auto* health = utl::hash_get(&brain->blackboard.floats, "health"sv, brain->blackboard.arena);
+
+    *utl::hash_get(&brain->blackboard.bools, "has_weapon"sv, brain->blackboard.arena) = 
+        entity->primary_weapon.entity != nullptr;
+    assert(rng);
+
+    *health = entity->stats.character.health.current;
+    *self = entity->global_transform().origin;
+
+    *rng = entity->world->entropy.randv<v3f>();
+    *rng_move = entity->world->entropy.randnv<v3f>() * planes::xz;
+}
+
 BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto* input = &world->game_state->input();
     auto& imgui = world->game_state->gui.state;
@@ -16,8 +34,8 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto* rigidbody = player->physics.rigidbody;
     const bool is_on_ground = rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
     const bool is_on_wall = rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
-    const bool ignore_mouse = gfx::gui::im::want_mouse_capture(imgui);
-    const bool ignore_keyboard = gfx::gui::im::want_mouse_capture(imgui);
+    const bool ignore_mouse = gfx::gui::im::want_mouse_capture(imgui) || gs_debug_camera_active;
+    const bool ignore_keyboard = gfx::gui::im::want_mouse_capture(imgui) || gs_debug_camera_active;
 
     if (pc.swap) {
         std::swap(
@@ -170,11 +188,197 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     }
 }
 
+template <size_t N>
+void collect_nearby(
+    arena_t* arena,
+    auto* physics, 
+    stack_buffer<interest_point_t, N>& buffer, 
+    v3f position, 
+    f32 distance
+) {
+    buffer.clear();
+
+    auto* near = physics->sphere_overlap_world(
+        physics,
+        arena,
+        position,
+        distance
+    );
+
+    range_u64(i, 0, near->hit_count) {
+        if (buffer.is_full()) break;
+        auto* rb = (physics::rigidbody_t*)near->hits[i].user_data;
+        auto* n = (zyy::entity_t*)rb->user_data;
+        interest_point_t interest = {};
+        interest.data = n;
+        interest.point = n->global_transform().origin;
+        interest.type = interest_type::entity;
+        buffer.push(std::move(interest));
+    }
+}
+
+template <size_t N>
+void collect_nearby_enemy(
+    arena_t* arena,
+    auto* physics, 
+    stack_buffer<interest_point_t, N>& buffer, 
+    v3f position, 
+    f32 distance,
+    std::span<brain_type> enemy_types
+) {
+    buffer.clear();
+
+    auto* near = physics->sphere_overlap_world(
+        physics,
+        arena,
+        position,
+        distance
+    );
+
+    range_u64(i, 0, near->hit_count) {
+        if (buffer.is_full()) break;
+        auto* rb = (physics::rigidbody_t*)near->hits[i].user_data;
+        auto* n = (zyy::entity_t*)rb->user_data;
+
+        if (std::find(enemy_types.begin(), enemy_types.end(), n->brain.type) == enemy_types.end()) {
+            continue;
+        }
+
+        interest_point_t interest = {};
+        interest.data = n;
+        interest.point = n->global_transform().origin;
+        interest.type = interest_type::entity;
+        buffer.push(std::move(interest));
+    }
+}
+
+template <size_t N>
+void collect_nearby(
+    arena_t* arena,
+    auto* world,
+    auto* physics, 
+    stack_buffer<skull_brain_t*, N>& buffer, 
+    v3f position, 
+    f32 distance
+) {
+    buffer.clear();
+
+    auto* near = physics->sphere_overlap_world(
+        physics,
+        arena,
+        position,
+        distance
+    );
+
+    range_u64(i, 0, near->hit_count) {
+        if (buffer.is_full()) break;
+        auto* rb = (physics::rigidbody_t*)near->hits[i].user_data;
+        auto* n = (zyy::entity_t*)rb->user_data;
+        
+        if (n->brain.type != brain_type::flyer) {
+            continue;
+        }
+
+        buffer.push(&n->brain.skull);
+    }
+
+}
+
+BRAIN_BEHAVIOR_FUNCTION(person_behavior) {
+    auto* physics = world->physics;
+    auto* rigidbody = entity->physics.rigidbody;
+    const bool is_on_ground = rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
+    const bool is_on_wall = rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
+    auto& health = entity->stats.character.health;
+    auto& blkbrd = entity->brain.blackboard;
+
+    auto* last_health = utl::hash_get(&blkbrd.floats, "health"sv, blkbrd.arena);
+
+    f32 health_delta = glm::max(0.0f, *last_health - health.current);
+
+    entity_blackboard_common(entity);
+
+    v3f position = entity->global_transform().origin;
+
+    stack_buffer<interest_point_t, 32> buffer = {};
+    brain_type enemy_types[] = {brain_type::player, brain_type::flyer};
+    collect_nearby_enemy(
+        &world->frame_arena.get(),
+        physics,
+        buffer,
+        entity->global_transform().origin,
+        20.0f,
+        enemy_types
+    );
+
+    brain->person.fear += (health_delta / health.max) * 20.0f;
+    brain->person.fear = tween::damp(brain->person.fear, 0.4f, 0.05f, dt);
+
+    auto* has_target = utl::hash_get(&blkbrd.bools, "has_target"sv, blkbrd.arena);
+    auto* target = utl::hash_get(&blkbrd.points, "target"sv, blkbrd.arena);
+    auto* closest_weapon = utl::hash_get(&blkbrd.points, "closest_weapon"sv, blkbrd.arena);
+    auto* fear = utl::hash_get(&blkbrd.floats, "fear"sv, brain->blackboard.arena);
+    
+    *fear = brain->person.fear;
+    *has_target = buffer.empty() == false;
+
+    if (*has_target) {
+        *target = buffer[0].point;
+        range_u64(i, 0, buffer.count()) {
+            auto* e = (zyy::entity_t*)buffer[i].data;
+            if (e->flags & zyy::EntityFlags_Pickupable) {
+                *closest_weapon = buffer[i].point;
+            }
+        }
+    }
+
+    brain->person.tree.tick(dt, &blkbrd);
+
+    v3f move = blkbrd.move;
+
+    v3f forward = axis::forward;
+    v3f right = axis::right;
+       
+    v3f move_xz = v3f{move.x, 0.0f, move.z};
+    v3f wishdir = move_xz;
+
+    if (wishdir.x || wishdir.y || wishdir.z) {
+        wishdir = glm::normalize(wishdir);
+    }
+
+    local_persist f32 max_ground_speed = 3.60f; DEBUG_WATCH(&max_ground_speed)->max_f32 = 10.0f;
+    local_persist f32 max_air_speed = 0.3f; DEBUG_WATCH(&max_air_speed)->max_f32 = 4.0f;
+    local_persist f32 ground_accel = 2.2f; DEBUG_WATCH(&ground_accel)->max_f32 = 6.0f; // source engine 5.6 default
+    local_persist f32 air_accel = 0.5f; DEBUG_WATCH(&air_accel)->max_f32 = 3.0f;
+    local_persist f32 friction = 9.1f; DEBUG_WATCH(&friction)->max_f32 = 10.0f;
+    local_persist f32 gravity_strength = 1.0f; DEBUG_WATCH(&gravity_strength);
+    f32 max_speed = is_on_ground ? max_ground_speed : max_air_speed;
+    f32 accel = is_on_ground ? ground_accel : air_accel;
+    
+    auto movement = is_on_ground ? quake_ground_move : quake_air_move;
+    rigidbody->velocity = movement(wishdir, rigidbody->velocity, friction, accel, max_speed, dt);
+    if (is_on_ground == false) {
+        rigidbody->velocity.y -= 9.81f * 0.05f * dt * gravity_strength;
+    } 
+    
+    rigidbody->angular_velocity = v3f{0.0f};
+    
+}
+
 BRAIN_BEHAVIOR_FUNCTION(skull_behavior) {
     auto* physics = world->physics;
     auto* player = world->player;
     auto* rb = entity->physics.rigidbody;
     auto max_speed = entity->stats.character.movement.move_speed;
+
+    // collect_nearby(
+    //     &world->frame_arena.get(),
+    //     world,
+    //     physics,
+    //     brain->skull.neighbors,
+    //     entity->global_transform().origin,
+    //     20.0f
+    // );
 
     auto vel = entity->physics.rigidbody->velocity;
     auto s = glm::length(vel);

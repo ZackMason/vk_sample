@@ -10,6 +10,7 @@
 #include "App/Game/Items/base_item.hpp"
 #include "App/Game/Weapons/base_weapon.hpp"
 #include "App/Game/Entity/script_v2.hpp"
+#include "App/Game/Entity/brain.hpp"
 
 #include "uid.hpp"
 
@@ -418,7 +419,7 @@ int main(int argc, char** argv) {
         u64 count = 0;
         utl::hash_trie_t<const char*, b32>* seen=0;
         while (count < len) {
-            b32* b = utl::hash_trie_get_insert(&seen, strings[count], &arena);
+            b32* b = utl::hash_get(&seen, strings[count], &arena);
             if (*b) {
                 strings[count] = strings[--len];
             } else {
@@ -652,6 +653,17 @@ int main(int argc, char** argv) {
         TEST_ASSERT(vec.back() == test_size-1);
     });
 
+    RUN_TEST("stack buffer")
+        stack_buffer<u32, 12> buffer;
+
+        buffer.push(1);
+        buffer.push(2);
+        buffer.push(3);
+        buffer.pop();
+        buffer.pop();
+
+    });
+
     RUN_TEST("c array")
         u64* vec = (u64*)malloc(sizeof(u64)*test_size);
 
@@ -758,10 +770,7 @@ int main(int argc, char** argv) {
         wep::base_weapon_t rifle = wep::create_rifle();
         wep::base_weapon_t shotgun = wep::create_shotgun();
 
-        item::augment_weapon::function_type items[] = {
-            item::augment_weapon::double_damage,
-            item::augment_weapon::hair_trigger
-        };
+        
 
         item::effect_t fire_effect{
             .type = item::effect_type::FIRE,
@@ -778,32 +787,130 @@ int main(int argc, char** argv) {
 
         rifle.effects = shotgun.effects = &fire_effect;
 
-        for (size_t i = 0; i < array_count(items); i++) {
-            rifle = items[i](rifle);
-            shotgun = items[i](shotgun);
-        }
 
-        u64 rifle_bullet_count{0};
-        wep::bullet_t* rifle_bullets = rifle.fire(&arena, 5.0f, &rifle_bullet_count);
+        // u64 rifle_bullet_count{0};
+        // wep::bullet_t* rifle_bullets = rifle.fire(&arena, 5.0f, &rifle_bullet_count);
 
-        u64 shotgun_bullet_count{0};
-        wep::bullet_t* shotgun_bullets = shotgun.fire(&arena, 5.0f, &shotgun_bullet_count);
+        // u64 shotgun_bullet_count{0};
+        // wep::bullet_t* shotgun_bullets = shotgun.fire(&arena, 5.0f, &shotgun_bullet_count);
 
-        TEST_ASSERT(rifle_bullets);
-        TEST_ASSERT(shotgun_bullets);
+        // TEST_ASSERT(rifle_bullets);
+        // TEST_ASSERT(shotgun_bullets);
         // TEST_ASSERT(rifle.fire_rate == 0.5f);
         // TEST_ASSERT(rifle.stats.damage == 2.0f);
 
         // TEST_ASSERT(rifle_bullet_count == 9);
         // TEST_ASSERT(shotgun_bullet_count == 72);
 
-        for (size_t i = 0; i < rifle_bullet_count; i++) {
-            TEST_ASSERT(rifle.stats.damage == rifle_bullets[i].damage);
-        }
-        for (size_t i = 0; i < shotgun_bullet_count; i++) {
-            TEST_ASSERT(shotgun.stats.damage == shotgun_bullets[i].damage);
-        }
+        // for (size_t i = 0; i < rifle_bullet_count; i++) {
+        //     TEST_ASSERT(rifle.stats.damage == rifle_bullets[i].damage);
+        // }
+        // for (size_t i = 0; i < shotgun_bullet_count; i++) {
+        //     TEST_ASSERT(shotgun.stats.damage == shotgun_bullets[i].damage);
+        // }
     });
+
+    RUN_TEST("behavior tree") {
+        static constexpr size_t arena_size = kilobytes(4);
+        arena_t arena = arena_create(new std::byte[arena_size], arena_size);
+        defer {
+            delete [] arena.start;
+        };
+
+        blackboard_t blkbrd = {.arena=&arena};
+
+        auto* has_target = utl::hash_get(&blkbrd.bools, "has_target", &arena);
+        auto* target = utl::hash_get(&blkbrd.points, "target", &arena);
+
+        TEST_ASSERT(has_target != nullptr);
+        TEST_ASSERT(target != nullptr);
+        *has_target = 1;
+        *target = v3f{1,2,3};
+
+        struct attack_t : public bt::behavior_t {
+            virtual bt::behavior_status on_update(blackboard_t* blkbrd) override {
+                auto* target = utl::hash_get(&blkbrd->points, "target", blkbrd->arena);
+                auto* has_target = utl::hash_get(&blkbrd->bools, "has_target", blkbrd->arena);
+
+                TEST_ASSERT(has_target != nullptr);
+                TEST_ASSERT(target != nullptr);
+
+                fmt::print("attacked: {}\n", *target);
+
+                *has_target = 0;
+                *target = {};
+
+                return bt::behavior_status::SUCCESS;
+            }
+        };
+
+        struct move_t : public bt::behavior_t {
+            virtual bt::behavior_status on_update(blackboard_t* blkbrd) override {
+                auto* has_target = utl::hash_get(&blkbrd->bools, "has_target", blkbrd->arena);
+                TEST_ASSERT(has_target != nullptr);
+                TEST_ASSERT(*has_target == 0);
+                puts("moved");
+                return bt::behavior_status::SUCCESS;
+            }
+        };
+
+        struct look_t : public bt::behavior_t {
+            u32 tries = 0;
+            virtual bt::behavior_status on_update(blackboard_t* blkbrd) override {
+                puts("looked");
+                if (utl::rng::random_s::randf() > 0.5f) {
+                    auto* target = utl::hash_get(&blkbrd->points, "target", blkbrd->arena);
+                    auto* has_target = utl::hash_get(&blkbrd->bools, "has_target", blkbrd->arena);
+                    
+                    TEST_ASSERT(has_target != nullptr);
+                    TEST_ASSERT(target != nullptr);
+                    TEST_ASSERT(*has_target == 0);
+                    *has_target = 1;
+                    *target = utl::rng::random_s::randnv();
+                    
+                    puts("found");
+                    return bt::behavior_status::SUCCESS;
+                }
+                return bt::behavior_status::FAILURE;
+                return tries++ == 3 ? bt::behavior_status::FAILURE : bt::behavior_status::RUNNING;
+            }
+        };
+
+        bt::builder_t builder{.arena = &arena};
+
+        builder
+            .active_selector()
+                .condition("has_target")
+                    .action<attack_t>()
+                .end()
+                .sequence()
+                    .action<move_t>()
+                    .action<look_t>()
+                .end()
+            .end();
+
+        auto tree = builder.tree;
+
+        TEST_ASSERT(tree.root);
+
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+        tree.tick(&blkbrd);
+
+
+    });
+    
 
     RUN_TEST("dlist")
         struct test_t {

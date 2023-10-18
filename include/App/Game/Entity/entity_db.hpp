@@ -907,6 +907,38 @@ skull {
     .brain_type = brain_type::flyer,
 };
 
+
+DB_ENTRY
+person {
+    .type = entity_type::bad,
+    .type_name = "person",
+    .gfx = {
+        .mesh_name = "res/models/capsule.obj",
+    },
+    .stats = character_stats_t {
+        .health = {
+            15
+        },
+        .movement = {
+            .move_speed = 1.3f,
+        },
+    },
+    .physics = zyy::prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Character,
+        .shapes = { 
+            zyy::prefab_t::physics_t::shape_t{
+                .shape = physics::collider_shape_type::CAPSULE,
+                .capsule = {
+                    .radius = 1.0f,
+                    .height = 3.0f,
+                },
+            },
+        },
+    },
+    .brain_type = brain_type::person,
+};
+
+
 }; // namespace bads
 
 // Character Class Definitions

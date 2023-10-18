@@ -30,6 +30,10 @@ struct entity_t {
     u64         tag{0};
     string_t    name;
 
+#if ZYY_INTERNAL
+    DEBUG_entity_meta_info_t _DEBUG_meta{};
+#endif
+
     world_t*    world{0};
 
     entity_t*   next{nullptr};
@@ -40,6 +44,7 @@ struct entity_t {
     entity_t* next_child{nullptr};
 
     brain_id    brain_id{uid::invalid_id};
+    brain_t     brain{};
 
     math::transform_t   transform;
     // math::transform_t   _global_transform;
@@ -148,6 +153,7 @@ struct entity_t {
     struct physics_t {
         u32 flags{0};
         physics::rigidbody_t* rigidbody;
+        v3f impulse{0.0f};
     } physics{};
 
     struct stats_t {
@@ -163,10 +169,6 @@ struct entity_t {
 
     std::optional<entity_coroutine_t> coroutine{};
 
-    // f32 _data[1000];
-
-    // entity_update_function on_update{nullptr};
-    // entity_interact_function on_interact{nullptr};
 
     // virtual ~entity_t() = default;
     // constexpr entity_t() noexcept = default;
@@ -199,18 +201,16 @@ struct entity_t {
         entity_t* last=first_child;
         if (last==child) {
             first_child = first_child->next_child;
-            child->parent = nullptr;
         } else {
             for (auto* c = first_child; c; c = c->next_child) {
                 if (c == child) {
-                    last->next_child  = c->next_child;
-                    child->parent = nullptr;
-
+                    last->next_child = c->next_child;
                     break;
                 }
                 last = c;
             }
         }
+        child->parent = nullptr;
         child->transform = child_transform;
     }
 
@@ -255,4 +255,15 @@ player_init(
     player->camera_controller.camera = camera;
 }
 
-}; // namespace entity
+u32
+entity_child_count(
+    entity_t* entity
+) {
+    u32 result = 0;
+    for (auto* e = entity->first_child; e; e = e->next_child) {
+        result++;
+    }
+    return result;
+}
+
+}; // namespace zyy

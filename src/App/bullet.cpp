@@ -20,8 +20,9 @@ namespace zyy::wep {
         u32 count
     ) {
         auto particle_prefab = zyy::db::particle::orb;
+        std::memcpy(particle_prefab.type_name, "puff", 5);
         particle_prefab.emitter->template_particle.velocity = v3f{0.0f};
-        auto* ps = zyy::spawn(world, world->render_system(), particle_prefab, pos);
+        auto* ps = zyy::tag_spawn(world, particle_prefab, pos);
         ps->gfx.material_id = 7; // particle material @hardcode
         ps->coroutine->start();
         
@@ -35,7 +36,7 @@ namespace zyy::wep {
         bullet_t bullet        
     ) {
 
-        auto* bullet_entity = zyy::spawn(world, world->render_system(), prefab, bullet.ray.at(0.5f));
+        auto* bullet_entity = zyy::tag_spawn(world, prefab, bullet.ray.at(0.5f));
         bullet_entity->gfx.material_id = 7; // unlit material @hardcode
         bullet_entity->stats.weapon.stats.damage = bullet.damage;
         bullet_entity->physics.rigidbody->on_collision = bullet_on_hit;
@@ -57,7 +58,7 @@ namespace zyy::wep {
         bullet_t bullet        
     ) {
         auto prefab = zyy::db::misc::rocket_bullet;
-        auto* bullet_entity = zyy::spawn(world, world->render_system(), prefab, bullet.ray.at(0.5f));
+        auto* bullet_entity = zyy::tag_spawn(world, prefab, bullet.ray.at(0.5f));
         bullet_entity->gfx.material_id = 7; // unlit material @hardcode
         bullet_entity->stats.weapon.stats.damage = bullet.damage;
         bullet_entity->physics.rigidbody->on_collision = rocket_on_hit;

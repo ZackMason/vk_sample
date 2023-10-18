@@ -1,7 +1,7 @@
 #pragma once
 
 #include "zyy_core.hpp"
-#include "App/Game/Entity/entity.hpp"
+// #include "App/Game/Entity/entity.hpp"
 
 enum struct debug_priority_level {
     LOW, MEDIUM, HIGH
@@ -20,7 +20,8 @@ enum struct debug_watcher_type {
     FLOAT32, FLOAT64,
     VEC2, VEC3,
     AABB, RAY,
-    ENTITY, CSTR,
+    // ENTITY, 
+    CSTR,
     COUNT
 };
 
@@ -41,7 +42,7 @@ struct debug_watcher_t {
         v2f* as_v2f;
         v3f* as_v3f;
         // math::rect3d_t as_aabb;
-        zyy::entity_t* as_entt;
+        // zyy::entity_t* as_entt;
         math::ray_t* as_ray;
     };
 
@@ -83,6 +84,7 @@ struct debug_variable_t {
     };
 };
 
+struct debug_console_t;
 struct debug_state_t {
     f32& time;
     arena_t arena;
@@ -102,6 +104,8 @@ struct debug_state_t {
 
     char watcher_needle[64];
     size_t watcher_wpos{0};
+
+    debug_console_t* console;
 
     debug_watcher_t* create_watcher() {
         if (free_watch) {
@@ -130,30 +134,30 @@ struct debug_state_t {
         // arena_clear(&watch_arena);
     }
 
-    void show_entity(gfx::gui::im::state_t& imgui, debug_watcher_t* var) {
-        using namespace gfx::gui;
-        assert(var->type == debug_watcher_type::ENTITY);
-        auto* entity = var->as_entt;
-        if (entity->name.c_data) {
-            im::text(imgui, entity->name.c_data);
-        } else {
-            im::text(imgui, fmt_sv("<entity_{}>", (void*)entity));
-        }
-        if (im::text(imgui, fmt_sv("- Kill\0{}"sv, entity->id))) {
-            entity->queue_free();
-        }
-        im::text(imgui, fmt_sv("- Tag: {}", entity->tag));
-        im::text(imgui, fmt_sv("- Flags: {}", entity->flags));
+    // void show_entity(gfx::gui::im::state_t& imgui, debug_watcher_t* var) {
+    //     using namespace gfx::gui;
+    //     assert(var->type == debug_watcher_type::ENTITY);
+    //     auto* entity = var->as_entt;
+    //     if (entity->name.c_data) {
+    //         im::text(imgui, entity->name.c_data);
+    //     } else {
+    //         im::text(imgui, fmt_sv("<entity_{}>", (void*)entity));
+    //     }
+    //     if (im::text(imgui, fmt_sv("- Kill\0{}"sv, entity->id))) {
+    //         entity->queue_free();
+    //     }
+    //     im::text(imgui, fmt_sv("- Tag: {}", entity->tag));
+    //     im::text(imgui, fmt_sv("- Flags: {}", entity->flags));
 
-        im::same_line(imgui);
-        im::text(imgui, "- Local Origin: ");
-        im::vec3(imgui, entity->transform.origin);
+    //     im::same_line(imgui);
+    //     im::text(imgui, "- Local Origin: ");
+    //     im::float3_drag(imgui, &entity->transform.origin);
 
-        if (entity->stats.character.health.max > 0.0f) {
-            auto [max, hp] = entity->stats.character.health;
-            im::text(imgui, fmt_sv("- Health: {}/{}", max, hp));
-        }
-    }
+    //     if (entity->stats.character.health.max > 0.0f) {
+    //         auto [max, hp] = entity->stats.character.health;
+    //         im::text(imgui, fmt_sv("- Health: {}/{}", max, hp));
+    //     }
+    // }
 
     void draw_watch_window(gfx::gui::im::state_t& imgui) {
         std::lock_guard lock{ticket};
@@ -171,21 +175,21 @@ struct debug_state_t {
                 if (var->type == debug_watcher_type::CSTR) {
                     if ((std::strstr(var->as_cstr, watcher_needle) == nullptr) &&
                         (std::strstr(var->name.data(), watcher_needle) == nullptr)) continue;
-                } else if (var->type == debug_watcher_type::ENTITY) {
-                    if (var->as_entt->name.c_data==nullptr) continue;
-                    if ((std::strstr(var->as_entt->name.c_data, watcher_needle) == nullptr) &&
-                        (std::strstr(var->name.data(), watcher_needle) == nullptr)) continue;
+                // } else if (var->type == debug_watcher_type::ENTITY) {
+                //     if (var->as_entt->name.c_data==nullptr) continue;
+                //     if ((std::strstr(var->as_entt->name.c_data, watcher_needle) == nullptr) &&
+                //         (std::strstr(var->name.data(), watcher_needle) == nullptr)) continue;
                 } else {
                     if (std::strstr(var->name.data(), watcher_needle) == nullptr) continue;
                 }
                 if (shown++ > 20) { break; }
-                if (var->type == debug_watcher_type::ENTITY) {
-                    show_entity(imgui, var);
-                    continue;
-                } else {
+                // if (var->type == debug_watcher_type::ENTITY) {
+                    // show_entity(imgui, var);
+                    // continue;
+                // } else {
                     im::same_line(imgui);
                     im::text(imgui, fmt_sv("{}: ", var->name));
-                }
+                // }
                 if (var->type == debug_watcher_type::FLOAT32) {
                     im::float_drag(imgui, var->as_f32);
                 } else if (var->type == debug_watcher_type::UINT32) {
@@ -195,7 +199,7 @@ struct debug_state_t {
                 } else if (var->type == debug_watcher_type::CSTR) {
                     im::text(imgui, var->as_cstr);
                 } else if (var->type == debug_watcher_type::VEC3) {
-                    im::vec3(imgui, *var->as_v3f, var->min_f32, var->max_f32);
+                    im::float3_drag(imgui, var->as_v3f);
                 } else {
                     im::text(imgui, "Unsupported type");
                 }
@@ -296,7 +300,7 @@ struct debug_state_t {
             new (var) debug_variable_t;
         }
         var->name = name;
-        if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_variable_type::ENTITY; }
+        // if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_variable_type::ENTITY; }
         if constexpr (std::is_same_v<T, u32>) { var->type = debug_variable_type::UINT32; }
         if constexpr (std::is_same_v<T, i32>) { var->type = debug_variable_type::INT32; }
         if constexpr (std::is_same_v<T, f32>) { var->type = debug_variable_type::FLOAT32; }
@@ -327,7 +331,7 @@ struct debug_state_t {
         if (auto cached = has_watch_variable((void*)val)) return cached;
         auto* var = create_watcher();
         var->name = name;
-        if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_watcher_type::ENTITY; }
+        // if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_watcher_type::ENTITY; }
         if constexpr (std::is_same_v<T, const char>) { var->type = debug_watcher_type::CSTR; }
         if constexpr (std::is_same_v<T, u32>) { var->type = debug_watcher_type::UINT32; }
         if constexpr (std::is_same_v<T, i32>) { var->type = debug_watcher_type::INT32; }
@@ -349,7 +353,7 @@ struct debug_state_t {
         std::lock_guard lock{ticket};
         node_for(auto, watcher, n) {
             if (n->name == name) {
-                if constexpr (std::is_same_v<T, zyy::entity_t>) { assert(n->type == debug_watcher_type::ENTITY); }
+                // if constexpr (std::is_same_v<T, zyy::entity_t>) { assert(n->type == debug_watcher_type::ENTITY); }
                 if constexpr (std::is_same_v<T, const char>) { assert(n->type == debug_watcher_type::CSTR); }
                 if constexpr (std::is_same_v<T, u32>) { assert(n->type == debug_watcher_type::UINT32); }
                 if constexpr (std::is_same_v<T, i32>) { assert(n->type == debug_watcher_type::INT32); }
@@ -390,7 +394,7 @@ struct debug_console_t {
     message_t messages[256]{};
     size_t message_top = 0;
 
-    i32 scroll{0};
+    // i32 scroll{0};
 
     const message_t& last_message() const {
         return messages[message_top?message_top-1:array_count(messages)-1];

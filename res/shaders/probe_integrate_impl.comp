@@ -6,6 +6,7 @@
 layout( push_constant ) uniform constants
 {
 	uint 		kFrame;
+	uint 		kRayCount;
 };
 
 layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
@@ -216,9 +217,8 @@ void main() {
     vec3 new_offset = vec3(0.0);
 
 
-
-    uint remaining_rays = 128;
-    // uint remaining_rays = 64;
+    uint remaining_rays = kRayCount;
+    
     uint offset = 0;
 
     uint start_index = probe_ray_start(probe_id, odd_frame);

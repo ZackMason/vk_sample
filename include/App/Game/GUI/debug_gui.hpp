@@ -105,6 +105,150 @@ load_save_particle_dialog(
     return true;
 }
 
+void draw_behavior(
+    gfx::gui::im::state_t& imgui,
+    bt::behavior_t* node
+) {
+    auto& rect = node->rect;
+
+    v2f cursor = rect.min;
+    const math::rect2d_t screen{v2f{0.0f}, v2f{imgui.ctx.screen_size}};
+
+
+    if (auto* comp = dynamic_cast<bt::active_selector_t*>(node)) {
+        gfx::gui::string_render(&imgui.ctx, "Active Selector", &cursor);
+    }
+    else if (auto* gtr = dynamic_cast<bt::greater_condition_t<f32>*>(node)) {
+        gfx::gui::string_render(&imgui.ctx, "Greater Than (f32)", &cursor);
+        gfx::gui::string_render(&imgui.ctx, gtr->name, &cursor);
+    }
+    else if (auto* alwys = dynamic_cast<bt::always_succeed_t*>(node)) {
+        gfx::gui::string_render(&imgui.ctx, "Always Succeed", &cursor);
+    }
+    else if (auto* cond = dynamic_cast<bt::condition_t*>(node)) {
+        gfx::gui::string_render(&imgui.ctx, "Condition", &cursor);
+        gfx::gui::string_render(&imgui.ctx, cond->name, &cursor);
+    }
+    else if (auto* sele = dynamic_cast<bt::selector_t*>(node)) {
+        gfx::gui::string_render(&imgui.ctx, "Selector", &cursor);
+    }
+    else if (auto* seq = dynamic_cast<bt::sequence_t*>(node)) {
+        gfx::gui::string_render(&imgui.ctx, "Sequence", &cursor);
+    }
+    else if (auto* prt = dynamic_cast<print_t*>(node)) {
+        gfx::gui::string_render(&imgui.ctx, "Print", &cursor);
+        gfx::gui::string_render(&imgui.ctx, prt->text, &cursor);
+    }
+    else if (auto* move = dynamic_cast<move_toward_t*>(node)) {
+        gfx::gui::string_render(&imgui.ctx, "Move", &cursor);
+        gfx::gui::string_render(&imgui.ctx, move->text, &cursor);
+    }
+    else if (auto* flee = dynamic_cast<run_away_t*>(node)) {
+        gfx::gui::string_render(&imgui.ctx, "Flee", &cursor);
+        gfx::gui::string_render(&imgui.ctx, flee->text, &cursor);
+    }
+    else if (auto* brkpnt = dynamic_cast<breakpoint_t*>(node)) {
+        auto temp_cursor = cursor;
+        gfx::gui::string_render(&imgui.ctx, "Breakpoint", &temp_cursor);
+    }
+    else {
+        gfx::gui::string_render(&imgui.ctx, "Node", &cursor);
+    }
+
+    rect.expand(cursor);
+
+    auto text_size = gfx::font_get_size(imgui.ctx.font, "Active Selector wow");
+    rect.expand(cursor+v2f{text_size.x,0.0f});
+
+    gfx::gui::draw_round_rect(&imgui.ctx, rect, 4.0f, imgui.theme.bg_color);
+
+    auto save_rect = rect;
+    
+    rect.pull(v2f{3.0f});
+    gfx::color32 colors[]={
+        gfx::color::rgba::green,
+        gfx::color::rgba::red,
+        gfx::color::rgba::white,
+        gfx::color::rgba::purple,
+        gfx::color::rgba::gray,
+    };
+    
+    gfx::gui::draw_round_rect(&imgui.ctx, rect, 4.0f, colors[(u32)node->status]);
+    rect = save_rect;
+
+    auto draw_node = [&](auto* c, auto rect, auto&& i) {
+        if (c->rect.min == v2f{0.0f}) {
+            c->rect.min = math::bottom_middle(rect) + rect.size() * 1.3f * v2f{f32(i), 1.0f};
+            c->rect.max = c->rect.min + v2f{120.0f, 32.0f};
+        }
+
+        draw_behavior(imgui, c);
+        i += 1.0f;
+
+
+        v2f p[4] = {
+            math::bottom_middle(rect),
+            v2f{0.0f, 200.0f},
+            math::top_middle(c->rect),
+            v2f{0.0f, 200.0f},
+        };
+
+        auto dist = glm::distance(p[0], p[2]);
+        p[1][1] = dist;
+        p[3][1] = dist;
+
+        gfx::gui::draw_curve(&imgui.ctx, std::span<v2f,4>{p,4}, math::rect2d_t{v2f{0.0f}, v2f{1.0f}}, 32, 3.0f, colors[(u32)c->status]);
+        gfx::gui::draw_circle(&imgui.ctx, p[0], 6.0f, colors[(u32)c->status]);
+        gfx::gui::draw_curve(&imgui.ctx, std::span<v2f,4>{p,4}, math::rect2d_t{v2f{0.0f}, v2f{1.0f}}, 32, 3.0f, colors[(u32)c->status]);
+        gfx::gui::draw_circle(&imgui.ctx, p[2], 6.0f, colors[(u32)c->status]);
+
+    };
+
+    if (auto* dec = dynamic_cast<bt::decorator_t*>(node)) {
+        draw_node(dec->child, rect, 0.0f);
+    }
+
+    if (auto* comp = dynamic_cast<bt::composite_t*>(node)) {
+        f32 i = -1.0f;
+        for (auto* c = comp->head.next;
+            c != &comp->head;
+            c = c->next
+        ) {
+            draw_node(c, rect, i);
+            // gfx::gui::draw_line(&imgui.ctx, c->rect.center(), rect.center(), 3.0f, colors[(u32)c->status]);
+        }
+    }
+    auto save_size = rect.size();
+    auto save_min = rect.min;
+    auto save_max = rect.max;
+    gfx::gui::im::point_edit(imgui, &rect.min, screen, screen, gfx::color::rgba::red);
+    gfx::gui::im::point_edit(imgui, &rect.max, screen, screen, gfx::color::rgba::red);
+    if (rect.min != save_min) {
+        rect.max = rect.min + save_size;
+    }
+    if (rect.max != save_max) {
+        rect.min = rect.max - save_size;
+    }
+    
+}
+
+void 
+draw_behavior_tree(
+    gfx::gui::im::state_t& imgui,
+    bt::behavior_tree_t* tree
+) {
+    auto* root = tree->root;
+    
+    if (root) {
+        if (root->rect.min == v2f{0.0f}) {
+            root->rect.min = v2f{500.0f};
+            root->rect.max = v2f{600.0f, 532.0f};
+        }
+        draw_behavior(imgui, root);
+    }
+
+}
+
 void
 watch_game_state(game_state_t* game_state) {
     auto* rs = game_state->render_system;
@@ -178,6 +322,8 @@ set_ui_textures(game_state_t* game_state) {
     
 
 }
+
+
 
 void 
 draw_gui(game_memory_t* game_memory) {
@@ -318,10 +464,11 @@ draw_gui(game_memory_t* game_memory) {
         const m44 vp = 
             game_state->render_system->vp;
 
+#ifdef DEBUG_STATE
         if (gs_show_console) {
-            draw_console(state, game_state->debug.console, v2f{400.0, 0.0f});
+            draw_console(state, DEBUG_STATE.console, v2f{400.0, 0.0f});
         }
-        
+#endif
 
         local_persist b32 load_system{0};
         local_persist particle_system_t* saving_system{0};
@@ -771,12 +918,16 @@ draw_gui(game_memory_t* game_memory) {
                         skip = 0;
                         node_for(auto, start, tag) {
                             if (skip++ > 10) { break; }                            
-                            im::text(state, fmt_sv("--- {}[{}]: {}() | {}({})", tag->type_name, tag->count, tag->function_name, utl::trim_filename(tag->file_name), tag->line_number));
+                            if (im::text(state, fmt_sv("--- {}[{}]: {}() | {}({})", tag->type_name, tag->count, tag->function_name, utl::trim_filename(tag->file_name), tag->line_number))) {
+                                std::system(fmt_sv("code -g {}:{}:0", tag->file_name, tag->line_number).data());
+                            }
                         }
                         if (tag_count > 10) {
                             node_for(auto, display_arenas[i]->tags, tag) {
                                 if (skip++ > 10) { break; }                            
-                                im::text(state, fmt_sv("--- {}[{}]: {}() | {}({})", tag->type_name, tag->count, tag->function_name, utl::trim_filename(tag->file_name), tag->line_number));
+                                if (im::text(state, fmt_sv("--- {}[{}]: {}() | {}({})", tag->type_name, tag->count, tag->function_name, utl::trim_filename(tag->file_name), tag->line_number))) {
+                                    std::system(fmt_sv("code -g {}:{}:0", tag->file_name, tag->line_number).data());
+                                }
                             }
                         }
                     }
@@ -857,8 +1008,35 @@ draw_gui(game_memory_t* game_memory) {
                     fmt_sv("Entity: {}", (void*)e)
                 );
 
+                if (e->parent && im::text(state, fmt_sv("Parent: {}",(void*)e->parent))) {
+                    widget_pos = &e->parent->transform.origin; 
+                    im::end_panel(state);
+                    break;
+                }
                 im::text(state, 
-                    fmt_sv("Screen Pos: {:.2f} {:.2f}", ndc.x, ndc.y)
+                    fmt_sv("Children[{}]", zyy::entity_child_count(e))
+                );
+
+#if ZYY_INTERNAL
+                auto _DEBUG_meta = e->_DEBUG_meta;
+                auto spawn_delta = game_state->game_world->time() - _DEBUG_meta.game_time;
+                
+                im::text(state, "DEBUG_meta:");
+                im::text(state, fmt_sv("- Spawn Time: {} - (T {:+}s)", _DEBUG_meta.game_time, spawn_delta));
+                if (_DEBUG_meta.prefab_name) im::text(state, fmt_sv("- Prefab Name: {}", _DEBUG_meta.prefab_name));
+                if (_DEBUG_meta.function) im::text(state, fmt_sv("- Function: {}", _DEBUG_meta.function));
+                if (_DEBUG_meta.file_name) {
+                    if (im::text(state, fmt_sv("- Filename: {}:({})", utl::trim_filename(_DEBUG_meta.file_name), _DEBUG_meta.line_number))) {
+                        std::system(fmt_sv("code -g {}:{}:0", _DEBUG_meta.file_name, _DEBUG_meta.line_number).data());
+                    }
+                }
+#endif
+
+                // im::text(state, 
+                //     fmt_sv("Screen Pos: {:.2f} {:.2f}", ndc.x, ndc.y)
+                // );
+                im::text(state, 
+                    fmt_sv("Mesh ID: {}", e->gfx.mesh_id)
                 );
 
                 if (im::text(state,
@@ -875,12 +1053,21 @@ draw_gui(game_memory_t* game_memory) {
                     case zyy::PhysicsEntityFlags_None:
                         im::text(state, "Physics Type: None");
                         break;
+                    case zyy::PhysicsEntityFlags_Character:
+                        im::text(state, "Physics Type: Character");
+                        break;
+                    case zyy::PhysicsEntityFlags_Kinematic:
+                        im::text(state, "Physics Type: Kinematic");
+                        break;
                     case zyy::PhysicsEntityFlags_Static:
                         im::text(state, "Physics Type: Static");
                         break;
                     case zyy::PhysicsEntityFlags_Dynamic:
                         im::text(state, "Physics Type: Dynamic");
                         break;
+                }
+                if (e->physics.rigidbody) {
+                    im::text(state, fmt_sv("Velocity: {}", e->physics.rigidbody->velocity));
                 }
 
                 switch(e->type) {
@@ -909,6 +1096,13 @@ draw_gui(game_memory_t* game_memory) {
                         break;
                     }
                     e = te;
+                }
+
+                if (e->brain_id != uid::invalid_id) {
+                    if (e->brain.type == brain_type::person) {
+                        im::float_slider(state, &e->brain.person.fear);
+                        draw_behavior_tree(state, &e->brain.person.tree);
+                    }
                 }
 
                 if (check_for_debugger() && im::text(state, fmt_sv("Breakpoint\0{}"sv, e->id))) {
@@ -990,7 +1184,7 @@ draw_gui(game_memory_t* game_memory) {
                     
                 im::end_panel(state);
             }
-            if (!opened && (not_player && im::draw_hiding_circle_3d(
+            if (!opened && !is_selected && (not_player && im::draw_hiding_circle_3d(
                 state, vp, e->global_transform().origin, 0.1f, 
                 static_cast<u32>(utl::rng::fnv_hash_u64(e->id)), 2.0f)) && state.ctx.input->pressed.mouse_btns[0]
             ) {

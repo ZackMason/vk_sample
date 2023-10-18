@@ -92,8 +92,7 @@ main() {
 	vMatId = uObjectBuffer.objects[object_id].material_id;
 	Material material = uMaterialBuffer.materials[vMatId];
 	bool is_billboard = (material.flags & MATERIAL_BILLBOARD) != 0;
-	mat4 PVM = PushConstants.uP * 
-		(is_billboard ? 
+	mat4 VM = (is_billboard ? 
 			billboard_matrix(PushConstants.uV * M, false) : 
 			PushConstants.uV * M);
 
@@ -106,7 +105,12 @@ main() {
 
 	vN = normalize(M * vec4(normalize(aNormal), 0.0)).xyz;
 
+	vec4 view_pos = VM * vec4(vertex, 1. );
 
+	// vec3 c = vec3(0.1804, 0.8392, 0.1176);
+	const float vertex_snap_scale = 64.0;
+	view_pos.xyz = floor(view_pos.xyz*vertex_snap_scale)/vertex_snap_scale;
+	// view_pos.z -= float(draw.instance_count)/100000.0;
 
-	gl_Position = PVM * vec4(vertex, 1. );
+	gl_Position = PushConstants.uP * view_pos;
 }

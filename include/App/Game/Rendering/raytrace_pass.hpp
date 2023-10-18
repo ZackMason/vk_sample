@@ -15,8 +15,12 @@ begin_rt_pass(
     auto& pass = rs->get_frame_data().rt_compute_pass;
     auto& cache = *rs->rt_cache;
     u32 width = (u32)rs->width;
+    u32 ray_count = rs->light_probe_ray_count;
     u32 height = (u32)rs->height;
 
+    if (ray_count == 0) {
+        return;
+    }
 
     gfx::vul::begin_debug_marker(command_buffer, "DDGI Probe Raytrace");
 
@@ -151,10 +155,8 @@ begin_rt_pass(
             &hit_shader_sbt_entry,
             &callable_shader_sbt_entry,
             width,
-            128,
-            // 64,
+            ray_count,
             1);
-
 
         // vkCmdPipelineBarrier(command_buffer, srcStageMask, dstStageMask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
         // dstStageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
@@ -217,10 +219,11 @@ begin_rt_pass(
 
             vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pass.pipeline_layout[0], 0, 1, &pass.descriptor_sets[1], 0, nullptr);
 
+            cache.constants.super_sample = ray_count;
             vkCmdPushConstants(command_buffer, 
                 pass.pipeline_layout[0],
                 VK_SHADER_STAGE_COMPUTE_BIT,
-                0, sizeof(u32), &cache.constants.frame
+                0, sizeof(u32)*2, &cache.constants.frame
             );
 
             vkCmdDispatch(command_buffer, width, 1, 1);

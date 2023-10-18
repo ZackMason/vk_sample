@@ -117,8 +117,9 @@ namespace rendering {
         ) {
             gfx::vul::texture_2d_t texture{};
             if (utl::has_extension(filename, "png")) {
-                assert(0); // need to remove extension
-                vk_gfx.load_texture_sampler(&texture, filename, &arena);
+                // assert(0); // need to remove extension
+                // vk_gfx.load_texture_sampler(&texture, filename, &arena);
+                vk_gfx.load_texture_sampler(&texture, fmt_sv("res/textures/{}", filename), &arena);
             } else {
                 vk_gfx.load_texture_sampler(&texture, fmt_sv("res/textures/{}", filename), &arena);
             }
@@ -903,6 +904,7 @@ public:
         // lighting::probe_box_t light_probes{.aabb={v3f{-200.0f, 1.0f, -100.0f}, v3f{200.0f, 50.0f, 100.0f}}};
         // lighting::probe_box_t light_probes{.aabb={v3f{-15.0f, 1, -30.0f}, v3f{25.0f, 25.0f, 20.0f}}};
         
+        u32 light_probe_ray_count{64};
         lighting::probe_box_t light_probes{.aabb={v3f{-15.0f, 1.5f, -8.0f}, v3f{20.0f, 24.0f, 9.0f}}};
 
         frame_image_t frame_images[8]{};
@@ -1043,6 +1045,8 @@ public:
 
         rs->frame_images[0].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         rs->frame_images[1].texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        rs->frame_images[0].texture.sampler_tiling_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        rs->frame_images[1].texture.sampler_tiling_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         rs->frame_images[6].texture.format = VK_FORMAT_R8G8B8A8_UNORM;
         // rs->frame_images[0].texture.image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         state.load_texture_sampler(&rs->frame_images[0].texture);
@@ -1132,7 +1136,7 @@ public:
             {
                 auto builder = gfx::vul::descriptor_builder_t::begin(rs->descriptor_layout_cache, rs->frames[i].dynamic_descriptor_allocator);
                 
-                rs->frames[i].bloom_pass.initialize(state, v2i{(i32)rs->width, (i32)rs->height}, 3);
+                rs->frames[i].bloom_pass.initialize(state, v2i{(i32)rs->width, (i32)rs->height}, 5);
                 rs->frames[i].bloom_pass.fill_textures(&state.null_texture);
                 rs->frames[i].bloom_pass.bind_images(builder);
                 rs->frames[i].bloom_pass.build_layout(state);
@@ -1276,14 +1280,14 @@ public:
         auto* meshes = &rs->mesh_cache.get(mesh_id);
         for (size_t i = 0; i < meshes->count; i++) {
             // if (instance_count == 1)
-            for (size_t j = 0; j < instance_count && j < 1000; j++) { // @hardcoded limit for instancing
+            for (size_t j = 0; j < instance_count; j++) { // @hardcoded limit for instancing
                 rs->get_frame_data().rt_compute_pass.add_to_tlas(
                     *rs->vk_gfx,
                     *rs->rt_cache,
                     gfx_id + i,
                     meshes->meshes[i].blas,
-                    transform
-                    // instance_count == 1 ? transform : transform * instance_buffer[instance_offset + j]
+                    // transform
+                    instance_count == 1 ? transform : transform * instance_buffer[instance_offset + j]
                 );
             }
 
@@ -1494,6 +1498,8 @@ public:
 
             rs->rt_cache->build_blas(*rs->vk_gfx, loaded_mesh, rs->scene_context->vertices, rs->scene_context->indices);
 
+            loaded_mesh.name = name;
+
             return add_mesh(rs, name, loaded_mesh);
         }
         return id;
@@ -1515,6 +1521,14 @@ public:
         std::string_view name
     ) {
         return rs->mesh_cache.get(utl::str_hash_find(rs->mesh_hash, name));
+    }
+
+    inline const gfx::mesh_list_t&
+    get_mesh(
+        system_t* rs,
+        u64 id
+    ) {
+        return rs->mesh_cache.get(id);
     }
 
     inline math::rect3d_t

@@ -16,7 +16,7 @@ void spawn_beam(
     prefab.emitter->template_particle.velocity = v3f{0.0f};
     // prefab.emitter->max_count = (u32)(dist/(0.6f));
 
-    auto* sparks = zyy::spawn(w, w->render_system(), prefab, p);
+    auto* sparks = zyy::tag_spawn(w, prefab, p);
     sparks->coroutine->start();
     sparks->gfx.material_id = 7;
 
@@ -33,12 +33,11 @@ void spawn_beam(
 }
 
 
-void lightning_on_hit_effect_impl(
+void lightning_on_hit_effect(
     zyy::world_t* w, 
     zyy::item::effect_t* effect,
     zyy::entity_t* entity,
-    v3f p, v3f nrm,
-    lightning_cache_t* cache
+    v3f p, v3f nrm
 ) {
     TIMED_FUNCTION;
     zyy_warn(__FUNCTION__, "hit: {}", (void*)entity);
@@ -47,6 +46,7 @@ void lightning_on_hit_effect_impl(
     assert(effect);
     assert(entity);
 
+    lightning_cache_t* cache = 0;
 
     // arena_t temp = arena_create(kilobytes(1));
     auto memory = begin_temporary_memory(&w->arena);
@@ -59,7 +59,7 @@ void lightning_on_hit_effect_impl(
     zyy::entity_t** stack = push_struct<zyy::entity_t*>(&stack_arena);
     stack[top++] = entity;
 
-    *utl::hash_trie_get_insert(&cache, entity, arena) = 1;
+    *utl::hash_get(&cache, entity, arena) = 1;
 
     while(top) {
         auto* e = stack[--top];
@@ -86,7 +86,7 @@ void lightning_on_hit_effect_impl(
                     continue;
                 }
 
-                auto* b = utl::hash_trie_get_insert(&cache, n, arena);
+                auto* b = utl::hash_get(&cache, n, arena);
 
                 if (*b) continue;
                 *b = 1;             

@@ -88,6 +88,7 @@ namespace rendering::lighting {
         // f32 grid_size{1.0f};
         probe_t* probes{0};
         u32 probe_count{0};
+        
 
         probe_settings_t settings{};
 
@@ -177,7 +178,7 @@ namespace rendering::lighting {
     set_probes(gfx::vul::state_t& vk_gfx, probe_box_t* probe_box, arena_t* arena = 0, probe_t* probes=0) {
         const v3f step_size = v3f{probe_box->grid_size};
         const v3u probe_count = v3u{glm::floor(probe_box->aabb.size() / probe_box->grid_size)};
-        probe_box->settings.dim = probe_count;
+        probe_box->settings.dim = glm::max(v3u{1}, probe_count);
         probe_box->aabb.max = probe_box->aabb.min + v3f{probe_count} * step_size;
         const u32 total_probe_count = probe_count.x * probe_count.y * probe_count.z;
         if (arena) {
@@ -212,7 +213,7 @@ namespace rendering::lighting {
     update_probe_positions(probe_box_t* probe_box) {
         const v3f step_size = v3f{probe_box->grid_size};
         const v3u probe_count = v3u{glm::floor(probe_box->aabb.size() / probe_box->grid_size)};
-        probe_box->settings.dim = probe_count;
+        probe_box->settings.dim = glm::max(v3u{1}, probe_count);
         probe_box->aabb.max = probe_box->aabb.min + v3f{probe_count} * step_size;
         const u32 total_probe_count = probe_count.x * probe_count.y * probe_count.z;
         probe_box->probe_count = total_probe_count;

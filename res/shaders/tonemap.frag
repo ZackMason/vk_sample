@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_420pack : enable
 
 #include "tonemap.glsl"
+#include "utl.glsl"
 
 struct PPMaterial {
     float data[16];
@@ -56,13 +57,17 @@ vec3 reinhard(vec3 x) {
 }
 
 void main() {
-    vec3 color = texture(uColor, vUV).rgb;
-    vec3 bloom = texture(uBloom, vUV).rgb;
-    color = mix(color, bloom, 0.04);
+    vec2 uv = vUV;
+    const float pixelate = 400.0;
+    uv = saturate(floor(uv*pixelate)/pixelate);
+    vec3 bloom = textureLod(uBloom, uv, 0).rgb;
+
+    vec3 color = textureLod(uColor, uv, 0).rgb;
     if (uTonemap == ACES) { color = aces_film(color); }
     if (uTonemap == REIN) { color = reinhard(color); }
     if (uTonemap == EXPO) { color = vec3(1.0) - exp(-color * uExposure); }
     if (uTonemap == CHRT) { color = uncharted(color); }
+    color = mix(color, bloom, 0.06);
         
     color = pow(color, vec3(1.0/uGamma));
     fFragColor.rgb = color.rgb;

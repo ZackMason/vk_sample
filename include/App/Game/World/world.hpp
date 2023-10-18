@@ -13,7 +13,27 @@ struct game_state_t;
 struct world_generator_t;
 
 namespace zyy {
-    static constexpr u64 max_entities = 500000;
+    static constexpr u64 max_entities = 15000;
+
+    struct entity_block_t {
+        entity_block_t* next;
+        entity_block_t* prev;
+
+        entity_id   id;
+        entity_t    entities[32];
+        u32         free_mask{~0ui32};
+
+        math::rect3d_t aabb;
+
+        u32 first_free_index() {
+            range_u32(i, 0, 32) {
+                if ((1<<i) & free_mask) {
+                    return i;
+                }
+            }
+            return ~0ui32;
+        }
+    };
 
     // note(zack): everything I need to rebuild game state should be in this struct
     struct world_t {
@@ -28,14 +48,14 @@ namespace zyy {
         size_t          entity_count{0};
         size_t          entity_capacity{0};
         zyy::entity_id next_entity_id{1};
-        zyy::entity_t  entities[65535]; // entities from [0,cap]
-        zyy::entity_t* entity_id_hash[BIT(12)];
+        zyy::entity_t  entities[max_entities]; // entities from [0,cap]
+        zyy::entity_t* entity_id_hash[max_entities*2];
         zyy::entity_t* free_entities{0};
 
-        umm           brain_count{0};
+        // umm           brain_count{0};
         umm           brain_capacity{0};
-        brain_t  brains[4096];
-        brain_t* free_brain{0};
+        // brain_t  brains[4096];
+        // brain_t* free_brain{0};
 
         zyy::entity_t* player;
 
@@ -51,9 +71,14 @@ namespace zyy {
 
         struct effects_buffer_t {
             m44* blood_splats{0};
+            u64 blood_entity{0};
             umm blood_splat_count{0};
             umm blood_splat_max{0};
         } effects;
+
+        f32 time() const {
+            return game_state->time;
+        }
 
         rendering::system_t* 
         render_system() {
@@ -74,22 +99,16 @@ namespace zyy {
         world->entity_id_hash[id_bucket] = entity;
     }
 
-    static brain_t*
-    world_find_brain(world_t* world, brain_id id) {
-        range_u64(i, 0, world->brain_capacity) {
-            if (world->brains[i].id == id) {
-                return world->brains + i;
-            }
-        }
-        return nullptr;
-    }
+    // static brain_t*
+    // world_find_brain(world_t* world, brain_id id) {
+    //     range_u64(i, 0, world->brain_capacity) {
+    //         if (world->brains[i].id == id) {
+    //             return world->brains + i;
+    //         }
+    //     }
+    //     return nullptr;
+    // }
 
-    static void
-    world_free_brain(world_t* world, brain_t* brain) {
-        // todo(zack): clear blackboard
-        brain->id = uid::new_generation(brain->id); 
-        node_push(brain, world->free_brain);
-    }
 
     static entity_t*
     world_create_entity(world_t* world) {
@@ -121,21 +140,7 @@ namespace zyy {
 
     static brain_id
     world_new_brain(world_t* world, brain_type type) {
-        if (world->free_brain) {
-            auto* brain = world->free_brain;
-            new (brain) brain_t;
-            node_next(world->free_brain);
-            brain->next = 0;
-            brain->type = type;
-            return brain->id = uid::new_generation(brain->id);
-        } else {
-            assert(world->brain_capacity < array_count(world->brains));
-            auto& brain = world->brains[world->brain_capacity++];
-            new (&brain) brain_t;
-            world->brain_count++;
-            brain.type = type;
-            return brain.id = uid::new_generation(world->brain_capacity); 
-        }
+        return uid::new_generation(world->brain_capacity); 
     }
 
     static void
@@ -143,11 +148,9 @@ namespace zyy {
         assert(entity);
         assert(world);
 
-        if (entity->brain_id != uid::invalid_id) {
-            assert(!"I'm not sure you meant to do that");
-            world_free_brain(world, world_find_brain(world, entity->brain_id));
-        }
-        auto brain_id = entity->brain_id = world_new_brain(world, type);
+        entity->brain.type = type;
+        brain_init(&world->arena, entity, &entity->brain);
+        auto brain_id = entity->brain.id = entity->brain_id = world_new_brain(world, type);
         zyy_info(__FUNCTION__, "Brain {} activated", brain_id);
     }
 
@@ -182,9 +185,7 @@ namespace zyy {
             auto& mesh_list = rendering::get_mesh(rs, def.gfx.mesh_name);
             entity->gfx.gfx_entity_count = mesh_list.count;
 
-            auto& vertex_buffer = rs->scene_context->vertices;
-            auto& index_buffer = rs->scene_context->indices;
-
+  
             rendering::initialize_entity(rs, entity->gfx.gfx_id, mesh_list.meshes[0].vertex_start, mesh_list.meshes[0].index_start);
             rendering::set_entity_albedo(rs, entity->gfx.gfx_id, u32(mesh_list.meshes[0].material.albedo_id));
             for(u64 i = 1; i < mesh_list.count; i++) {
@@ -220,12 +221,21 @@ namespace zyy {
             entity->gfx.instance(world->render_system()->instance_storage_buffer.pool, def.emitter->max_count, 1);
             particle_system_settings_t& settings = *entity->gfx.particle_system;
             settings = *def.emitter;
+            entity->gfx.particle_system->_stream_count = settings.stream_rate;
         }
 
         switch(entity->type) {
             case entity_type::weapon:
                 entity->flags |= EntityFlags_Pickupable;
                 break;
+            case entity_type::player: {
+                player_init(
+                    entity,
+                    &world->camera, 
+                    def.gfx.mesh_name != ""sv ? rendering::get_mesh_id(rs, def.gfx.mesh_name) : 0
+                );
+                world->player = entity;
+            } break;
         }
 
         if (def.effect) {
@@ -238,14 +248,6 @@ namespace zyy {
             entity->stats.weapon = *def.weapon;
         }
 
-        if (def.physics && def.physics->flags & PhysicsEntityFlags_Character) {
-            player_init(
-                entity,
-                &world->camera, 
-                def.gfx.mesh_name != ""sv ? rendering::get_mesh_id(rs, def.gfx.mesh_name) : 0
-            );
-            world->player = entity;
-        } 
         if (def.physics) {
             physics::rigidbody_t* rb{0};
             if (def.physics->flags & PhysicsEntityFlags_Character) {
@@ -348,6 +350,28 @@ namespace zyy {
 
         return entity;
     }
+
+    static entity_t*
+    tag_spawn_(
+        world_t* world,
+        const zyy::prefab_t& def,
+        const char* prefab_name,
+        const char* file_name,
+        const char* function,
+        u64 line_number,
+        const v3f& pos = {}
+    ) {
+        auto* e = spawn(world, world->render_system(), def, pos);
+        e->_DEBUG_meta = zyy::DEBUG_entity_meta_info_t {
+            .prefab_name = prefab_name,
+            .file_name = file_name,
+            .function = function,
+            .line_number = line_number,
+            .game_time = world->time(),
+        };
+        return e;
+    }
+
 }; // namespace zyy
 
 #include "App/Game/Entity/brain_behavior.hpp"
@@ -355,21 +379,29 @@ namespace zyy {
 namespace zyy {
 
     static void 
-    world_free(world_t* world) {
+    world_free(world_t*& world) {
         arena_clear(&world->arena);
         arena_clear(&world->particle_arena);
+        world = nullptr;
     }
 
     void world_init_effects(world_t* world) {
-        world->render_system()->instance_storage_buffer.pool.clear();
-        world->effects.blood_splats = world->render_system()->instance_storage_buffer.pool.allocate(world->effects.blood_splat_max = 16'000);
+        auto* rs = world->render_system();
+        rs->instance_storage_buffer.pool.clear();
+        world->effects.blood_splats = rs->instance_storage_buffer.pool.allocate(world->effects.blood_splat_max = 16'000);
+        auto blood_id = world->effects.blood_entity = rendering::register_entity(rs);
+        auto blood_mid = rendering::get_mesh_id(rs, "res/models/misc/bloodsplat_02.gltf");
+        auto& mesh = rendering::get_mesh(rs, blood_mid);
+        rendering::initialize_entity(rs, blood_id, mesh.meshes->vertex_start, mesh.meshes->index_start);
+        rendering::set_entity_material(rs, blood_id, 9);
+        rendering::set_entity_albedo(rs, blood_id, safe_truncate_u64(mesh.meshes->material.albedo_id));
     }
     
     static world_t*
     world_init(game_state_t* game_state, physics::api_t* phys_api) {
         TIMED_FUNCTION;
         
-        world_t* world = bootstrap_arena<world_t>(offsetof(world_t, arena), megabytes(64));
+        world_t* world = bootstrap_arena(world_t, megabytes(32));
         world->game_state = game_state;
         world->physics = phys_api;
         phys_api->user_world = world;
@@ -402,10 +434,10 @@ namespace zyy {
             rendering::submit_job(
                 world->render_system(), 
                 rendering::get_mesh_id(world->render_system(), "res/models/misc/bloodsplat_02.gltf"),
-                3, // todo make material per mesh
+                9, // todo make material per mesh
                 m44{1.0f},
                 v4f{0.0f},
-                0,0,
+                world->effects.blood_entity, 1,
                 (u32)glm::min(world->effects.blood_splat_count, world->effects.blood_splat_max),
                 0
             );
@@ -482,12 +514,13 @@ namespace zyy {
 
     static void
     world_update_brain(world_t* world, entity_t* entity, f32 dt) {
-        auto* brain = world_find_brain(world, entity->brain_id);
+        auto* brain = &entity->brain;
         assert(brain && brain->id != uid::invalid_id && "Not a valid brain");
         
         switch(brain->type) {
             case brain_type::player: player_behavior(world, entity, brain, dt); break;
             case brain_type::flyer:  skull_behavior(world, entity, brain, dt); break;
+            case brain_type::person: person_behavior(world, entity, brain, dt); break;
             case_invalid_default;
         }
     }
@@ -506,7 +539,6 @@ namespace zyy {
         }
     }
 
-    // Note(Zack): Has a flag so that it maintains pointers
     static void
     world_destroy_entity(world_t* world, entity_t*& e) {
         TIMED_FUNCTION;
@@ -519,6 +551,11 @@ namespace zyy {
         if (e->parent) {
             e->parent->remove_child(e);
         }
+        for (auto* child = e->first_child; child; child = child->next_child) {
+            if ((child->flags & EntityFlags_Dying) == 0) { // this entity gets to live
+                e->remove_child(child);
+            }
+        }
 
         if (e->physics.rigidbody) {
             world->physics->remove_rigidbody(world->physics, e->physics.rigidbody);
@@ -528,13 +565,8 @@ namespace zyy {
         e->gfx = {};
         new (e) zyy::entity_t;
 
-        constexpr bool maintain_references = true;
-        if constexpr (maintain_references) {
-            e->id = uid::invalid_id;
-            node_push(e, world->free_entities);
-        } else {
-            // *e = world->entities[(world->entity_count - 1)];
-        }
+        e->id = uid::invalid_id;
+        node_push(e, world->free_entities);
 
         world->entity_count--;
         e = nullptr;
@@ -572,5 +604,13 @@ namespace zyy {
             mesh.meshes[i].material.albedo_id = tex;
         }
     }
-
 };
+
+
+#if ZYY_INTERNAL
+    #define tag_spawn(world, prefab, ...) \
+        tag_spawn_((world), (prefab), #prefab, __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
+#else 
+    // #define tag_spawn(world, ...) 
+        // spawn((world), (world)->render_system(), __VA_ARGS__)
+#endif

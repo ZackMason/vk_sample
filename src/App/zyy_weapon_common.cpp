@@ -70,7 +70,7 @@ zyy::entity_t* spawn_explosion(
 
     particle_prefab.emitter->max_count = count;
 
-    auto* ps = zyy::spawn(world, world->render_system(), particle_prefab, pos);
+    auto* ps = zyy::tag_spawn(world, particle_prefab, pos);
     ps->gfx.material_id = material; // unlit material @hardcode
     ps->coroutine->start();
 
@@ -88,8 +88,8 @@ zyy::entity_t* spawn_blood(
 
     particle_prefab.emitter->max_count = count;
 
-    auto* ps = zyy::spawn(world, world->render_system(), particle_prefab, pos);
-    ps->gfx.material_id = 3; // blood material @hardcode
+    auto* ps = zyy::tag_spawn(world, particle_prefab, pos);
+    ps->gfx.material_id = 9; // blood material @hardcode
     ps->coroutine->start();
 
     return ps;
@@ -141,11 +141,12 @@ void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
     if (spawn_hit) {
         self_entity->queue_free(0);
         if (self_entity->first_child && self_entity->first_child->gfx.particle_system) {
-            self_entity->first_child->gfx.particle_system->spawn_rate = 1000.0f;
+            self_entity->first_child->gfx.particle_system->spawn_timer = 1000.0f;
         } else {
             zyy_warn(__FUNCTION__, "Tried to get bullet particles system but failed");
         }
-        // auto* hole = zyy::spawn(world, world->render_system(), zyy::db::misc::bullet_hole, self->position);
+
+        // auto* hole = zyy::tag_spawn(world, zyy::db::misc::bullet_hole, self->position);
         // hit_entity->add_child(hole, true);
         // hole->transform.set_rotation(world->entropy.randnv<v3f>() * 100.0f);
         // hole->coroutine->start();
@@ -182,6 +183,14 @@ void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
 
         auto e_pos = n->global_transform().origin;
 
+        if (n->physics.rigidbody) {
+            auto delta = (e_pos - pos);
+            auto delta_normal = glm::normalize(delta);
+            auto delta_length = glm::dot(delta, delta);
+
+            auto force = delta_normal / delta_length; 
+            n->physics.impulse += (force * 5.0f);
+        }
         if (n->stats.character.health.max) {
             auto blood = zyy::db::environmental::blood_01;
             spawn_blood(world, e_pos, 30, blood);

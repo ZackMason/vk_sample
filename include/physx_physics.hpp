@@ -103,16 +103,16 @@ public:
     void onShapeHit(const physx::PxControllerShapeHit& hit) override
     {
         TIMED_FUNCTION;
-        // physx::PxRigidActor* a = hit.shape->getActor();
-        // auto* rb0 = (rigidbody_t*)hit.controller->getActor()->userData;
-        // auto* rb1 = (rigidbody_t*)a->userData;
+        physx::PxRigidActor* a = hit.shape->getActor();
+        auto* rb0 = (rigidbody_t*)hit.controller->getActor()->userData;
+        auto* rb1 = (rigidbody_t*)a->userData;
 
-        // if (rb0->on_collision) {
-        //     rb0->on_collision(rb0, rb1);
-        // }
-        // if (rb1->on_collision) {
-        //     rb1->on_collision(rb1, rb0);
-        // }
+        if (rb0->on_collision) {
+            rb0->on_collision(rb0, rb1);
+        }
+        if (rb1->on_collision) {
+            rb1->on_collision(rb1, rb0);
+        }
 
         PxRigidDynamic* actor = hit.shape->getActor()->is<PxRigidDynamic>();
         if(actor) {
@@ -165,10 +165,23 @@ void physx_rigidbody_set_collision_flags(rigidbody_t* rb) {
     PxFilterData filter{};
     filter.word0 = rb->layer;
     filter.word1 = rb->group;
-        
-    for (u32 i = 0; i < rb->collider_count; i++) {
-        ((PxShape*)rb->colliders[i].shape)->setQueryFilterData(filter);
-        ((PxShape*)rb->colliders[i].shape)->setSimulationFilterData(filter);
+    
+    if (rb->type == rigidbody_type::CHARACTER) {
+        auto* controller = (PxController*)rb->api_data;
+        PxShape* shape = 0;
+        controller->getActor()->getShapes(&shape, 1);
+        if (shape) {
+            shape->setQueryFilterData(filter);
+            shape->setSimulationFilterData(filter);
+        } else {
+            zyy_warn(__FUNCTION__, "No Shape on character: {}", (void*)controller);
+        }
+
+    } else {
+        for (u32 i = 0; i < rb->collider_count; i++) {
+            ((PxShape*)rb->colliders[i].shape)->setQueryFilterData(filter);
+            ((PxShape*)rb->colliders[i].shape)->setSimulationFilterData(filter);
+        }
     }
 }
 
@@ -184,13 +197,14 @@ void physx_rigidbody_set_ccd(rigidbody_t* rb, bool x) {
     if (rb->type == rigidbody_type::DYNAMIC) {
         PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
         
-        actor->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, true);
+        actor->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, x);
     }
     if (rb->type == rigidbody_type::KINEMATIC) {
 
     }
     if (rb->type == rigidbody_type::CHARACTER) {
-        
+        auto* controller = (physx::PxController*)rb->api_data;
+        // controller->getActor()->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD, x);
     }
 }
 
@@ -215,6 +229,8 @@ void physx_rigidbody_add_impulse(rigidbody_t* rb, const v3f& v) {
         
         const PxVec3 pos = pvec(v3f{0.0});
         PxRigidBodyExt::addForceAtLocalPos(*actor, pvec(v), pos, PxForceMode::eIMPULSE);
+    } else if (rb->type == rigidbody_type::CHARACTER) {
+        rb->velocity += v / rb->mass;
     }
 }
 
@@ -326,8 +342,8 @@ physx_create_rigidbody_impl(
         }   break;
         case rigidbody_type::CHARACTER: {
             PxCapsuleControllerDesc desc;
-            desc.height = 1.7f;
-            desc.radius = .5f;
+            desc.height = 1.9f;
+            desc.radius = 1.0f;
             desc.climbingMode = PxCapsuleClimbingMode::eEASY;
             desc.behaviorCallback = nullptr;
             desc.reportCallback = push_struct<character_hit_report>(api->arena);
