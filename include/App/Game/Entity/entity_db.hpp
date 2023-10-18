@@ -499,6 +499,22 @@ parkcore_02 {
 };
 
 DB_ENTRY
+town_01 {
+    .type = entity_type::environment,
+    .type_name = "town_01",
+    .gfx = {
+        .mesh_name = "res/models/rooms/town_01.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = zyy::prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
+    },
+};
+
+DB_ENTRY
 room_03 {
     .type = entity_type::environment,
     .type_name = "parkcore_02",

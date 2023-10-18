@@ -9,5 +9,5 @@
 [ ] When hot reloading, Entity debug tag could potentially become invalid
 
 [ ] Controller drift
-
+[ ] Exporter bug with to many objects
 

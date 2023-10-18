@@ -234,7 +234,11 @@ entity_editor_render(entity_editor_t* ee) {
         }
     }
 
-    if (im::begin_panel(imgui, "EE", v2f{width/3.0f,0.0f} )) {
+    local_persist v2f pos{width/3.0f,0.0f};
+    local_persist v2f size = {};
+    local_persist b32 opened = 0;
+
+    if (im::begin_panel(imgui, "EE", &pos, &size, &opened)) {
         im::text(imgui, "Entity Editor"sv);
         im::text(imgui, "============================="sv);
         im::same_line(imgui);
@@ -254,13 +258,13 @@ entity_editor_render(entity_editor_t* ee) {
             im::text(imgui, "============================="sv);
             im::text(imgui, show_load ? "Loading"sv : "Saving"sv);
 
-            local_persist size_t pos=0;
+            local_persist size_t tpos=0;
             local_persist char file_name[512];
             std::string_view file_view{file_name};
 
             im::same_line(imgui);
             im::text(imgui, "File Name: "sv);
-            im::text_edit(imgui, std::string_view{file_name}, &pos, "file_name::edit"_sid);
+            im::text_edit(imgui, std::string_view{file_name}, &tpos, "file_name::edit"_sid);
 
             im::same_line(imgui);
             if (im::text(imgui, "Accept"sv)) {
@@ -370,7 +374,7 @@ entity_editor_render(entity_editor_t* ee) {
         // object_gui(imgui, s2);
 
 
-        im::end_panel(imgui);
+        im::end_panel(imgui, &size);
     }
 
     if (ee->selection) {
