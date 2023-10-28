@@ -165,6 +165,13 @@ vec3 SHIrradiance(vec3 nrm)
 		);
 }
 
+vec3 screenspace_dither(vec2 uv) {
+    vec3 vDither = vec3( dot( vec2( 171.0, 231.0 ), uv.xy ) );
+    vDither.rgb = fract( vDither.rgb / vec3( 103.0, 71.0, 97.0 ) );
+    
+    return vDither.rgb / 255.0;
+}
+
 
 void
 main( )
@@ -250,14 +257,17 @@ main( )
 	surface.emissive = albedo.rgb * material.emission;
 
 	// light_solution.direct.diffuse += max(0.0, NoL);
-	light_solution.indirect.diffuse += light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
 	
-	{	// quantize lighting
-		// light_solution.indirect.diffuse = sqrt(light_solution.indirect.diffuse);
-		light_solution.indirect.diffuse = floor(light_solution.indirect.diffuse * 8.0 + .50) / 8.0;
-	}
 
 	if (lit_material > 0) {
+		vec2 probe_uv = encode_oct(N * 0.5 + 0.5);
+		light_solution.indirect.diffuse += light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
+		{	// quantize lighting
+			// light_solution.indirect.diffuse = sqrt(light_solution.indirect.diffuse);
+			// light_solution.indirect.diffuse = floor(light_solution.indirect.diffuse * 8.0 + .50) / 8.0;
+
+			// light_solution.indirect.diffuse += screenspace_dither(probe_uv * 600.0);
+		}
 		rgb = vec3(0.0);
 		apply_light(surface, light_solution, rgb);
 	} else {

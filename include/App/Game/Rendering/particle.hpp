@@ -61,9 +61,6 @@ struct particle_system_t : public particle_system_settings_t {
     v3f _current_velocity{};
     v3f _current_position{};
 
-    // particle_system_settings_t settings{};
-
-
     particle_system_t*
     clone(arena_t* arena, arena_t* particle_arena = 0);
 };
@@ -211,15 +208,14 @@ particle_system_update(
     system->spawn_timer -= dt;
     system->aabb = {};
 
-    while (system->spawn_timer <= 0.0f) {
+    while (system->spawn_timer <= 0.0f && system->live_count < system->max_count) {
         system->spawn_timer += system->spawn_rate;
-        if (system->live_count < system->max_count) {
-            particle_system_spawn(system, transform);
-        }
+
+        particle_system_spawn(system, transform);
 
         // special case
         // to stop infinite loop when spawn_rate == 0.0f
-        if (system->spawn_rate <= 0.0f) {
+        if (system->spawn_rate <= 0.0f && system->stream_rate > 1) {
             system->spawn_timer = 0.0f;
             break; 
         }

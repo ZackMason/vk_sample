@@ -7,31 +7,99 @@
 
 namespace zyy {
 
+using version_id = u64;
+
+template <typename Function>
+struct mod_function {
+    char name[128] = {};
+    Function function{0};
+
+    constexpr mod_function() = default;
+
+    constexpr mod_function(std::string_view func) 
+        : function{0}
+    {
+        utl::ccopy(name, func.data(), std::min(array_count(name)-1, func.size()));
+    }
+
+    constexpr mod_function(Function f) 
+        : function{f}
+    {
+    }
+
+    constexpr mod_function<Function>& operator=(const Function& f) {
+        function = f;
+        return *this;
+    } 
+
+    constexpr mod_function<Function>& operator=(std::string_view s) {
+        *this = mod_function<Function>{s};
+        return *this;
+    } 
+
+    constexpr operator bool() const {
+        return function || name[0];
+    }
+
+    constexpr operator Function() {
+        return function;
+    }
+
+    template <typename ... Args>
+    constexpr auto operator()(Args&& ... args) {
+        return function(std::forward<Args>(args)...);
+    }
+
+    constexpr Function get(utl::mod_loader_t* loader = 0) {
+        if (function) {
+            return function;
+        }
+        assert(loader);
+        if (loader) {
+            function = loader->load_function<Function>(name);
+        }
+        return function;
+    }
+
+    constexpr Function get(utl::mod_loader_t* loader = 0) const {
+        if (function) {
+            return function;
+        }
+        assert(loader);
+        if (loader) {
+            return loader->load_function<Function>(name);
+        }
+        return 0;
+    }
+};
+
 struct prefab_t {
+    version_id VERSION{0};
     entity_type type=entity_type::environment;
-    char type_name[128]{0};
+    stack_string<128> type_name{};
 
     struct gfx_t {
         // string_t mesh_name{};
         char mesh_name[128]{0};
         gfx::material_t material{};
+        u32 material_id;
         char albedo_texture[128]{0};
         char normal_texture[128]{0};
         
         char animations[128]{0};
     } gfx;
 
-    void (*coroutine)(coroutine_t*, frame_arena_t&){0};
+    using coroutine_function = void(*)(coroutine_t*, frame_arena_t&);
+    mod_function<coroutine_function> coroutine{0};
     std::optional<character_stats_t> stats{};
     std::optional<wep::base_weapon_t> weapon{};
 
     struct physics_t {
         u32 flags{PhysicsEntityFlags_None};
-        physics::rigidbody_on_collision_function on_collision{0};
-        physics::rigidbody_on_collision_function on_collision_end{0};
-        physics::rigidbody_on_collision_function on_trigger{0};
-        physics::rigidbody_on_collision_function on_trigger_end{0};
-
+        mod_function<physics::rigidbody_on_collision_function> on_collision{0};
+        mod_function<physics::rigidbody_on_collision_function> on_collision_end{0};
+        mod_function<physics::rigidbody_on_collision_function> on_trigger{0};
+        mod_function<physics::rigidbody_on_collision_function> on_trigger_end{0};
 
         struct shape_t {
             physics::collider_shape_type shape{physics::collider_shape_type::NONE};
@@ -51,6 +119,9 @@ struct prefab_t {
     };
     std::optional<physics_t> physics{};
 
+    mod_function<zyy::wep::spawn_bullet_function> spawn_bullet{0};
+    mod_function<zyy::item::on_hit_effect_t> on_hit_effect{0};
+
     std::optional<particle_system_settings_t> emitter{};
     std::optional<item::effect_t> effect{};
 
@@ -58,9 +129,9 @@ struct prefab_t {
 
     struct child_t {
         const prefab_t* entity{0};
-        v3f                 offset{0.0f};
+        v3f             offset{0.0f};
     };
-    child_t children[10]{};
+    std::array<child_t, 10> children{};
 
     prefab_t& operator=(const prefab_t& o) {
         if (this != &o) {
@@ -71,9 +142,56 @@ struct prefab_t {
     }
 };
 
-inline static prefab_t 
+}
+
+template<>
+zyy::prefab_t utl::memory_blob_t::deserialize<zyy::prefab_t>() {
+    zyy::prefab_t prefab{};
+
+    #define DESER(x) x = deserialize<decltype(x)>();
+
+    DESER(prefab.VERSION);
+    DESER(prefab.type);
+    DESER(prefab.type_name);
+    DESER(prefab.gfx);
+    DESER(prefab.coroutine);
+    DESER(prefab.stats);
+    DESER(prefab.weapon);
+    DESER(prefab.physics);
+    DESER(prefab.spawn_bullet);
+    DESER(prefab.on_hit_effect);
+    DESER(prefab.emitter);
+    DESER(prefab.effect);
+    DESER(prefab.brain_type);
+    DESER(prefab.children);
+
+    #undef DESER
+
+    return prefab;
+}
+
+
+template<>
+void utl::memory_blob_t::serialize<zyy::prefab_t>(arena_t* arena, const zyy::prefab_t& prefab) {
+    serialize(arena, prefab.VERSION);
+    serialize(arena, prefab.type);
+    serialize(arena, prefab.type_name);
+    serialize(arena, prefab.gfx);
+    serialize(arena, prefab.coroutine);
+    serialize(arena, prefab.stats);
+    serialize(arena, prefab.weapon);
+    serialize(arena, prefab.physics);
+    serialize(arena, prefab.spawn_bullet);
+    serialize(arena, prefab.on_hit_effect);
+    serialize(arena, prefab.emitter);
+    serialize(arena, prefab.effect);
+    serialize(arena, prefab.brain_type);
+    serialize(arena, prefab.children);
+}
+
+inline static zyy::prefab_t 
 load_from_file(arena_t* arena, std::string_view path) {
-    prefab_t entity;
+    zyy::prefab_t entity;
 
     std::ifstream file{path.data(), std::ios::binary};
 
@@ -97,11 +215,11 @@ load_from_file(arena_t* arena, std::string_view path) {
     
     utl::memory_blob_t loader{data};
 
-    entity = loader.deserialize<prefab_t>();
+    entity = loader.deserialize<zyy::prefab_t>();
 
     end_temporary_memory(temp);
 
     return entity;
 }
 
-}
+

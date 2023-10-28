@@ -154,6 +154,10 @@ struct entity_t {
         u32 flags{0};
         physics::rigidbody_t* rigidbody;
         v3f impulse{0.0f};
+
+        void queue_free() {
+            flags |= PhysicsEntityFlags_Dying;
+        }
     } physics{};
 
     struct stats_t {

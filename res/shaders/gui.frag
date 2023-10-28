@@ -62,7 +62,7 @@ void main() {
     fFragColor.a = clamp(color.a, 0.0, 1.0);
 
     if (vec3(0.0)!=voNormal) {
-        fFragColor.rgb *= saturate(dot(normal, normalize(vec3(1,2,3))));
+        // fFragColor.rgb *= saturate(dot(normal, normalize(vec3(1,2,3))));
     }
 
     if (fFragColor.a < 0.01) {

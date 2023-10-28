@@ -1,80 +1,6 @@
 #pragma once
 
-struct dialog_window_t {
-    u64 write_pos{0};
-    char text_buffer[512];
-
-    std::string_view title{};
-    std::string_view description{};
-    v2f position{0.0f};
-    v2f size{100.0f};
-    b32 done{0};
-    b32 open{0};
-
-    dialog_window_t& set_title(std::string_view title_) {
-        title = title_;
-        return *this;
-    }
-
-    dialog_window_t& set_description(std::string_view description_) {
-        description = description_;
-        return *this;
-    }
-
-    dialog_window_t& set_position(v2f position_) {
-        position = position_;
-        return *this;
-    }
-
-    dialog_window_t& set_size(v2f size_) {
-        size = size_;
-        return *this;
-    }
-
-    dialog_window_t& draw(gfx::gui::im::state_t& imgui) {
-        using namespace gfx::gui;
-
-        if (im::begin_panel(imgui, title, &position, &size, &open)) {
-
-            im::text(imgui, title);
-            if (description.empty() == false) {
-                im::text(imgui, description);
-            }
-
-            done = im::text_edit(imgui, text_buffer, &write_pos, "dialog_window::text_buffer"_sid);
-
-            im::end_panel(imgui, &size);
-        }
-
-        return *this;
-    }
-
-    void clear() {
-        write_pos = 0;
-        utl::memzero(text_buffer, array_count(text_buffer));
-    }
-
-    void into(f32& f) {
-        if (done) {
-            f = (f32)std::atof(text_buffer);
-            clear();
-        }
-    }
-
-    void into(i32& i) {
-        if (done) {
-            i = (i32)std::atoi(text_buffer);
-            clear();
-        }
-    }
-
-    void into(std::span<char> t) {
-        if (done) {
-            utl::copy(t.data(), text_buffer, std::min(t.size(), write_pos));
-            clear();
-        }
-    }
-};
+#include "dialog_window.hpp"
 
 u32
 load_save_particle_dialog(
@@ -107,58 +33,75 @@ load_save_particle_dialog(
 
 void draw_behavior(
     gfx::gui::im::state_t& imgui,
-    bt::behavior_t* node
+    bt::behavior_t* node,
+    stack_buffer<math::rect2d_t*, 256>& drawn_rects,
+    f32 blkbrd_time,
+    v2f drag
 ) {
     auto& rect = node->rect;
+
+    rect.add(drag);
+
+    drawn_rects.push(&rect);
 
     v2f cursor = rect.min;
     const math::rect2d_t screen{v2f{0.0f}, v2f{imgui.ctx.screen_size}};
 
+    auto string_render = [&](std::string_view text) {
+        auto p = cursor;
+        auto s = gfx::gui::string_render(&imgui.ctx, text, &cursor);
+        rect.expand(p + s);
+    };
 
     if (auto* comp = dynamic_cast<bt::active_selector_t*>(node)) {
-        gfx::gui::string_render(&imgui.ctx, "Active Selector", &cursor);
+        string_render("Active Selector");
     }
     else if (auto* gtr = dynamic_cast<bt::greater_condition_t<f32>*>(node)) {
-        gfx::gui::string_render(&imgui.ctx, "Greater Than (f32)", &cursor);
-        gfx::gui::string_render(&imgui.ctx, gtr->name, &cursor);
+        string_render("Greater Than (f32)");
+        string_render(gtr->name);
+        
     }
     else if (auto* alwys = dynamic_cast<bt::always_succeed_t*>(node)) {
-        gfx::gui::string_render(&imgui.ctx, "Always Succeed", &cursor);
+        string_render("Always Succeed");
     }
     else if (auto* cond = dynamic_cast<bt::condition_t*>(node)) {
-        gfx::gui::string_render(&imgui.ctx, "Condition", &cursor);
-        gfx::gui::string_render(&imgui.ctx, cond->name, &cursor);
+        string_render("Condition");
+        string_render(cond->name);
     }
     else if (auto* sele = dynamic_cast<bt::selector_t*>(node)) {
-        gfx::gui::string_render(&imgui.ctx, "Selector", &cursor);
+        string_render("Selector");
     }
     else if (auto* seq = dynamic_cast<bt::sequence_t*>(node)) {
-        gfx::gui::string_render(&imgui.ctx, "Sequence", &cursor);
+        string_render("Sequence");
     }
     else if (auto* prt = dynamic_cast<print_t*>(node)) {
-        gfx::gui::string_render(&imgui.ctx, "Print", &cursor);
-        gfx::gui::string_render(&imgui.ctx, prt->text, &cursor);
+        string_render("Print");
+        string_render(prt->text);
     }
     else if (auto* move = dynamic_cast<move_toward_t*>(node)) {
-        gfx::gui::string_render(&imgui.ctx, "Move", &cursor);
-        gfx::gui::string_render(&imgui.ctx, move->text, &cursor);
+        string_render("Move");
+        string_render(move->text);
     }
     else if (auto* flee = dynamic_cast<run_away_t*>(node)) {
-        gfx::gui::string_render(&imgui.ctx, "Flee", &cursor);
-        gfx::gui::string_render(&imgui.ctx, flee->text, &cursor);
+        string_render("Flee");
+        string_render(flee->text);
+    }
+    else if (auto* wait = dynamic_cast<bt::wait_t*>(node)) {
+        string_render(fmt_sv("Wait ({})s", wait->how_long));
+        auto dt = wait->touch - wait->start;
+        string_render(fmt_sv("Time: {}s", wait->how_long-dt));
     }
     else if (auto* brkpnt = dynamic_cast<breakpoint_t*>(node)) {
-        auto temp_cursor = cursor;
-        gfx::gui::string_render(&imgui.ctx, "Breakpoint", &temp_cursor);
+        string_render("Breakpoint");
     }
     else {
-        gfx::gui::string_render(&imgui.ctx, "Node", &cursor);
+        string_render("Node");
     }
 
-    rect.expand(cursor);
+    // rect.expand(cursor);
 
-    auto text_size = gfx::font_get_size(imgui.ctx.font, "Active Selector wow");
-    rect.expand(cursor+v2f{text_size.x,0.0f});
+    // auto text_size = gfx::font_get_size(imgui.ctx.font, "Active Selector wow");
+    // rect.expand(cursor+v2f{text_size.x,0.0f});
 
     gfx::gui::draw_round_rect(&imgui.ctx, rect, 4.0f, imgui.theme.bg_color);
 
@@ -172,19 +115,37 @@ void draw_behavior(
         gfx::color::rgba::purple,
         gfx::color::rgba::gray,
     };
+
+    auto cc = colors[(u32)node->status];
+    auto dt = blkbrd_time - node->touch;
     
-    gfx::gui::draw_round_rect(&imgui.ctx, rect, 4.0f, colors[(u32)node->status]);
+    cc = gfx::color::to_color32(gfx::color::to_color3(cc) * math::sqr(1.0f-(dt/(1.0f+dt))));
+
+    gfx::gui::draw_round_rect(&imgui.ctx, rect, 4.0f, cc);
     rect = save_rect;
+
+    auto save_size = rect.size();
+    auto save_min = rect.min;
+    auto save_max = rect.max;
+    gfx::gui::im::point_edit(imgui, &rect.min, screen, screen, gfx::color::rgba::red);
+    gfx::gui::im::point_edit(imgui, &rect.max, screen, screen, gfx::color::rgba::red);
+    if (rect.min != save_min) {
+        drag -= 0.5f*(save_min - rect.min);
+        rect.max = rect.min + save_size;
+    }
+    if (rect.max != save_max) {
+        drag -= 0.5f*(save_max - rect.max);
+        rect.min = rect.max - save_size;
+    }
 
     auto draw_node = [&](auto* c, auto rect, auto&& i) {
         if (c->rect.min == v2f{0.0f}) {
-            c->rect.min = math::bottom_middle(rect) + rect.size() * 1.3f * v2f{f32(i), 1.0f};
-            c->rect.max = c->rect.min + v2f{120.0f, 32.0f};
+            c->rect.min = math::bottom_middle(rect) + rect.size() * 2.3f * v2f{i, 1.0f};
+            c->rect.max = c->rect.min;// + v2f{120.0f, 32.0f};
         }
 
-        draw_behavior(imgui, c);
+        draw_behavior(imgui, c, drawn_rects, blkbrd_time, drag);
         i += 1.0f;
-
 
         v2f p[4] = {
             math::bottom_middle(rect),
@@ -193,15 +154,27 @@ void draw_behavior(
             v2f{0.0f, 200.0f},
         };
 
+        auto delta = rect.center() - c->rect.center();
+        
+        auto size = c->rect.size();
         auto dist = glm::distance(p[0], p[2]);
-        p[1][1] = dist;
-        p[3][1] = dist;
+        
+        p[2] = c->rect.center() + glm::clamp(delta, -size*0.5f, 0.5f*size);
+        // p[0] = rect.center()    + glm::clamp(v2f{-delta.x, -delta.y}, -rect.size()*0.5f, 0.5f*rect.size());
 
-        gfx::gui::draw_curve(&imgui.ctx, std::span<v2f,4>{p,4}, math::rect2d_t{v2f{0.0f}, v2f{1.0f}}, 32, 3.0f, colors[(u32)c->status]);
-        gfx::gui::draw_circle(&imgui.ctx, p[0], 6.0f, colors[(u32)c->status]);
-        gfx::gui::draw_curve(&imgui.ctx, std::span<v2f,4>{p,4}, math::rect2d_t{v2f{0.0f}, v2f{1.0f}}, 32, 3.0f, colors[(u32)c->status]);
-        gfx::gui::draw_circle(&imgui.ctx, p[2], 6.0f, colors[(u32)c->status]);
+        p[1] = tween::lerp(v2f{0.0f, dist}, -(p[0] - p[2]), 0.5f);
+        p[3] = tween::lerp(v2f{0.0f, dist}, -(p[0] - p[2]), 0.5f);
 
+        auto cc = colors[(u32)c->status];
+        auto dt = blkbrd_time - c->touch;
+        // cc = gfx::color::to_color32(
+        //     glm::mix(gfx::color::to_color3(cc), v3f{0.5f}, ((dt/(1.0f+dt)))));
+        cc = gfx::color::to_color32(gfx::color::to_color3(cc) * math::sqr(1.0f-(dt/(1.0f+dt))));
+        
+        gfx::gui::draw_curve(&imgui.ctx, std::span<v2f,4>{p,4}, math::rect2d_t{v2f{0.0f}, v2f{1.0f}}, 32, 3.0f, cc);
+        gfx::gui::draw_circle(&imgui.ctx, p[0], 6.0f, cc);
+        gfx::gui::draw_curve(&imgui.ctx, std::span<v2f,4>{p,4}, math::rect2d_t{v2f{0.0f}, v2f{1.0f}}, 32, 3.0f, cc);
+        gfx::gui::draw_circle(&imgui.ctx, p[2], 6.0f, cc);
     };
 
     if (auto* dec = dynamic_cast<bt::decorator_t*>(node)) {
@@ -209,45 +182,138 @@ void draw_behavior(
     }
 
     if (auto* comp = dynamic_cast<bt::composite_t*>(node)) {
-        f32 i = -1.0f;
+        f32 i = -f32(dlist_count(comp->head))*0.5f;
+        auto last_rect = rect;
         for (auto* c = comp->head.next;
             c != &comp->head;
             c = c->next
         ) {
             draw_node(c, rect, i);
-            // gfx::gui::draw_line(&imgui.ctx, c->rect.center(), rect.center(), 3.0f, colors[(u32)c->status]);
         }
     }
-    auto save_size = rect.size();
-    auto save_min = rect.min;
-    auto save_max = rect.max;
-    gfx::gui::im::point_edit(imgui, &rect.min, screen, screen, gfx::color::rgba::red);
-    gfx::gui::im::point_edit(imgui, &rect.max, screen, screen, gfx::color::rgba::red);
-    if (rect.min != save_min) {
-        rect.max = rect.min + save_size;
-    }
-    if (rect.max != save_max) {
-        rect.min = rect.max - save_size;
-    }
-    
 }
 
 void 
 draw_behavior_tree(
     gfx::gui::im::state_t& imgui,
-    bt::behavior_tree_t* tree
+    bt::behavior_tree_t*& tree,
+    blackboard_t*& blkbrd
 ) {
     auto* root = tree->root;
+
+    using namespace gfx::gui;
+    const math::rect2d_t screen{v2f{0.0f}, v2f{imgui.ctx.screen_size}};
+
+    local_persist math::rect2d_t blkbrd_aabb{
+        .min = v2f{0.0f},
+        .max = v2f{64.0f, 256.0f},
+    };
+    auto size = blkbrd_aabb.size();
+
+    local_persist bool open[10];
+
+    
+
+    auto print_fn = [&imgui](auto key, auto* value) {
+        im::same_line(imgui);
+        im::text(imgui, fmt_sv("--- {}:", key));
+        if constexpr(std::is_same_v<decltype(value), v3f*>) {
+            im::float3_drag(imgui, value);
+        }
+        if constexpr(std::is_same_v<decltype(value), f32*>) {
+            im::float_drag(imgui, value);
+        }
+        if constexpr(std::is_same_v<decltype(value), b32*>) {
+            im::checkbox(imgui, (bool*)value);
+        }
+    };
+
+    b32 o = true;
+    if (im::begin_panel(imgui, "Blackboard", &blkbrd_aabb.min, &size, &o)) {
+        if (im::text(imgui, "Camera", &open[4])) {
+            math::rect2d_t uv{v2f{0.0f}, v2f{1.0f}};
+            local_persist math::rect2d_t camera_screen = {screen.max * 0.8f, screen.max};
+            im::image(imgui, 1, camera_screen, uv);
+            im::point_edit(imgui, &camera_screen.min, screen, screen, gfx::color::rgba::white);
+            im::point_edit(imgui, &camera_screen.max, screen, screen, gfx::color::rgba::white);
+        }
+        if (im::text(imgui, "Open", &open[0])) {
+            if (im::text(imgui, "- floats", &open[1])) {
+                utl::hash_foreach<std::string_view, f32>(blkbrd->floats, print_fn);
+                im::text(imgui, "-----------------");
+            }
+            if (im::text(imgui, "- bools", &open[2])) {
+                utl::hash_foreach<std::string_view, b32>(blkbrd->bools, print_fn);
+                im::text(imgui, "-----------------");
+            }
+            if (im::text(imgui, "- points", &open[3])) {
+                utl::hash_foreach<std::string_view, v3f>(blkbrd->points, print_fn);
+                im::text(imgui, "-----------------");
+            }
+        }
+        im::end_panel(imgui, &size);
+    }
+
+
+    stack_buffer<math::rect2d_t*, 256> rects = {};
+
+    auto [dx,dy] = imgui.ctx.input->mouse.delta;
+    v2f drag = imgui.ctx.input->mouse.buttons[2] ? v2f{dx,dy} : v2f{0.0f};
     
     if (root) {
         if (root->rect.min == v2f{0.0f}) {
             root->rect.min = v2f{500.0f};
             root->rect.max = v2f{600.0f, 532.0f};
         }
-        draw_behavior(imgui, root);
+        draw_behavior(imgui, root, rects, blkbrd->time, drag);
     }
 
+    range_u64(i, 0, rects.count()) {
+        auto& a = *rects[i];
+        range_u64(j, 0, rects.count()) {
+            if (i==j) continue;
+            auto& b = *rects[j];
+
+            if (a.intersect(b)) {
+                auto delta = a.center() - b.center() + v2f{1.0f};
+                a.add(delta*0.05f);
+                b.add(-delta*0.05f);
+            }
+        }
+    }
+ 
+    for(f32 i = 0.0f; i < screen.max.x; i += 256.0f) {
+        v2f a = v2f{i,0.0f};
+        v2f b = v2f{i,screen.max.y};
+        gfx::gui::draw_line(&imgui.ctx, a, b, 1.0f, gfx::color::rgba::ue5_dark_grid);
+    }
+    for(f32 j = 0.0f; j < screen.max.y; j += 256.0f) {
+        v2f a{0.0f, j};
+        v2f b{screen.max.x, j};
+        gfx::gui::draw_line(&imgui.ctx, a, b, 1.0f, gfx::color::rgba::ue5_dark_grid);
+    }
+
+    for(f32 i = 0.0f; i < screen.max.x; i += 32.0f) {
+        v2f a = v2f{i,0.0f};
+        v2f b = v2f{i,screen.max.y};
+        gfx::gui::draw_line(&imgui.ctx, a, b, 1.0f, gfx::color::rgba::ue5_grid);
+    }
+    for(f32 j = 0.0f; j < screen.max.y; j += 32.0f) {
+        v2f a{0.0f, j};
+        v2f b{screen.max.x, j};
+        gfx::gui::draw_line(&imgui.ctx, a, b, 1.0f, gfx::color::rgba::ue5_grid);
+    }
+
+    gfx::gui::draw_rect(&imgui.ctx, screen, gfx::color::rgba::ue5_bg);
+
+    
+    if (imgui.ctx.input->keys[key_id::BACKSPACE]) {
+        tree = 0;
+        blkbrd = 0;
+    }
 }
+
+
 
 void
 watch_game_state(game_state_t* game_state) {
@@ -445,6 +511,10 @@ draw_gui(game_memory_t* game_memory) {
 
     auto& state = game_state->gui.state;
 
+    {
+        using namespace std::string_view_literals;
+        using namespace gfx::gui;
+        im::clear(state);
 
 #ifdef DEBUG_STATE 
         DEBUG_STATE_DRAW(state, render_system->projection, render_system->view, render_system->viewport());
@@ -456,22 +526,21 @@ draw_gui(game_memory_t* game_memory) {
     // state.theme.bg_color = 
     //    gfx::color::rgba::dark_gray & ( ~(u32(f32(0xff) * gs_panel_opacity) << 24) );
 
-    {
-        using namespace std::string_view_literals;
-        using namespace gfx::gui;
-        im::clear(state);
 
         const m44 vp = 
             game_state->render_system->vp;
 
 #ifdef DEBUG_STATE
         if (gs_show_console) {
-            draw_console(state, DEBUG_STATE.console, v2f{400.0, 0.0f});
+            local_persist v2f pos = v2f{400.0, 0.0f};
+            draw_console(state, DEBUG_STATE.console, &pos);
         }
 #endif
 
         local_persist b32 load_system{0};
         local_persist particle_system_t* saving_system{0};
+        local_persist bt::behavior_tree_t* behavior_tree{0};
+        local_persist blackboard_t* blackboard{0};
         local_persist v3f default_widget_pos{10.0f};
         local_persist zyy::entity_t* selected_entity{0};
         local_persist v3f* widget_pos = &default_widget_pos;
@@ -481,6 +550,11 @@ draw_gui(game_memory_t* game_memory) {
             if (load_save_particle_dialog(state, saving_system, load_system)) {
                 saving_system = 0;
             }
+        }
+
+        if (behavior_tree) {
+            draw_behavior_tree(state, behavior_tree, blackboard);
+            return;
         }
 
 
@@ -509,6 +583,23 @@ draw_gui(game_memory_t* game_memory) {
                     WORLD_GUI(particle_test);
                     WORLD_GUI(crash_test);
                 #undef WORLD_GUI
+
+                for (const auto& entry : std::filesystem::recursive_directory_iterator("./")) {
+                    auto filename = entry.path().string();
+                    if (entry.is_directory()) {
+                        continue;
+                    } else if (entry.is_regular_file() && utl::has_extension(filename, "zyy")) {
+                        if (im::text(state, filename)) {
+                            tag_array(auto* str, char, &world->arena, filename.size()+1);
+                            utl::copy(str, filename.c_str(), filename.size()+1);
+                            world->world_generator = generate_world_from_file(&world->arena, str);
+                            
+                            // local_persist world_generator_t wg;
+                            // world->world_generator = &wg;
+                        }
+                    }
+                }
+
                 im::end_panel(state, &world_size);
             }
         }
@@ -1029,8 +1120,9 @@ draw_gui(game_memory_t* game_memory) {
                 );
 
                 if (e->parent && im::text(state, fmt_sv("Parent: {}",(void*)e->parent))) {
+                    v2f s;
                     widget_pos = &e->parent->transform.origin; 
-                    im::end_panel(state);
+                    im::end_panel(state,&s);
                     break;
                 }
                 im::text(state, 
@@ -1100,11 +1192,21 @@ draw_gui(game_memory_t* game_memory) {
                         im::text(state, fmt_sv("- Fire Rate: {}", stats.fire_rate));
                         im::text(state, fmt_sv("- Load Speed: {}", stats.load_speed));
                         im::text(state, "- Ammo");
-                        im::text(state, fmt_sv("--- {}/{}", stats.clip.current, stats.clip.max));
+                        im::text(state, fmt_sv("--- {}/{}", stats.mag.current, stats.mag.max));
                     }   break;
                 }
 
                 im::text(state, fmt_sv("AABB: {} {}", e->aabb.min, e->aabb.max));
+
+                if (e->brain_id != uid::invalid_id) {
+                    if (e->brain.type == brain_type::person) {
+                        // im::float_slider(state, &e->brain.person.fear);
+                        if (im::text(state, "Open Behavior Tree")) {
+                            behavior_tree = &e->brain.person.tree;
+                            blackboard = &e->brain.blackboard;
+                        }
+                    }
+                }
 
                 if (im::text(state, fmt_sv("Kill\0: {}"sv, (void*)e))) {
                     auto* te = e->next;
@@ -1119,12 +1221,7 @@ draw_gui(game_memory_t* game_memory) {
                     e = te;
                 }
 
-                if (e->brain_id != uid::invalid_id) {
-                    if (e->brain.type == brain_type::person) {
-                        im::float_slider(state, &e->brain.person.fear);
-                        draw_behavior_tree(state, &e->brain.person.tree);
-                    }
-                }
+                
 
                 if (check_for_debugger() && im::text(state, fmt_sv("Breakpoint\0{}"sv, e->id))) {
                     e->flags ^= zyy::EntityFlags_Breakpoint;

@@ -1464,10 +1464,12 @@ public:
     add_mesh(
         system_t* rs,
         std::string_view name,
-        const gfx::mesh_list_t& mesh
+        gfx::mesh_list_t& mesh
     ) {
         const auto mesh_id = rs->mesh_cache.add(&rs->arena, mesh);
         utl::str_hash_add(rs->mesh_hash, name, mesh_id);
+
+        rs->rt_cache->build_blas(*rs->vk_gfx, mesh, rs->scene_context->vertices, rs->scene_context->indices);
 
         return mesh_id;
     }
@@ -1496,8 +1498,6 @@ public:
                 loaded_mesh.meshes[m].material.normal_id = (mask&0x2) ? ids[1] : std::numeric_limits<u64>::max();
             }
 
-            rs->rt_cache->build_blas(*rs->vk_gfx, loaded_mesh, rs->scene_context->vertices, rs->scene_context->indices);
-
             loaded_mesh.name = name;
 
             return add_mesh(rs, name, loaded_mesh);
@@ -1520,7 +1520,8 @@ public:
         system_t* rs,
         std::string_view name
     ) {
-        return rs->mesh_cache.get(utl::str_hash_find(rs->mesh_hash, name));
+        u64 id = get_mesh_id(rs, name);
+        return rs->mesh_cache.get(id);
     }
 
     inline const gfx::mesh_list_t&

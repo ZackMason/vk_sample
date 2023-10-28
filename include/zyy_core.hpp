@@ -196,10 +196,95 @@ struct stack_buffer : public std::array<T, N>
     }
 };
 
-template <size_t N, typename CharType>
-struct stack_string : public stack_buffer<CharType, N>
+template <size_t N, typename CharType = char>
+struct stack_string 
 {
-    using stack_buffer<CharType, N>::stack_buffer;
+    CharType buffer[N] = {};
+    
+    constexpr stack_string() = default;
+    constexpr stack_string(std::string_view str) {
+        size_t s = std::min(N-1, str.size());
+
+        for (size_t i = 0; i < s; ++i) {
+            buffer[i] = str[i];
+        }
+        buffer[s] = '\0'; // Ensure null-terminated.
+    }
+
+    constexpr const CharType* data() const {
+        return buffer;
+    }
+    constexpr CharType* data() {
+        return buffer;
+    }
+    // constexpr const CharType* data() const {
+    //     return buffer;
+    // }
+    
+    constexpr operator std::string_view() const {
+        return std::string_view{buffer};
+    }
+
+    constexpr auto size() const {
+        return std::string_view{buffer}.size();
+    }
+
+    constexpr bool empty() const {
+        return (*this)[0] != 0;
+    }
+
+    constexpr bool operator==(std::string_view o) const {
+        return std::string_view{buffer} == o;
+    }
+    constexpr bool operator!=(std::string_view o) const {
+        return !this->operator==(o);
+    }
+
+    constexpr stack_string<N, CharType>& operator+=(const char* str) {
+        size_t len = std::strlen(str);
+        size_t current_size = size();
+
+        if (current_size + len < N) {
+            for (size_t i = 0; i < len; ++i) {
+                buffer[current_size + i] = str[i];
+            }
+
+            current_size += len;
+            buffer[current_size] = '\0'; // Ensure null-terminated.
+        }
+
+        return *this;
+    }
+
+    constexpr stack_string<N, CharType>& operator+=(const stack_string<N, CharType>& other) {
+        size_t len = other.size();
+        if (this->size() + len < N) {
+            std::strncat(buffer, other.buffer, len);
+        }
+        return *this;
+    }
+
+    constexpr stack_string<N, CharType>& operator=(const char* str) {
+        size_t s = std::strlen(str);
+        assert(s < N);
+
+        if (s < N) {
+            for (size_t i = 0; i < s; ++i) {
+                buffer[i] = str[i];
+            }
+            buffer[s] = '\0';
+        }
+
+        return *this;
+    }
+
+    constexpr void clear() {
+        std::memset(buffer, 0, N);
+    }
+
+    constexpr operator bool() const {
+        return buffer[0] != 0;
+    }
 };
 
 
@@ -343,6 +428,7 @@ struct _auto_deferer_t {
 
 
 #define array_count(arr) (sizeof((arr)) / (sizeof((arr)[0])))
+// #define array_count(arr) ((u32)std::size((arr)))
 #define kilobytes(x) (x*1024ull)
 #define megabytes(x) (kilobytes(x)*1024ull)
 #define gigabytes(x) (megabytes(x)*1024ull)
@@ -635,7 +721,7 @@ struct app_input_t {
 
         // preserved, everything above here is reset every frame    
         f32 delta[2];
-        i32 scroll[2];
+        v2f scroll={};
     } mouse;
     
     f32 render_time;
@@ -823,8 +909,21 @@ struct platform_api_t {
     using allocate_memory_function = void*(*)(umm);
     using free_memory_function = void(*)(void*);
 
+    using load_library_function = void*(*)(const char*);
+    using load_module_function = void*(*)();
+    using load_proc_function = void*(*)(void*, const char*);
+
     allocate_memory_function allocate;
     free_memory_function free;
+
+    load_library_function load_library;
+    load_module_function load_module;
+    load_proc_function load_proc;
+
+    template <typename ReturnType>
+    ReturnType load_function(void* lib, const char* name) {
+        return reinterpret_cast<ReturnType>(load_proc(lib, name));
+    }
 
     using message_box_function = i32(*)(const char*);
     message_box_function message_box{0};
@@ -921,6 +1020,17 @@ u32 node_count(auto* node) {
     (sen)->next = (sen);\
     (sen)->prev = (sen);
 
+u32 dlist_count(auto& head) {
+    u32 result = 0;
+    for (auto* n = head.next;
+        n != &head;
+        n = n->next
+    ) {
+        result += 1;
+    }
+    return result;
+}
+
 #define freelist_allocate(result, freelist, alloc_code)\
     (result) = (freelist);\
     if (result) { freelist = (result)->next_free;} else { result = alloc_code;}
@@ -1015,12 +1125,14 @@ copy(T* dst, const S* src) {
 }
 
 constexpr void*
-ccopy(void* dst, const void* src, umm size) {
+ccopy(char* dst, const char* src, umm size) {
     for (umm i = 0; i < size; i++) {
-        *(char*)dst = *((char*)src + i);
+        *(dst+i) = *(src + i);
     }
     return dst;
 }
+
+
 
 }; // namespace utl
 
@@ -1928,6 +2040,16 @@ namespace math {
         return (x-a)/(b-a);
     }
 
+    template <typename T>
+    constexpr T sqr(T x) {
+        return x * x;
+    }
+
+    template <typename T>
+    constexpr T cube(T x) {
+        return x * x * x;
+    }
+
     constexpr v2f octahedral_mapping(v3f co) {
         using namespace swizzle;
         // projection onto octahedron
@@ -2326,6 +2448,13 @@ struct aabb_t {
         max = glm::max(p, max);
     }
 
+    bool intersect(const aabb_t<v2f>& o) const {
+        return  this->min.x <= o.max.x &&
+                this->max.x >= o.min.x &&
+                this->min.y <= o.max.y &&
+                this->max.y >= o.min.y;
+    }
+
     bool intersect(const aabb_t<v3f>& o) const {
         return  this->min.x <= o.max.x &&
                 this->max.x >= o.min.x &&
@@ -2366,6 +2495,12 @@ struct aabb_t {
         return aabb_t<T>{min+v,max+v};
     }
     
+    void set_min_size(T min_size) {
+        T s = glm::max(min_size, size());
+        auto c = center();
+        expand(c + s/2.0f);
+        expand(c - s/2.0f);
+    }
 };
 
 using range_t = aabb_t<f32>;
@@ -2548,8 +2683,19 @@ struct transform_t {
             basis[i] *= scales[i];
         }
     }
+    // in radians
+	void set_rotation(v3f axis, f32 rads) {
+        set_rotation(glm::angleAxis(rads, axis));
+    }
 	void set_rotation(const glm::quat& quat) {
+        f32 scales[3];
+        range_u32(i, 0, 3) {
+            scales[i] = glm::length(basis[i]);
+        }
         basis = glm::toMat3(glm::normalize(quat));
+        range_u32(i, 0, 3) {
+            basis[i] *= scales[i];
+        }
     }
 
     void normalize() {
@@ -2807,9 +2953,7 @@ struct mesh_builder_t {
     }
 
     u32 vertex_start{0};
-    u32 vertex_count{0};
     u32 index_start{0};
-    u32 index_count{0};
 
     gfx::mesh_list_t
     build(arena_t* arena) {
@@ -2817,16 +2961,10 @@ struct mesh_builder_t {
         m.count = 1;
         m.meshes = push_struct<gfx::mesh_view_t>(arena, 1);
         m.meshes[0].vertex_start = vertex_start;
-        m.meshes[0].vertex_count = vertex_count;
+        m.meshes[0].vertex_count = safe_truncate_u64(vertices.count()) - vertex_start;
         m.meshes[0].index_start = index_start;
-        m.meshes[0].index_count = index_count;
+        m.meshes[0].index_count = safe_truncate_u64(indices.count()) - index_start;
         return m;
-    }
-
-    void rewrite() {
-        assert(vertex_count);
-        vertices.clear();
-        indices.clear();
     }
 
     mesh_builder_t& add_vertex(
@@ -2836,23 +2974,21 @@ struct mesh_builder_t {
         v3f col = v3f{1.0f}
     ) {
         *vertices.allocate(1) = gfx::vertex_t{.pos = pos, .nrm = nrm, .col = col, .tex = uv};
-        vertex_count++;
         return *this;
     }
 
     mesh_builder_t& add_vertex(gfx::vertex_t&& vertex) {
         *vertices.allocate(1) = std::move(vertex);
-        vertex_count++;
         return *this;
     }
     mesh_builder_t& add_index(u32 index) {
         *indices.allocate(1) = index;
-        index_count++;
         return *this;
     }
 
     mesh_builder_t& add_triangles(math::triangle_t* tris, u64 count) {
         loop_iota_u64(i, count) {
+            u32 v_start = (u32)vertices.count();
             auto* v = vertices.allocate(3);
 
             const auto [t0, t1, t2] = tris[i].p;
@@ -2865,56 +3001,81 @@ struct mesh_builder_t {
 
             loop_iota_u64(j, 3) {
                 v[j].nrm = norm;
-                v[j].col = norm;
-                v[j].tex = v2f{0.0};
+                v[j].col = v3f{1.0f};
+                v[j].tex = v2f{0.0f, 0.0f};
             }
-        }
 
-        vertex_count += safe_truncate_u64(count) * 3;
+            auto* t = indices.allocate(3);
+            t[0] = v_start;
+            t[1] = v_start+1;
+            t[2] = v_start+2;
+        }
         return *this;
     }
 
     mesh_builder_t& add_box(math::rect3d_t box) {
-        math::triangle_t tris[6];
-        const auto s = box.size();
-        const auto p = box.min;
-        const auto sx = s.x;
-        const auto sy = s.y;
-        const auto sz = s.z;
-        const auto sxv = v3f{s.x, 0.0f, 0.0f};
-        const auto syv = v3f{0.0f, s.y, 0.0f};
-        const auto szv = v3f{0.0f, 0.0f, s.z};
-        u64 i = 0;
-        tris[i++].p = {p, p + sxv, p + sxv + syv};
-        tris[i++].p = {p, p + syv + sxv, p + syv};
-
-        tris[i++].p = {p + szv + sxv, p + sxv + syv + szv, p + szv};
-        tris[i++].p = {p + syv + sxv, p + sxv + syv + szv, p + szv};
         
-        tris[i++].p = {p, p + szv + syv, p + szv};
-        tris[i++].p = {p, p + szv + syv, p + szv};
-        
-        add_triangles(tris, 6);
+        const auto p0 = box.sample(v3f{0,0,0}); // min
+        const auto p1 = box.sample(v3f{1,0,0}); // min right
+        const auto p2 = box.sample(v3f{0,1,0}); // min up
+        const auto p3 = box.sample(v3f{0,0,1}); // min forward
 
+        const auto p4 = box.sample(v3f{1,0,1}); // min across
+        const auto p5 = box.sample(v3f{1,1,0}); // min up right
+        const auto p6 = box.sample(v3f{1,1,1}); // max
+        const auto p7 = box.sample(v3f{0,1,1}); // min up forward
 
+        math::triangle_t triangles[12]={
+            math::triangle_t{{p0, p1, p3}},
+            math::triangle_t{{p1, p3, p4}},
+            math::triangle_t{{p0, p3, p7}},
+            math::triangle_t{{p0, p7, p2}},
+            math::triangle_t{{p0, p1, p5}},
+            math::triangle_t{{p0, p5, p2}},
+            math::triangle_t{{p6, p7, p2}},
+            math::triangle_t{{p6, p2, p5}},
+            math::triangle_t{{p6, p5, p1}},
+            math::triangle_t{{p6, p1, p4}},
+            math::triangle_t{{p4, p3, p7}},
+            math::triangle_t{{p4, p7, p6}},
+        };
+
+        add_triangles(triangles, 12);
 
         return *this;
     }
-    mesh_builder_t& add_quad(gfx::vertex_t vertex[4]) {
-        u32 v_start = safe_truncate_u64(vertices.count());
-        gfx::vertex_t* v = vertices.allocate(6);
-        v[0] = vertex[0];
-        v[1] = vertex[1];
-        v[2] = vertex[2];
+    
+    mesh_builder_t& add_box(math::rect3d_t box, const m44& transform) {
         
-        v[3] = vertex[2];
-        v[4] = vertex[1];
-        v[5] = vertex[3];
+        const auto p0 = v3f{transform * v4f{box.sample(v3f{0,0,0}), 1.0f}}; // min
+        const auto p1 = v3f{transform * v4f{box.sample(v3f{1,0,0}), 1.0f}}; // min right
+        const auto p2 = v3f{transform * v4f{box.sample(v3f{0,1,0}), 1.0f}}; // min up
+        const auto p3 = v3f{transform * v4f{box.sample(v3f{0,0,1}), 1.0f}}; // min forward
+        const auto p4 = v3f{transform * v4f{box.sample(v3f{1,0,1}), 1.0f}}; // min across
+        const auto p5 = v3f{transform * v4f{box.sample(v3f{1,1,0}), 1.0f}}; // min up right
+        const auto p6 = v3f{transform * v4f{box.sample(v3f{1,1,1}), 1.0f}}; // max
+        const auto p7 = v3f{transform * v4f{box.sample(v3f{0,1,1}), 1.0f}}; // min up forward
 
-        vertex_count += 6;
+        math::triangle_t triangles[12]={
+            math::triangle_t{{p0, p1, p3}},
+            math::triangle_t{{p1, p3, p4}},
+            math::triangle_t{{p0, p3, p7}},
+            math::triangle_t{{p0, p7, p2}},
+            math::triangle_t{{p0, p1, p5}},
+            math::triangle_t{{p0, p5, p2}},
+            math::triangle_t{{p6, p7, p2}},
+            math::triangle_t{{p6, p2, p5}},
+            math::triangle_t{{p6, p5, p1}},
+            math::triangle_t{{p6, p1, p4}},
+            math::triangle_t{{p4, p3, p7}},
+            math::triangle_t{{p4, p7, p6}},
+        };
+
+        add_triangles(triangles, 12);
 
         return *this;
     }
+    
 };
 
 using color4 = v4f;
@@ -3226,6 +3387,10 @@ namespace color {
         static constexpr auto clear = "#00000000"_rgba;
         static constexpr auto black = "#000000ff"_rgba;
         static constexpr auto dark_gray = "#111111ff"_rgba;
+        static constexpr auto darkish_gray = "#5a5a5aff"_rgba;
+        static constexpr auto ue5_bg = "#262626ff"_rgba;
+        static constexpr auto ue5_grid = "#2e2e2eff"_rgba;
+        static constexpr auto ue5_dark_grid = dark_gray;
         static constexpr auto gray = "#808080ff"_rgba;
         static constexpr auto light_gray  = "#d3d3d3ff"_rgba;
         static constexpr auto white = "#ffffffff"_rgba;
@@ -3403,7 +3568,7 @@ namespace gui {
             ctx->indices,
             text_color
         );
-        return *position - start;
+        return font_get_size(font ? font : ctx->font, text);
     }
 
     inline v2f
@@ -3430,15 +3595,14 @@ namespace gui {
         v2f pos, f32 radius,
         u32 color, u32 res = 16, f32 perc = 1.0f, f32 start = 0.0f
     ) {
-        const u32 v_start = safe_truncate_u64(ctx->vertices->count());
 
+        const u32 v_start = safe_truncate_u64(ctx->vertices->count());
         vertex_t* center = ctx->vertices->allocate(1);
 
         center->pos = ui_2d(pos / ctx->screen_size);
         center->col = color;
         center->img = ~(0ui32);
 
-        vertex_t* lv{0};
         range_u32(i, 0, res+1) {
             const auto a = start * math::constants::tau32 + perc * math::constants::tau32 * f32(i)/f32(res);
             vertex_t* v = ctx->vertices->allocate(1);
@@ -3447,18 +3611,18 @@ namespace gui {
             v->col = color;
             v->img = ~(0ui32);
 
-            if (lv) {
+            if (i > 0) {
                 u32* tris = ctx->indices->allocate(3);
-                *tris++ = v_start;
-                *tris++ = v_start + i - 1;
-                *tris++ = v_start + i;
+                tris[0] = v_start; // center 
+                tris[1] = v_start + i - 1; // this vertex
+                tris[2] = v_start + i; // last vertex
             }
-            lv = v;
+            
         }
         u32* tris = ctx->indices->allocate(3);
-        *tris++ = v_start;
-        *tris++ = v_start + res;
-        *tris++ = v_start + 1;
+        tris[0] = v_start;
+        tris[1] = v_start + res;
+        tris[2] = v_start + 1;
     }
 
 
@@ -3570,6 +3734,41 @@ namespace gui {
         }
     }
 
+
+    inline void
+    draw_wire_sphere(
+        ctx_t* ctx,
+        v3f pos,
+        f32 radius,
+        const m44& vp,
+        f32 line_width = 3.0f,
+        u32 color = gfx::color::rgba::white,
+        u32 res = 32
+    ) {
+        const v3f spos = math::world_to_screen(vp, pos);
+        math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
+
+        if (viewable.contains(spos)) {
+            const v2f screen  = v2f{spos} * ctx->screen_size;
+            auto w_up         = pos + axis::up * radius;
+            auto w_forward    = pos + axis::forward * radius;
+            auto w_right      = pos + axis::right * radius;
+            auto v_up         = ctx->screen_size * v2f{math::world_to_screen(vp, w_up)};
+            auto v_forward    = ctx->screen_size * v2f{math::world_to_screen(vp, w_forward)};
+            auto v_right      = ctx->screen_size * v2f{math::world_to_screen(vp, w_right)};
+            auto v_pos        = ctx->screen_size * v2f{math::world_to_screen(vp, pos)};
+            
+            const v2f rd = v_right - v_pos;
+            const v2f ud = v_up - v_pos;
+            const v2f fd = v_forward - v_pos;
+            
+            draw_ellipse_arc_with_basis(ctx, v_pos, v2f{1.0f}, ud, fd, 0.0f, 1.0f, line_width, color, res);
+            draw_ellipse_arc_with_basis(ctx, v_pos, v2f{1.0f}, rd, fd, 0.0f, 1.0f, line_width, color, res);
+            draw_ellipse_arc_with_basis(ctx, v_pos, v2f{1.0f}, rd, ud, 0.0f, 1.0f, line_width, color, res);
+        }
+    }
+
+
     inline void 
     draw_quad_outline(
         ctx_t* ctx,
@@ -3659,6 +3858,43 @@ namespace gui {
         v2f uv[3]{v2f{0.0f}, v2f{0.0f}, v2f{0.0f}};
         u32 c[3]{color,color,color};
         draw_triangle(ctx, triangle, std::span{c}, std::span{uv} );
+    }
+
+    void draw_cube(
+        ctx_t* ctx,
+        const math::rect3d_t& box,
+        u32 color = gfx::color::rgba::white
+    ) {
+        v2f uv[3]{v2f{0.0f}, v2f{0.0f}, v2f{0.0f}};
+        u32 c[3]{color,color,color};
+        
+        const auto p0 = box.sample(v3f{0,0,0}); // min
+        const auto p1 = box.sample(v3f{1,0,0}); // min right
+        const auto p2 = box.sample(v3f{0,1,0}); // min up
+        const auto p3 = box.sample(v3f{0,0,1}); // min forward
+
+        const auto p4 = box.sample(v3f{1,0,1}); // min across
+        const auto p5 = box.sample(v3f{1,1,0}); // min up right
+        const auto p6 = box.sample(v3f{1,1,1}); // max
+        const auto p7 = box.sample(v3f{0,1,1}); // min up forward
+
+        draw_triangle(ctx, math::triangle_t{{p0, p1, p3}}, std::span{c}, std::span{uv} );
+        draw_triangle(ctx, math::triangle_t{{p1, p3, p4}}, std::span{c}, std::span{uv} );
+        
+        draw_triangle(ctx, math::triangle_t{{p0, p3, p7}}, std::span{c}, std::span{uv} );
+        draw_triangle(ctx, math::triangle_t{{p0, p7, p2}}, std::span{c}, std::span{uv} );
+
+        draw_triangle(ctx, math::triangle_t{{p0, p1, p5}}, std::span{c}, std::span{uv} );
+        draw_triangle(ctx, math::triangle_t{{p0, p5, p2}}, std::span{c}, std::span{uv} );
+
+        draw_triangle(ctx, math::triangle_t{{p6, p7, p2}}, std::span{c}, std::span{uv} );
+        draw_triangle(ctx, math::triangle_t{{p6, p2, p5}}, std::span{c}, std::span{uv} );
+        
+        draw_triangle(ctx, math::triangle_t{{p6, p5, p1}}, std::span{c}, std::span{uv} );
+        draw_triangle(ctx, math::triangle_t{{p6, p1, p4}}, std::span{c}, std::span{uv} );
+
+        draw_triangle(ctx, math::triangle_t{{p4, p3, p7}}, std::span{c}, std::span{uv} );
+        draw_triangle(ctx, math::triangle_t{{p4, p7, p6}}, std::span{c}, std::span{uv} );
     }
 
     void draw_mesh(
@@ -3828,11 +4064,14 @@ namespace gui {
             // arena_t arena;
 
             v2f drag_start{};
+            f32 float_drag_start_value{};
 
             f32 gizmo_scale_start{};
             v2f draw_cursor{0.0f}; 
             v2f gizmo_mouse_start{};
             v3f gizmo_world_start{};
+            m33 gizmo_basis_start{};
+            f32 gizmo_basis_scale{};
             v2f gizmo_axis_dir{};
             v3f gizmo_axis_wdir{};
 
@@ -3874,6 +4113,11 @@ namespace gui {
         // }
 
         inline void
+        space(state_t& imgui, f32 offset) {
+            imgui.draw_cursor.y += offset;
+        }
+
+        inline void
         indent(state_t& imgui, v2f offset) {
             imgui.draw_cursor += offset;
         }
@@ -3913,6 +4157,14 @@ namespace gui {
         same_line(state_t& imgui) {
             imgui.next_same_line = true;
             imgui.panel->saved_cursor = imgui.panel->draw_cursor;
+        }
+
+        inline bool
+        same_line(state_t& imgui, bool b) {
+            if (b) {
+                same_line(imgui);
+            }
+            return true;
         }
 
         inline bool
@@ -4078,17 +4330,22 @@ namespace gui {
         draw_gizmo(
             state_t& imgui,
             v3f* pos,
-            const m44& vp
+            const m44& vp,
+            b32 draw_rings = 1,
+            b32 draw_axis = 1,
+            m33 basis = m33{1.0f}
         ) {
             const v3f spos = math::world_to_screen(vp, *pos);
             math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
 
             if (viewable.contains(spos)) {
                 const v2f screen = v2f{spos} * imgui.ctx.screen_size;
-                
-                auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::up)};
-                auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::forward)};
-                auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::right)};
+                auto w_up         = *pos + glm::normalize(basis[1]);
+                auto w_forward    = *pos + glm::normalize(basis[2]);
+                auto w_right      = *pos + glm::normalize(basis[0]);
+                auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, w_up)};
+                auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, w_forward)};
+                auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, w_right)};
                 auto v_pos        = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos)};
                 
                 const f32 line_width = 3.0f;
@@ -4108,32 +4365,73 @@ namespace gui {
                 draw_circle(&imgui.ctx, v_right,    abw - bbw, color::rgba::light_gray);
                 draw_circle(&imgui.ctx, v_forward,  abw - bbw, color::rgba::light_gray);
 
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.0f, 0.25f, clw, color::rgba::red, 32);
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.0f, 0.25f, clw, color::rgba::green, 32);
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.0f, 0.25f, clw, color::rgba::blue, 32);
+                if (draw_rings) {
+                    draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.0f, 0.25f, clw, color::rgba::red, 32);
+                    draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.0f, 0.25f, clw, color::rgba::green, 32);
+                    draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.0f, 0.25f, clw, color::rgba::blue, 32);
 
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 32);
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 32);
-                draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.25f, 1.0f, dlw, color::rgba::light_gray, 32);
+                    draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, ud, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 32);
+                    draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, fd, 0.25f, 1.0f, dlw, color::rgba::light_gray, 32);
+                    draw_ellipse_arc_with_basis(&imgui.ctx, v_pos, v2f{rad}, rd, ud, 0.25f, 1.0f, dlw, color::rgba::light_gray, 32);
+                } else if (draw_axis) {
+                    auto axis_cube = [](auto p, auto d = 0.05f) {
+                        math::rect3d_t cube{};
+                        cube.expand(p - v3f{d});
+                        cube.expand(p + v3f{d});
+                        return cube;
+                    };
+                    auto axis_rod = [](auto w, auto p, auto d = 0.01f) {
+                        math::rect3d_t cube{};
+                        cube.expand(w);
+                        cube.expand(p);
+                        cube.set_min_size(v3f{d});
+                        return cube;
+                    };
+                    // draw_cube(&imgui.ctx, axis_cube(w_up, .1f), color::rgba::green);
+                    // draw_cube(&imgui.ctx, axis_cube(w_right, .1f), color::rgba::red);
+                    // draw_cube(&imgui.ctx, axis_cube(w_forward, .1f), color::rgba::blue);
+
+                    // draw_cube(&imgui.ctx, axis_rod(*pos, w_up, 0.05f), color::rgba::green);
+                    // draw_cube(&imgui.ctx, axis_rod(*pos, w_right, 0.05f), color::rgba::red);
+                    // draw_cube(&imgui.ctx, axis_rod(*pos, w_forward, 0.05f), color::rgba::blue);
+                }
 
                 draw_circle(&imgui.ctx, v_up,       abw, color::rgba::green);
                 draw_circle(&imgui.ctx, v_right,    abw, color::rgba::red);
                 draw_circle(&imgui.ctx, v_forward,  abw, color::rgba::blue);
 
-                draw_line(&imgui.ctx, v_pos, v_up, line_width, color::rgba::green);
-                draw_line(&imgui.ctx, v_pos, v_right, line_width, color::rgba::red);
-                draw_line(&imgui.ctx, v_pos, v_forward, line_width, color::rgba::blue);
-
+                if (draw_axis) {
+                    draw_line(&imgui.ctx, v_pos, v_up, line_width, color::rgba::green);
+                    draw_line(&imgui.ctx, v_pos, v_right, line_width, color::rgba::red);
+                    draw_line(&imgui.ctx, v_pos, v_forward, line_width, color::rgba::blue);
+                }
             }
         }
-        inline void
+
+        struct gizmo_result_t {
+            b32 released = false;
+            v3f start_pos{};
+
+        };
+
+        enum struct gizmo_mode {
+            local, global
+        };
+
+        inline gizmo_result_t
         gizmo(
             state_t& imgui,
             v3f* pos,
-            const m44& vp
+            const m44& vp,
+            f32 snapping = 0.0f,
+            m33 basis = m33{1.0f},
+            gizmo_mode mode = gizmo_mode::global
         ) {
-            
-            draw_gizmo(imgui, pos, vp);
+            if (mode == gizmo_mode::local) {
+                basis = m33{1.0f};
+            }
+            gizmo_result_t result = {};
+            draw_gizmo(imgui, pos, vp, 1, 1, basis);
 
             const v3f spos = math::world_to_screen(vp, *pos);
             math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
@@ -4152,9 +4450,9 @@ namespace gui {
 
             if (viewable.contains(spos)) {
                 // gizmo points in screen space
-                const auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::up)};
-                const auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::forward)};
-                const auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + axis::right)};
+                const auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize(basis[1]))};
+                const auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize(basis[2]))};
+                const auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize(basis[0]))};
                 const auto v_pos        = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos)};
 
                 // gizmo delta
@@ -4190,7 +4488,8 @@ namespace gui {
                             const v2f naxis = glm::normalize(imgui.gizmo_axis_dir);
                             const f32 proj = glm::dot(mdelta, naxis);
                             const f32 scale = imgui.gizmo_scale_start;
-                            *pos = imgui.gizmo_world_start + imgui.gizmo_axis_wdir * glm::dot(mdelta, naxis/scale);
+                            auto p = imgui.gizmo_world_start + imgui.gizmo_axis_wdir * glm::dot(mdelta, naxis/scale);
+                            *pos = snapping != 0.0f ? glm::floor(p/snapping+0.5f)*snapping : p;
 
                             draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 6.0f, color::rgba::light_gray);
                             draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 8.0f, color::to_color32(imgui.gizmo_axis_wdir));
@@ -4211,21 +4510,21 @@ namespace gui {
                                 }
                                 case "gizmo_right"_sid: {
                                     imgui.gizmo_axis_dir = (rd);
-                                    imgui.gizmo_axis_wdir = axis::right;
+                                    imgui.gizmo_axis_wdir = glm::normalize(basis[0]);
                                     imgui.gizmo_mouse_start = v_right;
                                     imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
                                     break;
                                 }
                                 case "gizmo_up"_sid: {
                                     imgui.gizmo_axis_dir = (ud);
-                                    imgui.gizmo_axis_wdir = axis::up;
+                                    imgui.gizmo_axis_wdir = glm::normalize(basis[1]);
                                     imgui.gizmo_mouse_start = v_up;
                                     imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
                                     break;
                                 }
                                 case "gizmo_forward"_sid: {
                                     imgui.gizmo_axis_dir = (fd);
-                                    imgui.gizmo_axis_wdir = axis::forward;
+                                    imgui.gizmo_axis_wdir = glm::normalize(basis[2]);
                                     imgui.gizmo_mouse_start = v_forward;
                                     imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
                                     break;
@@ -4235,6 +4534,8 @@ namespace gui {
                         }
                     }
                     if (released) {
+                        result.released = 1;      
+                        result.start_pos = imgui.gizmo_world_start;
                         imgui.active = 0;
                         imgui.gizmo_mouse_start = v2f{0.0f};
                         imgui.gizmo_axis_dir = v2f{0.0f};
@@ -4247,6 +4548,8 @@ namespace gui {
                     }
                 } else if (is_gizmo_id(imgui.hot.id)) {
                     if (released) {
+                        result.released = 1;
+                        result.start_pos = imgui.gizmo_world_start;
                         imgui.hot = 0;
                         imgui.gizmo_mouse_start = v2f{0.0f};
                         imgui.gizmo_axis_dir = v2f{0.0f};
@@ -4258,12 +4561,353 @@ namespace gui {
                 }
             } else {
                 if (is_gizmo_id(imgui.hot.id) || is_gizmo_id(imgui.active.id)) {
+                    result.released = 1;
+                    result.start_pos = imgui.gizmo_world_start;
                     imgui.hot = imgui.active = 0;
                     imgui.gizmo_mouse_start = v2f{0.0f};
                     imgui.gizmo_axis_dir = v2f{0.0f};
                     imgui.gizmo_axis_wdir = v3f{0.0f};
                 }
             }
+
+            return result;
+        }
+
+        inline gizmo_result_t
+        gizmo_scale(
+            state_t& imgui,
+            v3f* pos,
+            m33* basis,
+            const m44& vp,
+            f32 snapping = 0.0f
+        ) {
+            gizmo_result_t result = {};
+            draw_gizmo(imgui, pos, vp, 0, 1, *basis);
+
+            const v3f spos = math::world_to_screen(vp, *pos);
+            math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
+
+            const auto is_gizmo_id = [](u64 id){
+                switch(id) {
+                    case "gizmo_pos"_sid: 
+                    case "gizmo_right"_sid: 
+                    case "gizmo_up"_sid: 
+                    case "gizmo_forward"_sid:
+                        return true;
+                    default:
+                        return false;
+                }                        
+            };
+
+            if (viewable.contains(spos)) {
+                // gizmo points in screen space
+                const auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize((*basis)[1]))};
+                const auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize((*basis)[2]))};
+                const auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize((*basis)[0]))};
+                const auto v_pos        = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos)};
+
+                // gizmo delta
+                const v2f rd = v_right - v_pos;
+                const v2f ud = v_up - v_pos;
+                const v2f fd = v_forward - v_pos;
+                
+                const math::circle_t pc{v_pos, 8.0f};
+                const math::circle_t rc{v_right, 8.0f};
+                const math::circle_t uc{v_up, 8.0f};
+                const math::circle_t fc{v_forward, 8.0f};
+                const auto [mx,my] = imgui.ctx.input->mouse.pos;
+                const v2f mouse{mx,my};
+                const v2f mdelta{-(imgui.gizmo_mouse_start-mouse)};
+
+
+                u64 giz_id = is_gizmo_id(imgui.active.id) ? imgui.active.id : 0;
+
+                // if (math::intersect(pc, mouse)) {giz_id = "gizmo_pos"_sid;} else
+                if (is_gizmo_id(imgui.active.id) == false) {
+
+                    if (math::intersect(rc, mouse)) {giz_id = "gizmo_right"_sid;} else
+                    if (math::intersect(uc, mouse)) {giz_id = "gizmo_up"_sid;} else
+                    if (math::intersect(fc, mouse)) {giz_id = "gizmo_forward"_sid;}
+                }
+                imgui.verify_id(giz_id);
+
+                const bool clicked = imgui.ctx.input->pressed.mouse_btns[0];
+                const bool released = imgui.ctx.input->released.mouse_btns[0];
+                if (is_gizmo_id(imgui.active.id)) {
+                    if (is_gizmo_id(imgui.hot.id)) {
+                        if (imgui.gizmo_mouse_start != v2f{0.0f}) {
+                            const v2f naxis = glm::normalize(imgui.gizmo_axis_dir);
+                            const f32 proj = glm::dot(mdelta, naxis);
+                            const f32 scale = imgui.gizmo_scale_start;
+                            
+                            auto s = (imgui.gizmo_basis_scale + glm::dot(mdelta, naxis/scale)); 
+                            if (snapping != 0.0f) s = glm::floor(s / snapping + 0.5f) * snapping;
+                            if (imgui.gizmo_axis_wdir == axis::right) {
+                                (*basis)[0] = imgui.gizmo_world_start * s;
+                            }
+                            if (imgui.gizmo_axis_wdir == axis::up) {
+                                (*basis)[1] = imgui.gizmo_world_start * s;
+                            }
+                            if (imgui.gizmo_axis_wdir == axis::forward) {
+                                (*basis)[2] = -imgui.gizmo_world_start * s;
+                            }
+                            // *basis = glm::scale(m44{*basis}, imgui.gizmo_axis_wdir * proj);
+
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 6.0f, color::rgba::light_gray);
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 8.0f, color::to_color32(imgui.gizmo_axis_wdir));
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 6.0f, color::rgba::light_gray);
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 8.0f, color::to_color32(imgui.gizmo_axis_wdir));
+                            
+                            draw_line(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, imgui.gizmo_mouse_start, 3.0f, color::to_color32(imgui.gizmo_axis_wdir * 0.7f));
+                            draw_line(&imgui.ctx, v_pos - naxis * 10000.0f, v_pos + naxis * 10000.0f, 2.0f, color::rgba::light_gray);
+
+                        } else {
+                            switch(giz_id) {
+                                case 0: break;
+                                case "gizmo_pos"_sid: {
+                                    imgui.gizmo_mouse_start = v_pos;
+                                    imgui.gizmo_axis_dir = (rd);
+                                    break;
+                                }
+                                case "gizmo_right"_sid: {
+                                    imgui.gizmo_axis_dir = (rd);
+                                    imgui.gizmo_axis_wdir = axis::right;
+                                    imgui.gizmo_basis_scale = glm::length((*basis)[0]);
+                                    // imgui.gizmo_axis_wdir = glm::normalize((*basis)[0]);
+                                    imgui.gizmo_mouse_start = v_right;
+                                    imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
+                                    break;
+                                }
+                                case "gizmo_up"_sid: {
+                                    imgui.gizmo_axis_dir = (ud);
+                                    imgui.gizmo_axis_wdir = axis::up;
+                                    imgui.gizmo_basis_scale = glm::length((*basis)[1]);
+                                    // imgui.gizmo_axis_wdir = glm::normalize((*basis)[1]);
+                                    imgui.gizmo_mouse_start = v_up;
+                                    imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
+                                    break;
+                                }
+                                case "gizmo_forward"_sid: {
+                                    imgui.gizmo_axis_dir = (fd);
+                                    imgui.gizmo_axis_wdir = axis::forward;
+                                    imgui.gizmo_basis_scale = glm::length((*basis)[2]);
+                                    // imgui.gizmo_axis_wdir = glm::normalize((*basis)[2]);
+                                    imgui.gizmo_mouse_start = v_forward;
+                                    imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
+                                    break;
+                                }
+                                case_invalid_default;
+                            }
+                            imgui.gizmo_world_start = glm::normalize(*basis * imgui.gizmo_axis_wdir);
+                            imgui.gizmo_basis_scale = glm::length(*basis * imgui.gizmo_axis_wdir);
+                            imgui.gizmo_basis_start = *basis;
+                        }
+                    }
+                    if (released) {
+                        result.released = 1;      
+                        result.start_pos = imgui.gizmo_world_start;
+                        imgui.active = 0;
+                        imgui.gizmo_mouse_start = v2f{0.0f};
+                        imgui.gizmo_axis_dir = v2f{0.0f};
+                        imgui.gizmo_axis_wdir = v3f{0.0f};
+                    }
+                }
+                if (imgui.hot.id == giz_id) {
+                    if (clicked) {
+                        imgui.active = giz_id;
+                    }
+                } else if (is_gizmo_id(imgui.hot.id)) {
+                    if (released) {
+                        result.released = 1;
+                        result.start_pos = imgui.gizmo_world_start;
+                        imgui.hot = 0;
+                        imgui.gizmo_mouse_start = v2f{0.0f};
+                        imgui.gizmo_axis_dir = v2f{0.0f};
+                        imgui.gizmo_axis_wdir = v3f{0.0f};
+                    }
+                }
+                if (giz_id) {
+                    imgui.hot = giz_id;
+                }
+            } else {
+                if (is_gizmo_id(imgui.hot.id) || is_gizmo_id(imgui.active.id)) {
+                    result.released = 1;
+                    result.start_pos = imgui.gizmo_world_start;
+                    imgui.hot = imgui.active = 0;
+                    imgui.gizmo_mouse_start = v2f{0.0f};
+                    imgui.gizmo_axis_dir = v2f{0.0f};
+                    imgui.gizmo_axis_wdir = v3f{0.0f};
+                }
+            }
+
+            return result;
+        }
+
+        inline gizmo_result_t
+        gizmo_rotate(
+            state_t& imgui,
+            v3f* pos,
+            m33* basis,
+            const m44& vp,
+            f32 snapping
+        ) {
+            gizmo_result_t result = {};
+            draw_gizmo(imgui, pos, vp, 1, 0, *basis);
+
+            const v3f spos = math::world_to_screen(vp, *pos);
+            math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
+
+            const auto is_gizmo_id = [](u64 id){
+                switch(id) {
+                    case "gizmo_pos"_sid: 
+                    case "gizmo_right"_sid: 
+                    case "gizmo_up"_sid: 
+                    case "gizmo_forward"_sid:
+                        return true;
+                    default:
+                        return false;
+                }                        
+            };
+
+            if (viewable.contains(spos)) {
+                // gizmo points in screen space
+                const auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize((*basis)[1]))};
+                const auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize((*basis)[2]))};
+                const auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize((*basis)[0]))};
+                const auto v_pos        = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos)};
+
+                // gizmo delta
+                const v2f rd = v_right - v_pos;
+                const v2f ud = v_up - v_pos;
+                const v2f fd = v_forward - v_pos;
+                
+                const math::circle_t pc{v_pos, 8.0f};
+                const math::circle_t rc{v_right, 8.0f};
+                const math::circle_t uc{v_up, 8.0f};
+                const math::circle_t fc{v_forward, 8.0f};
+                const auto [mx,my] = imgui.ctx.input->mouse.pos;
+                const v2f mouse{mx,my};
+                const v2f mdelta{-(imgui.gizmo_mouse_start-mouse)};
+
+
+                u64 giz_id = is_gizmo_id(imgui.active.id) ? imgui.active.id : 0;
+
+                // if (math::intersect(pc, mouse)) {giz_id = "gizmo_pos"_sid;} else
+                if (is_gizmo_id(imgui.active.id) == false) {
+
+                    if (math::intersect(rc, mouse)) {giz_id = "gizmo_right"_sid;} else
+                    if (math::intersect(uc, mouse)) {giz_id = "gizmo_up"_sid;} else
+                    if (math::intersect(fc, mouse)) {giz_id = "gizmo_forward"_sid;}
+                }
+                imgui.verify_id(giz_id);
+
+                const bool clicked = imgui.ctx.input->pressed.mouse_btns[0];
+                const bool released = imgui.ctx.input->released.mouse_btns[0];
+                if (is_gizmo_id(imgui.active.id)) {
+                    if (is_gizmo_id(imgui.hot.id)) {
+                        if (imgui.gizmo_mouse_start != v2f{0.0f}) {
+                            const v2f naxis = glm::normalize(imgui.gizmo_axis_dir);
+                            const f32 proj = glm::dot(mdelta, naxis);
+                            const f32 scale = imgui.gizmo_scale_start;
+
+                            math::transform_t t{};
+                            // t.basis = *basis;
+                            auto angle = glm::dot(mdelta * 10.0F, naxis/scale);
+                            //angle = glm::radians(angle);
+                            if (snapping != 0.0f) {
+                                angle = glm::floor(angle / snapping + 0.5f) * snapping;
+                            }
+                            angle = glm::radians(angle);
+                            
+                            t.basis = imgui.gizmo_basis_start;
+                            // t.set_rotation(imgui.gizmo_axis_wdir, angle);
+                            t.rotate(imgui.gizmo_axis_wdir, angle);
+                            *basis = t.basis;// * imgui.gizmo_basis_start;
+
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 6.0f, color::rgba::light_gray);
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 8.0f, color::to_color32(imgui.gizmo_axis_wdir));
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 6.0f, color::rgba::light_gray);
+                            draw_circle(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, 8.0f, color::to_color32(imgui.gizmo_axis_wdir));
+                            
+                            draw_line(&imgui.ctx, imgui.gizmo_mouse_start + naxis * proj, imgui.gizmo_mouse_start, 3.0f, color::to_color32(imgui.gizmo_axis_wdir * 0.7f));
+                            draw_line(&imgui.ctx, v_pos, v_pos + naxis * 10000.0f, 2.0f, color::rgba::light_gray);
+
+                        } else {
+                            imgui.gizmo_basis_start = *basis;
+                            switch(giz_id) {
+                                case 0: break;
+                                case "gizmo_pos"_sid: {
+                                    imgui.gizmo_mouse_start = v_pos;
+                                    imgui.gizmo_axis_dir = (rd);
+                                    break;
+                                }
+                                case "gizmo_right"_sid: {
+                                    imgui.gizmo_axis_dir = (rd);
+                                    // imgui.gizmo_axis_wdir = axis::right;
+                                    imgui.gizmo_axis_wdir = (*basis)[0];
+                                    imgui.gizmo_mouse_start = v_right;
+                                    imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
+                                    break;
+                                }
+                                case "gizmo_up"_sid: {
+                                    imgui.gizmo_axis_dir = (ud);
+                                    // imgui.gizmo_axis_wdir = axis::up;
+                                    imgui.gizmo_axis_wdir = (*basis)[1];
+                                    imgui.gizmo_mouse_start = v_up;
+                                    imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
+                                    break;
+                                }
+                                case "gizmo_forward"_sid: {
+                                    imgui.gizmo_axis_dir = (fd);
+                                    // imgui.gizmo_axis_wdir = axis::forward;
+                                    imgui.gizmo_axis_wdir = (*basis)[2];
+                                    imgui.gizmo_mouse_start = v_forward;
+                                    imgui.gizmo_scale_start = glm::length(imgui.gizmo_axis_dir); 
+                                    break;
+                                }
+                                case_invalid_default;
+                            }
+                            imgui.gizmo_axis_wdir = glm::normalize(imgui.gizmo_axis_wdir);
+                        }
+                    }
+                    if (released) {
+                        result.released = 1;      
+                        result.start_pos = imgui.gizmo_world_start;
+                        imgui.active = 0;
+                        imgui.gizmo_mouse_start = v2f{0.0f};
+                        imgui.gizmo_axis_dir = v2f{0.0f};
+                        imgui.gizmo_axis_wdir = v3f{0.0f};
+                    }
+                }
+                if (imgui.hot.id == giz_id) {
+                    if (clicked) {
+                        imgui.active = giz_id;
+                    }
+                } else if (is_gizmo_id(imgui.hot.id)) {
+                    if (released) {
+                        result.released = 1;
+                        result.start_pos = imgui.gizmo_world_start;
+                        imgui.hot = 0;
+                        imgui.gizmo_mouse_start = v2f{0.0f};
+                        imgui.gizmo_axis_dir = v2f{0.0f};
+                        imgui.gizmo_axis_wdir = v3f{0.0f};
+                    }
+                }
+                if (giz_id) {
+                    imgui.hot = giz_id;
+                }
+            } else {
+                if (is_gizmo_id(imgui.hot.id) || is_gizmo_id(imgui.active.id)) {
+                    result.released = 1;
+                    result.start_pos = imgui.gizmo_world_start;
+                    imgui.hot = imgui.active = 0;
+                    imgui.gizmo_mouse_start = v2f{0.0f};
+                    imgui.gizmo_axis_dir = v2f{0.0f};
+                    imgui.gizmo_axis_wdir = v3f{0.0f};
+                }
+            }
+
+            return result;
         }
 
         inline void
@@ -4458,8 +5102,8 @@ namespace gui {
             const b32 is_clamped = (min != std::numeric_limits<f32>::min());
                         
             const f32 prc = 
-                is_clamped ?
-                glm::clamp((*val - min) / (max - min), 0.0f, 1.0f) : 
+                // is_clamped ?
+                // glm::clamp((*val - min) / (max - min), 0.0f, 1.0f) : 
                 1.0f;
 
             box.expand(tmp_cursor);
@@ -4482,22 +5126,38 @@ namespace gui {
             // expand all the way to get prc box size
             prc_box.expand(prc_box.min + (size - 4.0f) * v2f{1.0f});
 
-            const f32 dist_prc = glm::min(offset.x, offset.y) / 32.0f;
-            const f32 m_prc = dist_prc;
+            const f32 dist_prc = glm::min(offset.x, offset.y);
+            const b32 shift_held = imgui.ctx.input->keys[key_id::RIGHT_SHIFT] || imgui.ctx.input->keys[key_id::LEFT_SHIFT];
+            f32 pixel_scale = shift_held ? 4.0f : 64.0f;
+
+            const f32 m_prc = glm::length(offset) / pixel_scale * glm::sign(dist_prc);
+
 
             // if (imgui.stealing.id == drg_id) {
             //     imgui.active = imgui.stealing;
             // }
 
             if (imgui.active.id == drg_id) {
+                {
+                    auto tc = imgui.drag_start;
+                    string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tc, gfx::color::rgba::white);
+                    tc = imgui.drag_start + v2f{2.0f};
+                    string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tc, gfx::color::rgba::black);
+                }
+                draw_circle(&imgui.ctx, imgui.drag_start, 4.0f, gfx::color::rgba::white);
+                draw_circle(&imgui.ctx, imgui.drag_start, 5.0f, gfx::color::rgba::black);
+                draw_circle(&imgui.ctx, v2f{x,y}, 4.0f, gfx::color::rgba::white);
+                draw_circle(&imgui.ctx, v2f{x,y}, 5.0f, gfx::color::rgba::black);
+                draw_ellipse_arc_with_basis(&imgui.ctx, imgui.drag_start, v2f{glm::length(offset)}, v2f{1.0f,0.0f}, v2f{0.0f, 1.0f}, 0.0f, 1.0f, 4.0f, color::rgba::white, 32);
+
                 // if (imgui.hot.id == drg_id) 
                 {
-                    auto add = m_prc * step;
-                    *val = *val + add;
+                    auto add = glm::floor(m_prc) * step;
+                    *val = imgui.float_drag_start_value + add;
                     if (is_clamped) {
                         *val = glm::clamp(*val, min, max);
                     }
-                    imgui.drag_start = v2f{x,y};
+                    // imgui.drag_start = v2f{x,y};
                     imgui.stealing = drg_id;
                 }
                 if (!imgui.ctx.input->mouse.buttons[0]) {
@@ -4508,6 +5168,7 @@ namespace gui {
                 if (imgui.ctx.input->mouse.buttons[0]) {
                     imgui.active = drg_id;
                     imgui.drag_start = v2f{x,y};
+                    imgui.float_drag_start_value = *val;
                 }
             }
 
@@ -4522,6 +5183,34 @@ namespace gui {
                 imgui.panel->draw_cursor.y += box.size().y + imgui.theme.padding;
                 imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
             }
+        }
+
+        inline void
+        int_drag(
+            state_t& imgui,
+            i32* val,
+            i32 step = 1,
+            f32 min = std::numeric_limits<f32>::min(),
+            f32 max = std::numeric_limits<f32>::max(),
+            v2f size = v2f{64.0f, 16.0f}
+        ) {
+            f32 f = (f32)*val;
+            float_drag_id(imgui, (u64)val, &f, (f32)step, min, max, size);
+            *val = (i32)f;
+        }
+
+        inline void
+        uint_drag(
+            state_t& imgui,
+            u32* val,
+            i32 step = 1,
+            f32 min = std::numeric_limits<f32>::min(),
+            f32 max = std::numeric_limits<f32>::max(),
+            v2f size = v2f{64.0f, 16.0f}
+        ) {
+            f32 f = (f32)*val;
+            float_drag_id(imgui, (u64)val, &f, (f32)step, min, max, size);
+            *val = (u32)(f+0.1f);
         }
 
         inline void
@@ -4546,11 +5235,12 @@ namespace gui {
             v2f size = v2f{64.0f, 16.0f}
         ) {
             auto theme = imgui.theme;
+            imgui.theme.text_color = gfx::color::rgba::black;
             same_line(imgui);
-            theme.fg_color = gfx::color::rgba::red;
+            imgui.theme.fg_color = gfx::color::rgba::red;
             indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->x, &val->x, step, min, max, size);
-            theme.fg_color = gfx::color::rgba::green;
+            imgui.theme.fg_color = gfx::color::rgba::green;
             indent(imgui, v2f{28.0f,0.0f});
             indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->y, &val->y, step, min, max, size);
@@ -4567,16 +5257,17 @@ namespace gui {
             v2f size = v2f{64.0f, 16.0f}
         ) {
             auto theme = imgui.theme;
+            imgui.theme.text_color = gfx::color::rgba::black;
             same_line(imgui);
-            theme.fg_color = gfx::color::rgba::red;
+            imgui.theme.fg_color = gfx::color::rgba::red;
             indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->x, &val->x, step, min, max, size);
             same_line(imgui);
-            theme.fg_color = gfx::color::rgba::green;
+            imgui.theme.fg_color = gfx::color::rgba::green;
             indent(imgui, v2f{28.0f,0.0f});
             indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->y, &val->y, step, min, max, size);
-            theme.fg_color = gfx::color::rgba::blue;
+            imgui.theme.fg_color = gfx::color::rgba::blue;
             indent(imgui, v2f{28.0f,0.0f});
             indent(imgui, v2f{28.0f,0.0f});
             indent(imgui, v2f{28.0f,0.0f});
@@ -4811,12 +5502,14 @@ namespace gui {
             if (imgui.hot.id != txt_id && *position == 0) {
                 draw_rect(&imgui.ctx, text_box, imgui.theme.fg_color);
             }
+            
             if (imgui.next_same_line) {
                 imgui.next_same_line = false;
                 imgui.panel->draw_cursor.x += font_size.x;
             } else {
                 imgui.panel->draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
-                imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
+                imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
+                // imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
             }
             return result;
         }
@@ -4930,6 +5623,38 @@ namespace gui {
             }
         }
 
+        inline u64
+        enumeration(
+            state_t& imgui,
+            std::span<std::string_view> names,
+            u64 current
+        ) {
+            auto theme = imgui.theme;
+            for (u64 i = 0; i < names.size(); i++){
+                if (i == current) {
+                    imgui.theme.text_color = imgui.theme.active_color;
+                }
+                if (text(imgui, names[i])) {
+                    imgui.theme.text_color = theme.text_color;
+                    return i;
+                }
+                if (i == current) {
+                    imgui.theme.text_color = theme.text_color;
+                }
+            }
+            return current;
+        }
+
+        template <typename T>
+        inline T
+        enumeration(
+            state_t& imgui,
+            std::span<std::string_view> names,
+            T current
+        ) {
+            return (T)enumeration(imgui, names, (u64)current);
+        }
+
         inline void
         bitflag(
             state_t& imgui,
@@ -4961,7 +5686,7 @@ namespace gui {
             std::string_view name,
             gfx::color32 color,
             gfx::color32 text_color,
-            sid_t btn_id_ = 0,
+            u64 btn_id_ = 0,
             v2f size = v2f{16.0f},
             u8 font_size = 16
         ) {
@@ -4999,7 +5724,8 @@ namespace gui {
 
             imgui.panel->expand(box.max + imgui.theme.padding);
             v2f same_line = box.min + imgui.theme.margin;
-            string_render(&imgui.ctx, name, same_line, text_color, imgui.ctx.dyn_font[font_size]);
+            // string_render(&imgui.ctx, name, same_line, text_color, imgui.ctx.dyn_font[font_size]);
+            string_render(&imgui.ctx, name, same_line, text_color, imgui.ctx.font);
             draw_rect(&imgui.ctx, box, imgui.hot.id == btn_id ? imgui.theme.active_color : color);
             
             if (imgui.next_same_line) {
@@ -5018,7 +5744,7 @@ namespace gui {
         button(
             state_t& imgui, 
             std::string_view name,
-            sid_t btn_id_ = 0,
+            u64 btn_id_ = 0,
             v2f size = v2f{16.0f},
             u8 font_size = 16
         ) {
@@ -5519,6 +6245,7 @@ struct random_t {
             (this->randf() * (box.max.z - box.min.z)) + box.min.z
         };
     }
+
 };
 
 struct random_s {
@@ -5636,6 +6363,19 @@ Value* hash_get(hash_trie_t<Key,Value>** map, Key key, arena_t* arena=0) {
     // (*map)->value = {};
     (*map)->key = key;
     return &(*map)->value;
+}
+
+template <typename Key, typename Value>
+void hash_foreach(hash_trie_t<Key,Value>* map, std::function<void(typename Key,typename Value*)> func) {
+    if (!map) {
+        return;
+    }
+    func(map->key, &map->value);
+    for (u64 i = 0; i < array_count(map->child); i++) {
+        if (map->child[i]) {
+            hash_foreach(map->child[i], func);
+        }
+    }
 }
 
 
@@ -5942,6 +6682,39 @@ struct free_list_t {
     }
 };
 
+struct mod_loader_t {
+    arena_t* arena{0};
+    void* library{0};
+
+    explicit mod_loader_t() {
+        library = Platform.load_module();
+    }
+
+    void load_library(const char* name) {
+        library = Platform.load_library(name);
+    }
+
+    template <typename FunctionType>
+    FunctionType load_function(std::string_view name) {
+        return Platform.load_function<FunctionType>(library, name.data());
+    }
+
+    template <typename FunctionType>
+    hash_trie_t<std::string_view, FunctionType>* function_cache() {
+        return 0;
+    }
+
+    template<typename FunctionType, typename ... Args>
+    auto call(hash_trie_t<std::string_view, FunctionType>** cache, std::string_view name, Args ... args) {
+        auto* func = hash_get(cache, name, arena);
+        if (*func == 0) {
+            *func = load_function(name);
+            assert(*func);
+        } 
+        return func(std::forward<Args>(args)...);
+    }
+};
+
 
 inline auto 
 make_v3f(const auto& v) -> v3f {
@@ -6043,6 +6816,7 @@ struct offset_array_t {
     }
 };
 
+// todo(zack) fix buffer overflow
 struct memory_blob_t {
     std::byte* data{0};
 
@@ -6062,7 +6836,7 @@ struct memory_blob_t {
     }
 
     explicit memory_blob_t(arena_t* arena)
-    : data{arena->start}
+    : data{arena->start + arena->top}
     {
     }
 
@@ -6071,11 +6845,13 @@ struct memory_blob_t {
     }
 
     template <typename T>
-    void allocate() {
+    void allocate(arena_t* arena) {
+        push_struct<T>(arena);
         allocation_offset += sizeof(T);
     }
 
-    void allocate(size_t bytes) {
+    void allocate(arena_t* arena, size_t bytes) {
+        push_bytes(arena, bytes);
         allocation_offset += bytes;
     }
 
@@ -6110,14 +6886,12 @@ struct memory_blob_t {
         // serialize_offset = cached_serialize_offset;
     }
 
+    // If no serialize is provided, fallback to memcopy
     template <typename T>
     void serialize(arena_t* arena, const T& obj) {
-        // note(zack): probably dont need to actually pass in arena, but it is safer(?) and more clear
-        push_bytes(arena, sizeof(T));
-
+        allocate<T>(arena);
         utl::copy(&data[serialize_offset], (std::byte*)&obj, sizeof(T));
 
-        allocate<T>();
         serialize_offset += sizeof(T);
     }
 
@@ -6139,14 +6913,11 @@ struct memory_blob_t {
 
     template <>
     void serialize(arena_t* arena, const std::string_view& obj) {
-        // note(zack): probably dont need to actually pass in arena, but it is safer(?) and more clear
         serialize(arena, obj.size());
 
-        push_bytes(arena, obj.size());
-
+        allocate(arena, obj.size());
         utl::copy(&data[serialize_offset], (std::byte*)obj.data(), obj.size());
 
-        allocate(obj.size());
         serialize_offset += obj.size();
     }
 
@@ -6199,6 +6970,21 @@ struct memory_blob_t {
         array->data.offset = get_relative_data_offset(&array->data, read_offset);
         
         read_offset += array->count * sizeof(T) + 8;
+    }
+
+    template <typename T, umm Size>
+    T deserialize() {
+        const auto t_offset = read_offset;
+        
+        advance(sizeof(T));
+
+        // return *(T*)(data+t_offset);
+
+        T t;
+        utl::copy(&t, (T*)(data + t_offset), sizeof(T));
+
+        return t;
+        // return std::bit_cast<T>(*(T*)(data + t_offset));
     }
 
     template <typename T>
@@ -6652,6 +7438,12 @@ template <typename T>
 auto generic(auto&& fn) {
     return [=](T a, T b, f32 x) {
         return a + (b-a) * fn(x);
+    };
+}
+
+auto over_time(auto&& fn, f32 dt) {
+    return [=](auto a, auto b, f32 x) {
+        return fn(a,b,1.0f - std::pow(x, dt));
     };
 }
 

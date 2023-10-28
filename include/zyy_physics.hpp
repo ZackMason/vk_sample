@@ -38,7 +38,9 @@ struct collider_sphere_info_t {
 };
 
 struct collider_box_info_t {
+    v3f origin;
     v3f size;
+    quat rot;
 };
 
 enum struct rigidbody_type {

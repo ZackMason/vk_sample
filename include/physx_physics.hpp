@@ -423,6 +423,7 @@ physx_create_collider_impl(
                 *(physx::PxRigidActor*)rigidbody->api_data,
                 physx::PxBoxGeometry(PxVec3{ci->size.x, ci->size.y, ci->size.z}), *material);
             ((physx::PxShape*)col->shape)->userData = col;
+            ((physx::PxShape*)col->shape)->setLocalPose(physics::cast_transform(ci->origin, ci->rot));
         }   break;
         case_invalid_default;
     }

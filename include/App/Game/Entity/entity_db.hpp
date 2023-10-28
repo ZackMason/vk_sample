@@ -108,12 +108,12 @@ torch_01 {
         .mesh_name = "res/models/environment/torch_01.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
-    .children = {
-        {
-            .entity = {},
-            .offset = v3f{0.0f, 1.5f, -0.45f}
-        }
-    },
+    // .children = {
+    //     {
+    //         .entity = {},
+    //         .offset = v3f{0.0f, 1.5f, -0.45f}
+    //     }
+    // },
 };
 
 DB_ENTRY
@@ -137,7 +137,7 @@ platform_1000 {
     },
 };
 
-void co_platform(coroutine_t* co, frame_arena_t& frame_arena) {
+export_fn(void) co_platform(coroutine_t* co, frame_arena_t& frame_arena) {
     // return;
     auto* e = (zyy::entity_t*)co->data;
     auto& y_pos = e->physics.rigidbody->position.y;
@@ -413,23 +413,23 @@ tree_01 {
     },
 };
 
-DB_ENTRY
-tree_group {
-    .children = {
-        {
-            .entity = &tree_01,
-            .offset = v3f{0.0f}
-        },
-        {
-            .entity = &tree_01,
-            .offset = v3f{2.0f,0.0f, 0.5f}
-        },
-        {
-            .entity = &tree_01,
-            .offset = v3f{1.0f,0.0f, -0.25f}
-        },
-    },
-};
+// DB_ENTRY
+// tree_group {
+//     .children = {
+//         {
+//             .entity = &tree_01,
+//             .offset = v3f{0.0f}
+//         },
+//         {
+//             .entity = &tree_01,
+//             .offset = v3f{2.0f,0.0f, 0.5f}
+//         },
+//         {
+//             .entity = &tree_01,
+//             .offset = v3f{1.0f,0.0f, -0.25f}
+//         },
+//     },
+// };
 
 };
 
@@ -488,6 +488,21 @@ parkcore_02 {
     .type_name = "parkcore_02",
     .gfx = {
         .mesh_name = "res/models/rooms/parkcore_02.gltf",
+        .material = gfx::material_t::metal(gfx::color::v4::light_gray),
+    },
+    .physics = zyy::prefab_t::physics_t {
+        .flags = PhysicsEntityFlags_Static,
+        .shapes = {
+            zyy::prefab_t::physics_t::shape_t{.shape = physics::collider_shape_type::TRIMESH,},
+        },
+    },
+};
+DB_ENTRY
+church_01 {
+    .type = entity_type::environment,
+    .type_name = "church_01",
+    .gfx = {
+        .mesh_name = "res/models/rooms/church_01.gltf",
         .material = gfx::material_t::metal(gfx::color::v4::light_gray),
     },
     .physics = zyy::prefab_t::physics_t {
@@ -633,7 +648,8 @@ lightning_powerup {
     },
     .physics = zyy::prefab_t::physics_t {
         .flags = PhysicsEntityFlags_Static,
-        .on_trigger = zyy::item::pickup_item,
+        // .on_trigger = zyy::item::pickup_item,
+        .on_trigger = "on_trigger_pickup_item",
         .shapes = {
             zyy::prefab_t::physics_t::shape_t{
                 .shape = physics::collider_shape_type::SPHERE,

@@ -14,6 +14,8 @@ void entity_blackboard_common(zyy::entity_t* entity) {
     auto* self = utl::hash_get(&brain->blackboard.points, "self"sv, brain->blackboard.arena);
     auto* health = utl::hash_get(&brain->blackboard.floats, "health"sv, brain->blackboard.arena);
 
+    brain->blackboard.time = entity->world->time();
+
     *utl::hash_get(&brain->blackboard.bools, "has_weapon"sv, brain->blackboard.arena) = 
         entity->primary_weapon.entity != nullptr;
     assert(rng);
@@ -22,7 +24,7 @@ void entity_blackboard_common(zyy::entity_t* entity) {
     *self = entity->global_transform().origin;
 
     *rng = entity->world->entropy.randv<v3f>();
-    *rng_move = entity->world->entropy.randnv<v3f>() * planes::xz;
+    *rng_move = *self + entity->world->entropy.randnv<v3f>() * planes::xz;
 }
 
 BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
@@ -30,7 +32,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto& imgui = world->game_state->gui.state;
     auto pc = input->gamepads[0].is_connected ? gamepad_controller(input) : keyboard_controller(input);
     auto* physics = world->physics;
-    auto* player = world->player;
+    auto* player = entity;
     auto* rigidbody = player->physics.rigidbody;
     const bool is_on_ground = rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
     const bool is_on_wall = rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
@@ -367,34 +369,44 @@ BRAIN_BEHAVIOR_FUNCTION(person_behavior) {
 
 BRAIN_BEHAVIOR_FUNCTION(skull_behavior) {
     auto* physics = world->physics;
-    auto* player = world->player;
     auto* rb = entity->physics.rigidbody;
     auto max_speed = entity->stats.character.movement.move_speed;
 
-    // collect_nearby(
-    //     &world->frame_arena.get(),
-    //     world,
-    //     physics,
-    //     brain->skull.neighbors,
-    //     entity->global_transform().origin,
-    //     20.0f
-    // );
 
-    auto vel = entity->physics.rigidbody->velocity;
-    auto s = glm::length(vel);
+    stack_buffer<interest_point_t, 32> buffer = {};
+    brain_type enemy_types[] = {brain_type::player, brain_type::person};
+    collect_nearby_enemy(
+        &world->frame_arena.get(),
+        physics,
+        buffer,
+        entity->global_transform().origin,
+        20.0f,
+        enemy_types
+    );
 
-    v3f to_target = player->global_transform().origin - entity->global_transform().origin;
-    v3f local_target = rb->inverse_transform_direction(to_target);
-
-    if (to_target.y > -5.0f) {
-        to_target.y = 5.0f;
+    zyy::entity_t* target = 0;
+    if (buffer.count()) {
+        target = (zyy::entity_t*)buffer[0].data;
     }
 
-    local_persist f32 skull_air_accel = 5.0f; DEBUG_WATCH(&skull_air_accel)->max_f32 = 10.0f;
-    local_persist f32 skull_max_air_speed = 5.0f; DEBUG_WATCH(&skull_max_air_speed)->max_f32 = 10.0f;
+    if (target) {
 
-    v3f target_vel = quake_air_move(glm::normalize(to_target), vel, 0.0f, skull_air_accel, skull_max_air_speed, dt);
-    
-    rb->set_velocity(target_vel);
+        auto vel = entity->physics.rigidbody->velocity;
+        auto s = glm::length(vel);
+
+        v3f to_target = target->global_transform().origin - entity->global_transform().origin;
+        v3f local_target = rb->inverse_transform_direction(to_target);
+
+        if (to_target.y > -5.0f) {
+            to_target.y = 5.0f;
+        }
+
+        local_persist f32 skull_air_accel = 5.0f; DEBUG_WATCH(&skull_air_accel)->max_f32 = 10.0f;
+        local_persist f32 skull_max_air_speed = 5.0f; DEBUG_WATCH(&skull_max_air_speed)->max_f32 = 10.0f;
+
+        v3f target_vel = quake_air_move(glm::normalize(to_target), vel, 0.0f, skull_air_accel, skull_max_air_speed, dt);
+        
+        rb->set_velocity(target_vel);
+    }
     // rb->add_force();
 }

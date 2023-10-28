@@ -11,49 +11,9 @@ namespace zyy::item {
 };
 
 namespace zyy::wep {
-    enum struct weapon_part_type {
-        HANDLE, BODY, SIGHT,
-        TRIGGER, CHAMBER, MAGAZINE,
-        SIZE
-    };
+  
 
-    constexpr const char* to_string(weapon_part_type type) noexcept {
-        switch(type){ 
-            case weapon_part_type::BODY: return "weapon_part_type::BODY";
-            case weapon_part_type::HANDLE: return "weapon_part_type::HANDLE";
-            case weapon_part_type::SIGHT: return "weapon_part_type::SIGHT";
-            case weapon_part_type::TRIGGER: return "weapon_part_type::TRIGGER";
-            case weapon_part_type::CHAMBER: return "weapon_part_type::CHAMBER";
-            case weapon_part_type::MAGAZINE: return "weapon_part_type::MAGAZINE";
-        }
-        return "<Unknown>";
-    }
-
-    struct weapon_part_t;
-
-    #define MAX_WEAPON_SLOTS 5
-    struct weapon_slot_t {
-        weapon_part_t*      part;
-        weapon_part_type    type;
-    };
-
-    struct weapon_part_t {
-        string_t            name;
-        string_t            desc;
-        weapon_part_type    type;
-        item::effect_t*     effects{};
-
-        weapon_slot_t   slots[MAX_WEAPON_SLOTS];
-        size_t          num_slots;
-    };
-
-    enum struct weapon_type {
-        PISTOL, RIFLE,
-        SHOTGUN, ROCKET,
-        SIZE
-    };
-
-    struct ammo_clip_t {
+    struct ammo_mag_t {
         u32 current{};
         u32 max{};
     };
@@ -81,7 +41,7 @@ namespace zyy::wep {
         u32 chamber_mult{};
 
         weapon_stats_t stats{};
-        ammo_clip_t clip{};
+        ammo_mag_t mag{};
         weapon_action_t action{};
 
         item::effect_t* effects{};
@@ -99,7 +59,7 @@ namespace zyy::wep {
             if (action.chamber_time > chamber_speed) {
                 // Platform.audio.play_sound(sound_effects.reload);
                 action.chamber_time = 0.0f;
-                clip.current -= chamber_max;
+                mag.current -= chamber_max;
                 chamber_count += chamber_max;
                 return true;
             }
@@ -110,7 +70,7 @@ namespace zyy::wep {
             action.reload_time += dt;
             if (action.reload_time > load_speed) {
                 action.reload_time = 0.0f;
-                clip.current = clip.max;
+                mag.current = mag.max;
                 // Platform.audio.play_sound(sound_effects.reload);
                 return true;
             }
@@ -119,7 +79,7 @@ namespace zyy::wep {
 
         void update(f32 dt) {
             if (chamber_count == 0) {
-                if (clip.current > 0) {
+                if (mag.current > 0) {
                     chamber_round(dt);
                 } else {
                     reload(dt);
@@ -176,7 +136,7 @@ namespace zyy::wep {
                 .damage = 3.0f,
                 .pen = 2.0f
             },
-            .clip = wep::ammo_clip_t {
+            .mag = wep::ammo_mag_t {
                 .current = 18,
                 .max = 18
             },
@@ -197,7 +157,7 @@ namespace zyy::wep {
                 .damage = 10.0f,
                 .pen = 1.0f
             },
-            .clip = wep::ammo_clip_t {
+            .mag = wep::ammo_mag_t {
                 .current = 4,
                 .max = 4
             },
@@ -219,7 +179,7 @@ namespace zyy::wep {
                 .damage = 1.0f,
                 .pen = 1.0f
             },
-            .clip = wep::ammo_clip_t {
+            .mag = wep::ammo_mag_t {
                 .current = 30,
                 .max = 30
             },
@@ -240,7 +200,7 @@ namespace zyy::wep {
                 .damage = 4.0f,
                 .pen = 3.0f
             },
-            .clip = wep::ammo_clip_t {
+            .mag = wep::ammo_mag_t {
                 .current = 8,
                 .max = 8
             },
@@ -262,7 +222,7 @@ namespace zyy::wep {
                 .pen = 1.0f,
                 .spread = 1.0f
             },
-            .clip = wep::ammo_clip_t {
+            .mag = wep::ammo_mag_t {
                 .current = 16,
                 .max = 16
             }

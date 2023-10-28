@@ -33,7 +33,7 @@ void spawn_beam(
 }
 
 
-void lightning_on_hit_effect(
+export_fn(void) lightning_on_hit_effect(
     zyy::world_t* w, 
     zyy::item::effect_t* effect,
     zyy::entity_t* entity,

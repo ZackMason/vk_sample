@@ -314,11 +314,13 @@ generate_world_1(arena_t* arena) {
         auto* player = zyy::tag_spawn(world, zyy::db::characters::assassin, axis::up * 3.0f + axis::right * 15.0f);
         player->physics.rigidbody->linear_dampening = 3.0f;
         // SPAWN_GUN(zyy::db::weapons::smg, axis::forward * 15.0f + axis::up * 3.0f);
-        SPAWN_GUN(zyy::db::weapons::rifle, axis::forward * 15.0f + axis::up * 3.0f);
+        auto rifle = load_from_file(&world->arena, "./res/entity/rifle_01.entt");
+        rifle.weapon = zyy::wep::create_rifle();
+        zyy::tag_spawn(world, rifle, axis::forward * 15.0f + axis::up * 3.0f);
         SPAWN_GUN(zyy::db::weapons::rpg, axis::forward * 25.0f + axis::up * 3.0f);
 
         zyy::tag_spawn(world, zyy::db::items::lightning_powerup, axis::backward * 15.0f + axis::up * 3.0f);
-        range_u64(i, 0, 200) {
+        range_u64(i, 0, 10) {
             auto spos = v3f{10.0f, 0.0f, 10.0f} + v3f{f32(i/10)*3.0f, 1.0f, f32(i%10)*3.0f};
             auto* person = zyy::tag_spawn(world, zyy::db::bads::person, spos);
             person->physics.rigidbody->set_layer(1ui32);
@@ -328,9 +330,9 @@ generate_world_1(arena_t* arena) {
     });
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         // zyy::tag_spawn(world, zyy::db::rooms::sponza);
-        zyy::tag_spawn(world, zyy::db::misc::platform_1000, axis::down);
+        zyy::tag_spawn(world, zyy::db::misc::platform_1000, axis::down*2.0f);
         
-        auto enemy_room = zyy::db::rooms::parkcore_02;
+        auto enemy_room = zyy::db::rooms::church_01;
         enemy_room.coroutine = [](coroutine_t* co, frame_arena_t& frame_arena) {
             auto* self = (zyy::entity_t*)co->data;
             auto* world = (zyy::world_t*)self->physics.rigidbody->api->user_world; // fix this shit wtf
@@ -369,7 +371,7 @@ generate_world_1(arena_t* arena) {
             },
         };
         auto* e_room = zyy::tag_spawn(world, enemy_room);
-            e_room->gfx.material_id = 1;
+            e_room->gfx.material_id = 0;
             e_room->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
                 auto* self = (zyy::entity_t*)trigger->user_data;
                 auto* o = (zyy::entity_t*)other->user_data;

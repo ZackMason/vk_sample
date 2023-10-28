@@ -34,12 +34,12 @@ namespace zyy::wep {
         bullet_t        
     );
 
-    zyy::entity_t* spawn_bullet(
+    export_fn(zyy::entity_t*) spawn_bullet(
         zyy::world_t* world,
         const zyy::prefab_t& prefab,
         bullet_t bullet);
 
-    zyy::entity_t* spawn_rocket(
+    export_fn(zyy::entity_t*) spawn_rocket(
         zyy::world_t* world,
         const zyy::prefab_t& prefab,
         bullet_t bullet);

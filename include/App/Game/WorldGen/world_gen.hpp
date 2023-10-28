@@ -22,7 +22,7 @@ struct world_generation_step_t {
     std::string_view name;
     world_generation_step_type type{invalid};
 
-    using world_generation_function = void(*)(zyy::world_t*);
+    using world_generation_function = void(*)(zyy::world_t*, const void*);
     world_generation_function function{0};
 };
 
@@ -36,6 +36,8 @@ struct world_generator_t {
     u64 step_count{0};
     world_generation_step_t* first_step{0};
 
+    const void* data{0};
+
     void execute(zyy::world_t* world, std::function<void(void)> draw_gui = [](){}) {
         TIMED_FUNCTION;
         auto* step = first_step;
@@ -45,7 +47,7 @@ struct world_generator_t {
                 // rendering::begin_frame(world->render_system());
             }
             // draw_gui();
-            step->function(world);
+            step->function(world, data);
             completed_count++;
 
             node_next(step);
@@ -77,7 +79,7 @@ struct world_generator_t {
     world_generator_t& add_step(
         std::string_view step_name, 
         world_generation_step_type step_type,
-        void(*step_fn)(zyy::world_t*)
+        void(*step_fn)(zyy::world_t*, const void*)
     );
 };
 
@@ -86,7 +88,7 @@ world_generator_add_step(
     world_generator_t* generator,
     std::string_view step_name,
     world_generation_step_type step_type,
-    void(*step_fn)(zyy::world_t*)
+    void(*step_fn)(zyy::world_t*, const void*)
 ) {
     tag_struct(auto* step, world_generation_step_t, generator->arena);
     step->name = step_name;
@@ -99,7 +101,7 @@ world_generator_add_step(
 world_generator_t& world_generator_t::add_step(
     std::string_view step_name, 
     world_generation_step_type step_type,
-    void(*step_fn)(zyy::world_t*)
+    void(*step_fn)(zyy::world_t*, const void*)
 ) {
     world_generator_add_step(this, step_name, step_type, step_fn);
 
@@ -107,7 +109,7 @@ world_generator_t& world_generator_t::add_step(
 }
 
 #define WORLD_GEN_INIT inline static world_generation_step_t steps[] = 
-#define WORLD_STEP_LAMBDA [](zyy::world_t* world)
+#define WORLD_STEP_LAMBDA [](zyy::world_t* world, const void* data)
 #define WORLD_STEP_TYPE_LAMBDA(type) world_generation_step_type::type, WORLD_STEP_LAMBDA
 #define WORLD_GENERATION_STEP(step_name, fn) world_generation_step_t{.name = step_name, .function = WORLD_STEP_LAMBDA fn }
 

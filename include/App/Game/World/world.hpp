@@ -63,7 +63,7 @@ namespace zyy {
 
         physics::api_t* physics{0};
 
-        utl::rng::random_t<utl::rng::pcg_random_t> entropy;
+        utl::rng::random_t<utl::rng::xor64_random_t> entropy;
 
         world_generator_t* world_generator{0};
 
@@ -153,18 +153,19 @@ namespace zyy {
         auto brain_id = entity->brain.id = entity->brain_id = world_new_brain(world, type);
         zyy_info(__FUNCTION__, "Brain {} activated", brain_id);
     }
-
         
     static entity_t*
     spawn(
         world_t* world,
         rendering::system_t* rs,
         const zyy::prefab_t& def,
-        const v3f& pos = {}
+        const v3f& pos = {},
+        const m33& basis = m33{1.0f}
     ) {
         using namespace std::string_view_literals;
         TIMED_FUNCTION;
         utl::res::pack_file_t* resource_file = world->game_state->resource_file;
+        auto* mod_loader = &world->game_state->modding.loader;
 
         entity_t* entity = world_create_entity(world);
 
@@ -176,8 +177,9 @@ namespace zyy {
         assert(entity->first_child == nullptr);
         assert(entity->next_child == nullptr);
 
-        entity_init(entity, rendering::safe_get_mesh_id(rs, def.gfx.mesh_name));
+        entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name));
 
+        entity->gfx.material_id = def.gfx.material_id;
         entity->gfx.gfx_id  = rendering::register_entity(rs);
         entity->gfx.gfx_entity_count = 1;
 
@@ -185,7 +187,6 @@ namespace zyy {
             auto& mesh_list = rendering::get_mesh(rs, def.gfx.mesh_name);
             entity->gfx.gfx_entity_count = mesh_list.count;
 
-  
             rendering::initialize_entity(rs, entity->gfx.gfx_id, mesh_list.meshes[0].vertex_start, mesh_list.meshes[0].index_start);
             rendering::set_entity_albedo(rs, entity->gfx.gfx_id, u32(mesh_list.meshes[0].material.albedo_id));
             for(u64 i = 1; i < mesh_list.count; i++) {
@@ -196,10 +197,11 @@ namespace zyy {
             }
             entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
         }
-        if (def.type_name != ""sv) {
-            entity->name.own(&world->game_state->string_arena, def.type_name);
+        if (def.type_name == true) {
+            entity->name.own(&world->game_state->string_arena, def.type_name.data());
         }
         entity->transform.origin = pos;
+        entity->transform.basis = basis;
 
         entity->type = def.type;
         entity->physics.flags = def.physics ? def.physics->flags : 0;
@@ -208,7 +210,7 @@ namespace zyy {
             entity->coroutine.emplace(
                 zyy::entity_coroutine_t{
                     .coroutine={world->game_state->time, (void*)entity}, 
-                    .func=def.coroutine
+                    .func=def.coroutine.get(mod_loader)
                 }
             );
             // Maybe start coroutines automatically? some are just stored and called by triggers
@@ -240,12 +242,18 @@ namespace zyy {
 
         if (def.effect) {
             entity->stats.effect = *def.effect;
+            if (def.on_hit_effect.name[0]) {
+                entity->stats.effect.on_hit_effect = def.on_hit_effect.get(mod_loader);
+            }
         }
 
         if (def.stats) {
             entity->stats.character = *def.stats;
         } else if (def.weapon) {
             entity->stats.weapon = *def.weapon;
+            if (def.spawn_bullet.name[0]) {
+                entity->stats.weapon.bullet_fn = def.spawn_bullet.get(mod_loader);
+            }
         }
 
         if (def.physics) {
@@ -262,10 +270,10 @@ namespace zyy {
             assert(rb);
             entity->physics.rigidbody = rb;
 
-            rb->on_collision = def.physics->on_collision;
-            rb->on_collision_end = def.physics->on_collision_end;
-            rb->on_trigger = def.physics->on_trigger;
-            rb->on_trigger_end = def.physics->on_trigger_end;
+            rb->on_collision = def.physics->on_collision.get(mod_loader);
+            rb->on_collision_end = def.physics->on_collision_end.get(mod_loader);
+            rb->on_trigger = def.physics->on_trigger.get(mod_loader);
+            rb->on_trigger_end = def.physics->on_trigger_end.get(mod_loader);
             
             rb->position = pos;
             rb->orientation = entity->global_transform().get_orientation();
@@ -340,7 +348,7 @@ namespace zyy {
             world_new_brain(world, entity, def.brain_type);
         }
 
-        range_u64(i, 0, array_count(def.children)) {
+        range_u64(i, 0, def.children.size()) {
             if (def.children[i].entity) {
                 auto child = spawn(world, rs, *def.children[i].entity);
                 entity->add_child(child);
@@ -359,9 +367,10 @@ namespace zyy {
         const char* file_name,
         const char* function,
         u64 line_number,
-        const v3f& pos = {}
+        const v3f& pos = {},
+        const m33& basis = m33{1.0f}
     ) {
-        auto* e = spawn(world, world->render_system(), def, pos);
+        auto* e = spawn(world, world->render_system(), def, pos, basis);
         e->_DEBUG_meta = zyy::DEBUG_entity_meta_info_t {
             .prefab_name = prefab_name,
             .file_name = file_name,
@@ -531,6 +540,12 @@ namespace zyy {
         // const auto* input = &world->game_state->game_memory->input;
         for (size_t i{0}; i < world->entity_count; i++) {
             auto* e = world->entities + i;
+            if (e->physics.flags & zyy::PhysicsEntityFlags_Dying) {
+                e->physics.flags = 0;
+                world->physics->remove_rigidbody(world->physics, e->physics.rigidbody);
+                e->physics.rigidbody = 0;
+                continue;
+            }
             if (e->physics.rigidbody && e->physics.flags & zyy::PhysicsEntityFlags_Kinematic) {
                 world->physics->set_rigidbody(0, e->physics.rigidbody);
                 e->transform.origin = e->physics.rigidbody->position;

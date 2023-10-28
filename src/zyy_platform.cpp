@@ -196,7 +196,8 @@ void win32_free(void* ptr) {
 }
 
 void* win32_alloc(size_t size) {
-#if ZYY_INTERNAL
+#if ZYY_INTERNAL&&0
+
     {
         auto* head = &freed_blocks;
         std::lock_guard lock{free_ticket};
@@ -256,11 +257,6 @@ bool check_buffer_overflow() {
     return false;
 }
 
-void
-write_blocks_to_file(std::string_view file_name) {
-
-}
-
 FILETIME gs_game_dll_write_time;
 
 FILETIME win32_last_write_time(const char* path){
@@ -271,6 +267,21 @@ FILETIME win32_last_write_time(const char* path){
 		time = data.ftLastWriteTime;
 
 	return time;
+}
+
+void*
+win32_load_library(const char* file) {
+    return LoadLibraryA(file);
+}
+
+void*
+win32_load_module() {
+    return GetModuleHandle(0);
+}
+
+void* 
+win32_load_proc(void* lib, const char* name) {
+    return GetProcAddress((HMODULE)lib, name);
 }
 
 #endif
@@ -372,6 +383,12 @@ save_graphics_config(game_memory_t* game_memory) {
     zyy_info("win32", "Saved graphics config");
 }
 
+global_variable v2f gs_scroll;
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    gs_scroll = v2f{f32(xoffset),f32(yoffset)};
+}
+
 GLFWwindow* 
 init_glfw(game_memory_t* game_memory) {
     glfwInit();
@@ -389,12 +406,16 @@ init_glfw(game_memory_t* game_memory) {
 		printf( "\t%s\n", game_memory->config.vk_exts[ i ] );
 	}
 
+    glfwSetScrollCallback(window, scroll_callback);
+
     game_memory->config.window_handle = glfwGetWin32Window(window);
 
     assert(window);
 
     return window;
 }
+
+
 
 void
 update_input(game_memory_t* game_memory, GLFWwindow* window) {
@@ -422,6 +443,10 @@ update_input(game_memory_t* game_memory, GLFWwindow* window) {
 
     game_memory->input.mouse.delta[0] = mouse[0] - last_input.mouse.pos[0];
     game_memory->input.mouse.delta[1] = mouse[1] - last_input.mouse.pos[1];
+
+    game_memory->input.mouse.scroll[0] = gs_scroll.x;
+    game_memory->input.mouse.scroll[1] = gs_scroll.y;
+    gs_scroll = {};
     
     loop_iota_i32(i, array_count(game_memory->input.keys)) {
         if (i < array_count(game_memory->input.mouse.buttons)) {
@@ -664,6 +689,9 @@ main(int argc, char* argv[]) {
     Platform.allocate = win32_alloc;
     Platform.free = win32_free;
     Platform.message_box = message_box_proc;
+    Platform.load_library = win32_load_library;
+    Platform.load_module = win32_load_module;
+    Platform.load_proc = win32_load_proc;
 
     game_memory_t game_memory{};
     game_memory.platform = Platform;

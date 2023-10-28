@@ -108,8 +108,8 @@ main() {
 	vec4 view_pos = VM * vec4(vertex, 1. );
 
 	// vec3 c = vec3(0.1804, 0.8392, 0.1176);
-	const float vertex_snap_scale = 64.0;
-	view_pos.xyz = floor(view_pos.xyz*vertex_snap_scale)/vertex_snap_scale;
+	// const float vertex_snap_scale = 64.0;
+	// view_pos.xyz = floor(view_pos.xyz/vertex_snap_scale+0.5)*vertex_snap_scale;
 	// view_pos.z -= float(draw.instance_count)/100000.0;
 
 	gl_Position = PushConstants.uP * view_pos;

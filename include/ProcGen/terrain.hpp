@@ -28,7 +28,7 @@ namespace prcgen::terrain {
                     v[i].nrm = n;
                 }
                 
-                builder->add_quad(v);
+                // builder->add_quad(v);
             }
         }
 

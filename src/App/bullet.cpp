@@ -20,7 +20,7 @@ namespace zyy::wep {
         u32 count
     ) {
         auto particle_prefab = zyy::db::particle::orb;
-        std::memcpy(particle_prefab.type_name, "puff", 5);
+        std::memcpy(particle_prefab.type_name.data(), "puff", 5);
         particle_prefab.emitter->template_particle.velocity = v3f{0.0f};
         auto* ps = zyy::tag_spawn(world, particle_prefab, pos);
         ps->gfx.material_id = 7; // particle material @hardcode
@@ -30,7 +30,7 @@ namespace zyy::wep {
     }
 
 
-    zyy::entity_t* spawn_bullet(
+    export_fn(zyy::entity_t*) spawn_bullet(
         zyy::world_t* world,
         const zyy::prefab_t& prefab,
         bullet_t bullet        
@@ -52,7 +52,7 @@ namespace zyy::wep {
         return bullet_entity;
     }
 
-    zyy::entity_t* spawn_rocket(
+    export_fn(zyy::entity_t*) spawn_rocket(
         zyy::world_t* world,
         const zyy::prefab_t& prefab_,
         bullet_t bullet        

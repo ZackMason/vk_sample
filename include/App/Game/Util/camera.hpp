@@ -40,8 +40,8 @@ struct orbit_camera_t {
     f32 yaw{0.0f}, pitch{0.0f};
 
     void rotate(v2f rot) noexcept {
-        yaw += rot.y;
-        pitch += rot.x;
+        yaw += rot.x;
+        pitch += -rot.y;
     }
 
     v3f forward() const noexcept { return get_direction(yaw, pitch); }

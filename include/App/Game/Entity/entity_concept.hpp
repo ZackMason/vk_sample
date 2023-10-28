@@ -33,6 +33,8 @@ enum PhysicsEntityFlags {
     PhysicsEntityFlags_Trigger = BIT(2),
     PhysicsEntityFlags_Character = BIT(3),
     PhysicsEntityFlags_Kinematic = BIT(4),
+
+    PhysicsEntityFlags_Dying = BIT(11),
 };
 
 enum struct entity_type {

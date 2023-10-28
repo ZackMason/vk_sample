@@ -52,8 +52,12 @@ gamepad_controller(app_input_t* input) {
     return pc;
 }
 
+struct input_mapping_t {
+    i32 look_button{0};
+};
+
 inline static player_controller_t
-keyboard_controller(app_input_t* input) {
+keyboard_controller(app_input_t* input, input_mapping_t mapping = input_mapping_t{.look_button=0}) {
     player_controller_t pc{};
     pc.move_input = v3f{
         f32(input->keys['D']) - f32(input->keys['A']),
@@ -63,8 +67,9 @@ keyboard_controller(app_input_t* input) {
     };
 
     const f32 CAMERA_TURN_SPEED = 0.1f;
+    f32 look = mapping.look_button > -1 ? f32(input->mouse.buttons[mapping.look_button]) : 1.0f;
 
-    pc.look_input = (CAMERA_TURN_SPEED * (f32(input->mouse.buttons[0]) * v2f{
+    pc.look_input = (CAMERA_TURN_SPEED * (look * v2f{
         input->mouse.delta[0], 
         input->mouse.delta[1] 
     }) + v2f {
@@ -93,6 +98,12 @@ struct game_state_t {
     arena_t             texture_arena;
 
     debug_state_t* debug_state{0};
+
+    struct modding_t {
+        utl::mod_loader_t  loader{};
+
+        utl::hash_trie_t<std::string_view, physics::rigidbody_on_collision_function>* collisions = 0;
+    } modding;
 
     utl::res::pack_file_t *     resource_file{0};
 

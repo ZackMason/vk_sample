@@ -4,7 +4,7 @@
 
 using lightning_cache_t = utl::hash_trie_t<zyy::entity_t*, b32>;
 
-void lightning_on_hit_effect(
+export_fn(void) lightning_on_hit_effect(
     zyy::world_t* w, 
     zyy::item::effect_t* effect,
     zyy::entity_t* entity,

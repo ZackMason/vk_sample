@@ -82,12 +82,27 @@ draw_game_gui(game_memory_t* game_memory) {
         gfx::gui::im::draw_circle(imgui, center, 4.0f, gfx::color::rgba::light_gray);
         v2f weapon_display_start = imgui.ctx.screen_size * v2f{0.05f, 0.9f};
         gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", stats.health.current, stats.health.max), &weapon_display_start, gfx::color::rgba::white);
-        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", weapon.clip.current, weapon.clip.max), &weapon_display_start, gfx::color::rgba::white);
+        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", weapon.mag.current, weapon.mag.max), &weapon_display_start, gfx::color::rgba::white);
         gfx::gui::string_render(&imgui.ctx, fmt_sv("Chambered: {}", weapon.chamber_count), &weapon_display_start, gfx::color::rgba::white);
     }
 }
 
+world_generator_t*
+generate_world_from_file(arena_t* arena, std::string_view file) {
+    tag_struct(auto* generator, world_generator_t, arena);
+    generator->arena = arena;
+    generator->data = (void*)file.data();
+
+    generator->add_step("Loading", WORLD_STEP_TYPE_LAMBDA(environment) {
+        load_world_file(world, (const char*)data);
+    });
+    return generator;
+}
+
 #include "App/Game/GUI/debug_gui.hpp"
+
+
+
 
 inline static gfx::vul::texture_2d_t*
 make_grid_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size, v3f c1, v3f c2, f32 grid_count = 10.0f) {
@@ -630,6 +645,11 @@ app_init_graphics(game_memory_t* game_memory) {
 }
 
 export_fn(void) 
+foo_export() {
+    zyy_info("test", "foo");
+}
+
+export_fn(void) 
 app_on_init(game_memory_t* game_memory) {
     TIMED_FUNCTION;
     Platform = game_memory->platform;
@@ -637,7 +657,6 @@ app_on_init(game_memory_t* game_memory) {
     game_state_t* game_state = get_game_state(game_memory);
     new (game_state) game_state_t{game_memory, game_memory->arena};
     
-
     game_state->game_memory = game_memory;
     
     arena_t* main_arena = &game_state->main_arena;
@@ -760,6 +779,9 @@ app_on_init(game_memory_t* game_memory) {
     console_log(console, "Enter a command");
 
 #endif
+    auto& mod_loader = game_state->modding.loader;
+    mod_loader.load_library(".\\build\\code.dll");
+    
 
     game_state->resource_file = utl::res::load_pack_file(&game_state->mesh_arena, &game_state->string_arena, "./res/res.pack");
 
@@ -782,13 +804,13 @@ app_on_init(game_memory_t* game_memory) {
     zyy::world_init_effects(game_state->game_world);
 
     {
-        auto& rs = game_state->render_system;
-        auto& vertices = rs->scene_context->vertices.pool;
-        auto& indices = rs->scene_context->indices.pool;
-        prcgen::mesh_builder_t builder{vertices, indices};
+        // auto& rs = game_state->render_system;
+        // auto& vertices = rs->scene_context->vertices.pool;
+        // auto& indices = rs->scene_context->indices.pool;
+        // prcgen::mesh_builder_t builder{vertices, indices};
 
-        builder.add_box({v3f{-1.0f}, v3f{1.0f}});
-        rendering::add_mesh(rs, "unit_cube", builder.build(&game_state->mesh_arena));
+        // builder.add_box({v3f{-1.0f}, v3f{1.0f}});
+        // rendering::add_mesh(rs, "unit_cube", builder.build(&game_state->mesh_arena));
     }
 
     gs_debug_camera.camera = &game_state->game_world->camera;
@@ -832,6 +854,7 @@ app_on_reload(game_memory_t* game_memory) {
     game_state_t* game_state = get_game_state(game_memory);
     gs_debug_state = game_state->debug_state;
     gs_reload_time = 1.0f;
+    gs_debug_camera.camera = &game_state->game_world->camera;
     game_state->render_system->ticket.unlock();
 }
 
@@ -1078,7 +1101,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         DEBUG_WATCH(&env->fog_density);
         DEBUG_WATCH(&env->ambient_strength);
         DEBUG_WATCH(&env->contrast);
-        DEBUG_WATCH(&env->sun.color);
+        DEBUG_WATCH((v3f*)&env->sun.color);
         DEBUG_WATCH((v3f*)&env->sun.direction);
     }
 
@@ -1192,7 +1215,7 @@ game_on_update(game_memory_t* game_memory) {
         // }
         
     }
-            game_on_gameplay(game_state, &game_memory->input, game_memory->input.dt * game_state->time_scale);
+    game_on_gameplay(game_state, &game_memory->input, game_memory->input.dt * game_state->time_scale);
 }
 
 inline static u32
@@ -1441,10 +1464,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
             
                 khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
             }
-            auto view_dir = game_state->game_world->player ? zyy::cam::get_direction(
-                    game_state->game_world->player->camera_controller.yaw,
-                    game_state->game_world->player->camera_controller.pitch
-                ) : axis::forward;
+            auto view_dir = glm::inverse(rs->view) * v4f{axis::forward, 0.0f};
             rendering::draw_skybox(
                 rs, command_buffer, 
                 // assets::shaders::voidsky_frag.filename,

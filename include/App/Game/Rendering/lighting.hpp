@@ -74,7 +74,7 @@ namespace rendering::lighting {
         // math::rect3d_t aabb;
         v3u dim{100,10,100};
         v3f grid_size{0.0f};
-        f32 hysteresis{0.02f};
+        f32 hysteresis{0.01f};
         f32 boost{1.0f};
         f32 depth_sharpness{32.0f};
     };

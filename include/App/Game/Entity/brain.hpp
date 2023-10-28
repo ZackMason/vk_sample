@@ -9,13 +9,31 @@ namespace zyy {
 
 struct blackboard_t {
     arena_t* arena=0;
-    utl::hash_trie_t<std::string_view, v3f>* points=0;
-    utl::hash_trie_t<std::string_view, f32>* floats=0;
-    utl::hash_trie_t<std::string_view, b32>* bools=0;
+
+    using key_type = std::string_view;
+    using point_list_type = stack_buffer<v3f, 16>;
+
+    utl::hash_trie_t<key_type, v3f>* points=0;
+    utl::hash_trie_t<key_type, point_list_type>* paths=0;
+    utl::hash_trie_t<key_type, f32>* floats=0;
+    utl::hash_trie_t<key_type, b32>* bools=0;
+    utl::hash_trie_t<key_type, i64>* ints=0;
 
     v3f move = {};
-    // stack_buffer<interest_point_t, 16> interest_points = {};
-    f32 last_seen{};
+    f32 time{0.0f};
+
+    b32& get_bool(key_type key) {
+        return *utl::hash_get(&bools, key, arena);
+    }
+    point_list_type& get_path(key_type key) {
+        return *utl::hash_get(&paths, key, arena);
+    }
+    f32& get_float(key_type key) {
+        return *utl::hash_get(&floats, key, arena);
+    }
+    v3f& get_point(key_type key) {
+        return *utl::hash_get(&points, key, arena);
+    }
 };
 
 namespace bt {
@@ -34,10 +52,12 @@ struct behavior_t {
     behavior_t* prev{0};
 
     math::rect2d_t rect{v2f{0.0f}, v2f{0.0f}};
+    f32 touch=0.0f;
 
     behavior_status status{behavior_status::INVALID};
 
-    virtual void on_init() {}
+    virtual ~behavior_t() = default;
+    virtual void on_init(blackboard_t* blkbrd) {}
     virtual void on_end(behavior_status s) {}
     virtual behavior_status on_update(blackboard_t* blkbrd) { return behavior_status::INVALID; }
 
@@ -59,8 +79,9 @@ struct behavior_t {
 
     behavior_status tick(blackboard_t* blkbrd) {
         if (status!=behavior_status::RUNNING) {
-            on_init();
+            on_init(blkbrd);
         }
+        touch = blkbrd->time;
         status = on_update(blkbrd);
         if (status!=behavior_status::RUNNING) {
             on_end(status);
@@ -84,6 +105,7 @@ struct repeat_t : public decorator_t {
             if (child->status == behavior_status::RUNNING) break;
             if (child->status == behavior_status::FAILURE) return behavior_status::FAILURE;
             if (counter++==limit) return behavior_status::SUCCESS;
+            child->reset();
         }
     }
 };
@@ -110,7 +132,6 @@ struct invert_t : public decorator_t {
     }
 };
 
-
 template <typename Value>
 struct set_property_on_fail_t : public decorator_t {
     using decorator_t::decorator_t;
@@ -119,19 +140,15 @@ struct set_property_on_fail_t : public decorator_t {
     behavior_status on_update(blackboard_t* blkbrd) override {
         auto s = child->tick(blkbrd);
         if (s==behavior_status::FAILURE) {
-            Value* prop;
             if constexpr (std::is_same_v<Value, f32>) {
-                prop = utl::hash_get(&blkbrd->floats, name, blkbrd->arena);
+                blkbrd->get_float(name) = value;
             }
             if constexpr (std::is_same_v<Value, b32>) {
-                prop = utl::hash_get(&blkbrd->bools, name, blkbrd->arena);
+                blkbrd->get_bool(name) = value;
             }
             if constexpr (std::is_same_v<Value, v3f>) {
-                prop = utl::hash_get(&blkbrd->points, name, blkbrd->arena);
+                blkbrd->get_point(name) = value;
             }
-            assert(prop);
-
-            *prop = value;
         }
         return s;
     }
@@ -155,15 +172,15 @@ struct composite_t : public behavior_t {
     }
 };
 
-struct parallel_t : public composite_t {
-    enum struct policy {
-        REQUIRE_ONE, REQUIRE_ALL, INVALID
-    };
+enum struct policy {
+    REQUIRE_ONE, REQUIRE_ALL, INVALID
+};
 
+struct parallel_t : public composite_t {
     policy success_policy{};
     policy failure_policy{};
 
-    parallel_t(policy s, policy f) 
+    parallel_t(policy s = policy::INVALID, policy f = policy::INVALID) 
         : success_policy{s}, failure_policy{f}
     {
     }
@@ -232,7 +249,7 @@ struct monitor_t : public parallel_t {
 struct sequence_t : public composite_t {
     behavior_t* itr=0;
 
-    virtual void on_init() override {
+    virtual void on_init(blackboard_t* blkbrd) override {
         assert(head.next != &head);
         itr = head.next;
     }
@@ -265,7 +282,7 @@ struct filter_t : public sequence_t {
 struct selector_t : public composite_t {
     behavior_t* itr=0;
 
-    virtual void on_init() override {
+    virtual void on_init(blackboard_t* blkbrd) override {
         assert(head.next != &head);
         itr = head.next;
     }
@@ -291,25 +308,11 @@ struct condition_t : public behavior_t {
         auto* var = utl::hash_get(&blkbrd->bools, name);
         assert(var);
         if (var && *var) {
-            // sequence_t::on_update(blkbrd);
             return behavior_status::SUCCESS;
         }
         return behavior_status::FAILURE;
     }
 };
-
-// struct condition_t : public sequence_t {
-//     std::string_view name;
-//     virtual behavior_status on_update(blackboard_t* blkbrd) override {
-//         auto* var = utl::hash_get(&blkbrd->bools, name);
-//         assert(var);
-//         if (var && *var) {
-//             sequence_t::on_update(blkbrd);
-//             return behavior_status::SUCCESS;
-//         }
-//         return behavior_status::FAILURE;
-//     }
-// };
 
 template <typename Value>
 struct value_condition_t : public condition_t {
@@ -328,7 +331,6 @@ struct value_condition_t : public condition_t {
         }
         assert(var);
         if (var && *var == value) {
-            // sequence_t::on_update(blkbrd);
             return behavior_status::SUCCESS;
         }
         return behavior_status::FAILURE;
@@ -340,7 +342,7 @@ struct greater_condition_t : public condition_t {
     Value value;
 
     virtual behavior_status on_update(blackboard_t* blkbrd) override {
-        Value* var;
+        Value* var=0;
         if constexpr (std::is_same_v<Value, b32>) {
             var = utl::hash_get(&blkbrd->bools, name);
         }
@@ -360,19 +362,35 @@ struct greater_condition_t : public condition_t {
 };
 
 struct active_selector_t : public selector_t {
-    virtual void on_init() override {
+    virtual void on_init(blackboard_t* blkbrd) override {
         assert(head.prev != &head);
         itr = head.prev;
     }
 
     virtual behavior_status on_update(blackboard_t* blkbrd) override {
         auto* last = itr;
-        selector_t::on_init();
+        selector_t::on_init(blkbrd);
         auto result = selector_t::on_update(blkbrd);
         if (last != &head && itr != last) {
             last->abort();
         }
         return result;
+    }
+};
+
+struct wait_t : public behavior_t {
+    f32 how_long;
+    f32 start;
+
+    explicit wait_t(f32 t) : how_long{t} {}
+
+    virtual void on_init(blackboard_t* blkbrd) override {
+        start = blkbrd->time;
+    }
+    virtual behavior_status on_update(blackboard_t* blkbrd) override {
+        return (blkbrd->time > start + how_long) ?
+            behavior_status::SUCCESS :
+            behavior_status::RUNNING ;
     }
 };
 
@@ -444,7 +462,28 @@ struct builder_t {
         tag_struct(_sequence, sequence_t, arena);
         stack.push(_sequence);
 
-        top->add(_sequence);
+        if (tree.root==0) {
+            tree.add(_sequence);
+        } else {
+            top->add(_sequence);
+        }
+
+        return *this;
+    }
+
+    builder_t& parallel(policy success, policy failure) {
+        auto* top = stack[stack._top==0?0:stack._top-1];
+        tag_struct(auto* n, parallel_t, arena);
+        stack.push(n);
+
+        n->success_policy = success; 
+        n->failure_policy = failure;
+
+        if (tree.root==0) {
+            tree.add(n);
+        } else {
+            top->add(n);
+        }
 
         return *this;
     }
@@ -455,7 +494,27 @@ struct builder_t {
 
         stack.push(_selector);
 
-        top->add(_selector);
+        if (tree.root==0) {
+            tree.add(_selector);
+        } else {
+            top->add(_selector);
+        }
+        
+        return *this;
+    }
+
+    template <typename Child, typename ... Args>
+    builder_t& repeat(u32 count, Args&& ... args) {
+        auto* top = stack[stack._top==0?0:stack._top-1];
+        tag_struct(auto* child, Child, arena, std::forward<Args>(args)...);
+        tag_struct(auto* node, repeat_t, arena, child);
+
+        node->limit = count;
+
+        if constexpr (std::is_base_of_v<bt::composite_t, Child>) {
+            stack.push(child);
+        }
+        top->add(node);
         
         return *this;
     }
@@ -465,8 +524,8 @@ struct builder_t {
         auto* top = stack[stack._top==0?0:stack._top-1];
         tag_struct(auto* child, Child, arena, std::forward<Args>(args)...);
         tag_struct(auto* node, always_succeed_t, arena, child);
-        
-        if (std::is_base_of_v<bt::composite_t, Child>) {
+
+        if constexpr (std::is_base_of_v<bt::composite_t, Child>) {
             stack.push(child);
         }
         top->add(node);
@@ -480,7 +539,7 @@ struct builder_t {
         tag_struct(auto* child, Child, arena, std::forward<Args>(args)...);
         tag_struct(auto* node, invert_t, arena, child);
         
-        if (std::is_base_of_v<bt::composite_t, Child>) {
+        if constexpr (std::is_base_of_v<bt::composite_t, Child>) {
             stack.push(child);
         }
         top->add(node);
@@ -554,6 +613,7 @@ enum struct brain_type {
     chaser,
     shooter,
     person,
+    guard,
 
     invalid
 };
@@ -682,10 +742,12 @@ person_init(arena_t* arena, brain_t* brain) {
     brain->blackboard = {};
     brain->blackboard.arena = arena;
 
+    // brain->blackboard.get_float("test") = 0.5f;
+
     bt::builder_t builder{.arena = arena};
 
     builder
-        .active_selector()
+        .selector()
             .sequence()
                 .condition("has_target")
                 .action<print_t>("has target")
@@ -696,16 +758,24 @@ person_init(arena_t* arena, brain_t* brain) {
                     .end()
                     .action<move_toward_t>("target")
                 .end()
-                .always_succeed<bt::sequence_t>()
-                    .condition("has_weapon")
-                    .condition("has_range")
-                    .action<breakpoint_t>("Attack")
-                    .action<print_t>("attack")
+                .always_succeed<bt::selector_t>()
+                    .sequence()
+                        .condition("has_weapon")
+                        .always_succeed<bt::sequence_t>()
+                            .condition("has_range")
+                            .action<breakpoint_t>("Attack")
+                            .action<print_t>("attack")
+                        .end()
+                    .end()
+                    .sequence()
+                        .action<print_t>("Looking for weapon")
+                    .end()
                 .end()
             .end()
             .sequence()
                 .action<print_t>("looking for target")
                 .action<move_toward_t>("rng_move")
+                .action<bt::wait_t>(2.0f)
             .end()
         .end();
 
