@@ -251,7 +251,7 @@ draw_behavior_tree(
                 im::text(imgui, "-----------------");
             }
         }
-        im::end_panel(imgui, &size);
+        im::end_panel(imgui, &blkbrd_aabb.min, &size);
     }
 
 
@@ -557,14 +557,13 @@ draw_gui(game_memory_t* game_memory) {
             return;
         }
 
-
         auto* world = game_state->game_world;
         if (world->world_generator == nullptr) {
             const math::rect2d_t screen{v2f{0.0f}, v2f{state.ctx.screen_size}};
-            local_persist math::rect2d_t world_rect{v2f{550,350}, v2f{800, 600}};
+            local_persist math::rect2d_t world_rect{v2f{550,350}, v2f{550,350}};
 
-            im::point_edit(state, &world_rect.min, screen, screen, gfx::color::rgba::red);
-            im::point_edit(state, &world_rect.max, screen, screen, gfx::color::rgba::red);
+            // im::point_edit(state, &world_rect.min, screen, screen, gfx::color::rgba::red);
+            // im::point_edit(state, &world_rect.max, screen, screen, gfx::color::rgba::red);
             
             local_persist v2f world_size = world_rect.size();
             local_persist b32 world_open = 1;
@@ -593,14 +592,11 @@ draw_gui(game_memory_t* game_memory) {
                             tag_array(auto* str, char, &world->arena, filename.size()+1);
                             utl::copy(str, filename.c_str(), filename.size()+1);
                             world->world_generator = generate_world_from_file(&world->arena, str);
-                            
-                            // local_persist world_generator_t wg;
-                            // world->world_generator = &wg;
                         }
                     }
                 }
 
-                im::end_panel(state, &world_size);
+                im::end_panel(state, &world_rect.min, &world_size);
             }
         }
 
@@ -632,17 +628,19 @@ draw_gui(game_memory_t* game_memory) {
                 state.theme = theme;
 
                 state.hot = 0; state.active = 0; // @hack to clear ui state
-                im::end_panel(state, &panel_size);
+                im::end_panel(state, &panel_pos, &panel_size);
             }
         }
 
         local_persist bool show_entities = false;
         local_persist v2f main_pos = {};
         local_persist v2f main_size = {};
-        local_persist b32 main_open = 1;
+        local_persist b32 main_open = 0;
 
+        main_pos = glm::max(v2f{0.0f}, main_pos);
 
-        if (im::begin_panel(state, "Main UI"sv, &main_pos, &main_size, &main_open)) {
+        main_size = {};
+        if (im::begin_panel(state, "Dev UI"sv, &main_pos, &main_size, &main_open)) {
             local_persist bool show_player = false;
             local_persist bool show_stats = false;
             local_persist bool show_resources = false;
@@ -653,9 +651,7 @@ draw_gui(game_memory_t* game_memory) {
             local_persist bool show_theme = false;
             local_persist bool show_colors= false;
             local_persist bool show_files[0xff];
-
             
-
             {
                 local_persist f32 dt_accum{0};
                 local_persist f32 dt_count{0};
@@ -672,13 +668,28 @@ draw_gui(game_memory_t* game_memory) {
                 }
                 rdt_accum += game_memory->input.render_dt;
                 rdt_count += 1.0f;
-                im::text(state, fmt_sv("Gameplay FPS: {:.2f} - {:.2f} ms", 1.0f / (dt_accum/dt_count), (dt_accum/dt_count) * 1000.0f));
-                im::text(state, fmt_sv("Graphics FPS: {:.2f} - {:.2f} ms", 1.0f / (rdt_accum/rdt_count), (rdt_accum/rdt_count) * 1000.0f));
+                im::text(state, fmt_sv("{:.2f} - {:.2f} ms", 1.0f / (dt_accum/dt_count), (dt_accum/dt_count) * 1000.0f));
+                // im::text(state, fmt_sv("Graphics FPS: {:.2f} - {:.2f} ms", 1.0f / (rdt_accum/rdt_count), (rdt_accum/rdt_count) * 1000.0f));
             }
+
+            local_persist u64 open_tab = 0;
+
+            std::string_view tabs[] = {
+                "Profiling"sv,
+                "Debug"sv,
+                "Graphics"sv,
+                "\n"sv,
+                "Stats"sv,
+                "Memory"sv,
+                "Entities"sv,
+            };
+
+            open_tab = im::tabs(state, std::span{tabs}, open_tab);
+            
 
 #if ZYY_INTERNAL
             local_persist bool show_record[128];
-            if (im::text(state, "Profiling"sv, &show_perf)) {
+            if (open_tab == "Profiling"_sid) {
                 debug_table_t* tables[] {
                     &gs_debug_table, game_memory->physics->get_debug_table()
                 };
@@ -730,7 +741,7 @@ draw_gui(game_memory_t* game_memory) {
             }
 #endif
             
-            if (im::text(state, "Stats"sv, &show_stats)) {
+            if (open_tab == "Stats"_sid) {
 
                 object_gui(state, game_state->render_system->stats);
                 
@@ -792,8 +803,12 @@ draw_gui(game_memory_t* game_memory) {
                     im::text(state, fmt_sv("--- Active: {:X}", state.active.id));
                     im::text(state, fmt_sv("--- Hot: {:X}", state.hot.id));
                     if (im::text(state, "--- Theme"sv, &show_theme)) {
-                        im::text(state, fmt_sv("----- Margin: {}", state.theme.margin));
-                        im::text(state, fmt_sv("----- Padding: {}", state.theme.padding));
+                        im::same_line(state);
+                        im::text(state, "----- Margin: ");
+                        im::float_drag(state, &state.theme.margin);
+                        im::same_line(state);
+                        im::text(state, "----- Padding: ");
+                        im::float_drag(state, &state.theme.padding);
                         im::text(state, fmt_sv("----- Shadow Offset: {}", state.theme.shadow_distance));
                         im::float_slider(state, &state.theme.shadow_distance, 0.0f, 16.0f);
                         if (im::text(state, "----- Color"sv, &show_colors)) {
@@ -842,14 +857,17 @@ draw_gui(game_memory_t* game_memory) {
                         u64 rf = rf_ % game_state->resource_file->file_count;
                         assert(rf < array_count(show_files));
                         if (im::text(state, fmt_sv("--- File Name: {}", game_state->resource_file->table[rf].name.c_data), show_files + rf)) {
-                            im::text(state, fmt_sv("----- Size: {} bytes", game_state->resource_file->table[rf].size));
+                            im::text(state, fmt_sv("----- Size: {}{}", 
+                                math::pretty_bytes(game_state->resource_file->table[rf].size),
+                                math::pretty_bytes_postfix(game_state->resource_file->table[rf].size)
+                            ));
                             im::text(state, fmt_sv("----- Type: {:X}", game_state->resource_file->table[rf].file_type));
                         }
                     }
                 }
             }
 
-            if (im::text(state, "Debug"sv, &game_state->debug.show)) {
+            if (open_tab == "Debug"_sid) {
                 if(im::text(state, "- Assert"sv)) {
                     assert(0);
                 }
@@ -865,155 +883,167 @@ draw_gui(game_memory_t* game_memory) {
             local_persist bool show_env = !false;
             local_persist bool show_mat_id[8] = {};
             local_persist bool show_sky = false;
-            if (im::text(state, "Graphics"sv, &show_gfx)) { 
-                if (im::text(state, "- Reload Shaders"sv)) {
-                    std::system("ninja");
-                    game_state->render_system->shader_cache.reload_all(
-                        game_state->render_system->arena,
-                        game_state->gfx
-                    );
-                }
 
-                if (im::text(state, "- Texture Cache"sv, &show_textures)) {
-                    auto& cache = game_state->render_system->texture_cache;
-
-                    for(u64 i = cache.first();
-                        i != cache.end();
-                        i = cache.next(i)
-                    ) {
-                        if(im::text(state,
-                            fmt_sv("--- {} -> {}: {} x {}, {} channels",
-                                i, cache.textures[i].name, cache[i]->size.x, cache[i]->size.y, cache[i]->channels
-                            )
-                        )) {
-                            // todo show texture here                            
-                        }
+            if (open_tab == "Graphics"_sid) { 
+                local_persist im::panel_state_t graphics_window_state {
+                    .pos = v2f{0.0f, 400.0f},
+                    .open = 1
+                };
+                
+                if (auto [_gfx_open, gfx_close] = im::begin_panel(state, "Graphics"sv, &graphics_window_state); gfx_close) {
+                    open_tab = 0;
+                } else if (_gfx_open) {
+                    if (im::text(state, "Reload Shaders"sv)) {
+                        std::system("ninja");
+                        game_state->render_system->shader_cache.reload_all(
+                            game_state->render_system->arena,
+                            game_state->gfx
+                        );
                     }
-                }
 
-                if (im::text(state, "- Probes"sv, &show_probes)) { 
-                    auto* probes = &game_state->render_system->probe_storage_buffer.pool[0];
-                    auto* probe_box = &game_state->render_system->light_probes;
-                    auto& probe_settings = game_state->render_system->light_probe_settings_buffer.pool[0];
-                    im::text(state, fmt_sv("--- AABB: {} - {}", probe_settings.aabb_min, probe_settings.aabb_max));
-                    im::text(state, fmt_sv("--- Dim: {} x {} x {}", probe_settings.dim.x, probe_settings.dim.y, probe_settings.dim.z));
-                    u32 probe_count = probe_settings.dim.x * probe_settings.dim.y * probe_settings.dim.z;
-                    range_u32(i, 0, probe_count) {
-                        auto& p = probes[i];
-                        // im::text(state, fmt_sv("P[{}].SH[2]: {}", p.id, p.irradiance.h[2]));
-                        // im::text(state, fmt_sv("P[{}].SH[5]: {}", p.id, p.irradiance.h[5]));
-                        auto color = (p.is_off()) ?
-                            gfx::color::rgba::red : gfx::color::rgba::white;
-                        if (im::draw_circle_3d(state, vp, rendering::lighting::probe_position(probe_box, &p, i), 0.1f, color)) {
-                            auto push_theme = state.theme;
-                            state.theme.border_radius = 1.0f;
-                            if (im::begin_panel_3d(state, "probe"sv, vp, rendering::lighting::probe_position(probe_box, &p, i))) {
-                                im::text(state, fmt_sv("Probe ID: {}"sv, i));
-                                im::text(state, fmt_sv("Pos: {}", p.position));
-                                im::text(state, fmt_sv("Ray Count: {}", p.ray_count()));
-                                im::text(state, fmt_sv("Backface Count: {}", p.backface_count()));
-                                
-                                v2f s={};
-                                im::end_panel(state, &s);
-                            }
-                            state.theme = push_theme;
-                        }
-                    }
-                }
-                if (im::text(state, "- Environment"sv, &show_env)) { 
-                    auto& env = game_state->render_system->environment_storage_buffer.pool[0];
-                    auto* point_lights = &game_state->render_system->point_light_storage_buffer.pool[0];
-                    local_persist bool show_amb = false;
-                    if (im::text(state, "--- Ambient"sv, &show_amb)) { 
-                        gfx::color32 tc = gfx::color::to_color32(env.ambient_color);
-                        im::color_edit(state, &tc);
-                        env.ambient_color = gfx::color::to_color4(tc);
-                    }
-                    local_persist bool show_fog = false;
-                    if (im::text(state, "--- Fog"sv, &show_fog)) { 
-                        gfx::color32 tc = gfx::color::to_color32(env.fog_color);
-                        im::color_edit(state, &tc);
-                        env.fog_color = gfx::color::to_color4(tc);
-                        // im::float_slider(state, &env.fog_density);
-                        im::float_edit(state, &env.fog_density);
-                    }
-                    local_persist bool show_lights = !false;
-                    local_persist bool light[512]{true};
-                    if (im::text(state, "--- Point Lights"sv, &show_lights)) { 
-                        if (im::text(state, "----- Add Light"sv)) {
-                            rendering::create_point_light(game_state->render_system, v3f{0.0f, 3.0f, 0.0f}, 1.0f, 10.0f, v3f{0.1f});
-                        }
-                        range_u64(i, 0, env.light_count) {
-                            if (im::text(state, fmt_sv("----- Light[{}]"sv, i), light+i)) { 
-                                // gfx::color32 color = gfx::color::to_color32(point_lights[i].col);
-                                // im::color_edit(state, &color);
-                                // point_lights[i].col = gfx::color::to_color4(color);
-                                
-                                im::vec3(state, point_lights[i].pos, -25.0f, 25.0f);
-                                im::vec3(state, point_lights[i].col, 0.0f, 3.0f);
+                    if (im::text(state, "Texture Cache"sv, &show_textures)) {
+                        auto& cache = game_state->render_system->texture_cache;
 
-                                im::float_drag(state, &point_lights[i].range, 1.0f);
-                                im::float_drag(state, &point_lights[i].power, 1.0f);
-
-                                widget_pos = (v3f*)&point_lights[i].pos;
+                        for(u64 i = cache.first();
+                            i != cache.end();
+                            i = cache.next(i)
+                        ) {
+                            if(im::text(state,
+                                fmt_sv("- {} -> {}: {} x {}, {} channels",
+                                    i, cache.textures[i].name, cache[i]->size.x, cache[i]->size.y, cache[i]->channels
+                                )
+                            )) {
+                                // todo show texture here                            
                             }
                         }
                     }
-                }
-                if (im::text(state, "- Materials"sv, &show_mats)) { 
-                    loop_iota_u64(i, game_state->render_system->materials.size()) {
-                        auto* mat = game_state->render_system->materials[i];
-                        if (im::text(state, fmt_sv("--- Name: {}", std::string_view{mat->name}), show_mat_id + i)) {
-                            gfx::color32 color = gfx::color::to_color32(mat->albedo);
+
+                    if (im::text(state, "Probes"sv, &show_probes)) { 
+                        auto* probes = &game_state->render_system->probe_storage_buffer.pool[0];
+                        auto* probe_box = &game_state->render_system->light_probes;
+                        auto& probe_settings = game_state->render_system->light_probe_settings_buffer.pool[0];
+                        im::text(state, fmt_sv("- AABB: {} - {}", probe_settings.aabb_min, probe_settings.aabb_max));
+                        im::text(state, fmt_sv("- Dim: {} x {} x {}", probe_settings.dim.x, probe_settings.dim.y, probe_settings.dim.z));
+                        u32 probe_count = probe_settings.dim.x * probe_settings.dim.y * probe_settings.dim.z;
+                        range_u32(i, 0, probe_count) {
+                            auto& p = probes[i];
+                            // im::text(state, fmt_sv("P[{}].SH[2]: {}", p.id, p.irradiance.h[2]));
+                            // im::text(state, fmt_sv("P[{}].SH[5]: {}", p.id, p.irradiance.h[5]));
+                            auto color = (p.is_off()) ?
+                                gfx::color::rgba::red : gfx::color::rgba::white;
+                            if (im::draw_circle_3d(state, vp, rendering::lighting::probe_position(probe_box, &p, i), 0.1f, color)) {
+                                auto push_theme = state.theme;
+                                state.theme.border_radius = 1.0f;
+                                if (im::begin_panel_3d(state, "probe"sv, vp, rendering::lighting::probe_position(probe_box, &p, i))) {
+                                    im::text(state, fmt_sv("Probe ID: {}"sv, i));
+                                    im::text(state, fmt_sv("Pos: {}", p.position));
+                                    im::text(state, fmt_sv("Ray Count: {}", p.ray_count()));
+                                    im::text(state, fmt_sv("Backface Count: {}", p.backface_count()));
+                                    
+                                    v2f s={};
+                                    im::end_panel(state, 0, &s);
+                                }
+                                state.theme = push_theme;
+                            }
+                        }
+                    }
+                    if (im::text(state, "Environment"sv, &show_env)) { 
+                        auto& env = game_state->render_system->environment_storage_buffer.pool[0];
+                        auto* point_lights = &game_state->render_system->point_light_storage_buffer.pool[0];
+                        local_persist bool show_amb = false;
+                        if (im::text(state, "- Ambient"sv, &show_amb)) { 
+                            gfx::color32 tc = gfx::color::to_color32(env.ambient_color);
+                            im::color_edit(state, &tc);
+                            env.ambient_color = gfx::color::to_color4(tc);
+                        }
+                        local_persist bool show_fog = false;
+                        if (im::text(state, "- Fog"sv, &show_fog)) { 
+                            gfx::color32 tc = gfx::color::to_color32(env.fog_color);
+                            im::color_edit(state, &tc);
+                            env.fog_color = gfx::color::to_color4(tc);
+                            // im::float_slider(state, &env.fog_density);
+                            im::float_edit(state, &env.fog_density);
+                        }
+                        local_persist bool show_lights = !false;
+                        local_persist bool light[512]{true};
+                        if (im::text(state, "- Point Lights"sv, &show_lights)) { 
+                            if (im::text(state, "--- Add Light"sv)) {
+                                rendering::create_point_light(game_state->render_system, v3f{0.0f, 3.0f, 0.0f}, 1.0f, 10.0f, v3f{0.1f});
+                            }
+                            range_u64(i, 0, env.light_count) {
+                                if (im::text(state, fmt_sv("--- Light[{}]"sv, i), light+i)) { 
+                                    // gfx::color32 color = gfx::color::to_color32(point_lights[i].col);
+                                    // im::color_edit(state, &color);
+                                    // point_lights[i].col = gfx::color::to_color4(color);
+                                    
+                                    im::vec3(state, point_lights[i].pos, -25.0f, 25.0f);
+                                    im::vec3(state, point_lights[i].col, 0.0f, 3.0f);
+
+                                    im::float_drag(state, &point_lights[i].range, 1.0f);
+                                    im::float_drag(state, &point_lights[i].power, 1.0f);
+
+                                    widget_pos = (v3f*)&point_lights[i].pos;
+                                }
+                            }
+                        }
+                    }
+
+                    if (im::text(state, "Materials"sv, &show_mats)) { 
+                        loop_iota_u64(i, game_state->render_system->materials.size()) {
+                            auto* mat = game_state->render_system->materials[i];
+                            if (im::text(state, fmt_sv("- Name: {}", std::string_view{mat->name}), show_mat_id + i)) {
+                                gfx::color32 color = gfx::color::to_color32(mat->albedo);
+                                im::color_edit(state, &color);
+                                mat->albedo = gfx::color::to_color4(color);
+
+                                im::same_line(state);
+                                im::text(state, "Ambient: ");
+                                im::float_slider(state, &mat->ao);
+
+                                im::same_line(state);
+                                im::text(state, "Metallic: ");
+                                im::float_slider(state, &mat->metallic);
+
+                                im::same_line(state);
+                                im::text(state, "Roughness: ");
+                                im::float_slider(state, &mat->roughness);
+
+                                im::same_line(state);
+                                im::text(state, "Emission: ");
+                                im::float_slider(state, &mat->emission, 0.0f, 30.0f);
+
+                                im::same_line(state);
+                                if (im::text(state, "Reflectivity: ")) {
+                                    mat->reflectivity = 0.0f;
+                                }
+                                im::float_drag(state, &mat->reflectivity, 0.05f);
+
+                                game_state->render_system->material_storage_buffer.pool[i] = *mat;
+
+                            }
+                        }
+                    }
+                    if (im::text(state, "SkyBox"sv, &show_sky)) { 
+                        local_persist bool show_dir = false;
+                        local_persist bool show_color = false;
+                        auto* env = &game_state->render_system->environment_storage_buffer.pool[0];
+                        if (im::text(state, "- Sun Color"sv, &show_color)) {
+                            auto color = gfx::color::to_color32(env->sun.color);
                             im::color_edit(state, &color);
-                            mat->albedo = gfx::color::to_color4(color);
-
-                            im::same_line(state);
-                            im::text(state, "Ambient: ");
-                            im::float_slider(state, &mat->ao);
-
-                            im::same_line(state);
-                            im::text(state, "Metallic: ");
-                            im::float_slider(state, &mat->metallic);
-
-                            im::same_line(state);
-                            im::text(state, "Roughness: ");
-                            im::float_slider(state, &mat->roughness);
-
-                            im::same_line(state);
-                            im::text(state, "Emission: ");
-                            im::float_slider(state, &mat->emission, 0.0f, 30.0f);
-
-                            im::same_line(state);
-                            if (im::text(state, "Reflectivity: ")) {
-                                mat->reflectivity = 0.0f;
-                            }
-                            im::float_drag(state, &mat->reflectivity, 0.05f);
-
-                            game_state->render_system->material_storage_buffer.pool[i] = *mat;
-
+                            env->sun.color = gfx::color::to_color4(color);
+                        }
+                        if (im::text(state, "- Sun Direction"sv, &show_dir)) { 
+                            im::vec3(state, env->sun.direction, -2.0f, 2.0f);
                         }
                     }
-                }
-                if (im::text(state, "- SkyBox"sv, &show_sky)) { 
-                    local_persist bool show_dir = false;
-                    local_persist bool show_color = false;
-                    auto* env = &game_state->render_system->environment_storage_buffer.pool[0];
-                    if (im::text(state, "--- Sun Color"sv, &show_color)) {
-                        auto color = gfx::color::to_color32(env->sun.color);
-                        im::color_edit(state, &color);
-                        env->sun.color = gfx::color::to_color4(color);
-                    }
-                    if (im::text(state, "--- Sun Direction"sv, &show_dir)) { 
-                        im::vec3(state, env->sun.direction, -2.0f, 2.0f);
-                    }
+
+                    im::end_panel(state, &graphics_window_state);
                 }
             }
 
-            local_persist bool show_arenas = false;
             local_persist bool open_arena[256];
             local_persist u32 offset[256];
-            if (im::text(state, "Memory"sv, &show_arenas)) {
+            if (open_tab == "Memory"_sid) {
                 for (size_t i = 0; i < array_count(display_arenas); i++) {
                     if (im::text(state, arena_display_info(display_arenas[i], display_arena_names[i]), open_arena+i)) {
                         auto tag_count = node_count(display_arenas[i]->tags);
@@ -1029,7 +1059,15 @@ draw_gui(game_memory_t* game_memory) {
                         skip = 0;
                         node_for(auto, start, tag) {
                             if (skip++ > 10) { break; }                            
-                            if (im::text(state, fmt_sv("--- {}[{}]: {}() | {}({})", tag->type_name, tag->count, tag->function_name, utl::trim_filename(tag->file_name), tag->line_number))) {
+                            if (im::text(state, fmt_sv("--- {}[{}]: {}() | {}({}) | {}{}", 
+                                tag->type_name, 
+                                tag->count, 
+                                tag->function_name, 
+                                utl::trim_filename(tag->file_name), 
+                                tag->line_number,
+                                math::pretty_bytes(tag->type_size * tag->count),
+                                math::pretty_bytes_postfix(tag->type_size * tag->count)
+                            ))) {
                                 std::system(fmt_sv("code -g {}:{}:0", tag->file_name, tag->line_number).data());
                             }
                         }
@@ -1048,7 +1086,7 @@ draw_gui(game_memory_t* game_memory) {
                 }
             }
 
-            if (im::text(state, "Entities"sv, &show_entities)) {
+            if (open_tab == "Entities"_sid) {
                 const u64 entity_count = game_state->game_world->entity_count;
 
                 im::text(state, fmt_sv("- Count: {}", entity_count));
@@ -1078,7 +1116,7 @@ draw_gui(game_memory_t* game_memory) {
                 im::text(state, fmt_sv("- Speed: {}", glm::length(v)));
             }
 
-            im::end_panel(state, &main_size);
+            im::end_panel(state, &main_pos, &main_size);
         }
 
         // for (zyy::entity_t* e = game_itr(game_state->game_world); e; e = e->next) {
@@ -1122,7 +1160,7 @@ draw_gui(game_memory_t* game_memory) {
                 if (e->parent && im::text(state, fmt_sv("Parent: {}",(void*)e->parent))) {
                     v2f s;
                     widget_pos = &e->parent->transform.origin; 
-                    im::end_panel(state,&s);
+                    im::end_panel(state, 0, &s);
                     break;
                 }
                 im::text(state, 
@@ -1215,7 +1253,7 @@ draw_gui(game_memory_t* game_memory) {
                     // zyy::world_destroy_entity(game_state->game_world, e);
                     if (!te) {
                         v2f s ={};
-                        im::end_panel(state, &s);
+                        im::end_panel(state, 0, &s);
                         break;
                     }
                     e = te;
@@ -1300,11 +1338,13 @@ draw_gui(game_memory_t* game_memory) {
                     }
                 }
                 v2f e_panel_size = {};
-                im::end_panel(state, &e_panel_size);
+                im::end_panel(state, 0, &e_panel_size);
             }
+            auto entity_id_color = static_cast<u32>(utl::rng::fnv_hash_u64(e->id));
+            entity_id_color |= gfx::color::rgba::clear_alpha;
             if (!opened && !is_selected && (not_player && im::draw_hiding_circle_3d(
                 state, vp, e->global_transform().origin, 0.1f, 
-                static_cast<u32>(utl::rng::fnv_hash_u64(e->id)), 2.0f)) && state.ctx.input->pressed.mouse_btns[0]
+                entity_id_color, 2.0f)) && state.ctx.input->pressed.mouse_btns[0]
             ) {
                 widget_pos = &e->transform.origin;
             }

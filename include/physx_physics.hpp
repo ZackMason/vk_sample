@@ -144,10 +144,7 @@ struct physx_backend_t {
 inline static physx_backend_t*
 physx_init_backend(physx_backend_t* pb, arena_t* arena) {
     assert(pb);
-    pb->state = push_struct<physx_state_t>(
-        arena, 1,
-        megabytes(16)
-    );
+    tag_struct(pb->state, physx_state_t, arena, megabytes(8));
 
     init_physx_state(*pb->state);
 
@@ -486,7 +483,7 @@ physx_create_scene(api_t* api, const void* filter = 0) {
     auto* ps = get_physx(api);
     assert(ps->state);
     
-    ps->world = push_struct<physics::physics_world_t>(api->arena);
+    tag_struct(ps->world, physics::physics_world_t, api->arena);
     // ps->world = push_struct<physics::physics_world_t>(api->arena);
     if (filter) {
         physics::physics_world_init(ps->state, ps->world, push_struct<rigidbody_event_callback>(api->arena), (physx::PxSimulationFilterShader)filterShader);

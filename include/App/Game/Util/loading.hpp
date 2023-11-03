@@ -25,7 +25,8 @@ load_bin_mesh_data(
 
     results.count = blob.deserialize<u64>();
     zyy_warn(__FUNCTION__, "Loading {} meshes", results.count);
-    results.meshes  = push_struct<gfx::mesh_view_t>(arena, results.count);
+    tag_array(results.meshes, gfx::mesh_view_t, arena, results.count);
+    // results.meshes  = push_struct<gfx::mesh_view_t>(arena, results.count);
 
     for (size_t i = 0; i < results.count; i++) {
         std::string name = blob.deserialize<std::string>();

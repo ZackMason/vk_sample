@@ -660,9 +660,9 @@ lightning_powerup {
             },
         },
     },
-    .effect = zyy::item::effect_t {
-        .on_hit_effect = lightning_on_hit_effect,
-    }
+    // .effect = zyy::item::effect_t {
+    //     .on_hit_effect = lightning_on_hit_effect,
+    // }
 
 };
 

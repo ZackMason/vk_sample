@@ -636,8 +636,8 @@ struct ai_path_t {
 
 struct skull_brain_t {
     zyy::entity_t* owner{0};
-    stack_buffer<skull_brain_t*, 16> neighbors = {};
-    stack_buffer<interest_point_t, 16> enemies = {};
+    // stack_buffer<skull_brain_t*, 16> neighbors = {};
+    // stack_buffer<interest_point_t, 16> enemies = {};
 };
 
 struct person_brain_t {

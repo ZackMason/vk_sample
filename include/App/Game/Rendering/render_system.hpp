@@ -64,7 +64,7 @@ namespace rendering {
     struct texture_cache_t {
         static inline constexpr u64 invalid = std::numeric_limits<u64>::max();
         struct link_t {
-            std::string_view name;
+            std::string_view name; // this is unsafe, need to allocate
             u64 hash{0};
             gfx::vul::texture_2d_t texture;        
 
@@ -91,7 +91,7 @@ namespace rendering {
         }
 
         void reload_all(
-            arena_t arena,
+            arena_t* arena,
             gfx::vul::state_t vk_gfx
         ) {
             range_u64(i, 0, array_count(textures)) {
@@ -110,19 +110,22 @@ namespace rendering {
             }
         }
 
+        // TODO(Zack): Remove temp arena
         u64 load(
-            arena_t arena,
+            arena_t* arena,
             gfx::vul::state_t vk_gfx,
             const char* filename
         ) {
+            auto memory = begin_temporary_memory(arena);
             gfx::vul::texture_2d_t texture{};
             if (utl::has_extension(filename, "png")) {
                 // assert(0); // need to remove extension
                 // vk_gfx.load_texture_sampler(&texture, filename, &arena);
-                vk_gfx.load_texture_sampler(&texture, fmt_sv("res/textures/{}", filename), &arena);
+                vk_gfx.load_texture_sampler(&texture, fmt_sv("res/textures/{}", filename), memory.arena);
             } else {
-                vk_gfx.load_texture_sampler(&texture, fmt_sv("res/textures/{}", filename), &arena);
+                vk_gfx.load_texture_sampler(&texture, fmt_sv("res/textures/{}", filename), memory.arena);
             }
+            end_temporary_memory(memory);
             return add(
                 texture, 
                 filename
@@ -131,7 +134,7 @@ namespace rendering {
 
         // returns a bitmask of which textures were loaded
         u32 load_material(
-            arena_t arena,
+            arena_t* arena,
             const gfx::vul::state_t& vk_gfx,
             gfx::material_info_t& material_info,
             u64 ids[2]
@@ -281,7 +284,7 @@ public:
         }
 
         // @hash
-        link_t shaders[64<<3]{};
+        link_t shaders[64<<2]{};
 
         void reload_all(
             arena_t arena,
@@ -1257,11 +1260,11 @@ public:
         u64 mesh_id,
         u32 mat_id, // todo(zack): remove this
         m44 transform,
-        v4f bounds,
         u64 gfx_id,
         u64 gfx_count,
         u32 instance_count = 1,
-        u32 instance_offset = 0
+        u32 instance_offset = 0,
+        u32 albedo_override = std::numeric_limits<u32>::max()
     ) {
         TIMED_FUNCTION;
 
@@ -1291,6 +1294,10 @@ public:
                 );
             }
 
+            u32 albedo_id = (albedo_override != std::numeric_limits<u32>::max()) ?
+                            albedo_override :
+                            u32(meshes->meshes[i].material.albedo_id);
+
             gfx::indirect_indexed_draw_t* draw_cmd = rs->get_frame_data().indexed_indirect_storage_buffer.pool.allocate(1);
             draw_cmd->index_count = meshes->meshes[i].index_count;
             draw_cmd->instance_count = std::max(instance_count, 1ui32);
@@ -1298,7 +1305,7 @@ public:
             draw_cmd->vertex_offset = meshes->meshes[i].vertex_start;
             draw_cmd->first_instance = 0;
             draw_cmd->object_id = (u32)rs->render_job_count - 1;
-            draw_cmd->albedo_id = u32(meshes->meshes[i].material.albedo_id) % array_count(rs->texture_cache.textures);
+            draw_cmd->albedo_id = albedo_id % array_count(rs->texture_cache.textures);
             draw_cmd->normal_id = u32(meshes->meshes[i].material.normal_id) % array_count(rs->texture_cache.textures);
         }
         
@@ -1307,7 +1314,7 @@ public:
         auto* gpu_job = rs->job_storage_buffer().pool.allocate(1);
         gpu_job->model = transform;
         gpu_job->mat_id = mat_id;
-        gpu_job->bounds = bounds;
+        // gpu_job->bounds = bounds;
         // gpu_job->padding[0] = mat->padding[0];
         // gpu_job->padding[1] = mat->padding[1];
         gpu_job->padding[2] = instance_offset; // instance offset
@@ -1493,7 +1500,7 @@ public:
 
             range_u64(m, 0, loaded_mesh.count) {
                 u64 ids[2];
-                u32 mask = rs->texture_cache.load_material(rs->arena, *rs->vk_gfx, loaded_mesh.meshes[m].material, ids);
+                u32 mask = rs->texture_cache.load_material(&rs->arena, *rs->vk_gfx, loaded_mesh.meshes[m].material, ids);
                 loaded_mesh.meshes[m].material.albedo_id = (mask&0x1) ? ids[0] : std::numeric_limits<u64>::max();
                 loaded_mesh.meshes[m].material.normal_id = (mask&0x2) ? ids[1] : std::numeric_limits<u64>::max();
             }

@@ -332,7 +332,7 @@ struct entity_editor_t {
         auto* rs = game_state ? game_state->render_system : 0;
         if (rs && prefab.gfx.mesh_name[0]) {
 
-            auto& mesh_list = rendering::get_mesh(rs, prefab.gfx.mesh_name);
+            auto& mesh_list = rendering::get_mesh(rs, prefab.gfx.mesh_name.view());
             inst->gfx_id  = rendering::register_entity(rs);
             inst->gfx_entity_count = (u32)mesh_list.count;
 
@@ -389,6 +389,10 @@ struct entity_editor_t {
         edit->type = edit_type_t::REMOVE;
         edit->prefab_insert.head = &prefabs;
         edit->prefab_insert.prefab = what;
+
+        if (selection.prefab == what) {
+            selection.prefab = 0;
+        }
 
         execute_insert(edit->prefab_insert, Edit_From);
         dlist_insert(&undo_sentinel, edit);
@@ -631,7 +635,7 @@ save_world_window(
     bool load = 0
 ) {
     using namespace gfx::gui;
-    local_persist dialog_window_t dialog_box{};
+    local_persist dialog_window_t dialog_box{.position = v2f{500.0f, 300.0f}};;
     char file[512] = {};
 
     auto draw_files = [&](){
@@ -657,9 +661,12 @@ save_world_window(
     dialog_box
         .set_title(load?"Load World":"Save World")
         .set_description("Select a file")
-        .set_position(v2f{400.0f,300.0f})
         .draw(imgui, draw_files)
         .into(file);
+
+    if (dialog_box.done == 2) {
+        return false;
+    }
 
     if (!file[0]) {
         return true;
@@ -718,7 +725,7 @@ load_mesh_window(
     entity_editor_t* ee
 ) {
     using namespace gfx::gui;
-    local_persist dialog_window_t dialog_box{};
+    local_persist dialog_window_t dialog_box{.position = v2f{500.0f, 300.0f}};;
     char file[512] = {};
 
     auto draw_files = [&](){
@@ -726,6 +733,7 @@ load_mesh_window(
         auto* pack_file = game_state->resource_file;
 
         local_persist u64 file_start = 0;
+        im::space(imgui, 64.0f);
         im::same_line(imgui);
         if (im::text(imgui, "Next")) file_start = (file_start+1) % pack_file->file_count;
         if (im::text(imgui, "Prev")) file_start = file_start ? file_start-1 : pack_file->file_count-1;
@@ -748,20 +756,157 @@ load_mesh_window(
                 utl::copy(file, pack_file->table[rf].name.c_data, std::strlen(pack_file->table[rf].name.c_data));
             }
         }
+        im::space(imgui, 32.0f);
     };
 
     dialog_box
         .set_title("Load Mesh")
         .set_description("Select a file")
-        .set_position(v2f{400.0f,300.0f})
         .draw(imgui, draw_files)
         .into(file);
+
+        
+    if (dialog_box.done == 2) {
+        return false;
+    }
 
     if (!file[0]) {
         return true;
     }
 
-    utl::copy(ee->entity->gfx.mesh_name, file, std::strlen(file));
+    auto slen = std::strlen(file);
+    utl::copy(ee->entity->gfx.mesh_name.buffer, file, slen);
+    ee->entity->gfx.mesh_name.buffer[slen] = 0;
+
+    return false;
+}
+
+static bool
+load_texture_window(
+    gfx::gui::im::state_t& imgui,
+    entity_editor_t* ee
+) {
+    using namespace gfx::gui;
+    local_persist dialog_window_t dialog_box{.position = v2f{500.0f, 300.0f}};
+    char file[512] = {};
+
+    auto draw_files = [&](){
+        auto* game_state = ee->game_state;
+        im::space(imgui, 64.0f);
+
+        for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/textures/")) {
+            auto filename = entry.path().filename().string();
+            if (entry.is_directory()) {
+                continue;
+            } else if (entry.is_regular_file() && utl::has_extension(filename, "png")) {
+                if (dialog_box.text_buffer[0]) {
+                    if (std::strstr(filename.c_str(), dialog_box.text_buffer) == nullptr) {
+                        continue;
+                    }
+                }
+                if (im::text(imgui, filename)) {
+                    auto trimmed = std::string_view{filename};
+                    // auto trimmed = utl::trim_filename(filename, '/');
+                
+                    utl::copy(file, trimmed.data(), trimmed.size());
+                }
+            }
+        }
+        im::space(imgui, 32.0f);
+    };
+
+    dialog_box
+        .set_title("Load Texture")
+        .set_description("Select a file")
+        .draw(imgui, draw_files)
+        .into(file);
+
+        
+    if (dialog_box.done == 2) {
+        return false;
+    }
+
+    if (!file[0]) {
+        return true;
+    }
+
+    auto slen = std::strlen(file);
+    utl::copy(ee->entity->gfx.albedo_texture.buffer, file, slen);
+    ee->entity->gfx.albedo_texture.buffer[slen] = 0;
+
+    return false;
+}
+
+static bool
+load_function_window(
+    gfx::gui::im::state_t& imgui,
+    entity_editor_t* ee,
+    char* buffer
+) {
+    using namespace gfx::gui;
+    local_persist dialog_window_t dialog_box{.position = v2f{500.0f, 300.0f}};;
+    char file[512] = {};
+    local_persist std::string function_names = "";
+    local_persist b32 loaded_names = 0;
+
+    if (!loaded_names) {
+        loaded_names = 1;
+        function_names = utl::unsafe_evaluate_command("dumpbin /exports build\\code.dll");
+    }
+
+    auto draw_files = [&](){
+        // im::space(imgui, 64.0f);    
+        auto* game_state = ee->game_state;
+        std::string_view splice;
+        std::string_view names = function_names;
+        names = names.substr(names.find_first_of('='));
+
+        while((splice = utl::cut(names, '=', '\n', 1)) != ""sv) {
+            if (names.empty()) break;
+            // filter c++ mangled names
+            // splice.data()[splice.size()] = 0;
+            if (splice[0] != '?' && im::text(imgui, splice)) {
+                assert(splice.size() < array_count(file));
+                utl::copy(file, splice.data(), splice.size());
+            }
+            
+            // move to the equal sign we just cut
+            auto pos = names.find_first_of('=');
+            if (pos == std::string_view::npos) {
+                break;
+            }
+            names = names.substr(pos);
+
+            // move to the end
+            pos = names.find_first_of('\n');
+            if (pos == std::string_view::npos) {
+                break;
+            }
+            names = names.substr(pos);
+        }        
+        // im::space(imgui, 32.0f);
+    };
+
+    dialog_box
+        .set_title("Load Callback")
+        .set_description("Select a function")
+        .draw(imgui, draw_files)
+        .into(file);
+
+        
+    if (dialog_box.done == 2) {
+        return false;
+    }
+
+    if (!file[0]) {
+        return true;
+    }
+
+    auto slen = std::strlen(file);
+    utl::copy(buffer, file, slen);
+    buffer[slen] = 0;
+    loaded_names = 0;
+
     return false;
 }
 
@@ -772,11 +917,11 @@ load_entity_window(
     bool load = 0
 ) {
     using namespace gfx::gui;
-    local_persist dialog_window_t dialog_box{};
+    local_persist dialog_window_t dialog_box{.position = v2f{500.0f, 300.0f}};;
     char file[512] = {};
 
     auto draw_files = [&](){
-        im::space(imgui, 32.0f);
+        im::space(imgui, 64.0f);
         for (const auto& entry : std::filesystem::recursive_directory_iterator("./")) {
             auto filename = entry.path().string();
             if (entry.is_directory()) {
@@ -798,9 +943,13 @@ load_entity_window(
     dialog_box
         .set_title(load ? "Load Entity" : "Save Entity")
         .set_description("Select a file")
-        .set_position(v2f{400.0f,300.0f})
         .draw(imgui, draw_files)
         .into(file);
+
+        
+    if (dialog_box.done == 2) {
+        return false;
+    }
 
     if (!file[0]) {
         return true;
@@ -810,7 +959,15 @@ load_entity_window(
         *ee->entity = load_from_file(&ee->game_state->main_arena, file);
     } else { // show_save
         std::ofstream ffile{file, std::ios::binary};
-        ffile.write((const char*)ee->entity, sizeof(zyy::prefab_t));
+        auto memory = begin_temporary_memory(&ee->arena);
+
+        utl::memory_blob_t blob{memory.arena};
+
+        blob.serialize(memory.arena, *ee->entity);
+
+        ffile.write((const char*)blob.data, blob.serialize_offset);
+
+        end_temporary_memory(memory);
     }
 
     return false;
@@ -830,7 +987,9 @@ entity_editor_render(entity_editor_t* ee) {
     local_persist bool show_save = false;
     local_persist bool show_graphics = false;
     local_persist bool show_physics = false;
-    local_persist bool show_file_dialog = false;
+    local_persist bool show_mesh_dialog = false;
+    local_persist bool show_texture_dialog = false;
+    local_persist char* show_function_dialog;
 
 
     auto* game_state = ee->game_state;
@@ -841,8 +1000,14 @@ entity_editor_render(entity_editor_t* ee) {
 
     im::clear(imgui);
 
-    if (show_file_dialog) {
-        show_file_dialog = load_mesh_window(imgui, ee);
+    if (show_mesh_dialog) {
+        show_mesh_dialog = load_mesh_window(imgui, ee);
+    }
+    if (show_texture_dialog) {
+        show_texture_dialog = load_texture_window(imgui, ee);
+    }
+    if (show_function_dialog) {
+        show_function_dialog = load_function_window(imgui, ee, show_function_dialog) ? show_function_dialog : 0;
     }
 
     bool ctrl_held = game_state->input().keys[key_id::LEFT_CONTROL] || game_state->input().keys[key_id::RIGHT_CONTROL];
@@ -933,14 +1098,16 @@ entity_editor_render(entity_editor_t* ee) {
                 show_save = show_load = false;
             }
         }
+
+        im::space(imgui, 32.0f);
         
-        std::string_view mesh_view{ee->entity->gfx.mesh_name};
+        std::string_view mesh_view{ee->entity->gfx.mesh_name.view()};
         size_t type_pos=std::strlen(ee->entity->type_name.data());
         size_t mesh_pos=mesh_view.size();
         
         im::same_line(imgui);
         im::text(imgui, "Type Name: \t"sv);
-        im::text_edit(imgui, std::string_view{ee->entity->type_name}, &type_pos, "type_name::edit"_sid);
+        im::text_edit(imgui, ee->entity->type_name.view(), &type_pos, "type_name::edit"_sid);
 
         std::string_view types[]{
             "environment",
@@ -961,7 +1128,7 @@ entity_editor_render(entity_editor_t* ee) {
         if (im::text(imgui, "Graphics"sv, &show_graphics)) {
             im::same_line(imgui);
             if (im::text(imgui, "-- Mesh Name: \t"sv)) {
-                show_file_dialog = true;
+                show_mesh_dialog = true;
             }
             im::text_edit(imgui, mesh_view, &mesh_pos, "mesh_name::edit"_sid);
 
@@ -969,9 +1136,16 @@ entity_editor_render(entity_editor_t* ee) {
             im::text(imgui, "-- Material Id: \t"sv);
             im::uint_drag(imgui, &ee->entity->gfx.material_id, 1, 0, 100);
             
-            im::text(imgui, fmt_sv("-- Albedo Name: {}"sv, ee->entity->gfx.albedo_texture));
-            im::text(imgui, fmt_sv("-- Normal Name: {}"sv, ee->entity->gfx.normal_texture));
-            im::text(imgui, fmt_sv("-- Anim Name: {}"sv, ee->entity->gfx.animations));
+            std::string_view albedo_view = ee->entity->gfx.albedo_texture.view();
+            u64 albedo_write = albedo_view.size();
+            im::same_line(imgui);
+            if (im::text(imgui, "-- Albedo Name: "sv)) {
+                show_texture_dialog = true;
+            }
+            im::text_edit(imgui, albedo_view, &albedo_write, "albedo_texture::edit"_sid);
+
+            im::text(imgui, fmt_sv("-- Normal Name: {}"sv, ee->entity->gfx.normal_texture.view()));
+            im::text(imgui, fmt_sv("-- Anim Name: {}"sv, ee->entity->gfx.animations.view()));
         }
         
         if (ee->entity->physics) {
@@ -1046,13 +1220,17 @@ entity_editor_render(entity_editor_t* ee) {
                         "Capsule",
                         "Box",
                     };
-                    u64 sflag = 0;
-                    im::bitflag(imgui, std::span{shape_types}, &sflag);
-                    for(u64 s = 0; s < array_count(shape_types); s++) {
-                        if ((1ui64<<s)==sflag) {
-                            shape.shape = (physics::collider_shape_type)s;
-                            im::text(imgui, shape_types[s]);
-                        }
+
+                    local_persist u64 sflag = 0;
+                    sflag = im::tabs(imgui, std::span{shape_types}, sflag);
+                    
+                    switch(sflag) {
+                        case "Convex"_sid: shape.shape = physics::collider_shape_type::CONVEX; break;
+                        case "Trimesh"_sid: shape.shape = physics::collider_shape_type::TRIMESH; break;
+                        case "Sphere"_sid: shape.shape = physics::collider_shape_type::SPHERE; break;
+                        case "Capsule"_sid: shape.shape = physics::collider_shape_type::CAPSULE; break;
+                        case "Box"_sid: shape.shape = physics::collider_shape_type::BOX; break;
+                        case_invalid_default;
                     }
 
                     if (im::text(imgui, fmt_sv("Trigger [{}]", shape.flags?'x':' '))) {
@@ -1096,7 +1274,6 @@ entity_editor_render(entity_editor_t* ee) {
                 }
             }
         }
-        local_persist bool show_coroutine;
         local_persist bool show_weapon;
         local_persist bool show_stats;
 
@@ -1246,25 +1423,38 @@ entity_editor_render(entity_editor_t* ee) {
             }
         }
 
-        if (im::same_line(imgui, show_coroutine) && im::text(imgui, "Coroutine"sv, &show_coroutine)) {
-            std::string_view view{ee->entity->coroutine.name};
-            u64 wp = view.size();
-            im::text_edit(imgui, view, &wp, "coroutine::edit"_sid);
+        local_persist u64 open_tab = 0;
+        std::string_view tabs[] = {
+            "Coroutine"sv,
+            "Hit Effect"sv,
+            "Spawn Bullet"sv,
+        };
+
+        #define open_function_window(buffer) if (im::text(imgui, "Show Exported")) { show_function_dialog = buffer; }
+
+        switch (open_tab = im::tabs(imgui, std::span{tabs}, open_tab)) {
+            case "Coroutine"_sid: {
+                open_function_window(ee->entity->coroutine.name);
+                std::string_view view{ee->entity->coroutine.name};
+                u64 wp = view.size();
+                im::text_edit(imgui, view, &wp, "coroutine::edit"_sid);
+            } break;
+            case "Hit Effect"_sid: {
+                open_function_window(ee->entity->on_hit_effect.name);
+                std::string_view view{ee->entity->on_hit_effect.name};
+                u64 wp = view.size();
+                im::text_edit(imgui, view, &wp, "on_hit::edit"_sid);
+            } break;
+            case "Spawn Bullet"_sid: {
+                open_function_window(ee->entity->spawn_bullet.name);
+                std::string_view view{ee->entity->spawn_bullet.name};
+                u64 wp = view.size();
+                im::text_edit(imgui, view, &wp, "spawn_bullet::edit"_sid);
+            } break;
         }
 
-        local_persist bool show_hit;
-        if (im::same_line(imgui, show_hit) && im::text(imgui, "Hit Effect"sv, &show_hit)) {
-            std::string_view view{ee->entity->on_hit_effect.name};
-            u64 wp = view.size();
-            im::text_edit(imgui, view, &wp, "on_hit::edit"_sid);
-        }
-
-        local_persist bool spawn_bullet;
-        if (im::same_line(imgui, spawn_bullet) && im::text(imgui, "Spawn Bullet"sv, &spawn_bullet)) {
-            std::string_view view{ee->entity->spawn_bullet.name};
-            u64 wp = view.size();
-            im::text_edit(imgui, view, &wp, "spawn_bullet::edit"_sid);
-        }
+        #undef open_function_window
+        
 
         local_persist bool show_brain;
         if (ee->entity->brain_type == brain_type::invalid) {
@@ -1386,21 +1576,34 @@ entity_editor_render(entity_editor_t* ee) {
                 ee->snapping = 100.0f;
             }
         }
+        im::end_panel(imgui, &pos, &size);
+    }
 
-        im::text(imgui, "========= Entities =========");
+    local_persist b32 show_entity_list = 1;
+    local_persist v2f entity_window_pos{0.0f, 600.0f};
+    local_persist v2f entity_window_size;
 
+    if (im::begin_panel(imgui, "Entities", &entity_window_pos, &entity_window_size, &show_entity_list)) {
+        auto theme = imgui.theme;
         for(auto* prefab = ee->prefabs.next;
             prefab != &ee->prefabs;
             node_next(prefab)
         ) {
             im::same_line(imgui);
             
-            auto theme = imgui.theme;
+            if (im::button(imgui, "[x]", gfx::color::rgba::red, gfx::color::rgba::white, (u64)prefab)) {
+                ee->remove_prefab(prefab);
+            }
+
             if (ee->selection == prefab) {
                 imgui.theme.text_color = gfx::color::rgba::yellow;
             }
 
-            if (im::text(imgui, fmt_sv("Entity: {} ", (void*)prefab))) {
+            if (im::text(imgui, 
+                prefab->prefab.type_name.empty() ? 
+                    fmt_sv("Entity: {} ", (void*)prefab):
+                    fmt_sv("{}\0{}"sv, prefab->prefab.type_name.view(), (void*)prefab)
+            )) {
                 if (ee->selection == prefab) {
                     ee->camera.position = prefab->transform.origin;
                 }
@@ -1408,59 +1611,48 @@ entity_editor_render(entity_editor_t* ee) {
                 ee->entity = &prefab->prefab;
             }
             imgui.theme = theme;
-
-            if (im::button(imgui, "[x]", (u64)prefab)) {
-                ee->remove_prefab(prefab);
-            }
         }
-        
-        im::text(imgui, "============================");
-        // local_persist shader_1_t s1;
-        // local_persist shader_2_t s2{.name="test"};
-        // object_gui(imgui, s1);
-        // object_gui(imgui, s2);
+        im::end_panel(imgui, &entity_window_pos, &entity_window_size);
+    }
 
-        auto want_to_copy = shift_held;
+    auto want_to_copy = shift_held;
 
-        if (ee->selection.selection != nullptr) {
-            if (ee->selection.mode == selection_mode::scale) {
-                auto [released, _start] = im::gizmo_scale(imgui, ee->selection, ee->selection, rs->projection * rs->view, ee->snapping);
-                if (released) {
-                    if (shift_held && ee->selection.prefab) {
-                        auto* dragged = ee->selection.prefab;
-                        auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
-                        dragged->transform.basis = imgui.gizmo_basis_start;
-                    } else {
-                        ee->edit_basis(ee->selection, *ee->selection.basis, imgui.gizmo_basis_start);
-                    }
+    if (ee->selection.selection != nullptr) {
+        if (ee->selection.mode == selection_mode::scale) {
+            auto [released, _start] = im::gizmo_scale(imgui, ee->selection, ee->selection, rs->projection * rs->view, ee->snapping);
+            if (released) {
+                if (shift_held && ee->selection.prefab) {
+                    auto* dragged = ee->selection.prefab;
+                    auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
+                    dragged->transform.basis = imgui.gizmo_basis_start;
+                } else {
+                    ee->edit_basis(ee->selection, *ee->selection.basis, imgui.gizmo_basis_start);
                 }
-            } else if (ee->selection.mode == selection_mode::rotation) {
-                auto [released, _start] = im::gizmo_rotate(imgui, ee->selection, ee->selection, rs->projection * rs->view, ee->snapping);
-                if (released) {
-                    if (shift_held && ee->selection.prefab) {
-                        auto* dragged = ee->selection.prefab;
-                        auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
-                        dragged->transform.basis = imgui.gizmo_basis_start;
-                    } else {
-                        ee->edit_basis(ee->selection, *ee->selection.basis, imgui.gizmo_basis_start);
-                    }
+            }
+        } else if (ee->selection.mode == selection_mode::rotation) {
+            auto [released, _start] = im::gizmo_rotate(imgui, ee->selection, ee->selection, rs->projection * rs->view, ee->snapping);
+            if (released) {
+                if (shift_held && ee->selection.prefab) {
+                    auto* dragged = ee->selection.prefab;
+                    auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
+                    dragged->transform.basis = imgui.gizmo_basis_start;
+                } else {
+                    ee->edit_basis(ee->selection, *ee->selection.basis, imgui.gizmo_basis_start);
                 }
-            } else if (ee->selection.mode == selection_mode::pos) {
-                auto space = ee->mode ? im::gizmo_mode::global : im::gizmo_mode::local;
-                auto [released, start] = im::gizmo(imgui, ee->selection, rs->projection * rs->view, ee->snapping, ee->selection.basis?*ee->selection.basis:m33{1.0f}, space);
-                if (released) {
-                    if (shift_held && ee->selection.prefab) {
-                        auto* dragged = ee->selection.prefab;
-                        auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
-                        dragged->transform.origin = start;
-                    } else {
-                        ee->edit_vec3(ee->selection, *ee->selection.selection, start);
-                    }
+            }
+        } else if (ee->selection.mode == selection_mode::pos) {
+            auto space = ee->mode ? im::gizmo_mode::global : im::gizmo_mode::local;
+            auto [released, start] = im::gizmo(imgui, ee->selection, rs->projection * rs->view, ee->snapping, ee->selection.basis?*ee->selection.basis:m33{1.0f}, space);
+            if (released) {
+                if (shift_held && ee->selection.prefab) {
+                    auto* dragged = ee->selection.prefab;
+                    auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
+                    dragged->transform.origin = start;
+                } else {
+                    ee->edit_vec3(ee->selection, *ee->selection.selection, start);
                 }
             }
         }
-
-        im::end_panel(imgui, &size);
     }
 }
 
@@ -1479,12 +1671,11 @@ entity_editor_update(entity_editor_t* ee) {
 
     auto* rs = game_state->render_system;
 
-    auto draw = [&](auto entity, auto transform, auto id, u32 count, instanced_prefab_t* prefab = 0) {
+    auto draw = [&](const auto& entity, auto transform, auto id, u32 count, instanced_prefab_t* prefab = 0) {
         if (entity.gfx.mesh_name[0]) {
-            if (utl::res::pack_file_get_file_by_name(pack_file, entity.gfx.mesh_name)) {
-                v4f bounds{0.0f};
+            if (utl::res::pack_file_get_file_by_name(pack_file, entity.gfx.mesh_name.view())) {
 
-                auto mesh_id = rendering::get_mesh_id(rs, entity.gfx.mesh_name);
+                auto mesh_id = rendering::get_mesh_id(rs, entity.gfx.mesh_name.view());
                 auto material_id = entity.gfx.material_id;
                 auto gfx_id = id;
                 auto gfx_count = count;
@@ -1494,16 +1685,28 @@ entity_editor_update(entity_editor_t* ee) {
                     instance_offset += instance_count;
                 }
 
+                auto albedo_id = std::numeric_limits<u32>::max();
+                if (entity.gfx.albedo_texture.empty() == false) {
+                        auto aid = (u32)rs->texture_cache.get_id(entity.gfx.albedo_texture.view());
+                    if (aid == 0) {
+                        tag_array(auto* texture, char, &ee->game_state->string_arena, entity.gfx.albedo_texture.size()+1);
+                        utl::copy(texture, entity.gfx.albedo_texture.buffer, entity.gfx.albedo_texture.size());
+                        texture[entity.gfx.albedo_texture.size()] = '\0';
+                        aid = (u32)rs->texture_cache.load(&rs->arena, *rs->vk_gfx, texture);
+                    }
+                    albedo_id = aid;
+                }
+
                 rendering::submit_job(
                     rs, 
                     mesh_id, 
                     material_id, // todo make material per mesh
                     transform,
-                    bounds,
                     gfx_id,
                     gfx_count,
                     instance_count,
-                    instance_offset
+                    instance_offset,
+                    albedo_id
                 );
             }
         }
@@ -1544,7 +1747,6 @@ entity_editor_update(entity_editor_t* ee) {
             mesh_id, 
             material_id, // todo make material per mesh
             brush->transform.to_matrix(),
-            v4f{0.0f},
             gfx_id,
             gfx_count,
             1,

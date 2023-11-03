@@ -4,6 +4,7 @@
 #include "uid.hpp"
 #include "zyy_character_stats.hpp"
 #include "zyy_inventory.hpp"
+#include "zyy_interactable.hpp"
 
 namespace zyy {
 

@@ -63,6 +63,48 @@ get_game_state(game_memory_t* mem) {
     return (game_state_t*)mem->game_state;
 }
 
+struct game_ui_t {
+    zyy::entity_t* entity = 0;
+
+    zyy::health_t health;
+    zyy::wep::ammo_mag_t mag;
+
+    v3f eye;
+    v3f look;
+};
+
+game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
+    game_ui_t ui{};
+    if (player == nullptr) {
+        return ui;
+    }
+
+    ui.eye = player->camera_controller.transform.origin;
+
+    auto yaw = player->camera_controller.yaw;
+    auto pitch = player->camera_controller.pitch;
+    ui.look = zyy::cam::get_direction(yaw, pitch);
+    ui.eye += ui.look * 1.50f;
+
+    ui.look *= 9.0f;
+
+    ui.health = player->stats.character.health;
+    
+    math::ray_t game_ui_ray{ui.eye, ui.look};
+    DEBUG_DIAGRAM(game_ui_ray);
+    auto raycast = world->physics->raycast_world(world->physics, ui.eye, ui.look);
+    if (raycast.hit) {
+        auto* rb = (physics::rigidbody_t*)raycast.user_data;
+        auto* entity = (zyy::entity_t*)rb->user_data;
+        if (entity == player) {
+            zyy_warn(__FUNCTION__, "Ray Hit Player");
+        }
+        ui.entity = entity;
+    }
+
+    return ui;
+}
+
 void 
 draw_game_gui(game_memory_t* game_memory) {
     TIMED_FUNCTION;
@@ -72,7 +114,16 @@ draw_game_gui(game_memory_t* game_memory) {
 
     if(!player || !world) return;
 
+    auto game_ui = create_game_ui(world, player);
+
     auto& imgui = game_state->gui.state;
+
+    if (game_ui.entity) {
+        v2f look_at_cursor = imgui.ctx.screen_size * v2f{0.5f} + v2f{128.0f, 0.0f};
+        if (game_ui.entity->name.data) {
+            gfx::gui::string_render(&imgui.ctx, fmt_sv("{}", game_ui.entity->name.c_data), &look_at_cursor, gfx::color::rgba::white);
+        }
+    }
 
     if (player->primary_weapon.entity) {
         const auto& weapon = player->primary_weapon.entity->stats.weapon;
@@ -81,8 +132,8 @@ draw_game_gui(game_memory_t* game_memory) {
         gfx::gui::im::draw_circle(imgui, center, 2.0f, gfx::color::rgba::white);
         gfx::gui::im::draw_circle(imgui, center, 4.0f, gfx::color::rgba::light_gray);
         v2f weapon_display_start = imgui.ctx.screen_size * v2f{0.05f, 0.9f};
-        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", stats.health.current, stats.health.max), &weapon_display_start, gfx::color::rgba::white);
-        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", weapon.mag.current, weapon.mag.max), &weapon_display_start, gfx::color::rgba::white);
+        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", game_ui.health.current, game_ui.health.max), &weapon_display_start, gfx::color::rgba::white);
+        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", game_ui.mag.current, game_ui.mag.max), &weapon_display_start, gfx::color::rgba::white);
         gfx::gui::string_render(&imgui.ctx, fmt_sv("Chambered: {}", weapon.chamber_count), &weapon_display_start, gfx::color::rgba::white);
     }
 }
@@ -219,7 +270,7 @@ app_init_graphics(game_memory_t* game_memory) {
     // make_error_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256);
     vk_gfx.load_texture_sampler(&vk_gfx.null_texture);
 
-    game_state->render_system = rendering::init<megabytes(32)>(vk_gfx, &game_state->main_arena);
+    game_state->render_system = rendering::init<megabytes(8)>(vk_gfx, &game_state->main_arena);
     game_state->render_system->resource_file = game_state->resource_file;
     vk_gfx.create_vertex_buffer(&game_state->gui.vertices[0]);
     vk_gfx.create_index_buffer(&game_state->gui.indices[0]);
@@ -276,7 +327,7 @@ app_init_graphics(game_memory_t* game_memory) {
 
         results.count = blob.deserialize<u64>();
         zyy_warn(__FUNCTION__, "Loading {} meshes", results.count);
-        results.meshes  = push_struct<gfx::mesh_view_t>(arena, results.count);
+        tag_array(results.meshes, gfx::mesh_view_t, arena, results.count);
 
         u64 total_vertex_count = 0;
         utl::pool_t<gfx::skinned_vertex_t>& vertices{rs->skinned_vertices.pool};
@@ -662,11 +713,11 @@ app_on_init(game_memory_t* game_memory) {
     arena_t* main_arena = &game_state->main_arena;
     arena_t* string_arena = &game_state->string_arena;
 
-    game_state->temp_arena = arena_create(megabytes(4));
-    game_state->string_arena = arena_create(megabytes(16));
-    game_state->mesh_arena = arena_create(megabytes(32));
-    game_state->texture_arena = arena_create(megabytes(16));
-    game_state->gui.arena = arena_create(megabytes(8));
+    game_state->temp_arena = arena_create(megabytes(1));
+    game_state->string_arena = arena_create(megabytes(2));
+    game_state->mesh_arena = arena_create(megabytes(2));
+    game_state->texture_arena = arena_create(megabytes(2));
+    game_state->gui.arena = arena_create(megabytes(1));
 
     defer {
         arena_clear(&game_state->temp_arena);
@@ -1152,7 +1203,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             // arena_sweep_keep(&world->render_system()->instance_storage_buffer.pool, e->gfx.instance_end());
         }
 
-        if (e->gfx.particle_system) {
+        if (e->gfx.particle_system && dt != 0.0f) {
             auto* ps = e->gfx.particle_system;
             // arena_sweep_keep(&world->particle_arena, (std::byte*)(ps->particles + ps->max_count));
             particle_system_update(e->gfx.particle_system, e->global_transform(), dt);
@@ -1165,7 +1216,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         }
 
         v3f size = e->aabb.size()*0.5f;
-        v4f bounds{e->aabb.center(), glm::max(glm::max(size.x, size.y), size.z) };
+        // v4f bounds{e->aabb.center(), glm::max(glm::max(size.x, size.y), size.z) };
 
         // if (e->type == zyy::entity_type::player) continue;
         auto instance_count = e->gfx.instance_count();
@@ -1177,7 +1228,6 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             e->gfx.mesh_id, 
             e->gfx.material_id, // todo make material per mesh
             e->global_transform().to_matrix(),
-            bounds,
             e->gfx.gfx_id,
             e->gfx.gfx_entity_count,
             instance_count,
@@ -1488,16 +1538,12 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
             ext.vkCmdSetDepthCompareOpEXT(command_buffer, VK_COMPARE_OP_LESS_OR_EQUAL);
             ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
             VkColorBlendEquationEXT blend_fn[1];
-            blend_fn[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-            blend_fn[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-            blend_fn[0].colorBlendOp = VK_BLEND_OP_ADD;
-            blend_fn[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            blend_fn[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-            blend_fn[0].alphaBlendOp = VK_BLEND_OP_ADD;
-            // ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
+            blend_fn[0] = gfx::vul::utl::alpha_blending();
+            ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
             VkBool32 fb_blend[1] { true };
             ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
             // ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
+
             {
                 VkVertexInputBindingDescription2EXT vertexInputBinding{};
                 vertexInputBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;

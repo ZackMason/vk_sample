@@ -40,9 +40,10 @@ namespace physics {
 static void 
 init_physx(api_t* api, arena_t* arena) {
     api->arena = arena;
-    physx_backend_t* backend = push_struct<physx_backend_t>(
-        arena
-    );
+    // physx_backend_t* backend = push_struct<physx_backend_t>(
+    //     arena
+    // );
+    tag_struct(physx_backend_t* backend, physx_backend_t, arena);
     api->backend = physx_init_backend(backend, arena);
 
     api->simulate           = physx_simulate;

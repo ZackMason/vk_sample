@@ -22,7 +22,8 @@ main() {
 	vec3 color = sky_color(vN, sun);
 
 	// color = pow(color * 1.0, vec3(1.0/2.2));
-	// color = vec3(0);
+	
+	
 	color = max(color, 0.0);
 	fFragColor = vec4( color, 1. );
 }

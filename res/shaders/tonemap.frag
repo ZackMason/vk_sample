@@ -142,7 +142,7 @@ void main() {
     if (uTonemap == EXPO) { color = vec3(1.0) - exp(-color * uExposure); }
     if (uTonemap == CHRT) { color = uncharted(color); }
     color = paletize(color,32);// + dithering;
-    color = mix(color, bloom, 0.06);
+    color = mix(color, bloom, 0.005);
         
     color = pow(color, vec3(1.0/uGamma));
     fFragColor.rgb = color.rgb;

@@ -80,7 +80,6 @@ struct vertex_buffer_t : public gpu_buffer_t {
     utl::pool_t<T> pool{};
 };
 
-
 template <size_t N>
 struct index_buffer_t : public gpu_buffer_t {
     using gpu_buffer_t::gpu_buffer_t;
@@ -1190,6 +1189,32 @@ void set_image_layout(
     VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
     VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
 );
+
+VkColorBlendEquationEXT 
+alpha_blending() {
+    VkColorBlendEquationEXT result{};
+        result.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        result.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        result.colorBlendOp = VK_BLEND_OP_ADD;
+        result.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        result.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        result.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    return result;
+}
+
+VkColorBlendEquationEXT 
+additive_blending() {
+    VkColorBlendEquationEXT result{};
+        result.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        result.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        result.colorBlendOp = VK_BLEND_OP_ADD;
+        result.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        result.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        result.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    return result;
+}
 
 
 }; // namespace utl

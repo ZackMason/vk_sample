@@ -36,7 +36,6 @@ auto zyy_error(std::string_view cat, std::string_view str, Args&& ... args) {
 platform_api_t Platform;
 
 
-
 global_variable f32 bloom_filter_radius = 0.0025f;
 
 
@@ -45,6 +44,7 @@ global_variable f32 bloom_filter_radius = 0.0025f;
 
 #include "App/bullet.cpp"
 #include "App/zyy_lightning_effect.cpp"
+#include "App/Game/Items/explosion_effect.hpp"
 #include "App/zyy_weapon_common.cpp"
 
 #if ZYY_INTERNAL

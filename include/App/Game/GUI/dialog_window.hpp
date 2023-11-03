@@ -10,7 +10,7 @@ struct dialog_window_t {
     std::string_view description{};
     v2f position{0.0f};
     v2f size{100.0f};
-    b32 done{0};
+    u32 done{0}; // 1 == done, 2 == closed
     b32 open{1};
 
     dialog_window_t& set_title(std::string_view title_) {
@@ -33,12 +33,12 @@ struct dialog_window_t {
         return *this;
     }
 
-
     dialog_window_t& draw(gfx::gui::im::state_t& imgui, std::function<void(void)> fn = []{}) {
         using namespace gfx::gui;
-
-        if (im::begin_panel(imgui, title, &position, &size, &open)) {
-
+        
+        auto [open_, want_to_close] = im::begin_panel(imgui, title, &position, &size, &open);
+        if (open_) {
+            im::horizontal_text_center(imgui, title);
             im::text(imgui, title);
             if (description.empty() == false) {
                 im::text(imgui, description);
@@ -48,7 +48,10 @@ struct dialog_window_t {
 
             done = im::text_edit(imgui, text_buffer, &write_pos, "dialog_window::text_buffer"_sid);
 
-            im::end_panel(imgui, &size);
+            im::end_panel(imgui, &position, &size);
+        }
+        if (want_to_close) {
+            done = 2;
         }
 
         return *this;
@@ -60,21 +63,21 @@ struct dialog_window_t {
     }
 
     void into(f32& f) {
-        if (done) {
+        if (done == 1) {
             f = (f32)std::atof(text_buffer);
             clear();
         }
     }
 
     void into(i32& i) {
-        if (done) {
+        if (done == 1) {
             i = (i32)std::atoi(text_buffer);
             clear();
         }
     }
 
     void into(std::span<char> t) {
-        if (done) {
+        if (done == 1) {
             utl::copy(t.data(), text_buffer, std::min(t.size(), write_pos));
             clear();
         }

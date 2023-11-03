@@ -20,7 +20,7 @@ namespace zyy {
         if (entity->gfx.mesh_id) {
             const auto& mesh = rendering::get_mesh(rs, entity->gfx.mesh_id);
             
-            std::memcpy(result.gfx.mesh_name, mesh.name.data(), mesh.name.size());
+            std::memcpy(result.gfx.mesh_name.buffer, mesh.name.data(), mesh.name.size());
         }
 
 

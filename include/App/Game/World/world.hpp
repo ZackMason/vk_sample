@@ -35,6 +35,32 @@ namespace zyy {
         }
     };
 
+    enum struct event_type {
+        invalid, hit, damage,
+    };
+
+    struct hit_event_t {
+        v3f point{0.0f};
+    };
+
+    struct damage_event_t {
+        v3f point{0.0f};
+        f32 damage{0.0f};  
+    };
+
+    struct event_t {
+        event_t*   next{0};
+
+        entity_t*  entity{0};
+
+        event_type type{event_type::invalid};
+        
+        union {
+            hit_event_t hit_event{};
+            damage_event_t damage_event;
+        };
+    };
+
     // note(zack): everything I need to rebuild game state should be in this struct
     struct world_t {
         game_state_t* game_state;
@@ -51,6 +77,8 @@ namespace zyy {
         zyy::entity_t  entities[max_entities]; // entities from [0,cap]
         zyy::entity_t* entity_id_hash[max_entities*2];
         zyy::entity_t* free_entities{0};
+
+        event_t* events{0};
 
         // umm           brain_count{0};
         umm           brain_capacity{0};
@@ -86,6 +114,19 @@ namespace zyy {
         }
         // world_t() = default;
     };
+
+    event_t* new_event(world_t* world, entity_t* entity, event_type type) {
+        auto* arena = &world->frame_arena.get();
+
+        tag_struct(auto* event, event_t, arena);
+
+        event->type = type;
+        event->entity = entity;
+
+        node_push(event, world->events);
+
+        return event;
+    }
 
     static void 
     add_entity_to_id_hash(world_t* world, entity_t* entity) {
@@ -177,14 +218,18 @@ namespace zyy {
         assert(entity->first_child == nullptr);
         assert(entity->next_child == nullptr);
 
-        entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name));
+        entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name.view()));
 
         entity->gfx.material_id = def.gfx.material_id;
         entity->gfx.gfx_id  = rendering::register_entity(rs);
         entity->gfx.gfx_entity_count = 1;
 
+        if (def.gfx.albedo_texture != ""sv) {
+            entity->gfx.albedo_id = (u32)rs->texture_cache.get_id(def.gfx.albedo_texture.view());
+        }
+
         if (def.gfx.mesh_name != ""sv) {
-            auto& mesh_list = rendering::get_mesh(rs, def.gfx.mesh_name);
+            auto& mesh_list = rendering::get_mesh(rs, def.gfx.mesh_name.view());
             entity->gfx.gfx_entity_count = mesh_list.count;
 
             rendering::initialize_entity(rs, entity->gfx.gfx_id, mesh_list.meshes[0].vertex_start, mesh_list.meshes[0].index_start);
@@ -195,10 +240,10 @@ namespace zyy {
                 rendering::initialize_entity(rs, entity->gfx.gfx_id + i, mesh.vertex_start, mesh.index_start);
                 rendering::set_entity_albedo(rs, entity->gfx.gfx_id + i, u32(mesh.material.albedo_id));
             }
-            entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name);
+            entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name.view());
         }
-        if (def.type_name == true) {
-            entity->name.own(&world->game_state->string_arena, def.type_name.data());
+        if (def.type_name.empty() == false) {
+            entity->name.own(&world->game_state->string_arena, def.type_name.view());
         }
         entity->transform.origin = pos;
         entity->transform.basis = basis;
@@ -234,18 +279,17 @@ namespace zyy {
                 player_init(
                     entity,
                     &world->camera, 
-                    def.gfx.mesh_name != ""sv ? rendering::get_mesh_id(rs, def.gfx.mesh_name) : 0
+                    def.gfx.mesh_name.view() != ""sv ? rendering::get_mesh_id(rs, def.gfx.mesh_name.view()) : 0
                 );
                 world->player = entity;
             } break;
         }
 
-        if (def.effect) {
-            entity->stats.effect = *def.effect;
-            if (def.on_hit_effect.name[0]) {
-                entity->stats.effect.on_hit_effect = def.on_hit_effect.get(mod_loader);
-            }
+        if (def.on_hit_effect.name[0]) {
+            tag_struct(entity->stats.effect, item::effect_t, &world->arena);
+            entity->stats.effect->on_hit_effect = def.on_hit_effect.get(mod_loader);
         }
+
 
         if (def.stats) {
             entity->stats.character = *def.stats;
@@ -287,7 +331,7 @@ namespace zyy {
 
                 switch(shape){
                     case physics::collider_shape_type::CONVEX: {
-                        collider_name = fmt_str("{}.convex.physx", def.gfx.mesh_name);
+                        collider_name = fmt_str("{}.convex.physx", def.gfx.mesh_name.data());
                         physics::collider_convex_info_t ci;
                         ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
                         if (ci.mesh == nullptr) {
@@ -301,7 +345,7 @@ namespace zyy {
                         }
                     }   break;
                     case physics::collider_shape_type::TRIMESH: {
-                        collider_name = fmt_str("{}.trimesh.physx", def.gfx.mesh_name);
+                        collider_name = fmt_str("{}.trimesh.physx", def.gfx.mesh_name.data());
                         physics::collider_trimesh_info_t ci;
                         ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
                         if (ci.mesh == nullptr) {
@@ -328,6 +372,8 @@ namespace zyy {
                     case physics::collider_shape_type::BOX: {
                         physics::collider_box_info_t ci;
                         ci.size = def.physics->shapes[i]->box.size;
+                        ci.origin = v3f{0.0f};
+                        ci.rot = math::quat_identity();
                         entity->aabb.expand(def.physics->shapes[i]->box.size*0.5f);
                         entity->aabb.expand(def.physics->shapes[i]->box.size*-0.5f);
                         collider = world->physics->create_collider(
@@ -346,6 +392,9 @@ namespace zyy {
 
         if (def.brain_type != brain_type::invalid) {
             world_new_brain(world, entity, def.brain_type);
+            if (def.brain_type != brain_type::player) {
+                entity->physics.rigidbody->set_layer(1ui32);
+            }
         }
 
         range_u64(i, 0, def.children.size()) {
@@ -397,7 +446,7 @@ namespace zyy {
     void world_init_effects(world_t* world) {
         auto* rs = world->render_system();
         rs->instance_storage_buffer.pool.clear();
-        world->effects.blood_splats = rs->instance_storage_buffer.pool.allocate(world->effects.blood_splat_max = 16'000);
+        world->effects.blood_splats = rs->instance_storage_buffer.pool.allocate(world->effects.blood_splat_max = 1024*2);
         auto blood_id = world->effects.blood_entity = rendering::register_entity(rs);
         auto blood_mid = rendering::get_mesh_id(rs, "res/models/misc/bloodsplat_02.gltf");
         auto& mesh = rendering::get_mesh(rs, blood_mid);
@@ -418,7 +467,7 @@ namespace zyy {
         world->particle_arena = arena_create(megabytes(8));
         
         // frame arenas cant be dynamic, because their blocks will be freed
-        constexpr umm frame_arena_size = megabytes(32);
+        constexpr umm frame_arena_size = megabytes(8);
         world->frame_arena.arena[0] = arena_sub_arena(&world->arena, frame_arena_size);
         world->frame_arena.arena[1] = arena_sub_arena(&world->arena, frame_arena_size);
 
@@ -445,7 +494,6 @@ namespace zyy {
                 rendering::get_mesh_id(world->render_system(), "res/models/misc/bloodsplat_02.gltf"),
                 9, // todo make material per mesh
                 m44{1.0f},
-                v4f{0.0f},
                 world->effects.blood_entity, 1,
                 (u32)glm::min(world->effects.blood_splat_count, world->effects.blood_splat_max),
                 0
@@ -519,6 +567,7 @@ namespace zyy {
     world_update(world_t* world, f32 dt) {
         world->frame_arena.active += 1;
         arena_clear(&world->frame_arena.get());
+        world->events = 0;
     }
 
     static void

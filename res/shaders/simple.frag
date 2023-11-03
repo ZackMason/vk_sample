@@ -199,7 +199,7 @@ main( )
 			vec4 albedo = (triplanar_material > 0) ? 
 				texture_triplanar(uSampler[vAlbedoId], vWorldPos * 0.5, vN).rgba :
 				texture( uSampler[vAlbedoId], vTexCoord ).rgba;
-			if (albedo.a < 0.5) { discard; }
+			if (albedo.a < 0.015) { discard; }
 			rgb = albedo.rgb * material.albedo.rgb;
 			alpha = albedo.a * material.albedo.a;
 			break;
@@ -292,9 +292,8 @@ main( )
 
 	// rgb = env / 2.0f;	
 
-	fFragColor = vec4( rgb, alpha * alpha * alpha);
+	fFragColor = vec4( rgb, alpha);
 }
-
 
 
 

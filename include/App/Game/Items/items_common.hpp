@@ -10,11 +10,10 @@ export_fn(void) on_trigger_pickup_item(physics::rigidbody_t* trigger, physics::r
     auto* world = (zyy::world_t*)trigger->api->user_world;
     if (other_e->type == zyy::entity_type::player) {
         if (other_e->primary_weapon.entity) {
-            other_e->primary_weapon.entity->stats.effect = self->stats.effect;
+            node_push(self->stats.effect, other_e->primary_weapon.entity->stats.effect);
+            self->queue_free();
+            zyy_info(__FUNCTION__, "Picked up item");
         }
-        other_e->stats.effect = self->stats.effect;
-
-        self->queue_free();
     }
 };
 }

@@ -199,6 +199,9 @@ void* win32_alloc(size_t size) {
 #if ZYY_INTERNAL&&0
 
     {
+        // Note
+        // theres a problem in that in the game layer 
+        // we dont know the actually size of the block that we got
         auto* head = &freed_blocks;
         std::lock_guard lock{free_ticket};
         for (auto* block = head->next;
@@ -730,7 +733,7 @@ main(int argc, char* argv[]) {
     };
 
     void* physics_dll = LoadLibraryA(".\\build\\zyy_physics.dll");
-    arena_t physics_arena = arena_create(megabytes(32));
+    arena_t physics_arena = arena_create(megabytes(8));
     
 
     if (physics_dll)
@@ -866,7 +869,7 @@ main(int argc, char* argv[]) {
             if (gs_loop_file) {
                 CloseHandle(gs_loop_file);
             }
-            gs_loop_file = win32_begin_loop_file("state1.zyy");
+            gs_loop_file = win32_begin_loop_file("state1.replay");
             win32_save_loop_file(gs_loop_file);
             
 #ifdef MULTITHREAD_ENGINE
@@ -878,7 +881,7 @@ main(int argc, char* argv[]) {
             rendering_lock.lock();
 #endif 
             if (gs_loop_file) {
-                gs_loop_file = win32_end_loop_file("state1.zyy", gs_loop_file);
+                gs_loop_file = win32_end_loop_file("state1.replay", gs_loop_file);
                 win32_load_loop_file(gs_loop_file);
                 CloseHandle(gs_loop_file);
                 gs_loop_file = 0;

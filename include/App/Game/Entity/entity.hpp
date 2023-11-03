@@ -12,7 +12,6 @@
 #include "App/Game/Rendering/particle.hpp"
 #include "App/Game/Rendering/lighting.hpp"
 
-
 #include <variant>
 
 namespace zyy {
@@ -70,7 +69,7 @@ struct entity_t {
         u64 gfx_id{0};
         u64 gfx_entity_count{0};
         u64 mesh_id{0};
-        u32 albedo_id{0};
+        u32 albedo_id{std::numeric_limits<u32>::max()};
         u32 material_id{0};
         u32 animation_id{0};
         // u32 object_id{0};
@@ -163,7 +162,7 @@ struct entity_t {
     struct stats_t {
         character_stats_t character{};
         wep::base_weapon_t weapon{};
-        item::effect_t effect{};
+        item::effect_t* effect{0};
     } stats{};
 
     entity_ref_t primary_weapon{0};
@@ -172,7 +171,7 @@ struct entity_t {
     cam::first_person_controller_t camera_controller;
 
     std::optional<entity_coroutine_t> coroutine{};
-
+    interactable_t* interactions{0};
 
     // virtual ~entity_t() = default;
     // constexpr entity_t() noexcept = default;

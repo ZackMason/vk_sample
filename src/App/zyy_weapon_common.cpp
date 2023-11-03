@@ -2,15 +2,17 @@
 
 void do_hit_effects(
     zyy::world_t* world,
+    zyy::entity_t* self_entity,
     zyy::entity_t* hit_entity,
     zyy::item::effect_t* effect,
     v3f hit_pos,
     v3f hit_normal
 ) {
-    effect->on_hit_effect(world, effect, hit_entity, hit_pos, hit_normal);
+    effect->on_hit_effect(world, effect, self_entity, hit_entity, hit_pos, hit_normal);
     if (effect->next) {
         do_hit_effects(
             world,
+            self_entity,
             hit_entity,
             effect,
             hit_pos,
@@ -107,38 +109,47 @@ void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
     }
 
     auto pos = self_entity->global_transform().origin;
+    auto damage = self_entity->stats.weapon.stats.damage;
 
     // spawn_puff(world, self_entity->global_transform().origin, 10);
     if (hit_entity->stats.character.health.max) {
         auto blood = zyy::db::environmental::blood_01;
-        spawn_blood(world, pos, 30, blood);
-        spawn_blood(world, pos, 30, blood);
-        spawn_blood(world, pos, 30, blood);
-        if (hit_entity->stats.character.health.damage(self_entity->stats.weapon.stats.damage)) {
+        // spawn_blood(world, pos, 30, blood);
+        // spawn_blood(world, pos, 30, blood);
+        // spawn_blood(world, pos, 30, blood);
+        if (hit_entity->stats.character.health.damage(damage)) {
             // entity was killed
             hit_entity->queue_free();
 
-            spawn_blood(world, pos, 30, blood);
-            spawn_blood(world, pos, 30, blood);
-            spawn_blood(world, pos, 30, blood);
-            spawn_blood(world, pos, 30, blood);
-            spawn_blood(world, pos, 30, blood);
-            spawn_blood(world, pos, 30, blood);
+            // spawn_blood(world, pos, 30, blood);
+            // spawn_blood(world, pos, 30, blood);
+            // spawn_blood(world, pos, 30, blood);
+            // spawn_blood(world, pos, 30, blood);
+            // spawn_blood(world, pos, 30, blood);
+            // spawn_blood(world, pos, 30, blood);
         }
-        spawn_hit = 1;
+        auto* event = zyy::new_event(world, self_entity, zyy::event_type::damage);
 
-        if (self_entity->stats.effect.on_hit_effect) {
+        event->damage_event.point = pos;
+        event->damage_event.damage = damage;
+
+        spawn_hit = 1;
+    }
+
+    if (spawn_hit) {
+        auto* event = zyy::new_event(world, self_entity, zyy::event_type::hit);
+        event->hit_event.point = pos;
+
+        if (self_entity->stats.effect && self_entity->stats.effect->on_hit_effect) {
             do_hit_effects(
                 world, 
+                self_entity,
                 hit_entity,
-                &self_entity->stats.effect,
+                self_entity->stats.effect,
                 pos,
                 axis::up
             );
         }
-
-    }
-    if (spawn_hit) {
         self_entity->queue_free(0);
         if (self_entity->first_child && self_entity->first_child->gfx.particle_system) {
             self_entity->first_child->gfx.particle_system->spawn_timer = 1000.0f;
@@ -157,22 +168,37 @@ void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
     auto* hit_entity = (zyy::entity_t*)other->user_data;
     auto* self_entity = (zyy::entity_t*)self->user_data;
     auto* world = (zyy::world_t*)self->api->user_world;
-    b32 explode = 1;
-    auto memory = begin_temporary_memory(&world->arena);
-    auto* arena = memory.arena;
 
     if (other->type == physics::rigidbody_type::STATIC) {
         self_entity->queue_free();
-        explode = 1;
     }
 
-    auto pos = self_entity->global_transform().origin;
+    explosion_at_point(world, 
+        self_entity, 
+        self_entity->global_transform().origin,
+        self_entity->stats.weapon.stats.damage, 
+        10.0f, 
+        self_entity->stats.effect);
+
+    self_entity->queue_free();
+
+}
+
+zyy::entity_t* explosion_at_point(
+    zyy::world_t* world,
+    zyy::entity_t* entity,
+    v3f pos,
+    f32 damage,
+    f32 range,
+    zyy::item::effect_t* effects
+) {
+    auto memory = begin_temporary_memory(&world->arena);
 
     auto* near = world->physics->sphere_overlap_world(
         world->physics,
-        arena,
+        memory.arena,
         pos,
-        10.0f
+        range
     );
 
     range_u64(i, 0, near->hit_count) {
@@ -193,31 +219,37 @@ void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
         }
         if (n->stats.character.health.max) {
             auto blood = zyy::db::environmental::blood_01;
-            spawn_blood(world, e_pos, 30, blood);
-            spawn_blood(world, e_pos, 30, blood);
-            spawn_blood(world, e_pos, 30, blood);
-            spawn_blood(world, e_pos, 30, blood);
-            spawn_blood(world, e_pos, 30, blood);
-            spawn_blood(world, e_pos, 30, blood);
-            spawn_blood(world, e_pos, 30, blood);
-            if (self_entity->stats.effect.on_hit_effect) {
-                do_hit_effects(
-                    world, 
-                    n,
-                    &self_entity->stats.effect,
-                    e_pos,
-                    axis::up
-                );
+            // spawn_blood(world, e_pos, 30, blood);
+            // spawn_blood(world, e_pos, 30, blood);
+            // spawn_blood(world, e_pos, 30, blood);
+            // spawn_blood(world, e_pos, 30, blood);
+            // spawn_blood(world, e_pos, 30, blood);
+            // spawn_blood(world, e_pos, 30, blood);
+            // spawn_blood(world, e_pos, 30, blood);
+            while (effects) {
+                if (effects->on_hit_effect) {
+                    do_hit_effects(
+                        world, 
+                        entity,
+                        n,
+                        effects,
+                        e_pos,
+                        axis::up
+                    );
+                }
+                node_next(effects);
             }
-            if (n->stats.character.health.damage(self_entity->stats.weapon.stats.damage)) {
+
+            if (n->stats.character.health.damage(damage)) {
                 n->queue_free();
             }
         }
-
     }
+
     auto rnd_pos = [=](f32 s) {
         return s * utl::rng::random_s::randnv() + pos;
     };
+
     auto explosion = zyy::db::particle::orb;
     explosion.emitter->template_particle.life_time = 4.01f;
     explosion.emitter->scale_over_life_time = math::range_t{14.0f, 4.2f};
@@ -230,9 +262,8 @@ void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
     spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 5);
     spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 6);
 
-    self_entity->queue_free();
-
     end_temporary_memory(memory);
-}
 
+    return 0;
+}
 

@@ -43,7 +43,7 @@ vec3 sky_color(vec3 v, vec3 sun) {
         color = mix(vec3(1.0), vec3(0.3412, 0.1569, 0.1569), .750-v.y);
 	}
     
-	color = pow(color, vec3(2.2));
-	color = pow(color, vec3(2.2));
+	color = pow(color, vec3(2.2)) * 0.5;
+	color = pow(color, vec3(2.2)) * 0.5;
     return color;
 }

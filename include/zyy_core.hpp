@@ -73,6 +73,7 @@ bool check_for_debugger()
 #include <cstdint>
 #include <cassert>
 #include <cstring>
+#include <cstdio>
 #include <span>
 #include <array>
 #include <fstream>
@@ -221,7 +222,7 @@ struct stack_string
     //     return buffer;
     // }
     
-    constexpr operator std::string_view() const {
+    constexpr std::string_view view() const {
         return std::string_view{buffer};
     }
 
@@ -230,7 +231,7 @@ struct stack_string
     }
 
     constexpr bool empty() const {
-        return (*this)[0] != 0;
+        return buffer[0] == 0;
     }
 
     constexpr bool operator==(std::string_view o) const {
@@ -278,8 +279,19 @@ struct stack_string
         return *this;
     }
 
+    constexpr CharType& operator[](std::size_t i) {
+        return buffer[i];
+    }
+    constexpr const CharType& operator[](std::size_t i) const {
+        return buffer[i];
+    }
+
     constexpr void clear() {
         std::memset(buffer, 0, N);
+    }
+
+    constexpr operator const char*() const {
+        return buffer;
     }
 
     constexpr operator bool() const {
@@ -355,6 +367,7 @@ struct allocation_tag_t {
     const char* function_name;
     u64 line_number;
     u64 count;
+    u64 type_size;
     allocation_tag_t* next;
     char magic[4]={'A','T','A','G'};
 };
@@ -1057,8 +1070,17 @@ struct node_t {
 
 namespace utl {
 
-std::string_view trim_filename(std::string_view str) {
-    return str.substr(str.find_last_of('\\') + 1);
+std::string_view trim_filename(std::string_view str, char slash = '\\') {
+    return str.substr(str.find_last_of(slash) + 1);
+}
+
+std::string_view cut(std::string_view str, char start, char end, u32 start_add = 0) {
+    auto beg = str.substr(str.find_first_of(start) + 1 + start_add);
+    if (beg.empty() == false) {
+        auto end_pos = beg.substr(0, beg.find_first_of(end));
+        return end_pos;
+    }
+    return {};
 }
 
 std::string_view get_extension(std::string_view str) {
@@ -1121,6 +1143,8 @@ copy(void* dst, const void* src, umm size) {
 template <typename T, typename S>
 T*
 copy(T* dst, const S* src) {
+    static_assert(std::is_trivially_copyable_v<T>);
+    static_assert(std::is_trivially_copyable_v<S>);
     return (utl::copy(dst, src, std::min(sizeof T, sizeof S)), dst);
 }
 
@@ -1220,7 +1244,7 @@ arena_get_footer(arena_t* arena) {
 inline std::byte*
 push_bytes(arena_t* arena, size_t bytes) {
     if (!arena->settings.fixed) {
-        if(arena->top + bytes >= arena->size) [[unlikely]] {
+        if (arena->top + bytes >= arena->size) [[unlikely]] {
             umm block_size = std::max(bytes + sizeof(arena_block_footer_t), arena->settings.minimum_block_size);
             block_size = std::max(block_size, 1024ui64*1024ui64);
 
@@ -1264,25 +1288,27 @@ get_allocation_tag(void* ptr) {
 
 #if ZYY_INTERNAL
     #define tag_struct(src, type, arena, ...) \
-        arena_add_tag((arena), push_struct<allocation_tag_t>((arena), 1, allocation_tag_t{#type, __FILE__, __FUNCTION__, (u64)__LINE__, 1}));\
-        src = push_struct<type>((arena), 1, __VA_ARGS__);
+        arena_add_tag((arena), push_struct<allocation_tag_t>((arena), 1, allocation_tag_t{#type, __FILE__, __FUNCTION__, (u64)__LINE__, 1, sizeof(type)}));\
+        src = push_struct<type>((arena), 1, __VA_ARGS__)
 #else 
     #define tag_struct(src, type, arena, ...) \
-        src = push_struct<type>((arena), 1, __VA_ARGS__);
+        src = push_struct<type>((arena), 1, __VA_ARGS__)
 #endif
+
 
 #if ZYY_INTERNAL
     #define tag_array(src, type, arena, count, ...) \
-        arena_add_tag((arena), push_struct<allocation_tag_t>((arena), 1, allocation_tag_t{#type, __FILE__, __FUNCTION__, (u64)__LINE__, (count)}));\
-        src = push_struct<type>((arena), (count), __VA_ARGS__);
+        arena_add_tag((arena), push_struct<allocation_tag_t>((arena), 1, allocation_tag_t{#type, __FILE__, __FUNCTION__, (u64)__LINE__, (count), sizeof(type)}));\
+        src = push_struct<type>((arena), (count), __VA_ARGS__)
 #else 
     #define tag_array(src, type, arena, count, ...) \
-        src = push_struct<type>((arena), (count), __VA_ARGS__);
+        src = push_struct<type>((arena), (count), __VA_ARGS__)
 #endif
 
 template <typename T>
 inline T*
 push_struct(arena_t* arena, size_t count = 1) {
+    // static_assert(std::is_trivially_copyable_v<T>);
     T* t = reinterpret_cast<T*>(push_bytes(arena, sizeof(T) * count));
     for (size_t i = 0; i < count; i++) {
         new (t + i) T();
@@ -1313,9 +1339,11 @@ bootstrap_arena_(umm offset, umm minimum_block_size = 0) {
 #define bootstrap_arena(type, ...) bootstrap_arena_<type>(offsetof(type, arena), __VA_ARGS__)
 
 
+// todo add file and line for tagging
 arena_t 
 arena_sub_arena(arena_t* arena, size_t size) {
-    return arena_create(push_bytes(arena, size), size);
+    tag_array(auto* bytes, std::byte, arena, size);
+    return arena_create(bytes, size);
 }
 
 inline frame_arena_t
@@ -2026,6 +2054,24 @@ namespace swizzle {
 };
 
 namespace math {
+    constexpr u64 pretty_bytes(u64 size) {
+        return size > gigabytes(1) ? size / gigabytes(1) :
+                size > megabytes(1) ? size / megabytes(1) :
+                size > kilobytes(1) ? size / kilobytes(1) :
+                size;
+    }
+
+    constexpr std::string_view pretty_bytes_postfix(u64 size) {
+        return size > gigabytes(1) ? "Gb"sv :
+                size > megabytes(1) ? "Mb"sv :
+                size > kilobytes(1) ? "Kb"sv :
+                "B";
+    }
+
+    constexpr quat quat_identity() {
+        return quat{1,0,0,0};
+    }
+
     template <typename SamplerType>
     concept CSampler = requires(SamplerType sampler, f32 t) {
         { sampler.sample(t) } -> std::same_as<typename SamplerType::type>;
@@ -2417,6 +2463,15 @@ struct aabb_t {
         return size() * a + min;
     }
 
+    // from center
+    void set_size(v2f s) {
+        auto c = center();
+        aabb_t<T> t;
+        t.expand(c - s * 0.5f);
+        t.expand(c + s * 0.5f);
+        *this = t;
+    }
+
     void pull(T amount) {
         aabb_t<T> t;
         t.expand(min - amount);
@@ -2501,11 +2556,56 @@ struct aabb_t {
         expand(c + s/2.0f);
         expand(c - s/2.0f);
     }
+    
+    aabb_t<v2f> cut_left(f32 amount) {
+        aabb_t<T> left = *this;
+
+        this->min.x = left.max.x = left.min.x + amount;
+        return left;
+    }
+
+    aabb_t<v2f> cut_right(f32 amount) {
+        aabb_t<T> right = *this;
+
+        this->max.x = right.min.x = right.max.x - amount;
+        return right;
+    }
+
+    aabb_t<v2f> cut_top(f32 amount) {
+        aabb_t<T> top = *this;
+
+        this->min.y = top.max.y = top.min.y + amount;
+        return top;
+    }
+
+    aabb_t<v2f> cut_bottom(f32 amount) {
+        aabb_t<T> bottom = *this;
+
+        this->max.y = bottom.min.y = bottom.max.y - amount;
+        return bottom;
+    }
 };
 
 using range_t = aabb_t<f32>;
 using rect2d_t = aabb_t<v2f>;
 using rect3d_t = aabb_t<v3f>;
+
+std::pair<rect2d_t, rect2d_t> cut_left(rect2d_t rect, f32 amount) {
+    auto left = rect.cut_left(amount);
+    return {left, rect};
+}
+std::pair<rect2d_t, rect2d_t> cut_right(rect2d_t rect, f32 amount) {
+    auto right = rect.cut_right(amount);
+    return {right, rect};
+}
+std::pair<rect2d_t, rect2d_t> cut_top(rect2d_t rect, f32 amount) {
+    auto top = rect.cut_top(amount);
+    return {top, rect};
+}
+std::pair<rect2d_t, rect2d_t> cut_bottom(rect2d_t rect, f32 amount) {
+    auto bottom = rect.cut_bottom(amount);
+    return {bottom, rect};
+}
 
 v2f bottom_middle(rect2d_t r) {
     return r.min + r.size() * v2f{0.5f, 1.0f};
@@ -2513,6 +2613,12 @@ v2f bottom_middle(rect2d_t r) {
 
 v2f top_middle(rect2d_t r) {
     return r.min + r.size() * v2f{0.5f, 0.0f};
+}
+v2f top_right(rect2d_t r) {
+    return r.min + r.size() * v2f{1.0f, 0.0f};
+}
+v2f bottom_left(rect2d_t r) {
+    return r.min + r.size() * v2f{0.0f, 1.0f};
 }
 
 static bool
@@ -3315,6 +3421,25 @@ namespace color {
     constexpr color3 to_color3(const color32 c) {
         return color3{to_color4(c)};
     }
+    
+    constexpr color32 modulate(color32 c, f32 f) {
+        return to_color32(to_color4(c)*f);
+    }
+    constexpr color32 modulate(color32 c, v4f v) {
+        return to_color32(to_color4(c)*v);
+    }
+
+    constexpr color32 modulate(color32 c, v3f v) {
+        return to_color32(to_color3(c)*v);
+    }
+
+    constexpr color32 flatten_color(color32 c) {
+        return to_color32(glm::mix(to_color3(c), v3f{0.5f}, 0.5f) ); 
+    }
+
+    constexpr color32 lerp(color32 a, color32 b, f32 t) {
+        return to_color32(glm::mix(to_color4(a),to_color4(b),t));
+    } 
 
     constexpr bool is_hex_digit(char c) {
         return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
@@ -3385,6 +3510,7 @@ namespace color {
 
     namespace rgba {
         static constexpr auto clear = "#00000000"_rgba;
+        static constexpr auto clear_alpha = "#000000ff"_rgba;
         static constexpr auto black = "#000000ff"_rgba;
         static constexpr auto dark_gray = "#111111ff"_rgba;
         static constexpr auto darkish_gray = "#5a5a5aff"_rgba;
@@ -3397,6 +3523,8 @@ namespace color {
         static constexpr auto cream = "#fafafaff"_rgba;
         static constexpr auto red   = "#ff0000ff"_rgba;
         static constexpr auto green = "#00ff00ff"_rgba;
+        static constexpr auto light_green = "#587068ff"_rgba;
+        static constexpr auto dark_green = "#282921ff"_rgba;
         static constexpr auto blue  = "#0000ffff"_rgba;
         static constexpr auto light_blue  = "#2222f2ff"_rgba;
         static constexpr auto yellow= "#ffff00ff"_rgba;
@@ -3489,9 +3617,11 @@ namespace gui {
         eTypeFlag_None,
     };
 
+    // have multiple theme types? ex. button_theme_t, window_theme_t
     struct theme_t {
-        color32 fg_color{};
-        color32 bg_color{};
+        u64 VERSION{0};
+        color32 fg_color{color::rgba::gray};
+        color32 bg_color{color::rgba::black};
         color32 text_color{color::rgba::cream};
         color32 active_color{color::rgba::yellow};
         color32 disabled_color{};
@@ -3502,6 +3632,7 @@ namespace gui {
         f32 padding{1.0f};
         f32 margin{1.0f};
         f32 border_radius{6.0f};
+        f32 title_height{8.0f};
     };
 
     struct text_t;
@@ -4063,6 +4194,7 @@ namespace gui {
 
             // arena_t arena;
 
+            v2f window_drag_start{0.0f};
             v2f drag_start{};
             f32 float_drag_start_value{};
 
@@ -4105,6 +4237,13 @@ namespace gui {
             }
         };
 
+        struct rect_status_t {
+            b32 hot;
+            b32 active;
+            b32 clicked;
+            v2f mouse_pos;
+        };
+
         // widget_t* new_widget(state_t& imgui, sid_t id) {
         //     auto* w = push_struct<widget_t>(&imgui.arena, 1);
         //     w->id = id;
@@ -4114,17 +4253,33 @@ namespace gui {
 
         inline void
         space(state_t& imgui, f32 offset) {
-            imgui.draw_cursor.y += offset;
+            imgui.panel->draw_cursor.y += offset;
         }
 
         inline void
         indent(state_t& imgui, v2f offset) {
-            imgui.draw_cursor += offset;
+            imgui.panel->draw_cursor += offset;
+        }
+
+        inline void
+        indent(state_t& imgui, f32 offset) {
+            imgui.panel->draw_cursor.x += offset;
+        }
+
+        inline void
+        horizontal_center(state_t& imgui) {
+            indent(imgui, imgui.panel->size().x*0.5f);
+        }
+
+        inline void
+        horizontal_text_center(state_t& imgui, std::string_view text) {
+            auto size = font_get_size(imgui.ctx.font, text);
+            indent(imgui, std::max(0.0f, (imgui.panel->size().x - size.x) * 0.5f));
         }
 
         inline bool
         want_mouse_capture(state_t& imgui) {
-            return imgui.hot.id != 0;
+            return imgui.hot.id != 0 || imgui.active.id != 0;
         }
 
         inline void
@@ -4167,7 +4322,108 @@ namespace gui {
             return true;
         }
 
-        inline bool
+         inline void
+        end_panel(
+            state_t& imgui,
+            v2f* pos,
+            v2f* size
+        ) {
+            imgui.panel->expand(imgui.panel->draw_cursor);
+            const auto padding = imgui.theme.padding;
+
+            auto [title_bar, _tr] = math::cut_top(*imgui.panel, imgui.theme.title_height + padding);
+            title_bar.pull(v2f{-padding});
+
+            auto [exit_button, _er] = math::cut_right(title_bar, imgui.theme.title_height + padding);
+            exit_button.pull(v2f{-padding});
+            
+            math::rect2d_t close_button = exit_button;
+            close_button.add(-exit_button.size() * v2f{1.0f, 0.0f} + v2f{-imgui.theme.padding, 0.0f});
+
+            auto flattened_bg = gfx::color::flatten_color(imgui.theme.bg_color);
+            auto close_symbol = close_button;
+            close_symbol.set_size(v2f{close_button.size().x - 2.0f, 2.0f});
+            close_symbol.add(v2f{0.0f, close_button.size().y * 0.25f});
+            draw_rect(&imgui.ctx, close_symbol, imgui.theme.fg_color);
+            
+            // close_button.pull(v2f{-2.0f});
+            // draw_rect(&imgui.ctx, close_button, flattened_bg);
+            // close_button.pull(v2f{2.0f});
+            // draw_rect(&imgui.ctx, close_button, imgui.theme.fg_color);
+
+            // draw_rect(&imgui.ctx, exit_button, color::rgba::red);
+            draw_line(&imgui.ctx, exit_button.min, exit_button.max, 2.0f, color::rgba::red);
+            draw_line(&imgui.ctx, math::top_right(exit_button), math::bottom_left(exit_button), 2.0f, color::rgba::red);
+
+            if (imgui.hot.id == imgui.panel->name) {
+                flattened_bg = gfx::color::modulate(flattened_bg, 1.5f);
+            }
+
+            draw_rect(&imgui.ctx, title_bar, flattened_bg);
+            title_bar.min -= 2.0f;
+            title_bar.max += 2.0f;
+            draw_rect(&imgui.ctx, title_bar, imgui.theme.fg_color);
+            
+            constexpr f32 border_size = 1.0f;
+            f32 corner_radius = imgui.theme.border_radius;
+
+            draw_round_rect(&imgui.ctx, *imgui.panel, corner_radius, imgui.theme.bg_color);
+            
+            math::rect2d_t border = *imgui.panel;
+            border.pull(v2f{border_size});
+            draw_round_rect(&imgui.ctx, border, corner_radius, imgui.theme.fg_color);
+
+            auto [x,y] = imgui.ctx.input->mouse.pos;
+            auto clicked = !!imgui.ctx.input->mouse.buttons[0];
+
+            auto txt_id = imgui.panel->name;
+
+            if (imgui.active.id == txt_id) {
+                if (!clicked) {
+                    imgui.active = 0;
+                }
+            } else if (imgui.hot.id == txt_id) {
+                if (clicked) {
+                    imgui.active = txt_id;
+                    imgui.window_drag_start = imgui.panel->min - v2f{x,y};
+                }
+            }
+            
+            if (math::intersect(title_bar, v2f{x,y})) {
+                imgui.hot.id = imgui.panel->name;
+            } else if (imgui.active.id != imgui.panel->name && imgui.hot.id == imgui.panel->name) {
+                imgui.hot.id = 0;
+            }
+        
+            *size = imgui.panel->size();
+            // imgui.panel->draw_cursor = v2f{0.0f};
+            imgui.panel--;
+        }
+
+        struct panel_result_t {
+            bool maximized;
+            bool want_to_close;
+
+            operator bool() {
+                return maximized;
+            }
+        };
+
+        struct panel_state_t {
+            v2f pos;
+            v2f size;
+            b32 open;
+        };
+
+        inline void
+        end_panel(
+            state_t& imgui,
+            panel_state_t* state
+        ) {
+            end_panel(imgui, &state->pos, &state->size);
+        }
+
+        inline panel_result_t
         begin_panel(
             state_t& imgui, 
             string_t name,
@@ -4175,52 +4431,93 @@ namespace gui {
             v2f* size_,
             b32* open
         ) {
-            auto pos = *pos_;
+            panel_result_t result{};
+            result.want_to_close = false;
+            auto theme = imgui.theme;
+            auto padding = theme.padding;
+
+            const v2f text_size = font_get_size(imgui.ctx.font, name.sv());
+            const v2f title_bar_size_est = text_size + v2f{text_size.y * 2.0f + padding * 6.0f, padding*2.0f};
+            *size_ = glm::max(*size_, title_bar_size_est);
+
+            imgui.theme.title_height = text_size.y + theme.padding * 2.0f;
+            
             auto size = *size_;
-            const sid_t pnl_id = imgui.verify_id(sid(name.sv()));
+            // const sid_t pnl_id = imgui.verify_id(sid(name.sv()));
+            const sid_t pnl_id = imgui.verify_id((u64)pos_);
 
             imgui.panel++;
             assert((void*)imgui.panel != (void*)&imgui.panel && "End of nested panels");
 
-            if (pos.x >= 0.0f && pos.y >= 0.0f) { 
-                imgui.panel->draw_cursor = pos+imgui.theme.padding;
-                // imgui.panel->expand(pos);
+            if (imgui.active.id == pnl_id) {
+                pos_->x = imgui.ctx.input->mouse.pos[0] + imgui.window_drag_start.x;
+                pos_->y = imgui.ctx.input->mouse.pos[1] + imgui.window_drag_start.y;
             }
 
-            auto theme = imgui.theme;
+            auto pos = *pos_;
 
-            const v2f text_size = font_get_size(imgui.ctx.font, name.sv());
+            imgui.panel->min = pos;
+            imgui.panel->max = pos+size;
 
-            math::rect2d_t title_bar{};
-            title_bar.min = pos + v2f{theme.padding};
-            title_bar.max = v2f{pos.x + glm::max(text_size.x + text_size.y + theme.padding * 2.0f, size.x), pos.y + text_size.y + theme.padding};
+            auto [title_bar, _tr] = math::cut_top(*imgui.panel, imgui.theme.title_height + padding);
+            title_bar.pull(v2f{-padding});
 
-            math::rect2d_t exit_button{};
-            exit_button.min = v2f{title_bar.max.x - text_size.y - theme.padding, title_bar.min.y};
-            exit_button.max = exit_button.min + v2f{text_size.y};
+            auto [exit_button, _er] = math::cut_right(title_bar, imgui.theme.title_height + padding);
+            exit_button.pull(v2f{-padding});
             
-            draw_rect(&imgui.ctx, exit_button, color::rgba::red);
+            math::rect2d_t close_button = exit_button;
+            close_button.add(-exit_button.size() * v2f{1.0f, 0.0f} + v2f{-imgui.theme.padding, 0.0f});
+
+            const auto [mx,my] = imgui.ctx.input->mouse.pos;
+            const auto clicked = !!imgui.ctx.input->pressed.mouse_btns[0];
+
+            if (imgui.hot.id == pnl_id) {
+                if (clicked && math::intersect(close_button, v2f{mx,my})) {
+                    *open = !*open;
+                }
+                if (clicked && math::intersect(exit_button, v2f{mx,my})) {
+                    result.want_to_close = true;
+                }
+            }
+
+            if (pos.x >= 0.0f && pos.y >= 0.0f) { 
+                imgui.panel->draw_cursor = pos+imgui.theme.padding;
+            }
 
             imgui.panel->draw_cursor = title_bar.min;
             string_render(&imgui.ctx, name.sv(), &imgui.panel->draw_cursor, theme.text_color);
 
-            draw_rect(&imgui.ctx, title_bar, theme.bg_color);
-            title_bar.min -= 2.0f;
-            title_bar.max += 2.0f;
-            draw_rect(&imgui.ctx, title_bar, theme.fg_color);
-            
             imgui.panel->draw_cursor.x = pos.x+theme.padding;
             imgui.panel->draw_cursor.y = title_bar.max.y + theme.padding;
             imgui.panel->saved_cursor = imgui.panel->draw_cursor;
 
-            imgui.panel->max = imgui.panel->min = pos;
+            // imgui.panel->min = pos;
+            // imgui.panel->max = imgui.panel->min + size;
+
             if (size.x > 0.0f && size.y > 0.0f) {
-                imgui.panel->expand(imgui.panel->draw_cursor + size);
+                imgui.panel->expand(imgui.panel->min + size);
             }
+            imgui.panel->expand(title_bar.max);
 
             imgui.panel->name = pnl_id;
+
+            result.maximized = *open;
             
-            return *open;
+            if (result.maximized == false) {
+                end_panel(imgui, pos_, size_);
+                *size_ = {};
+            }
+
+            return result;
+        }
+
+        inline panel_result_t
+        begin_panel(
+            state_t& imgui, 
+            string_t name,
+            panel_state_t* state
+        ) {
+            return begin_panel(imgui, name, &state->pos, &state->size, &state->open);
         }
 
         inline bool
@@ -4242,42 +4539,13 @@ namespace gui {
             return false;
         }
 
-        inline void
-        end_panel(
-            state_t& imgui,
-            v2f* size
-        ) {
-            imgui.panel->expand(imgui.panel->draw_cursor);
-
-            constexpr f32 border_size = 1.0f;
-            f32 corner_radius = imgui.theme.border_radius;
-
-            draw_round_rect(&imgui.ctx, *imgui.panel, corner_radius, imgui.theme.bg_color);
-            imgui.panel->min -= v2f{border_size};
-            imgui.panel->max += v2f{border_size};
-            draw_round_rect(&imgui.ctx, *imgui.panel, corner_radius, imgui.theme.fg_color);
-
-            auto [x,y] = imgui.ctx.input->mouse.pos;
-            if (imgui.hot.id == 0) {
-                if (math::intersect(*imgui.panel, v2f{x,y})) {
-                    imgui.hot.id = imgui.panel->name;
-                }
-            } else if (imgui.hot.id == imgui.panel->name) {
-                if (!math::intersect(*imgui.panel, v2f{x,y})) {
-                    imgui.hot.id = 0;
-                }
-            }
-
-            // *size = imgui.panel->size();
-            // imgui.panel->draw_cursor = v2f{0.0f};
-            imgui.panel--;
-        }
+       
 
         inline panel_t
         get_last_panel(
             state_t& imgui
         ) {
-            return imgui.panel[1];
+            return imgui.panel[-1];
         }
 
         inline bool
@@ -4819,10 +5087,10 @@ namespace gui {
                             }
                             angle = glm::radians(angle);
                             
-                            t.basis = imgui.gizmo_basis_start;
-                            // t.set_rotation(imgui.gizmo_axis_wdir, angle);
-                            t.rotate(imgui.gizmo_axis_wdir, angle);
-                            *basis = t.basis;// * imgui.gizmo_basis_start;
+                            // t.basis = imgui.gizmo_basis_start;
+                            t.set_rotation(imgui.gizmo_axis_wdir, angle);
+                            // t.rotate(imgui.gizmo_axis_wdir, angle);
+                            *basis = t.basis * imgui.gizmo_basis_start;
 
                             draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 6.0f, color::rgba::light_gray);
                             draw_circle(&imgui.ctx, imgui.gizmo_mouse_start, 8.0f, color::to_color32(imgui.gizmo_axis_wdir));
@@ -5236,14 +5504,14 @@ namespace gui {
         ) {
             auto theme = imgui.theme;
             imgui.theme.text_color = gfx::color::rgba::black;
+            
             same_line(imgui);
             imgui.theme.fg_color = gfx::color::rgba::red;
-            indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->x, &val->x, step, min, max, size);
+
             imgui.theme.fg_color = gfx::color::rgba::green;
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->y, &val->y, step, min, max, size);
+
             imgui.theme = theme;
         }
 
@@ -5258,19 +5526,18 @@ namespace gui {
         ) {
             auto theme = imgui.theme;
             imgui.theme.text_color = gfx::color::rgba::black;
+
             same_line(imgui);
+            
             imgui.theme.fg_color = gfx::color::rgba::red;
-            indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->x, &val->x, step, min, max, size);
+
             same_line(imgui);
+            
             imgui.theme.fg_color = gfx::color::rgba::green;
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->y, &val->y, step, min, max, size);
+
             imgui.theme.fg_color = gfx::color::rgba::blue;
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->z, &val->z, step, min, max, size);
             imgui.theme = theme;
         }
@@ -5286,24 +5553,20 @@ namespace gui {
         ) {
             auto theme = imgui.theme;
             same_line(imgui);
+            
             theme.fg_color = gfx::color::rgba::red;
-            indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->x, &val->x, step, min, max, size);
+
             same_line(imgui);
+
             theme.fg_color = gfx::color::rgba::green;
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->y, &val->y, step, min, max, size);
+
+            same_line(imgui);
             theme.fg_color = gfx::color::rgba::blue;
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->z, &val->z, step, min, max, size);
+
             theme.fg_color = gfx::color::rgba::purple;
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
             float_drag_id(imgui, (u64)&val->w, &val->w, step, min, max, size);
             imgui.theme = theme;
         }
@@ -5387,7 +5650,6 @@ namespace gui {
             float_slider_id(imgui, sld_id, val, min, max, size);
         }
        
-
         inline bool
         text(
             state_t& imgui, 
@@ -5438,10 +5700,45 @@ namespace gui {
             // draw_rect(&imgui.ctx, text_box, gfx::color::rgba::purple);
             if (imgui.next_same_line) {
                 imgui.next_same_line = false;
-                imgui.panel->draw_cursor.x += font_size.x;
+                imgui.panel->draw_cursor.x += font_size.x + imgui.theme.padding;
             } else {
                 imgui.panel->draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
                 imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
+            }
+            return result;
+        }
+
+        inline u64
+        tabs(
+            state_t& imgui, 
+            std::span<std::string_view> titles,
+            u64 current
+        ) {
+            const auto size = titles.size();
+            u64 result = current;
+            const auto theme = imgui.theme;
+            for (u32 i = 0; i < size; i++) {
+                if (titles[i] == "\n"sv) {
+                    continue;
+                }
+                if (i+1 < size) {
+                    if (!(i+2 < size && titles[i+1] == "\n"sv)) {
+                        im::same_line(imgui);
+                    } 
+                }
+                const auto id = sid(titles[i]);
+                auto selected = current == id;
+                if (selected) {
+                    imgui.theme.text_color = imgui.theme.active_color;
+                }
+
+                if (im::text(imgui, titles[i])) {
+                    result = !selected ? sid(titles[i]) : 0;
+                }
+
+                if (selected) {
+                    imgui.theme = theme;
+                }
             }
             return result;
         }
@@ -5460,7 +5757,6 @@ namespace gui {
             constexpr f32 text_pad = 4.0f;
             const auto min_size = font_get_size(imgui.ctx.font, "Hello world");
             const auto font_size = font_get_size(imgui.ctx.font, text);
-            imgui.panel->expand(imgui.panel->draw_cursor + font_size + text_pad * 2.0f);
             v2f temp_cursor = imgui.panel->draw_cursor;
             const f32 start_x = imgui.panel->draw_cursor.x;
             temp_cursor.x += text_pad + imgui.theme.padding;
@@ -5468,11 +5764,14 @@ namespace gui {
             math::rect2d_t text_box;
             text_box.expand(temp_cursor);
             text_box.expand(temp_cursor + min_size);
-            text_box.expand(temp_cursor + font_size);
+            text_box.expand(temp_cursor + font_size + v2f{32.0f, 0.0f});
+            imgui.panel->expand(text_box.max);
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
             if (text_box.contains(v2f{x,y})) {
                 imgui.hot = txt_id;
+            } else if (imgui.hot.id == txt_id) {
+                imgui.hot = 0;
             }
 
             if (imgui.active.id == txt_id) {
@@ -5495,14 +5794,55 @@ namespace gui {
                     imgui.active = txt_id;
                 }
             }
+
+            if (*position != 0) {
+                const auto bar_pad = v2f{4.0f, 0.0f};
+                draw_line(&imgui.ctx, temp_cursor + v2f{font_size.x, 0.0f} + bar_pad, temp_cursor + font_size + bar_pad, 2.0f, imgui.theme.fg_color);
+            }
             auto shadow_cursor = temp_cursor + imgui.theme.shadow_distance;
             string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
 
-            if (imgui.hot.id != txt_id && *position == 0) {
-                draw_rect(&imgui.ctx, text_box, imgui.theme.fg_color);
+            
+            auto bg_color = imgui.theme.bg_color;
+            if (imgui.hot.id == txt_id) {
+                bg_color = color::lerp(bg_color, color::modulate(imgui.theme.fg_color, 0.3f), sin(imgui.ctx.input->time * 2.0f) * 0.5f + 0.5f);
             }
             
+            constexpr b32 show_clear = 1;
+            if constexpr (show_clear) {
+                auto tr = math::top_right(text_box);
+                auto clear_space_top = tr - v2f{16.0f, -2.0f};
+                auto clear_space_bottom = text_box.max - v2f{16.0f, 2.0f};
+                auto clear_color = color::modulate(imgui.theme.fg_color, 0.5);
+                auto cx0 = clear_space_top + v2f{3.0f, 1.0f};
+                auto cx1 = cx0 + v2f{10.0f, 0.0f};
+                auto cx2 = clear_space_bottom + v2f{3.0f, -1.0f};
+                auto cx3 = cx2 + v2f{10.0f, 0.0f};
+                draw_line(&imgui.ctx, clear_space_top, clear_space_bottom, 2.0f, clear_color);
+
+                math::rect2d_t clear_box{
+                    .min = cx0,
+                    .max = cx3
+                };
+
+                if (clear_box.contains(v2f{x,y})) { 
+                    clear_color = color::modulate(imgui.theme.active_color, 0.5);
+                    if (imgui.ctx.input->mouse.buttons[0] && *position) {
+                        utl::memzero((void*)text.data(), text.size());
+                        *position = 0;
+                    }
+                }
+
+                draw_line(&imgui.ctx, cx0, cx3, 1.0f, clear_color);
+                draw_line(&imgui.ctx, cx1, cx2, 1.0f, clear_color);
+            }
+
+            draw_round_rect(&imgui.ctx, text_box, 4.0f, bg_color, 10);
+            text_box.pull(v2f{2.0f});
+            draw_round_rect(&imgui.ctx, text_box, 4.0f, imgui.theme.fg_color, 10);
+            
+
             if (imgui.next_same_line) {
                 imgui.next_same_line = false;
                 imgui.panel->draw_cursor.x += font_size.x;
@@ -5692,8 +6032,8 @@ namespace gui {
         ) {
             const u64 btn_id = imgui.verify_id(btn_id_ ? btn_id_ : sid(name));
             math::rect2d_t box;
-            box.min = imgui.panel->draw_cursor + v2f{4.0f, 0.0f};
-            box.max = imgui.panel->draw_cursor + v2f{size};
+            box.min = imgui.panel->draw_cursor;
+            box.max = imgui.panel->draw_cursor + size;
 
             bool result = false;
 
@@ -5711,7 +6051,7 @@ namespace gui {
             }
 
             const v2f text_size = font_get_size(imgui.ctx.dyn_font[font_size], name);
-            box.expand(box.min + text_size + imgui.theme.margin * 2.0f);
+            box.expand(box.min + text_size + imgui.theme.padding * 2.0f);
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
             if (box.contains( v2f{x,y} )) {
@@ -5723,22 +6063,27 @@ namespace gui {
             }
 
             imgui.panel->expand(box.max + imgui.theme.padding);
-            v2f same_line = box.min + imgui.theme.margin;
+
+            v2f same_line = box.min;
             // string_render(&imgui.ctx, name, same_line, text_color, imgui.ctx.dyn_font[font_size]);
             string_render(&imgui.ctx, name, same_line, text_color, imgui.ctx.font);
-            draw_rect(&imgui.ctx, box, imgui.hot.id == btn_id ? imgui.theme.active_color : color);
+            // draw_rect(&imgui.ctx, box, imgui.hot.id == btn_id ? imgui.theme.active_color : color);
+
+            box.pull(v2f{-1.0f});
+            draw_round_rect(&imgui.ctx, box, imgui.theme.border_radius, imgui.hot.id == btn_id ? imgui.theme.active_color : color, 10);
+            box.pull(v2f{1.0f});
+            draw_round_rect(&imgui.ctx, box, imgui.theme.border_radius, imgui.theme.border_color, 10);
             
             if (imgui.next_same_line) {
-                imgui.panel->draw_cursor.x += box.size().x + imgui.theme.padding;
+                imgui.panel->draw_cursor.x = box.max.x + imgui.theme.padding;
                 imgui.next_same_line = false;
             } else {
-                imgui.panel->draw_cursor.y += box.size().y + imgui.theme.padding;
+                imgui.panel->draw_cursor.y = box.max.y + imgui.theme.padding;
                 imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
             }
 
             return result;
         }
-
         
         inline bool
         button(
@@ -5760,21 +6105,16 @@ namespace gui {
         ) {
             const auto theme = imgui.theme;
 
-            imgui.theme.fg_color = gfx::color::rgba::red;
             same_line(imgui);
-            indent(imgui, v2f{28.0f,0.0f});
+            
+            imgui.theme.fg_color = gfx::color::rgba::red;
             float_slider(imgui, (f32*)&data.x, min, max);
 
-            imgui.theme.fg_color = gfx::color::rgba::green;
             same_line(imgui);
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
+            imgui.theme.fg_color = gfx::color::rgba::green;
             float_slider(imgui, (f32*)&data.y, min, max);
 
             imgui.theme.fg_color = gfx::color::rgba::blue;
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
-            indent(imgui, v2f{28.0f,0.0f});
             float_slider(imgui, (f32*)&data.z, min, max);
 
             imgui.theme = theme;
@@ -5962,6 +6302,29 @@ font_render(
 }; // namespace gfx
 
 namespace utl {
+
+// do not give user input
+std::string unsafe_evaluate_command(std::string_view command) {
+   char buffer[128];
+   std::string result = "";
+
+   // Open pipe to file
+   FILE* pipe = _popen(command.data(), "r");
+   if (!pipe) {
+      return "popen failed!";
+   }
+
+   // read till end of process:
+   while (!feof(pipe)) {
+
+      // use buffer to read and add to result
+      if (fgets(buffer, 128, pipe) != NULL)
+         result += buffer;
+   }
+
+   _pclose(pipe);
+   return result;
+}
 
 struct profile_t {
     std::string_view name;
@@ -6380,7 +6743,7 @@ void hash_foreach(hash_trie_t<Key,Value>* map, std::function<void(typename Key,t
 
 
 // todo(zack): add way to make different sized ones
-static constexpr u64 hash_size = 0xffff;
+static constexpr u64 hash_size = 0x0fff;
 using str_hash_t = u64[hash_size];
 static constexpr u64 invalid_hash = ~0ui64;
 
@@ -7426,12 +7789,12 @@ constexpr f32
 in_out_elastic(f32 x) noexcept {
     const auto c5 = (2.0f * math::constants::pi32) / 4.5f;
     return x == 0.0f 
-            ? 0.0f 
-            : x == 1.0f 
-            ? 1.0f
-            : x < 0.5f
-            ? -(glm::pow(2.0f, 20.0f * x - 10.0f) * glm::sin((20.0f * x - 11.125f) * c5)) * 0.5f 
-            : (glm::pow(2.0f, -20.0f * x + 10.0f) * glm::sin((20.0f * x - 11.125f) * c5)) * 0.5f + 1.0f;
+        ? 0.0f 
+        : x == 1.0f 
+        ? 1.0f
+        : x < 0.5f
+        ? -(glm::pow(2.0f, 20.0f * x - 10.0f) * glm::sin((20.0f * x - 11.125f) * c5)) * 0.5f 
+        : (glm::pow(2.0f, -20.0f * x + 10.0f) * glm::sin((20.0f * x - 11.125f) * c5)) * 0.5f + 1.0f;
 }
 
 template <typename T>

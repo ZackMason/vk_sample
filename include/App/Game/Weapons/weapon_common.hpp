@@ -6,6 +6,7 @@
 
 void do_hit_effects(
     zyy::world_t* world,
+    zyy::entity_t* self_entity,
     zyy::entity_t* hit_entity,
     zyy::item::effect_t* effect,
     v3f hit_pos,
@@ -18,6 +19,18 @@ zyy::entity_t* spawn_blood(
     u32 count,
     zyy::prefab_t particle_prefab 
 );
+
+zyy::entity_t* explosion_at_point(
+    zyy::world_t* world,
+    zyy::entity_t* entity,
+    v3f pos,
+    f32 damage,
+    f32 range,
+    zyy::item::effect_t* effects
+);
+
+
+
 void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other);
 void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other);
 

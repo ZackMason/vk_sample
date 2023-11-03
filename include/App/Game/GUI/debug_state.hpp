@@ -211,7 +211,7 @@ struct debug_state_t {
             
             imgui.theme.bg_color = 0x0;
             imgui.theme.fg_color = 0x0;
-            im::end_panel(imgui, &watch_size);
+            im::end_panel(imgui, &watch_pos, &watch_size);
         }
 
         imgui.theme = theme;
@@ -486,7 +486,7 @@ draw_console(
 
     const auto theme = imgui.theme;
     imgui.theme.border_radius = 1.0f;
-    local_persist v2f size={};
+    v2f size={};
     local_persist b32 open=1;
 
     if (im::begin_panel(imgui, "Console"sv, pos, &size, &open)) {
@@ -511,7 +511,7 @@ draw_console(
             console->text_size = 0;
         }
 
-        im::end_panel(imgui, &size);
+        im::end_panel(imgui, pos, &size);
     }
 
     imgui.theme = theme;

@@ -21,7 +21,12 @@ namespace zyy::wep {
     ) {
         auto particle_prefab = zyy::db::particle::orb;
         std::memcpy(particle_prefab.type_name.data(), "puff", 5);
+        particle_prefab.coroutine = co_kill_in_x(4.0f);
+        particle_prefab.emitter->acceleration = v3f{0.0f};
+        particle_prefab.emitter->spawn_rate = 0.02f;
+        particle_prefab.emitter->velocity_random = math::rect3d_t(v3f(-1.0f), v3f(1.0f));
         particle_prefab.emitter->template_particle.velocity = v3f{0.0f};
+        particle_prefab.emitter->template_particle.life_time = 4.01f;
         auto* ps = zyy::tag_spawn(world, particle_prefab, pos);
         ps->gfx.material_id = 7; // particle material @hardcode
         ps->coroutine->start();

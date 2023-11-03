@@ -184,6 +184,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
                 bullets[bullet]
             );
             b->stats.effect = player->primary_weapon.entity->stats.effect;
+            // b->stats.weapon = player->primary_weapon.entity->stats.weapon;
         }
 
         end_temporary_memory(fire_arena);
@@ -380,13 +381,19 @@ BRAIN_BEHAVIOR_FUNCTION(skull_behavior) {
         physics,
         buffer,
         entity->global_transform().origin,
-        20.0f,
+        120.0f,
         enemy_types
     );
 
     zyy::entity_t* target = 0;
     if (buffer.count()) {
         target = (zyy::entity_t*)buffer[0].data;
+        range_u64(i, 0, buffer.count()) {
+            auto n = (zyy::entity_t*)buffer[i].data;
+            if (n->brain.type == brain_type::player) {
+                target = n;
+            }
+        }
     }
 
     if (target) {
