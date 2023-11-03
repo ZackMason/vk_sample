@@ -7266,13 +7266,13 @@ struct memory_blob_t {
     //     }
     // }
 
-    // template <typename T>
-    // void serialize(arena_t* arena, const std::optional<T>& opt) {
-    //     serialize(arena, u8{opt?1:0});
-    //     if (opt) {
-    //         serialize(arena, *opt);
-    //     }
-    // }
+    template <typename T>
+    void serialize(arena_t* arena, const std::optional<T>& opt) {
+        serialize<u8>(arena, u8(opt?1:0));
+        if (opt) {
+            serialize(arena, *opt);
+        }
+    }
 
     template <>
     void serialize(arena_t* arena, const std::string_view& obj) {
@@ -7381,13 +7381,16 @@ struct memory_blob_t {
         return value;
     }
 
-    // template<typename T>
-    // std::optional<T> deserialize() {
-    //     const u8 has_value = deserialize<u8>();
-    //     if (has_value) {
-    //         return (std::optional<T>)deserialize<T>();
-    //     }
-    // }
+    template<typename T>
+    std::optional<T> try_deserialize() {
+        const u8 has_value = deserialize<u8>();
+        if (has_value) {
+            std::optional<T> value;
+            value.emplace(deserialize<T>());
+            return value;
+        }
+        return std::nullopt;
+    }
 };
 
 namespace res {

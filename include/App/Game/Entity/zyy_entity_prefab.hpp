@@ -74,11 +74,12 @@ struct mod_function {
 };
 
 struct prefab_t {
-    version_id VERSION{3};
+    version_id VERSION{4};
     entity_type type=entity_type::environment;
     stack_string<128> type_name{};
 
     struct gfx_t {
+        u64 GFX_VERSION{0};
         // string_t mesh_name{};
         // char mesh_name[128]{0};
         stack_string<128> mesh_name{};
@@ -126,6 +127,7 @@ struct prefab_t {
     mod_function<zyy::item::on_hit_effect_t, 64> on_bullet_effect{0}; // @version 3 added
    
 
+    // u64 PS_VERSION{0};
     std::optional<particle_system_settings_t> emitter{};
     // std::optional<item::effect_t> effect{}; // @version 3 removed
 
@@ -155,41 +157,26 @@ zyy::prefab_t utl::memory_blob_t::deserialize<zyy::prefab_t>() {
     zyy::prefab_t prefab{};
 
     #define DESER(x) x = deserialize<decltype(x)>();
+    #define OPTDESER(x) x = try_deserialize<decltype(x)::value_type>();
 
     DESER(prefab.VERSION);
     DESER(prefab.type);
     DESER(prefab.type_name);
     DESER(prefab.gfx);
     DESER(prefab.coroutine);
-    DESER(prefab.stats);
-    DESER(prefab.weapon);
-    DESER(prefab.physics);
+    OPTDESER(prefab.stats);
+    OPTDESER(prefab.weapon);
+    OPTDESER(prefab.physics);
     DESER(prefab.spawn_bullet);
     prefab.spawn_bullet.function = 0;
     DESER(prefab.on_hit_effect);
     prefab.on_hit_effect.function = 0;
-    DESER(prefab.emitter);
-    if (prefab.VERSION <= 2) {
-        struct dummy_effect_t {
-            u64 type{};
-            f32 rate{};
-            f32 strength{};
-            void(*on_hit_effect)(void); 
-
-            void* next{};
-        };
-        std::optional<dummy_effect_t> dummy;
-        DESER(dummy);
-    }
+    OPTDESER(prefab.emitter);
     DESER(prefab.brain_type);
-    if (prefab.VERSION >= 1) {
-        DESER(prefab.inventory_size);
-    }
-    if (prefab.VERSION < 2) { // removed children
-        DESER(prefab.children);
-    }
-
+     DESER(prefab.inventory_size);
+ 
     #undef DESER
+    #undef OPTDESER
 
     return prefab;
 }
@@ -199,6 +186,7 @@ void utl::memory_blob_t::serialize<zyy::prefab_t>(arena_t* arena, const zyy::pre
     serialize(arena, zyy::prefab_t{}.VERSION);
     serialize(arena, prefab.type);
     serialize(arena, prefab.type_name);
+    // serialize<u64>(arena, 0);
     serialize(arena, prefab.gfx);
     serialize(arena, prefab.coroutine);
     serialize(arena, prefab.stats);
@@ -206,6 +194,7 @@ void utl::memory_blob_t::serialize<zyy::prefab_t>(arena_t* arena, const zyy::pre
     serialize(arena, prefab.physics);
     serialize(arena, prefab.spawn_bullet);
     serialize(arena, prefab.on_hit_effect);
+    // serialize<u64>(arena, 0);
     serialize(arena, prefab.emitter);
     // serialize(arena, prefab.effect); // @Version 3 - removed
     serialize(arena, prefab.brain_type);

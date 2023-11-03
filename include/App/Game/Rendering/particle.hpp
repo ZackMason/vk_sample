@@ -24,6 +24,8 @@ struct flat_particle_system_t {
 };
 
 struct particle_system_settings_t {
+    u64 VERSION{0};
+
     particle_t template_particle;
 
     b32 world_space{0};
@@ -49,6 +51,15 @@ struct particle_system_settings_t {
         math::rect3d_t box;
     };
 };
+
+// template<>
+// particle_system_settings_t 
+// utl::memory_blob_t::deserialize<particle_system_settings_t>() {
+//     particle_system_settings_t settings{};
+
+//     return settings;
+// }
+
 
 struct particle_system_t : public particle_system_settings_t {
     particle_t* particles;
