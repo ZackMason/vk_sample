@@ -84,7 +84,7 @@ main() {
 	uint instance_offset = uObjectBuffer.objects[object_id].padding[2];
 
 	if (draw.instance_count > 1) {
-		M = M * uInstanceData.instances[gl_InstanceIndex + instance_offset].model;
+		M = uInstanceData.instances[gl_InstanceIndex + instance_offset].model;
 
 		vec3 world_pos = (M * vec4(vertex, 1.0)).xyz;
 		// vertex.xz += max(vertex.y, 0.0) * sin(Sporadic.uTime * 0.1 + world_pos.x) * 0.05 + cos(Sporadic.uTime * 0.12 + world_pos.z)*0.1;

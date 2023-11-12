@@ -225,7 +225,7 @@ void physx_rigidbody_add_impulse(rigidbody_t* rb, const v3f& v) {
         PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
         
         const PxVec3 pos = pvec(v3f{0.0});
-        PxRigidBodyExt::addForceAtLocalPos(*actor, pvec(v), pos, PxForceMode::eIMPULSE);
+        PxRigidBodyExt::addForceAtLocalPos(*actor, pvec(v * 10.0f), pos, PxForceMode::eIMPULSE);
     } else if (rb->type == rigidbody_type::CHARACTER) {
         rb->velocity += v / rb->mass;
     }

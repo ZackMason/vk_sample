@@ -581,7 +581,11 @@ update_dlls(app_dll_t* app_dlls, game_memory_t* game_memory) {
         zyy_warn("win32", "Game DLL Reload Detected");
         app_dlls->on_unload(game_memory);
 
-        FreeLibrary((HMODULE)app_dlls->dll);
+        auto result = FreeLibrary((HMODULE)app_dlls->dll);
+        if (result == 0) {
+            zyy_warn(__FUNCTION__, "Failed to free library");
+        }
+            
         *app_dlls={};
 
         load_dlls(app_dlls);
@@ -735,7 +739,6 @@ main(int argc, char* argv[]) {
     void* physics_dll = LoadLibraryA(".\\build\\zyy_physics.dll");
     arena_t physics_arena = arena_create(megabytes(8));
     
-
     if (physics_dll)
     {
         zyy_info("win32", "Initializing Physics");

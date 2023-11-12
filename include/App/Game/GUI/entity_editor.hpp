@@ -462,6 +462,20 @@ struct entity_editor_t {
         }
     } selection;
 
+    stack_buffer<selection_t, 32> selection_stack{};
+
+    b32 has_selection(v3f* o) {
+        if (o == selection) {
+            return 1;
+        }
+        for (const auto& s : selection_stack.view()) {
+            if (o == s.selection) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     f32 snapping = 0.0f;
     b32 global = 1;
     u32 mode = 0;
@@ -959,6 +973,11 @@ load_entity_window(
         *ee->entity = load_from_file(&ee->game_state->main_arena, file);
     } else { // show_save
         std::ofstream ffile{file, std::ios::binary};
+
+        if (ffile.is_open() == false) {
+            dialog_box.done = 0;
+            return true;
+        }
         auto memory = begin_temporary_memory(&ee->arena);
 
         utl::memory_blob_t blob{memory.arena};
@@ -1213,6 +1232,7 @@ entity_editor_render(entity_editor_t* ee) {
                         physics.shapes[i].reset();
                         show_shape[i]=0;
                     }
+
                     std::string_view shape_types[]{
                         "Convex",
                         "Trimesh",
@@ -1315,29 +1335,29 @@ entity_editor_render(entity_editor_t* ee) {
             #define float_prop(text_, ...) \
                 im::same_line(imgui);\
                 im::text(imgui, #text_);\
-                im::float_drag(imgui, &particle.text_, __VA_ARGS__)
+                im::float_input(imgui, &particle.text_, __VA_ARGS__)
             
             #define selectable_float3_prop(text_, ...) \
                 im::same_line(imgui);\
                 if (im::text(imgui, #text_)) ee->selection = &particle.text_;\
-                im::float3_drag(imgui, &particle.text_, __VA_ARGS__)
+                im::float3_input(imgui, &particle.text_, __VA_ARGS__)
 
             #define float3_prop(text_, ...) \
                 im::same_line(imgui);\
                 im::text(imgui, #text_); \
-                im::float3_drag(imgui, &particle.text_, __VA_ARGS__)
+                im::float3_input(imgui, &particle.text_, __VA_ARGS__)
             
             #define uint_prop(text_, ...) \
                 im::same_line(imgui);\
                 im::text(imgui, #text_);\
-                im::uint_drag(imgui, &particle.text_, __VA_ARGS__)
+                im::uint_input(imgui, &particle.text_, __VA_ARGS__)
 
 
-            uint_prop(max_count, 1, 0);
-            uint_prop(world_space, 1, 0, 1);
+            uint_prop(max_count);
+            uint_prop(world_space);
 
-            float_prop(template_particle.life_time, 1.0f, 0.0f);
-            float_prop(template_particle.scale, 0.1f, 0.0f);
+            float_prop(template_particle.life_time);
+            float_prop(template_particle.scale);
             float3_prop(template_particle.velocity);
 
             float3_prop(acceleration);
@@ -1507,14 +1527,28 @@ entity_editor_render(entity_editor_t* ee) {
 
         im::text(imgui, fmt_sv("Camera: {}", ee->camera.position));
 
+        im::end_panel(imgui, &pos, &size);
+    }
 
+    local_persist im::panel_state_t transform_panel{
+        .pos = v2f{400.0f, 0.0f},
+        .open = 1,
+    };
+
+    transform_panel.size = {};
+
+
+    if (im::begin_panel(imgui, "Transform", &transform_panel)) {
         im::same_line(imgui);
         if (im::text(imgui, "Local ")) {
             ee->mode = 0;
         }
+        im::same_line(imgui);
         if (im::text(imgui, "Global ")) {
             ee->mode = 1;
         };
+
+        im::indent(imgui, 12.0f);
 
         im::same_line(imgui);
         if (im::text(imgui, "Translate -")) {
@@ -1524,60 +1558,77 @@ entity_editor_render(entity_editor_t* ee) {
         if (im::text(imgui, " Scale -")) {
             ee->selection.set_mode(1);
         }
+        im::same_line(imgui);
         if (im::text(imgui, " Rotate")) {
             ee->selection.set_mode(2);
         }
 
+
+        im::same_line(imgui);
+        im::indent(imgui, 12.0f);
         if (im::text(imgui, fmt_sv("Snapping [{}]", ee->snapping != 0.0f ? 'x' : ' '))) {
             ee->snapping = ee->snapping == 0.0f ? 1.0f : 0.0f;
         }
         if (ee->snapping != 0.0f) {
+            im::same_line(imgui);
             im::float_drag(imgui, &ee->snapping);
 
             im::same_line(imgui);
-            if (im::text(imgui, "x0.1 ")) {
+            im::indent(imgui, 8.0f);            
+            if (im::text(imgui, "x0.1")) {
                 ee->snapping = 0.10f;
             }
             im::same_line(imgui);
-            if (im::text(imgui, "x0.5 ")) {
+            im::indent(imgui, 8.0f);            
+            if (im::text(imgui, "x0.5")) {
                 ee->snapping = 0.50f;
             }
             im::same_line(imgui);
-            if (im::text(imgui, "x1 ")) {
+            im::indent(imgui, 8.0f);            
+            if (im::text(imgui, "x1")) {
                 ee->snapping = 1.0f;
             }
             im::same_line(imgui);
-            if (im::text(imgui, "x5 ")) {
+            im::indent(imgui, 8.0f);            
+            if (im::text(imgui, "x5")) {
                 ee->snapping = 5.0f;
             }
             im::same_line(imgui);
-            if (im::text(imgui, "x10 ")) {
+            im::indent(imgui, 8.0f);            
+            if (im::text(imgui, "x10")) {
                 ee->snapping = 10.0f;
             }
             if (ee->selection.mode == selection_mode::rotation) {
                 im::same_line(imgui);
-                if (im::text(imgui, "x15 ")) {
+                im::indent(imgui, 8.0f);            
+                if (im::text(imgui, "x15")) {
                     ee->snapping = 15.0f;
                 }
                 im::same_line(imgui);
-                if (im::text(imgui, "x30 ")) {
+                im::indent(imgui, 8.0f);            
+                if (im::text(imgui, "x30")) {
                     ee->snapping = 30.0f;
                 }
                 im::same_line(imgui);
-                if (im::text(imgui, "x45 ")) {
+                im::indent(imgui, 8.0f);            
+                if (im::text(imgui, "x45")) {
                     ee->snapping = 45.0f;
                 }
                 im::same_line(imgui);
-                if (im::text(imgui, "x90 ")) {
+                im::indent(imgui, 8.0f);            
+                if (im::text(imgui, "x90")) {
                     ee->snapping = 90.0f;
                 }
             }
-            if (im::text(imgui, "x100 ")) {
+            im::indent(imgui, 8.0f);            
+            if (im::text(imgui, "x100")) {
                 ee->snapping = 100.0f;
             }
         }
-        im::end_panel(imgui, &pos, &size);
+
+        im::end_panel(imgui, &transform_panel);
     }
+
 
     local_persist b32 show_entity_list = 1;
     local_persist v2f entity_window_pos{0.0f, 600.0f};
@@ -1585,6 +1636,7 @@ entity_editor_render(entity_editor_t* ee) {
 
     if (im::begin_panel(imgui, "Entities", &entity_window_pos, &entity_window_size, &show_entity_list)) {
         auto theme = imgui.theme;
+
         for(auto* prefab = ee->prefabs.next;
             prefab != &ee->prefabs;
             node_next(prefab)
@@ -1595,7 +1647,9 @@ entity_editor_render(entity_editor_t* ee) {
                 ee->remove_prefab(prefab);
             }
 
-            if (ee->selection == prefab) {
+            auto has_selected = ee->has_selection(&prefab->transform.origin);
+
+            if (has_selected) {
                 imgui.theme.text_color = gfx::color::rgba::yellow;
             }
 
@@ -1606,6 +1660,11 @@ entity_editor_render(entity_editor_t* ee) {
             )) {
                 if (ee->selection == prefab) {
                     ee->camera.position = prefab->transform.origin;
+                }
+                if (shift_held && ee->selection.prefab) {
+                    ee->selection_stack.push(ee->selection);
+                } else {
+                    ee->selection_stack.clear();
                 }
                 ee->selection = prefab;
                 ee->entity = &prefab->prefab;
@@ -1687,7 +1746,7 @@ entity_editor_update(entity_editor_t* ee) {
 
                 auto albedo_id = std::numeric_limits<u32>::max();
                 if (entity.gfx.albedo_texture.empty() == false) {
-                        auto aid = (u32)rs->texture_cache.get_id(entity.gfx.albedo_texture.view());
+                    auto aid = (u32)rs->texture_cache.get_id(entity.gfx.albedo_texture.view());
                     if (aid == 0) {
                         tag_array(auto* texture, char, &ee->game_state->string_arena, entity.gfx.albedo_texture.size()+1);
                         utl::copy(texture, entity.gfx.albedo_texture.buffer, entity.gfx.albedo_texture.size());
@@ -1722,7 +1781,7 @@ entity_editor_update(entity_editor_t* ee) {
     ) {
         if (p->prefab.emitter) {
             if (p->particle_system) {
-                p->prefab.emitter->max_count = std::max(p->prefab.emitter->max_count, p->instance_count);
+                p->prefab.emitter->max_count = std::min(p->prefab.emitter->max_count, p->instance_count);
                 *(particle_system_settings_t*)p->particle_system = *p->prefab.emitter;
 
                 auto* instances = p->instances;

@@ -136,3 +136,13 @@ vec3 reproject(vec2 uv, float depth, mat4 inv_vp) {
     vec4 v = inv_vp * s;
     return v.xyz/v.w;
 }
+
+// pbr camera https://google.github.io/filament/Filament.md.html
+
+float exposure_settings(float aperture, float shutterSpeed, float sensitivity) {
+    return log2((aperture * aperture) / shutterSpeed * 100.0 / sensitivity);
+}
+
+float exposure(float ev100) {
+    return 1.0 / (pow(2.0, ev100) * 1.2);
+}

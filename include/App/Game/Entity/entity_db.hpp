@@ -945,7 +945,7 @@ person {
     .type = entity_type::bad,
     .type_name = "person",
     .gfx = {
-        .mesh_name = "res/models/capsule.obj",
+        .mesh_name = "res/models/entities/cultist_03.gltf",
     },
     .stats = character_stats_t {
         .health = {

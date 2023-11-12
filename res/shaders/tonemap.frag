@@ -132,18 +132,28 @@ void main() {
     vec3 dithering = valve_dither(uv*64.0, 8);
 
     const float pixelate = 512.0;
-    uv = saturate(floor(uv*pixelate)/pixelate);
-    // uv.x += dithering;
     vec3 bloom = textureLod(uBloom, uv, 0).rgb;
+    // uv = saturate(floor(uv*pixelate)/pixelate);
+
+
+    // uv.x += dithering;
+
     vec3 color = textureLod(uColor, uv, 0).rgb;// + 3.0 * screenspace_dither(uv * textureSize(uColor,0));
+
+    // bloom = paletize(sqrt(bloom), 8);// + dithering;
+    color = mix(color, (bloom), 0.025);
+    color = paletize(color, 32);// + dithering;
 
     if (uTonemap == ACES) { color = aces_film(color); }
     if (uTonemap == REIN) { color = reinhard(color); }
     if (uTonemap == EXPO) { color = vec3(1.0) - exp(-color * uExposure); }
     if (uTonemap == CHRT) { color = uncharted(color); }
-    color = paletize(color,32);// + dithering;
-    color = mix(color, bloom, 0.005);
         
+    // color = sqrt(color);
+    // color = sqr(color);
+
     color = pow(color, vec3(1.0/uGamma));
+
+    // color = bloom;
     fFragColor.rgb = color.rgb;
 }

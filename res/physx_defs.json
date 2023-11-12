@@ -30,11 +30,18 @@
         "res/models/rooms/parkcore_02.gltf",
         "res/models/rooms/temple_01.gltf",
         "res/models/city_test_01.gltf",
+        "res/models/environment/doorway_01.gltf",
         "res/models/rooms/homebase.gltf"
     ],
     "convex": [
         "res/models/rooms/wall_10x10_01.obj",
         "res/models/rooms/floor_10x10_01.obj",
+        "res/models/environment/pillar_01_1x12x1.gltf",
+        "res/models/environment/wall_01.gltf",
+        "res/models/environment/rock_01.gltf",
+        "res/models/environment/barrel_01.gltf",
+        "res/models/entities/cultist_01.gltf",
+        "res/models/entities/cultist_02.gltf",
         "res/models/utah-teapot.obj"
     ]
 }

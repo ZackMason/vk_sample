@@ -45,7 +45,7 @@ namespace zyy::wep {
         bullet_entity->gfx.material_id = 7; // unlit material @hardcode
         bullet_entity->stats.weapon.stats.damage = bullet.damage;
         bullet_entity->physics.rigidbody->on_collision = bullet_on_hit;
-        bullet_entity->physics.rigidbody->add_impulse(bullet.ray.direction*200.0f);
+        bullet_entity->physics.rigidbody->add_impulse(bullet.ray.direction*20.0f);
         bullet_entity->physics.rigidbody->set_ccd(true);
         bullet_entity->physics.rigidbody->set_mass(0.01f);
         bullet_entity->physics.rigidbody->set_layer(2ui32);
@@ -67,7 +67,7 @@ namespace zyy::wep {
         bullet_entity->gfx.material_id = 7; // unlit material @hardcode
         bullet_entity->stats.weapon.stats.damage = bullet.damage;
         bullet_entity->physics.rigidbody->on_collision = rocket_on_hit;
-        bullet_entity->physics.rigidbody->add_impulse(bullet.ray.direction*100.0f);
+        bullet_entity->physics.rigidbody->add_impulse(bullet.ray.direction*10.0f);
         bullet_entity->physics.rigidbody->set_ccd(true);
         bullet_entity->physics.rigidbody->set_mass(0.01f);
         bullet_entity->physics.rigidbody->set_layer(2ui32);

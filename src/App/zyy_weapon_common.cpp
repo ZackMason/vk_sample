@@ -68,7 +68,7 @@ zyy::entity_t* spawn_explosion(
     zyy::prefab_t particle_prefab,
     u32 material = 2
 ) {
-    particle_prefab.coroutine = co_kill_in_x(4.0f);
+    particle_prefab.coroutine = co_kill_in_x(0.990f);
 
     particle_prefab.emitter->max_count = count;
 
@@ -107,6 +107,7 @@ void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
         // self_entity->queue_free(0);
         spawn_hit = 1;
     }
+    spawn_hit = 1;
 
     auto pos = self_entity->global_transform().origin;
     auto damage = self_entity->stats.weapon.stats.damage;
@@ -215,7 +216,7 @@ zyy::entity_t* explosion_at_point(
             auto delta_length = glm::dot(delta, delta);
 
             auto force = delta_normal / delta_length; 
-            n->physics.impulse += (force * 5.0f);
+            n->physics.impulse += (force * 10.0f);
         }
         if (n->stats.character.health.max) {
             auto blood = zyy::db::environmental::blood_01;
@@ -250,11 +251,12 @@ zyy::entity_t* explosion_at_point(
         return s * utl::rng::random_s::randnv() + pos;
     };
 
-    auto explosion = zyy::db::particle::orb;
-    explosion.emitter->template_particle.life_time = 4.01f;
-    explosion.emitter->scale_over_life_time = math::range_t{14.0f, 4.2f};
-    spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 8);
-    spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 8);
+    // auto explosion = zyy::db::particle::orb;
+    local_persist auto explosion = load_from_file(&world->arena, "./res/entity/explosion_up.entt");
+    // explosion.emitter->template_particle.life_time = 4.01f;
+    // explosion.emitter->scale_over_life_time = math::range_t{14.0f, 4.2f};
+    // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 8);
+    // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 8);
     explosion.emitter->scale_over_life_time = math::range_t{1.0f, 0.2f};
     spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 5);
     spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 6);

@@ -109,6 +109,7 @@
     },
     "cmake.configureOnOpen": false,
     "cSpell.words": [
+      "bools",
       "dlist",
       "gamepads",
       "hitbuffer",

@@ -209,7 +209,7 @@ load_from_file(arena_t* arena, std::string_view path) {
     std::ifstream file{path.data(), std::ios::binary};
 
     if(!file.is_open()) {
-        zyy_error("res", "Failed to open file");
+        zyy_error(__FUNCTION__, "Failed to open file {}", path);
         return entity;
     }
 

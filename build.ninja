@@ -43,7 +43,13 @@ rule copy_dll
   description = Copying $in
 
 rule compile_shader
-    command = glslc $glslc_oflags $glslc_iflags $in -o $out
+  command = glslc $glslc_oflags $glslc_iflags $in -o $out
+
+rule start_build_profile
+  command = vcperf /start FullBuild
+
+rule end_build_profile 
+  command = vcperf /stop FullBuild /timetrace trace.json
 
 # Build targets
 

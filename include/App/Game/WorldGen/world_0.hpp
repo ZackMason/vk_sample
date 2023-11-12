@@ -322,7 +322,7 @@ generate_world_1(arena_t* arena) {
 
         auto lightning_powerup = load_from_file(&world->arena, "./res/entity/lightning_powerup.entt");
         auto expo_powerup = load_from_file(&world->arena, "./res/entity/explosive_shot.entt");
-        // zyy::tag_spawn(world, lightning_powerup, axis::backward * 15.0f + axis::up * 3.0f);
+        zyy::tag_spawn(world, lightning_powerup, axis::backward * 20.0f + axis::up * 3.0f);
         zyy::tag_spawn(world, expo_powerup, axis::backward * 15.0f + axis::up * 3.0f);
         // zyy::tag_spawn(world, expo_powerup, axis::left * 20.0f + axis::up * 3.0f);
         // zyy::tag_spawn(world, zyy::db::items::lightning_powerup, axis::backward * 15.0f + axis::up * 3.0f);
@@ -350,11 +350,14 @@ generate_world_1(arena_t* arena) {
                 *count = 10;
                 while (*count > 0) {
                     skull = zyy::tag_spawn(world, zyy::db::bads::skull, self->global_transform().origin + axis::up * 15.0f + planes::xz * utl::rng::random_s::randv());
+                    for (i32 i = 0; i < 5; i++) {
+                        skull->add_child(zyy::tag_spawn(world, load_from_file(&world->arena, "./res/entity/fire.entt")));
+                    }
                     skull->physics.rigidbody->set_gravity(false);
                     skull->physics.rigidbody->set_ccd(true);
                     skull->physics.rigidbody->set_layer(1ui32);
                     // skull->physics.rigidbody->set_group(~1ui32);
-                    skull->gfx.material_id = 2;
+                    // skull->gfx.material_id = 2;
                     *count -= 1;
                     co_yield(co);
                 }

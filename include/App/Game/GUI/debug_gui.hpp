@@ -162,8 +162,8 @@ void draw_behavior(
         p[2] = c->rect.center() + glm::clamp(delta, -size*0.5f, 0.5f*size);
         // p[0] = rect.center()    + glm::clamp(v2f{-delta.x, -delta.y}, -rect.size()*0.5f, 0.5f*rect.size());
 
-        p[1] = tween::lerp(v2f{0.0f, dist}, -(p[0] - p[2]), 0.5f);
-        p[3] = tween::lerp(v2f{0.0f, dist}, -(p[0] - p[2]), 0.5f);
+        p[1] = tween::lerp(v2f{0.0f, dist}, -(p[0] - p[2]), 0.5f) + drag;
+        p[3] = tween::lerp(v2f{0.0f, dist}, -(p[0] - p[2]), 0.5f) + drag;
 
         auto cc = colors[(u32)c->status];
         auto dt = blkbrd_time - c->touch;
@@ -214,14 +214,14 @@ draw_behavior_tree(
 
     
 
-    auto print_fn = [&imgui](auto key, auto* value) {
+    auto print_field = [&imgui](auto key, auto* value) {
         im::same_line(imgui);
         im::text(imgui, fmt_sv("--- {}:", key));
         if constexpr(std::is_same_v<decltype(value), v3f*>) {
             im::float3_drag(imgui, value);
         }
         if constexpr(std::is_same_v<decltype(value), f32*>) {
-            im::float_drag(imgui, value);
+            im::float_input(imgui, value);
         }
         if constexpr(std::is_same_v<decltype(value), b32*>) {
             im::checkbox(imgui, (bool*)value);
@@ -239,15 +239,15 @@ draw_behavior_tree(
         }
         if (im::text(imgui, "Open", &open[0])) {
             if (im::text(imgui, "- floats", &open[1])) {
-                utl::hash_foreach<std::string_view, f32>(blkbrd->floats, print_fn);
+                utl::hash_foreach<std::string_view, f32>(blkbrd->floats, print_field);
                 im::text(imgui, "-----------------");
             }
             if (im::text(imgui, "- bools", &open[2])) {
-                utl::hash_foreach<std::string_view, b32>(blkbrd->bools, print_fn);
+                utl::hash_foreach<std::string_view, b32>(blkbrd->bools, print_field);
                 im::text(imgui, "-----------------");
             }
             if (im::text(imgui, "- points", &open[3])) {
-                utl::hash_foreach<std::string_view, v3f>(blkbrd->points, print_fn);
+                utl::hash_foreach<std::string_view, v3f>(blkbrd->points, print_field);
                 im::text(imgui, "-----------------");
             }
         }
@@ -606,6 +606,8 @@ draw_gui(game_memory_t* game_memory) {
             local_persist v2f panel_pos{350,350};
             local_persist v2f panel_size{800,600};
             local_persist b32 panel_open = 1;
+
+            panel_size = {};
 
             if (im::begin_panel(state, "Loading"sv, &panel_pos, &panel_size, &panel_open)) {
                 im::text(state, fmt_sv("Loading World {}/{}", generator->completed_count, generator->step_count));

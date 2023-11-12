@@ -762,7 +762,6 @@ struct app_input_t {
         if (pressed.keys[key_id::ENTER]) return -1;
         return 0;
     }
-
 };
 
 inline void
@@ -2607,6 +2606,22 @@ std::pair<rect2d_t, rect2d_t> cut_bottom(rect2d_t rect, f32 amount) {
     return {bottom, rect};
 }
 
+// template<size_t N>
+// std::span<rect2d_t> partition(const rect2d_t& rect, stack_buffer<rect2d_t, N>&& buffer, u32 count, f32 padding) {
+//     buffer.clear();
+
+//     auto p_rect = rect;
+//     p_rect.pull(v2f{-padding});
+
+//     f32 size = p_rect.size().y;
+
+//     for (u32 i = 0; i < count; i++) {
+
+//     }
+
+//     return buffer.view();
+// }
+
 v2f bottom_middle(rect2d_t r) {
     return r.min + r.size() * v2f{0.5f, 1.0f};
 }
@@ -3043,6 +3058,50 @@ struct mesh_list_t {
     std::string_view name{};
 
     // mesh_list_t* next_lod{0};
+};
+
+enum struct blend_mode {
+    alpha_blend, 
+    additive
+};
+
+enum struct render_command_type {
+    draw_mesh,
+    clear_texture,
+};
+
+struct clear_texture_command_t {
+    u64 texture_id{0};
+};
+
+struct draw_mesh_command_t {
+    u64 mesh_id{0};
+    u64 material_id{0};
+    u64 albedo_id{0};
+
+    union {
+        m44  transform;
+        m44* instances;
+    };
+
+    u32 instance_count{1};
+};
+
+struct render_command_t {
+    render_command_type type{render_command_type::draw_mesh};
+
+    union {
+        draw_mesh_command_t draw_mesh{};
+        clear_texture_command_t clear_texture;
+    };
+};
+
+struct render_group_t {
+    blend_mode blend{blend_mode::alpha_blend};
+
+    render_command_t* commands{0};
+    u32               command_count{0};
+
 };
 
 // there should only be one running at a time
@@ -5741,6 +5800,301 @@ namespace gui {
                 }
             }
             return result;
+        }
+
+        inline bool
+        uint_input(
+            state_t& imgui, 
+            u32* value,
+            sid_t txt_id_ = 0,
+            bool* toggle_state = 0         
+        ) {
+            const sid_t txt_id = imgui.verify_id(txt_id_ ? txt_id_ : (u64)value);
+            bool result = toggle_state ? *toggle_state : false;
+
+            local_persist char text[64] = {'0'};
+            local_persist u64 position = 0;
+
+            constexpr f32 text_pad = 4.0f;
+            const auto min_size = font_get_size(imgui.ctx.font, "1000.0f");
+            const auto font_size = font_get_size(imgui.ctx.font, imgui.active.id == txt_id ? text : fmt_sv("{}", *value));
+            v2f temp_cursor = imgui.panel->draw_cursor;
+            const f32 start_x = imgui.panel->draw_cursor.x;
+            temp_cursor.x += text_pad + imgui.theme.padding;
+
+            math::rect2d_t text_box;
+            text_box.expand(temp_cursor);
+            text_box.expand(temp_cursor + min_size);
+            text_box.expand(temp_cursor + font_size + v2f{32.0f, 0.0f});
+            imgui.panel->expand(text_box.max);
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            if (text_box.contains(v2f{x,y})) {
+                imgui.hot = txt_id;
+            } else if (imgui.hot.id == txt_id) {
+                imgui.hot = 0;
+            }
+
+            if (imgui.active.id == txt_id) {
+                auto key = imgui.ctx.input->keyboard_input();
+                if (key > 0 && key != '\n') {                    
+                    text[position++] = key;
+                    imgui.hot = txt_id;
+                } else if ((position) && imgui.ctx.input->pressed.keys[key_id::BACKSPACE]) {
+                    position--;
+                    text[position] = '\0';
+                    imgui.hot = txt_id;
+                }
+                if (imgui.ctx.input->pressed.keys[key_id::ENTER]) {
+                    *value = (u32)std::atoi(text);
+                    imgui.active = 0;
+                    result = true;
+                }
+                if (position != 0) {
+                    const auto bar_pad = v2f{4.0f, 0.0f};
+                    draw_line(&imgui.ctx, temp_cursor + v2f{font_size.x, 0.0f} + bar_pad, temp_cursor + font_size + bar_pad, 2.0f, imgui.theme.fg_color);
+                }
+            }
+            if (imgui.hot.id == txt_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = txt_id;
+                    auto fstr = fmt_str("{}", *value);
+                    utl::memzero(text, array_count(text));
+                    utl::copy(text, fstr.c_str(), fstr.size());
+                    position = fstr.size();
+                }
+            }
+
+            auto shadow_cursor = temp_cursor + imgui.theme.shadow_distance;
+
+            if (imgui.active.id == txt_id) {
+                string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+                string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
+            } else {
+                auto sval = fmt_str("{}", *value);
+                string_render(&imgui.ctx, sval, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+                string_render(&imgui.ctx, sval, &shadow_cursor, imgui.theme.shadow_color);
+            }
+            
+            auto bg_color = imgui.theme.bg_color;
+            if (imgui.hot.id == txt_id) {
+                bg_color = color::lerp(bg_color, color::modulate(imgui.theme.fg_color, 0.3f), sin(imgui.ctx.input->time * 2.0f) * 0.5f + 0.5f);
+            }
+            
+            constexpr b32 show_clear = 1;
+            if constexpr (show_clear) {
+                auto tr = math::top_right(text_box);
+                auto clear_space_top = tr - v2f{16.0f, -2.0f};
+                auto clear_space_bottom = text_box.max - v2f{16.0f, 2.0f};
+                auto clear_color = color::modulate(imgui.theme.fg_color, 0.5);
+                auto cx0 = clear_space_top + v2f{3.0f, 1.0f};
+                auto cx1 = cx0 + v2f{10.0f, 0.0f};
+                auto cx2 = clear_space_bottom + v2f{3.0f, -1.0f};
+                auto cx3 = cx2 + v2f{10.0f, 0.0f};
+                draw_line(&imgui.ctx, clear_space_top, clear_space_bottom, 2.0f, clear_color);
+
+                math::rect2d_t clear_box{
+                    .min = cx0,
+                    .max = cx3
+                };
+
+                if (clear_box.contains(v2f{x,y})) { 
+                    clear_color = color::modulate(imgui.theme.active_color, 0.5);
+                    if (imgui.ctx.input->mouse.buttons[0] && position) {
+                        *value = 0;
+                    }
+                }
+
+                draw_line(&imgui.ctx, cx0, cx3, 1.0f, clear_color);
+                draw_line(&imgui.ctx, cx1, cx2, 1.0f, clear_color);
+            }
+
+            draw_round_rect(&imgui.ctx, text_box, 4.0f, bg_color, 10);
+            text_box.pull(v2f{2.0f});
+            draw_round_rect(&imgui.ctx, text_box, 4.0f, imgui.theme.fg_color, 10);
+
+            if (imgui.next_same_line) {
+                imgui.next_same_line = false;
+                imgui.panel->draw_cursor.x += font_size.x;
+            } else {
+                imgui.panel->draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
+                imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
+                // imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
+            }
+            return result;
+        }
+
+        inline bool
+        float_input(
+            state_t& imgui, 
+            f32* value,
+            sid_t txt_id_ = 0,
+            bool* toggle_state = 0         
+        ) {
+            const sid_t txt_id = imgui.verify_id(txt_id_ ? txt_id_ : (u64)value);
+            bool result = toggle_state ? *toggle_state : false;
+
+            local_persist char text[64] = {'0'};
+            local_persist u64 position = 0;
+
+            constexpr f32 text_pad = 4.0f;
+            const auto min_size = font_get_size(imgui.ctx.font, "1000.0f");
+            const auto font_size = font_get_size(imgui.ctx.font, imgui.active.id == txt_id ? text : fmt_sv("{}", *value));
+            v2f temp_cursor = imgui.panel->draw_cursor;
+            const f32 start_x = imgui.panel->draw_cursor.x;
+            temp_cursor.x += text_pad + imgui.theme.padding;
+
+            math::rect2d_t text_box;
+            text_box.expand(temp_cursor);
+            text_box.expand(temp_cursor + min_size);
+            text_box.expand(temp_cursor + font_size + v2f{32.0f, 0.0f});
+            imgui.panel->expand(text_box.max);
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            if (text_box.contains(v2f{x,y})) {
+                imgui.hot = txt_id;
+            } else if (imgui.hot.id == txt_id) {
+                imgui.hot = 0;
+            }
+
+            if (imgui.active.id == txt_id) {
+                auto key = imgui.ctx.input->keyboard_input();
+                if (key > 0 && key != '\n') {                    
+                    text[position++] = key;
+                    imgui.hot = txt_id;
+                } else if ((position) && imgui.ctx.input->pressed.keys[key_id::BACKSPACE]) {
+                    position--;
+                    text[position] = '\0';
+                    imgui.hot = txt_id;
+                }
+                if (imgui.ctx.input->pressed.keys[key_id::ENTER]) {
+                    *value = (f32)std::atof(text);
+                    imgui.active = 0;
+                    result = true;
+                }
+                if (position != 0) {
+                    const auto bar_pad = v2f{4.0f, 0.0f};
+                    draw_line(&imgui.ctx, temp_cursor + v2f{font_size.x, 0.0f} + bar_pad, temp_cursor + font_size + bar_pad, 2.0f, imgui.theme.fg_color);
+                }
+            }
+            if (imgui.hot.id == txt_id) {
+                if (imgui.ctx.input->mouse.buttons[0]) {
+                    imgui.active = txt_id;
+                    auto fstr = fmt_str("{}", *value);
+                    utl::memzero(text, array_count(text));
+                    utl::copy(text, fstr.c_str(), fstr.size());
+                    position = fstr.size();
+                }
+            }
+
+            auto shadow_cursor = temp_cursor + imgui.theme.shadow_distance;
+
+            if (imgui.active.id == txt_id) {
+                string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+                string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
+            } else {
+                auto sval = fmt_str("{}", *value);
+                string_render(&imgui.ctx, sval, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+                string_render(&imgui.ctx, sval, &shadow_cursor, imgui.theme.shadow_color);
+            }
+            
+            auto bg_color = imgui.theme.bg_color;
+            if (imgui.hot.id == txt_id) {
+                bg_color = color::lerp(bg_color, color::modulate(imgui.theme.fg_color, 0.3f), sin(imgui.ctx.input->time * 2.0f) * 0.5f + 0.5f);
+            }
+            
+            constexpr b32 show_clear = 1;
+            if constexpr (show_clear) {
+                auto tr = math::top_right(text_box);
+                auto clear_space_top = tr - v2f{16.0f, -2.0f};
+                auto clear_space_bottom = text_box.max - v2f{16.0f, 2.0f};
+                auto clear_color = color::modulate(imgui.theme.fg_color, 0.5);
+                auto cx0 = clear_space_top + v2f{3.0f, 1.0f};
+                auto cx1 = cx0 + v2f{10.0f, 0.0f};
+                auto cx2 = clear_space_bottom + v2f{3.0f, -1.0f};
+                auto cx3 = cx2 + v2f{10.0f, 0.0f};
+                draw_line(&imgui.ctx, clear_space_top, clear_space_bottom, 2.0f, clear_color);
+
+                math::rect2d_t clear_box{
+                    .min = cx0,
+                    .max = cx3
+                };
+
+                if (clear_box.contains(v2f{x,y})) { 
+                    clear_color = color::modulate(imgui.theme.active_color, 0.5);
+                    if (imgui.ctx.input->mouse.buttons[0] && position) {
+                        *value = 0.0f;
+                    }
+                }
+
+                draw_line(&imgui.ctx, cx0, cx3, 1.0f, clear_color);
+                draw_line(&imgui.ctx, cx1, cx2, 1.0f, clear_color);
+            }
+
+            draw_round_rect(&imgui.ctx, text_box, 4.0f, bg_color, 10);
+            text_box.pull(v2f{2.0f});
+            draw_round_rect(&imgui.ctx, text_box, 4.0f, imgui.theme.fg_color, 10);
+
+            if (imgui.next_same_line) {
+                imgui.next_same_line = false;
+                imgui.panel->draw_cursor.x += text_box.size().x + imgui.theme.padding;
+            } else {
+                imgui.panel->draw_cursor.y = text_box.max.y + imgui.theme.padding;
+                imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
+                // imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
+            }
+            return result;
+        }
+
+        inline bool
+        float2_input(
+            state_t& imgui, 
+            v2f* value,
+            sid_t txt_id_ = 0,
+            bool* toggle_state = 0         
+        ) {
+            auto theme = imgui.theme;
+
+            imgui.theme.bg_color = gfx::color::rgba::red;
+            same_line(imgui);
+
+            auto r = float_input(imgui, &value->x, txt_id_, toggle_state);
+
+            imgui.theme.bg_color = gfx::color::rgba::green;
+
+            auto g = float_input(imgui, &value->y, txt_id_, toggle_state);
+
+            imgui.theme = theme;
+
+            return r && g;
+        }
+
+        inline bool
+        float3_input(
+            state_t& imgui, 
+            v3f* value,
+            sid_t txt_id_ = 0,
+            bool* toggle_state = 0         
+        ) {
+            auto theme = imgui.theme;
+
+            imgui.theme.bg_color = gfx::color::rgba::red;
+            same_line(imgui);
+
+            auto r = float_input(imgui, &value->x, txt_id_, toggle_state);
+
+            imgui.theme.bg_color = gfx::color::rgba::green;
+            same_line(imgui);
+
+            auto g = float_input(imgui, &value->y, txt_id_, toggle_state);
+
+            imgui.theme.bg_color = gfx::color::rgba::light_blue;
+
+            auto b = float_input(imgui, &value->z, txt_id_, toggle_state);
+
+            imgui.theme = theme;
+
+            return r && g && b;
         }
 
         inline bool

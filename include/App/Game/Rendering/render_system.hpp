@@ -898,6 +898,9 @@ public:
         m44 view{1.0f};
         v3f camera_pos{0.0f};
         u32 width{}, height{};
+        v2f screen_size() const {
+            return v2f{f32(width), f32(height)};
+        }
 
         pp_material_t postprocess_params{};
 
@@ -1011,7 +1014,7 @@ public:
 
         rs->texture_cache.add(state.null_texture, "null");
 
-        rs->postprocess_params.data[0] = 2.0f; // tonemap
+        rs->postprocess_params.data[0] = 0.0f; // tonemap
         rs->postprocess_params.data[1] = 1.0f; // exposure
         rs->postprocess_params.data[2] = 1.0f; //contrast
         rs->postprocess_params.data[3] = 1.0f; // gamma
@@ -1266,6 +1269,9 @@ public:
         u32 instance_offset = 0,
         u32 albedo_override = std::numeric_limits<u32>::max()
     ) {
+        if (instance_count == 0) {
+            return;
+        }
         TIMED_FUNCTION;
 
         rs->render_job_count++;
@@ -1290,7 +1296,7 @@ public:
                     gfx_id + i,
                     meshes->meshes[i].blas,
                     // transform
-                    instance_count == 1 ? transform : transform * instance_buffer[instance_offset + j]
+                    instance_count == 1 ? transform : instance_buffer[instance_offset + j]
                 );
             }
 
@@ -1925,7 +1931,8 @@ public:
                 VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
                 
         }
-        pass.parameters.data[0] = 0.0025f;
+        
+        pass.parameters.data[0] = bloom_filter_radius;
 
         for (int i = static_cast<int>(pass.mip_count) - 1; i > 0; i--) {
             const auto& mip = pass.mip_chain[i];

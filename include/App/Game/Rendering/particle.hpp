@@ -248,7 +248,7 @@ particle_system_update(
         const f32 life_alpha = particle->life_time / (system->template_particle.life_time + system->life_random.max);
 
         particle->velocity += system->acceleration * dt;
-        particle->position += particle->velocity * dt;
+        particle->position += particle->orientation * (particle->velocity * dt);
         particle->orientation += (particle->orientation * glm::quat(0.0f, particle->angular_velocity)) * (0.5f * dt);
         particle->orientation = glm::normalize(particle->orientation);
         particle->scale = system->template_particle.scale * system->scale_over_life_time.sample(1.0f-life_alpha);
@@ -279,8 +279,9 @@ particle_system_build_matrices(
             .scale(v3f{particle->scale})
             .to_matrix();
 
-        if (world_space) {
-            matrix[i] = world_inv * matrix[i];
+        if (!world_space) {
+            matrix[i] = transform * matrix[i];
+            // matrix[i] = world_inv * matrix[i];
         }
     }
 

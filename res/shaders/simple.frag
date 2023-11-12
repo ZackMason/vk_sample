@@ -247,14 +247,21 @@ main( )
 	vec3  F = filament_Schlick(LoH, F0);
 	float S = filament_SmithGGXCorrelated(NoV, NoL, roughness);
 
+	// pbr camera
+	float aperture = .010;
+	float shutter_speed = 0.05;
+	float sensitivity = 1.0;
+	float ev100 = exposure_settings(aperture, shutter_speed, sensitivity);
+	float expo = exposure(ev100);
+
 	TotalLight light_solution = InitLightSolution();
 
 	Surface surface;
 	surface.point = vWorldPos;
 	surface.normal = N;
-	surface.albedo = albedo.rgb;
+	surface.albedo = (albedo.rgb);
 	surface.roughness = roughness;
-	surface.emissive = albedo.rgb * material.emission;
+	surface.emissive = surface.albedo * material.emission;
 
 	// light_solution.direct.diffuse += max(0.0, NoL);
 	
@@ -270,8 +277,12 @@ main( )
 		}
 		rgb = vec3(0.0);
 		apply_light(surface, light_solution, rgb);
+		// rgb *= expo;
 	} else {
-		rgb = albedo * material.emission * 10.0;
+		rgb = sqr(surface.albedo) * (material.emission*30.0);// * pow(2, ev100 + material.emission - 3.0) * expo;
+
+		// rgb = material.albedo * material.emission * 1.0;
+		// rgb = sqr(rgb);
 	}
 	
 	{
@@ -292,6 +303,7 @@ main( )
 
 	// rgb = env / 2.0f;	
 
+	fFragColor = vec4( rgb, alpha * alpha * alpha);
 	fFragColor = vec4( rgb, alpha);
 }
 

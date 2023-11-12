@@ -63,7 +63,18 @@ get_game_state(game_memory_t* mem) {
     return (game_state_t*)mem->game_state;
 }
 
+struct game_theme_t {
+    f32 padding = 4.0f;
+
+    f32 action_bar_size = 32.0f * 2.0f;
+
+    gfx::color32 action_bar_color = gfx::color::rgba::black;
+    gfx::color32 action_button_color = gfx::color::rgba::gray;
+};
+
 struct game_ui_t {
+    game_theme_t game_theme{};
+
     zyy::entity_t* entity = 0;
 
     zyy::health_t health;
@@ -71,13 +82,44 @@ struct game_ui_t {
 
     v3f eye;
     v3f look;
+
+    math::rect2d_t screen{};
 };
+
+void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
+    auto screen = game_ui->screen;
+    auto game_theme = game_ui->game_theme;
+
+    const auto width_three_split = screen.size().x / 3.0f;
+
+    auto [left_panel, mid_plus_right] = math::cut_left(screen, width_three_split);
+    auto [right_panel, mid_panel] = math::cut_right(mid_plus_right, width_three_split);
+
+    game_theme.action_bar_size = (mid_panel.size().x + game_theme.padding * 2.0f) / 11.0f;
+    auto [action_bar, middle] = math::cut_bottom(mid_panel, game_theme.action_bar_size + game_theme.padding*2.0f);
+
+    for (i32 i = 0; i < 10; i++) {
+        math::rect2d_t box{
+            .min = action_bar.center() - game_theme.action_bar_size * 0.5f,
+            .max = action_bar.center() + game_theme.action_bar_size * 0.5f,
+        };
+        auto width_plus_pad = (box.size().x + game_theme.padding);
+        box.add(v2f{(f32(i)-4.5f) * width_plus_pad, 0.0f}); 
+        
+        gfx::gui::string_render(&imgui.ctx, fmt_sv("{}", i), box.min + game_theme.padding, gfx::color::rgba::white);
+        gfx::gui::draw_rect(&imgui.ctx, box, game_theme.action_button_color);
+    }
+
+    gfx::gui::draw_rect(&imgui.ctx, action_bar, game_theme.action_bar_color);
+}
 
 game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     game_ui_t ui{};
     if (player == nullptr) {
         return ui;
     }
+
+    ui.screen = math::rect2d_t{v2f{0.0f}, world->render_system()->screen_size()};
 
     ui.eye = player->camera_controller.transform.origin;
 
@@ -117,6 +159,8 @@ draw_game_gui(game_memory_t* game_memory) {
     auto game_ui = create_game_ui(world, player);
 
     auto& imgui = game_state->gui.state;
+
+    draw_game_ui(imgui, &game_ui);
 
     if (game_ui.entity) {
         v2f look_at_cursor = imgui.ctx.screen_size * v2f{0.5f} + v2f{128.0f, 0.0f};
@@ -1203,10 +1247,12 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             // arena_sweep_keep(&world->render_system()->instance_storage_buffer.pool, e->gfx.instance_end());
         }
 
-        if (e->gfx.particle_system && dt != 0.0f) {
+        if (e->gfx.particle_system) {
             auto* ps = e->gfx.particle_system;
             // arena_sweep_keep(&world->particle_arena, (std::byte*)(ps->particles + ps->max_count));
-            particle_system_update(e->gfx.particle_system, e->global_transform(), dt);
+            if (dt != 0.0f) {
+                particle_system_update(e->gfx.particle_system, e->global_transform(), dt);
+            }
             particle_system_build_matrices(
                 e->gfx.particle_system, 
                 e->global_transform(),
@@ -1223,6 +1269,8 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
         if (instance_count == 0) continue;
 
+        // auto albedo_id = std::numeric_limits<u32>::max();
+        
         rendering::submit_job(
             game_state->render_system, 
             e->gfx.mesh_id, 
@@ -1231,7 +1279,8 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             e->gfx.gfx_id,
             e->gfx.gfx_entity_count,
             instance_count,
-            e->gfx.instance_offset()
+            e->gfx.instance_offset(),
+            e->gfx.albedo_id
         );
     }
 

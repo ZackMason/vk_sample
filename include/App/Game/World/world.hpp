@@ -225,7 +225,14 @@ namespace zyy {
         entity->gfx.gfx_entity_count = 1;
 
         if (def.gfx.albedo_texture != ""sv) {
-            entity->gfx.albedo_id = (u32)rs->texture_cache.get_id(def.gfx.albedo_texture.view());
+            auto aid = (u32)rs->texture_cache.get_id(def.gfx.albedo_texture.view());
+            if (aid == 0) {
+                tag_array(auto* texture, char, &world->arena, def.gfx.albedo_texture.size()+1);
+                utl::copy(texture, def.gfx.albedo_texture.buffer, def.gfx.albedo_texture.size());
+                texture[def.gfx.albedo_texture.size()] = '\0';
+                aid = (u32)rs->texture_cache.load(&rs->arena, *rs->vk_gfx, texture);
+            }
+            entity->gfx.albedo_id = aid;
         }
 
         if (def.gfx.mesh_name != ""sv) {
@@ -293,6 +300,8 @@ namespace zyy {
 
         if (def.stats) {
             entity->stats.character = *def.stats;
+            entity->stats.character.health.current = 
+                entity->stats.character.health.max;
         } else if (def.weapon) {
             entity->stats.weapon = *def.weapon;
             if (def.spawn_bullet.name[0]) {
@@ -313,6 +322,7 @@ namespace zyy {
             }
             assert(rb);
             entity->physics.rigidbody = rb;
+            entity->physics.rigidbody->set_layer(1ui32);
 
             rb->on_collision = def.physics->on_collision.get(mod_loader);
             rb->on_collision_end = def.physics->on_collision_end.get(mod_loader);

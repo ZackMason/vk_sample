@@ -775,7 +775,7 @@ person_init(arena_t* arena, brain_t* brain) {
             .sequence()
                 .action<print_t>("looking for target")
                 .action<move_toward_t>("rng_move")
-                .action<bt::wait_t>(2.0f)
+                .action<bt::wait_t>(8.0f)
             .end()
         .end();
 

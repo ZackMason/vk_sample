@@ -17,7 +17,8 @@ vec3 to_srgb(vec3 color)
 
 float rgb_to_luminance(vec3 color)
 {
-    return dot(color, vec3(0.2126f, 0.7152f, 0.0722f));
+    return dot(color, vec3(0.299, 0.182, 0.114));
+    return dot(color, vec3(0.2126, 0.7152, 0.0722));
 }
 
 float karis_average(vec3 color) {

@@ -24,7 +24,7 @@ void entity_blackboard_common(zyy::entity_t* entity) {
     *self = entity->global_transform().origin;
 
     *rng = entity->world->entropy.randv<v3f>();
-    *rng_move = *self + entity->world->entropy.randnv<v3f>() * planes::xz;
+    *rng_move = *self + entity->world->entropy.randnv<v3f>() * planes::xz * 10.0f;
 }
 
 BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
@@ -45,7 +45,6 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
             player->secondary_weapon.entity
         );
     }
-
 
     player->camera_controller.transform = 
         player->transform;
@@ -116,6 +115,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     if (pc.jump && (is_on_ground || is_on_wall)) {
         rigidbody->velocity.y = 0.3f;// 50.0f * dt;
     }
+    
     player->camera_controller.transform.origin = player->transform.origin + axis::up * 1.0f;
 
     const auto stepped = player->camera_controller.walk_and_bob(dt * (pc.sprint ? 1.75f : 1.0f), glm::length(swizzle::xz(move)) > 0.0f && is_on_ground, move.x);
@@ -365,6 +365,8 @@ BRAIN_BEHAVIOR_FUNCTION(person_behavior) {
     } 
     
     rigidbody->angular_velocity = v3f{0.0f};
+
+    entity->transform.look_at(entity->transform.origin + rigidbody->velocity * planes::xz);
     
 }
 
