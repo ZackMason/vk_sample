@@ -33,32 +33,38 @@ void main() {
     vec3 normal = vec3(0.0)==voNormal?vec3(0.0):normalize(voNormal);
     uint is_font = voTexID & (1 << 30);
     uint actual_texture = voTexID & ~(1<<30);
-    bool is_texture = actual_texture < 64 && actual_texture >= 0;
+    bool is_texture = actual_texture < 4096 && actual_texture >= 0;
     // opt use mix
-    vec4 color = (is_texture) ? 
+    vec4 tex = (is_texture) ? 
         texture(uTextures[actual_texture], voUV) : 
         vec4(1.0);
+
+    vec4 color = tex;
    
     if (is_texture) {
-        if (is_font != 0) {
+        if (is_font != 0) { // is font
             color = color.rrrr;
-            if (color.a < 0.25) {
+            if (color.a < 0.15) {
                 discard;
             }
-            color.a = step(0.25, color.a);
-        } else {
+            color.a = step(0.15, color.a);
+        } else { // texture
             // color.rgb = aces_film(color.rgb);
             // color.rgb = vec3(voUV, 0.0);
             // color.a = 1.0;
+            color.a = step(0.005, color.a);
             // color.rgb = pow(color.rgb, vec3(1.0/2.2));
         }
-    }
+    } 
 
-    color.rgba *= voColor.rgba * voColor.rgba;
-    // color.rgba *= voColor.rgba;
-
-    fFragColor.rgb = color.rgb;
+    color.rgb *= voColor.rgb * voColor.rgb;
     
+    fFragColor.rgb = color.rgb;
+
+    // if (is_texture && is_font == 0) {
+    //     color.a = tex.a;
+    // }
+
     fFragColor.a = clamp(color.a, 0.0, 1.0);
 
     if (vec3(0.0)!=voNormal) {

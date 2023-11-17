@@ -196,7 +196,6 @@ zyy::entity_t* explosion_at_point(
     auto memory = begin_temporary_memory(&world->arena);
 
     auto* near = world->physics->sphere_overlap_world(
-        world->physics,
         memory.arena,
         pos,
         range

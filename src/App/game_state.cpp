@@ -314,7 +314,7 @@ app_init_graphics(game_memory_t* game_memory) {
     // make_error_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256);
     vk_gfx.load_texture_sampler(&vk_gfx.null_texture);
 
-    game_state->render_system = rendering::init<megabytes(8)>(vk_gfx, &game_state->main_arena);
+    game_state->render_system = rendering::init<megabytes(32)>(vk_gfx, &game_state->main_arena);
     game_state->render_system->resource_file = game_state->resource_file;
     vk_gfx.create_vertex_buffer(&game_state->gui.vertices[0]);
     vk_gfx.create_index_buffer(&game_state->gui.indices[0]);
@@ -474,9 +474,6 @@ app_init_graphics(game_memory_t* game_memory) {
         // end_temporary_memory(temp);
     }
 
-    set_ui_textures(game_state);
-
-
     if (1)
     {
         auto* blood_texture = make_noise_texture(&game_state->texture_arena, 256);
@@ -489,6 +486,7 @@ app_init_graphics(game_memory_t* game_memory) {
                 auto n = f32(blood_texture->pixels[i])/255.0f;
                 n *= n;
                 n = tween::smoothstep_cubic(0.45f,0.65f,n) * dd;
+                n = glm::clamp(n, 0.0f, 1.0f);
                 blood_texture->pixels[i++] = u8(n*255.0f);
                 blood_texture->pixels[i++] = u8(n*255.0f * 0.3f);
                 blood_texture->pixels[i++] = u8(n*255.0f * 0.3f);
@@ -499,6 +497,8 @@ app_init_graphics(game_memory_t* game_memory) {
 
         rs->texture_cache.insert("blood", *blood_texture);
     }
+    
+    set_ui_textures(game_state);
     
     { //@test loading shader objects
         auto& mesh_pass = rs->frames[0].mesh_pass;
@@ -630,6 +630,14 @@ app_init_graphics(game_memory_t* game_memory) {
             unlit_mat.emission = 10.0f;
 
             make_material("goo", unlit_mat);
+        }
+        { // 10 water
+            auto unlit_mat = gfx::material_t::plastic(v4f{0.098f, 0.3216f, 0.8078f, 1.0f});
+            unlit_mat.flags = gfx::material_water | gfx::material_lit;
+            unlit_mat.roughness = 0.5f;
+            unlit_mat.emission = 0.0f;
+
+            make_material("water", unlit_mat);
         }
         make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
         make_material("gold-metal", gfx::material_t::plastic(gfx::color::v4::yellow));
@@ -1164,9 +1172,9 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         //     // if (e->physics.rigidbody->type == physics::rigidbody_type::CHARACTER) {
         //         // continue;
         //     // }
-        //     auto* rb = e->physics.rigidbody;
+            // auto* rb = e->physics.rigidbody;
         //     e->transform.origin = rb->position + rb->velocity * accum;
-        //     auto orientation = rb->orientation;
+            // auto orientation = rb->orientation;
         //     orientation += (orientation * glm::quat(0.0f, rb->angular_velocity)) * (0.5f * accum);
         //     orientation = glm::normalize(orientation);
         //     // e->transform.set_rotation(orientation);
@@ -1257,7 +1265,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
                 e->gfx.particle_system, 
                 e->global_transform(),
                 e->gfx.dynamic_instance_buffer, 
-                e->gfx.instance_count()
+                e->gfx._instance_count
             );
         }
 
@@ -1328,10 +1336,10 @@ wait_for_frame(game_state_t* game_state) {
 
     // vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2], VK_TRUE, UINT64_MAX);
     // vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2]);
-    // u32 imageIndex;
+    // u32 image_index;
     // vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
-    //     vk_gfx.image_available_semaphore[frame_count%2], VK_NULL_HANDLE, &imageIndex);
-    // return imageIndex;
+    //     vk_gfx.image_available_semaphore[frame_count%2], VK_NULL_HANDLE, &image_index);
+    // return image_index;
 }
 
 inline static void
@@ -1371,7 +1379,7 @@ present_frame(game_state_t* game_state, VkCommandBuffer command_buffer, u32 imag
     // VkSwapchainKHR swapChains[] = {vk_gfx.swap_chain};
     // presentInfo.swapchainCount = 1;
     // presentInfo.pSwapchains = swapChains;
-    // presentInfo.pImageIndices = &imageIndex;
+    // presentInfo.pImageIndices = &image_index;
 
     // presentInfo.pResults = nullptr; // Optional
 
@@ -1379,7 +1387,7 @@ present_frame(game_state_t* game_state, VkCommandBuffer command_buffer, u32 imag
 }
 
 void
-game_on_render(game_memory_t* game_memory, u32 imageIndex) { 
+game_on_render(game_memory_t* game_memory, u32 image_index) { 
     TIMED_FUNCTION;
     
     game_state_t* game_state = get_game_state(game_memory);
@@ -1486,7 +1494,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
         rs->get_frame_data().mesh_pass.object_descriptors = VK_NULL_HANDLE;
         
         rendering::memory_barriers(rs, command_buffer);
-        const u64 gui_frame = game_state->gui.ctx.frame&1;
+        const u64 gui_frame = (game_state->gui.ctx.frame&1);
         auto& gui_vertices = game_state->gui.vertices[gui_frame];
         auto& gui_indices = game_state->gui.indices[gui_frame];
         gui_vertices.insert_memory_barrier(command_buffer);
@@ -1534,7 +1542,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
                 // New structures are used to define the attachments used in dynamic rendering
                 VkRenderingAttachmentInfoKHR colorAttachment{};
                 colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-                // colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
+                // colorAttachment.imageView = vk_gfx.swap_chain_image_views[image_index];
                 colorAttachment.imageView = rs->frame_images[frame_count%2].texture.image_view;
                 colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                 colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -1626,7 +1634,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
 
             gfx::vul::utl::insert_image_memory_barrier(
                 command_buffer,
-                vk_gfx.swap_chain_images[imageIndex],
+                vk_gfx.swap_chain_images[image_index],
                 0,
                 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                 VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1650,7 +1658,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
             // New structures are used to define the attachments used in dynamic rendering
             VkRenderingAttachmentInfoKHR colorAttachment{};
             colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-            colorAttachment.imageView = vk_gfx.swap_chain_image_views[imageIndex];
+            colorAttachment.imageView = vk_gfx.swap_chain_image_views[image_index];
             colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
             colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1740,7 +1748,6 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
 
                 ext.vkCmdSetVertexInputEXT(command_buffer, 1, &vertexInputBinding, array_count(vertexAttributes), vertexAttributes);
             }
-
             
             VkDeviceSize offsets[1] = { 0 };
             vkCmdBindVertexBuffers(command_buffer, 0, 1, &gui_vertices.buffer, offsets);
@@ -1770,7 +1777,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
 
         gfx::vul::utl::insert_image_memory_barrier(
             command_buffer,
-            vk_gfx.swap_chain_images[imageIndex],
+            vk_gfx.swap_chain_images[image_index],
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             0,
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -1780,7 +1787,7 @@ game_on_render(game_memory_t* game_memory, u32 imageIndex) {
             VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
         
         VK_OK(vkEndCommandBuffer(command_buffer));
-        present_frame(game_state, command_buffer, imageIndex, frame_count);
+        present_frame(game_state, command_buffer, image_index, frame_count);
     }
 }
 

@@ -153,14 +153,28 @@ float voronoi_edge( in vec2 p, in float time, in float edge) {
     return 1.0 - smoothstep(0.0,edge,dis);
 }
 
-float fbm( in vec2 x, in float H )
-{    
-    float t = 0.0;
-    for( int i=0; i<8; i++ )
-    {
-        float f = pow( 2.0, float(i) );
-        float a = pow( f, -H );
-        t += a*noise(f*x);
+// float fbm( in vec2 x, in float H )
+// {    
+//     float t = 0.0;
+//     for( int i=0; i<8; i++ )
+//     {
+//         float f = pow( 2.0, float(i) );
+//         float a = pow( f, -H );
+//         t += a*noise(f*x);
+//     }
+//     return t;
+// }
+
+float fbm (in vec2 st, int h) {
+    float value = 0.0;
+    float amplitude = .5;
+    float frequency = 0.;
+    //
+    // Loop of octaves
+    for (int i = 0; i < h; i++) {
+        value += amplitude * noise(st);
+        st *= 2.;
+        amplitude *= .5;
     }
-    return t;
+    return value;
 }

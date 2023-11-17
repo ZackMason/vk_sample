@@ -233,7 +233,7 @@ draw_behavior_tree(
         if (im::text(imgui, "Camera", &open[4])) {
             math::rect2d_t uv{v2f{0.0f}, v2f{1.0f}};
             local_persist math::rect2d_t camera_screen = {screen.max * 0.8f, screen.max};
-            im::image(imgui, 1, camera_screen, uv);
+            im::image(imgui, 1, camera_screen);
             im::point_edit(imgui, &camera_screen.min, screen, screen, gfx::color::rgba::white);
             im::point_edit(imgui, &camera_screen.max, screen, screen, gfx::color::rgba::white);
         }
@@ -332,10 +332,14 @@ watch_game_state(game_state_t* game_state) {
     auto* pp_exposure = &rs->postprocess_params.data[1];
     auto* pp_contrast = &rs->postprocess_params.data[2];
     auto* pp_gamma = &rs->postprocess_params.data[3];
+    auto* pp_number_of_colors = &rs->postprocess_params.data[4];
+    auto* pp_pixelation = &rs->postprocess_params.data[5];
     DEBUG_WATCH(pp_tonemap)->max_f32 = 3.0f;
     DEBUG_WATCH(pp_exposure)->max_f32 = 2.0f;
     DEBUG_WATCH(pp_contrast);
     DEBUG_WATCH(pp_gamma)->max_f32 = 2.5f;
+    DEBUG_WATCH(pp_number_of_colors)->max_f32 = 256.0f;
+    DEBUG_WATCH(pp_pixelation)->max_f32 = 2048.0f;
 
     auto& light_probe_settings = rs->light_probe_settings_buffer.pool[0];
     auto* probe_hysteresis = &light_probe_settings.hysteresis;
@@ -363,6 +367,18 @@ set_ui_textures(game_state_t* game_state) {
     ui_textures[1] = &rs->frame_images[0].texture;
     ui_textures[2] = &rs->light_probes.irradiance_texture;
     ui_textures[3] = &rs->light_probes.visibility_texture;
+
+    for (
+        u64 txt_id = rs->texture_cache.first();
+        txt_id != rs->texture_cache.end();
+        txt_id = rs->texture_cache.next(txt_id)
+    ) {
+        if (txt_id >= array_count(ui_textures)) {
+            zyy_warn(__FUNCTION__, "Invalid texture id");
+            break;
+        }
+        ui_textures[txt_id] = rs->texture_cache[txt_id];
+    }
 
     auto& gui_pipeline = game_state->render_system->pipelines.gui;
     
@@ -913,9 +929,17 @@ draw_gui(game_memory_t* game_memory) {
                             if(im::text(state,
                                 fmt_sv("- {} -> {}: {} x {}, {} channels",
                                     i, cache.textures[i].name, cache[i]->size.x, cache[i]->size.y, cache[i]->channels
-                                )
+                                ),
+                                0,
+                                im::text_activate_mode::hover
                             )) {
-                                // todo show texture here                            
+                                f32 aspect_ratio = f32(cache[i]->size.x)/f32(cache[i]->size.y);
+                                // todo show texture here  
+                                math::rect2d_t texture_rect {
+                                    .min = state.panel->draw_cursor,
+                                    .max = state.panel->draw_cursor + v2f{200.0f, 200.0f * aspect_ratio}
+                                };
+                                im::image(state, safe_truncate_u64(i), texture_rect);
                             }
                         }
                     }

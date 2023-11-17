@@ -998,7 +998,8 @@ public:
         arena_t* arena
     ) noexcept {
         static_assert(Size > system_t::frame_arena_size);
-        tag_struct(auto* rs, system_t, arena, arena_sub_arena(arena, Size));
+        tag_struct(auto* rs, system_t, arena, arena_create(Size));
+
         rs->vk_gfx = &state;
         rs->width = (u32)state.depth_stencil_texture.size.x;
         rs->height = (u32)state.depth_stencil_texture.size.y;

@@ -1137,6 +1137,8 @@ entity_editor_render(entity_editor_t* ee) {
             "item",
             "trigger",
             "effect",
+            "door",
+            "container",
             "SIZE",
         };
 

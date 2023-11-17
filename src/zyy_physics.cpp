@@ -56,7 +56,7 @@ init_physx(api_t* api, arena_t* arena) {
     api->create_rigidbody     = physx_create_rigidbody;
     api->create_collider      = physx_create_collider;
     api->raycast_world        = physx_raycast_world;
-    api->sphere_overlap_world = physx_sphere_overlap_world;
+    api->_sphere_overlap_world = physx_sphere_overlap_world;
 
     api->create_scene       = physx_create_scene;
     api->destroy_scene      = physx_destroy_scene;

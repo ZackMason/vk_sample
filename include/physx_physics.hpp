@@ -524,7 +524,7 @@ physx_create_collider(api_t* api, rigidbody_t* rigidbody, collider_shape_type ty
 }
 
 overlap_hitbuffer_t*
-physx_sphere_overlap_world(const api_t* api, arena_t* arena, v3f o, f32 radius) {
+physx_sphere_overlap_world(const api_t* api, arena_t* arena, v3f o, f32 radius, u32 layer) {
     TIMED_FUNCTION;
     auto* ps = get_physx(api);
     PxSphereGeometry sphere{radius};
@@ -535,6 +535,9 @@ physx_sphere_overlap_world(const api_t* api, arena_t* arena, v3f o, f32 radius) 
     PxOverlapHit hits[512];
     PxOverlapBuffer hit(hits, hits_size);
     // PxOverlapBuffer hit;
+
+    PxQueryFilterData filter{};
+    filter.data.word0 = layer;
 
     bool status = ps->world->scene->overlap(sphere, pos, hit);
 

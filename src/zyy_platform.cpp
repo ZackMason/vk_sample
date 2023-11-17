@@ -196,8 +196,7 @@ void win32_free(void* ptr) {
 }
 
 void* win32_alloc(size_t size) {
-#if ZYY_INTERNAL&&0
-
+#if 0
     {
         // Note
         // theres a problem in that in the game layer 

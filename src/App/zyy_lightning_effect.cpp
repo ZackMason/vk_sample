@@ -71,7 +71,6 @@ export_fn(void) lightning_on_hit_effect(
         }
 
         auto* near = w->physics->sphere_overlap_world(
-            w->physics,
             arena,
             e->global_transform().origin,
             10.0f

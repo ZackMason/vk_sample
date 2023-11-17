@@ -52,6 +52,9 @@ enum struct entity_type {
 
     effect,
 
+    door,
+    container,
+
     SIZE
 };
 

@@ -271,7 +271,7 @@ using create_rigidbody_function = rigidbody_t*(*)(api_t*, void* entity, rigidbod
 using create_collider_function = collider_t*(*)(api_t*, rigidbody_t*, collider_shape_type, void* collider_info);
 using simulate_function = void(*)(api_t*, f32 dt);
 using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd);
-using sphere_overlap_world_function = overlap_hitbuffer_t*(*)(const api_t*, arena_t* arena, v3f o, f32 radius);
+using sphere_overlap_world_function = overlap_hitbuffer_t*(*)(const api_t*, arena_t* arena, v3f o, f32 radius, u32 layer);
 
 using collider_set_trigger_function = void(*)(collider_t*, bool);
 
@@ -312,7 +312,11 @@ struct export_dll api_t {
     destroy_scene_function      destroy_scene{0};
 
     raycast_world_function          raycast_world{0};
-    sphere_overlap_world_function   sphere_overlap_world{0};
+    sphere_overlap_world_function   _sphere_overlap_world{0};
+    overlap_hitbuffer_t* sphere_overlap_world(arena_t* result_arena, v3f o, f32 radius, u32 layer = 0xffffffff) {
+        return _sphere_overlap_world(this, result_arena, o, radius, layer);
+    }
+    
 
     // rigidbody_set_active_function rigidbody_set_active{0};
     collider_set_trigger_function collider_set_trigger{0};

@@ -130,13 +130,14 @@ using v2u = glm::uvec2;
 using v3u = glm::uvec3;
 using v4u = glm::uvec4;
 
-
 using quat = glm::quat;
 using m22 = glm::mat2x2;
 using m33 = glm::mat3x3;
 using m34 = glm::mat3x4;
 using m43 = glm::mat4x3;
 using m44 = glm::mat4x4;
+
+
 
 template <typename T>
 struct buffer 
@@ -1376,6 +1377,7 @@ arena_free_block(arena_t* arena) {
     assert(Platform.free);
 
     arena->block_count--;
+
     Platform.free(block);
 }
 
@@ -1404,6 +1406,7 @@ begin_temporary_memory(arena_t* arena) {
 
 void 
 end_temporary_memory(temporary_arena_t memory) {
+    // return;
     auto* arena = memory.arena;
     while(arena->start != memory.base) {
         arena_free_block(arena);
@@ -1444,6 +1447,39 @@ T* co_push_stack_(coroutine_t* coro, arena_t* arena, umm count = 1) {
 
 
 namespace utl {
+
+struct string_builder_t {
+    temporary_arena_t memory{};
+
+    char* string{0};
+    u64   size{0};
+
+    static string_builder_t begin(arena_t* arena) {
+        string_builder_t builder {
+            .memory = begin_temporary_memory(arena)
+        };
+
+        return builder;
+    }
+
+    void end(arena_t* arena) {
+        tag_array(char* str, char, arena, size);
+
+        utl::copy(str, string, size);
+
+        end_temporary_memory(memory);
+    }
+
+    void add(std::string_view str) {
+        auto* new_str = push_bytes(memory.arena, size + str.size());
+        if (size) {
+            utl::copy(new_str, string, size);
+        }
+        utl::copy(new_str + size, str.data(), str.size());
+
+        size += str.size();
+    }
+};
 
 template <typename T>
 struct dynarray_t {
@@ -2053,6 +2089,15 @@ namespace swizzle {
 };
 
 namespace math {
+
+    m33 normalize(const m33& m) {
+        return m33 {
+            glm::normalize(m[0]),
+            glm::normalize(m[1]),
+            glm::normalize(m[2])
+        };
+    }
+
     constexpr u64 pretty_bytes(u64 size) {
         return size > gigabytes(1) ? size / gigabytes(1) :
                 size > megabytes(1) ? size / megabytes(1) :
@@ -3587,6 +3632,7 @@ namespace color {
         static constexpr auto blue  = "#0000ffff"_rgba;
         static constexpr auto light_blue  = "#2222f2ff"_rgba;
         static constexpr auto yellow= "#ffff00ff"_rgba;
+        static constexpr auto cyan = "#00ffffff"_rgba;
         static constexpr auto purple= "#fa11faff"_rgba;
         static constexpr auto sand  = "#C2B280ff"_rgba;
         static constexpr auto material_fg = "#03dac6ff"_rgba;
@@ -4031,9 +4077,11 @@ namespace gui {
         vertex_t* v = ctx->vertices->allocate(3);
         u32* i = ctx->indices->allocate(3);
 
-        v[0] = gfx::gui::vertex_t{ .pos = triangle.p[0], .tex = uv[0], .nrm = packing::pack_normal(triangle.normal()), .img = img, .col = colors[0]};
-        v[1] = gfx::gui::vertex_t{ .pos = triangle.p[1], .tex = uv[1], .nrm = packing::pack_normal(triangle.normal()), .img = img, .col = colors[1]};
-        v[2] = gfx::gui::vertex_t{ .pos = triangle.p[2], .tex = uv[2], .nrm = packing::pack_normal(triangle.normal()), .img = img, .col = colors[2]};
+        auto normal = packing::pack_normal(triangle.normal());
+
+        v[0] = gfx::gui::vertex_t{ .pos = triangle.p[0], .tex = uv[0], .nrm = normal, .img = img, .col = colors[0]};
+        v[1] = gfx::gui::vertex_t{ .pos = triangle.p[1], .tex = uv[1], .nrm = normal, .img = img, .col = colors[1]};
+        v[2] = gfx::gui::vertex_t{ .pos = triangle.p[2], .tex = uv[2], .nrm = normal, .img = img, .col = colors[2]};
         i[0] = v_start + 0;
         i[1] = v_start + 1;
         i[2] = v_start + 2;
@@ -4049,6 +4097,30 @@ namespace gui {
         u32 c[3]{color,color,color};
         draw_triangle(ctx, triangle, std::span{c}, std::span{uv} );
     }
+
+    void
+    draw_quad(
+        ctx_t* ctx,
+        std::span<v3f, 4> points,
+        u32 color
+    ) {
+        math::triangle_t t0{ .p = {
+                points[0],
+                points[1],
+                points[2]
+            }
+        };
+        math::triangle_t t1{ .p = {
+                points[0],
+                points[2],
+                points[3]
+            }
+        };
+
+        draw_triangle(ctx, t0, color);
+        draw_triangle(ctx, t1, color);
+    }
+
 
     void draw_cube(
         ctx_t* ctx,
@@ -4248,10 +4320,23 @@ namespace gui {
             }
         };
 
+        struct drag_event_t {
+            void* user_data{0};
+            umm user_data_size{0};
+
+            stack_string<32> type_name = {};
+
+            u64 widget_id{0};
+            // u64 widget_parent{0};
+            f32 start_time{0.0f};
+            v2f start_pos{};
+        };
+
         struct state_t {
             ctx_t& ctx;
 
             // arena_t arena;
+            std::optional<drag_event_t> drag_event = std::nullopt;
 
             v2f window_drag_start{0.0f};
             v2f drag_start{};
@@ -4381,7 +4466,7 @@ namespace gui {
             return true;
         }
 
-         inline void
+        inline void
         end_panel(
             state_t& imgui,
             v2f* pos,
@@ -4667,9 +4752,9 @@ namespace gui {
 
             if (viewable.contains(spos)) {
                 const v2f screen = v2f{spos} * imgui.ctx.screen_size;
-                auto w_up         = *pos + glm::normalize(basis[1]);
-                auto w_forward    = *pos + glm::normalize(basis[2]);
-                auto w_right      = *pos + glm::normalize(basis[0]);
+                auto w_up         = *pos + (basis[1]);
+                auto w_forward    = *pos + (basis[2]);
+                auto w_right      = *pos + (basis[0]);
                 auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, w_up)};
                 auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, w_forward)};
                 auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, w_right)};
@@ -4757,14 +4842,20 @@ namespace gui {
             if (mode == gizmo_mode::local) {
                 basis = m33{1.0f};
             }
+
+            const m33 drawing_basis = math::normalize(basis);
+
             gizmo_result_t result = {};
-            draw_gizmo(imgui, pos, vp, 1, 1, basis);
+            draw_gizmo(imgui, pos, vp, 1, 1, drawing_basis);
 
             const v3f spos = math::world_to_screen(vp, *pos);
             math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
 
             const auto is_gizmo_id = [](u64 id){
                 switch(id) {
+                    case "gizmo_xy"_sid: 
+                    case "gizmo_xz"_sid: 
+                    case "gizmo_yz"_sid: 
                     case "gizmo_pos"_sid: 
                     case "gizmo_right"_sid: 
                     case "gizmo_up"_sid: 
@@ -4777,9 +4868,9 @@ namespace gui {
 
             if (viewable.contains(spos)) {
                 // gizmo points in screen space
-                const auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize(basis[1]))};
-                const auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize(basis[2]))};
-                const auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + glm::normalize(basis[0]))};
+                const auto v_up         = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + drawing_basis[1])};
+                const auto v_forward    = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + drawing_basis[2])};
+                const auto v_right      = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos + drawing_basis[0])};
                 const auto v_pos        = imgui.ctx.screen_size * v2f{math::world_to_screen(vp, *pos)};
 
                 // gizmo delta
@@ -4794,7 +4885,38 @@ namespace gui {
                 const auto [mx,my] = imgui.ctx.input->mouse.pos;
                 const v2f mouse{mx,my};
                 const v2f mdelta{-(imgui.gizmo_mouse_start-mouse)};
+                
+                if constexpr (false)
+                {
+                    const f32 center = 0.5f;
+                    const f32 quad_size = 0.15f;
+                    const f32 quad_min = center - quad_size;
+                    const f32 quad_max = center + quad_size;
 
+                    v3f xy_quad[4] = {
+                        *pos + (drawing_basis[0] + drawing_basis[1]) * quad_min, 
+                        *pos + drawing_basis[0] * quad_min + drawing_basis[1] * quad_max,
+                        *pos + (drawing_basis[0] + drawing_basis[1]) * quad_max, 
+                        *pos + drawing_basis[0] * quad_max + drawing_basis[1] * quad_min,
+                    };
+                    draw_quad(&imgui.ctx, xy_quad, gfx::color::rgba::yellow);
+
+                    v3f xz_quad[4] = {
+                        *pos + (drawing_basis[0] + drawing_basis[2]) * quad_min, 
+                        *pos + drawing_basis[0] * quad_min + drawing_basis[2] * quad_max,
+                        *pos + (drawing_basis[0] + drawing_basis[2]) * quad_max, 
+                        *pos + drawing_basis[0] * quad_max + drawing_basis[2] * quad_min,
+                    };
+                    draw_quad(&imgui.ctx, xz_quad, gfx::color::rgba::purple);
+
+                    v3f zy_quad[4] = {
+                        *pos + (drawing_basis[2] + drawing_basis[1]) * quad_min, 
+                        *pos + drawing_basis[2] * quad_min + drawing_basis[1] * quad_max,
+                        *pos + (drawing_basis[2] + drawing_basis[1]) * quad_max, 
+                        *pos + drawing_basis[2] * quad_max + drawing_basis[1] * quad_min,
+                    };
+                    draw_quad(&imgui.ctx, zy_quad, gfx::color::rgba::cyan);
+                }
 
                 u64 giz_id = is_gizmo_id(imgui.active.id) ? imgui.active.id : 0;
 
@@ -4909,7 +5031,7 @@ namespace gui {
             f32 snapping = 0.0f
         ) {
             gizmo_result_t result = {};
-            draw_gizmo(imgui, pos, vp, 0, 1, *basis);
+            draw_gizmo(imgui, pos, vp, 0, 1, math::normalize(*basis));
 
             const v3f spos = math::world_to_screen(vp, *pos);
             math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
@@ -5079,7 +5201,7 @@ namespace gui {
             f32 snapping
         ) {
             gizmo_result_t result = {};
-            draw_gizmo(imgui, pos, vp, 1, 0, *basis);
+            draw_gizmo(imgui, pos, vp, 1, 0, math::normalize(*basis));
 
             const v3f spos = math::world_to_screen(vp, *pos);
             math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
@@ -5708,12 +5830,17 @@ namespace gui {
             const u64 sld_id = imgui.verify_id((u64)val);
             float_slider_id(imgui, sld_id, val, min, max, size);
         }
+
+        enum struct text_activate_mode {
+            click, hover
+        };
        
         inline bool
         text(
             state_t& imgui, 
             std::string_view text,
-            bool* toggle_state = 0         
+            bool* toggle_state = 0,
+            text_activate_mode mode = text_activate_mode::click
         ) {
             const sid_t txt_id = imgui.verify_id(sid(text));
             bool result = toggle_state ? *toggle_state : false;
@@ -5764,7 +5891,13 @@ namespace gui {
                 imgui.panel->draw_cursor.y = temp_cursor.y - font_size.y + imgui.theme.padding;
                 imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
             }
-            return result;
+            
+            // todo clean up hover and click seperation
+            if (mode == text_activate_mode::hover) {
+                return imgui.hot.id == txt_id;
+            } else {
+                return result;
+            }
         }
 
         inline u64

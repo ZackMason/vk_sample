@@ -202,7 +202,6 @@ void collect_nearby(
     buffer.clear();
 
     auto* near = physics->sphere_overlap_world(
-        physics,
         arena,
         position,
         distance
@@ -232,7 +231,6 @@ void collect_nearby_enemy(
     buffer.clear();
 
     auto* near = physics->sphere_overlap_world(
-        physics,
         arena,
         position,
         distance
@@ -267,7 +265,6 @@ void collect_nearby(
     buffer.clear();
 
     auto* near = physics->sphere_overlap_world(
-        physics,
         arena,
         position,
         distance

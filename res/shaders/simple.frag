@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_420pack : enable
 #extension GL_EXT_scalar_block_layout : enable
 
+#include "noise.glsl"
 #include "utl.glsl"
 #include "pbr.glsl"
 #include "sky.glsl"
@@ -180,6 +181,7 @@ main( )
 	Material material = uMaterialBuffer.materials[vMatId];
 
 	uint lit_material = material.flags & MATERIAL_LIT;
+	uint water_material = material.flags & MATERIAL_WATER;
 	float reflectivity = material.reflectivity;
 
 	uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;
@@ -213,6 +215,24 @@ main( )
 
 		default:
 			rgb = vec3( 1., 1., 0. );
+	}
+
+	if (water_material != 0) {
+		// float water_noise = fbm(vWorldPos.xz/4.0 - Sporadic.uTime * 0.1, 4)
+		// 	* fbm(vWorldPos.xz/2.0 + Sporadic.uTime * 0.25, 3);
+
+		vec2 water_uv = vTexCoord * 10.0f;
+		if (triplanar_material > 0) {
+			water_uv = vWorldPos.xz;
+		}
+
+		float water_noise = cell(water_uv, Sporadic.uTime);
+		water_noise *= water_noise;
+		// water_noise = smoothstep(0.2, 0.25, water_noise);
+
+		rgb = mix(material.albedo.rgb, material.albedo.rgb * 0.3, water_noise);
+		float steps = 16.0;
+		// rgb = floor(rgb * steps + 0.5) / steps;
 	}
 
 	float depth = length(vCameraPos.xyz - vWorldPos);

@@ -24,6 +24,8 @@ layout(push_constant) uniform PPParams {
 #define uExposure (uParameters.data.data[1])
 #define uContrast (uParameters.data.data[2])
 #define uGamma (uParameters.data.data[3])
+#define uNumberOfColors (uParameters.data.data[4])
+#define uPixelate (uParameters.data.data[5])
 
 #define ACES 0
 #define EXPO 2
@@ -128,21 +130,20 @@ vec3 valve_dither(vec2 vScreenPos, float colorDepth)
 
 void main() {
     vec2 uv = vUV;
-    // float dithering = (bayer64(vUV * 0.25))*0.5;
-    vec3 dithering = valve_dither(uv*64.0, 8);
 
-    const float pixelate = 512.0;
+    const float pixelate = uPixelate;
     vec3 bloom = textureLod(uBloom, uv, 0).rgb;
-    // uv = saturate(floor(uv*pixelate)/pixelate);
+    if (pixelate != 0) {
+        uv = saturate(floor(uv*pixelate)/pixelate);
+    }
 
+    vec3 color = textureLod(uColor, uv, 0).rgb;
 
-    // uv.x += dithering;
-
-    vec3 color = textureLod(uColor, uv, 0).rgb;// + 3.0 * screenspace_dither(uv * textureSize(uColor,0));
-
-    // bloom = paletize(sqrt(bloom), 8);// + dithering;
     color = mix(color, (bloom), 0.025);
-    color = paletize(color, 32);// + dithering;
+
+    if (uNumberOfColors != 0) {
+        color = paletize(color, uNumberOfColors);
+    }
 
     if (uTonemap == ACES) { color = aces_film(color); }
     if (uTonemap == REIN) { color = reinhard(color); }

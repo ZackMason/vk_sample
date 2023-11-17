@@ -13,6 +13,14 @@ struct game_state_t;
 struct world_generator_t;
 
 namespace zyy {
+
+    enum physics_layers : u32 {
+        none = 0ui32,
+        player = 1ui32,
+        enemy = 2ui32,
+        everything = 0xffffffffui32,        
+    };
+
     static constexpr u64 max_entities = 15000;
 
     struct entity_block_t {
@@ -322,7 +330,7 @@ namespace zyy {
             }
             assert(rb);
             entity->physics.rigidbody = rb;
-            entity->physics.rigidbody->set_layer(1ui32);
+            entity->physics.rigidbody->set_layer(physics_layers::everything);
 
             rb->on_collision = def.physics->on_collision.get(mod_loader);
             rb->on_collision_end = def.physics->on_collision_end.get(mod_loader);
@@ -403,7 +411,7 @@ namespace zyy {
         if (def.brain_type != brain_type::invalid) {
             world_new_brain(world, entity, def.brain_type);
             if (def.brain_type != brain_type::player) {
-                entity->physics.rigidbody->set_layer(1ui32);
+                entity->physics.rigidbody->set_layer(physics_layers::player);
             }
         }
 
