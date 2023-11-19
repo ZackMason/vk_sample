@@ -78,3 +78,15 @@ uint pack_u16(uvec2 x) {
 uvec2 unpack_u16(uint x) {
     return uvec2(x&0xff,(x>>16)&0xff);
 }
+
+uvec2 split_u64(uint64_t x) {
+    return uvec2(x,(x>>32)) & 0xffffffff;
+}
+
+vec4 rgba_to_color(uint rgba) {
+    return vec4(
+        float( rgba&0xff),
+        float((rgba&0xff00)>>8),
+        float((rgba&0xff0000)>>16),
+        float((rgba&0xff000000)>>24))/255.0;
+}

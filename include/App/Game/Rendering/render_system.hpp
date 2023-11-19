@@ -557,7 +557,7 @@ public:
         }
 
         void build_buffer_sets(gfx::vul::descriptor_builder_t& builder, VkBuffer* buffers) {
-            VkDescriptorBufferInfo buffer_info[8];
+            VkDescriptorBufferInfo buffer_info[9];
             u32 i = 0;
             buffer_info[i].buffer = buffers[i];
             buffer_info[i].offset = 0; 
@@ -591,6 +591,10 @@ public:
             buffer_info[i].offset = 0; 
             buffer_info[i++].range = VK_WHOLE_SIZE;
 
+            buffer_info[i].buffer = buffers[i];
+            buffer_info[i].offset = 0; 
+            buffer_info[i++].range = VK_WHOLE_SIZE;
+
             using namespace gfx::vul;
             builder
                 .bind_buffer(0, buffer_info + 0, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Uniform, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
@@ -599,16 +603,17 @@ public:
                 .bind_buffer(0, buffer_info + 1, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .bind_buffer(1, buffer_info + 2, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .bind_buffer(2, buffer_info + 3, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(3, buffer_info + 4, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .build(object_descriptors, descriptor_layouts[1]);
             builder
-                .bind_buffer(0, buffer_info + 4, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(0, buffer_info + 5, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .build(material_descriptor, descriptor_layouts[2]);
             builder
-                .bind_buffer(0, buffer_info + 5, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(0, buffer_info + 6, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .build(enviornment_descriptor, descriptor_layouts[3]);
             builder
-                .bind_buffer(0, buffer_info + 6, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
-                .bind_buffer(1, buffer_info + 7, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(0, buffer_info + 7, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(1, buffer_info + 8, (VkDescriptorType)descriptor_create_info_t::DescriptorFlag_Storage, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT)
                 .build(light_probe_descriptor, descriptor_layouts[5]);
         }
 
@@ -889,7 +894,7 @@ public:
         gfx::vul::storage_buffer_t<lighting::environment_t, 1> environment_storage_buffer;
         gfx::vul::storage_buffer_t<lighting::point_light_t, 512> point_light_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 256>                animation_storage_buffer;
-        gfx::vul::storage_buffer_t<m44, 2'000'000>          instance_storage_buffer;
+        // gfx::vul::storage_buffer_t<m44, 2'000'000>          instance_storage_buffer;
 
         scene_context_t* scene_context{0};
 
@@ -984,7 +989,7 @@ public:
             rs->vk_gfx->destroy_data_buffer(rs->job_storage_buffers[i]);
 
         rs->vk_gfx->destroy_data_buffer(rs->material_storage_buffer);
-        rs->vk_gfx->destroy_data_buffer(rs->instance_storage_buffer);
+        // rs->vk_gfx->destroy_data_buffer(rs->instance_storage_buffer);
         rs->vk_gfx->destroy_data_buffer(rs->animation_storage_buffer);
         rs->vk_gfx->destroy_data_buffer(rs->environment_storage_buffer);
         rs->vk_gfx->destroy_data_buffer(rs->point_light_storage_buffer);
@@ -1019,6 +1024,8 @@ public:
         rs->postprocess_params.data[1] = 1.0f; // exposure
         rs->postprocess_params.data[2] = 1.0f; //contrast
         rs->postprocess_params.data[3] = 1.0f; // gamma
+        rs->postprocess_params.data[4] = 24.0f; // number of colors
+        rs->postprocess_params.data[5] = 0.0f; // pixelate
 
         const i32 w = state.swap_chain_extent.width;
         const i32 h = state.swap_chain_extent.height;
@@ -1075,7 +1082,7 @@ public:
         state.create_storage_buffer(&rs->environment_storage_buffer);
         state.create_storage_buffer(&rs->point_light_storage_buffer);
         state.create_storage_buffer(&rs->animation_storage_buffer);
-        state.create_storage_buffer(&rs->instance_storage_buffer);
+        // state.create_storage_buffer(&rs->instance_storage_buffer);
 
        
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
@@ -1091,8 +1098,9 @@ public:
             VkBuffer buffers[]{
                 state.sporadic_uniform_buffer.buffer,
                 rs->job_storage_buffer().buffer,
-                rs->instance_storage_buffer.buffer,
+                rs->scene_context->instance_storage_buffer.buffer,
                 rs->frames[i].indexed_indirect_storage_buffer.buffer,
+                rs->scene_context->instance_color_storage_buffer.buffer,
                 rs->material_storage_buffer.buffer,
                 rs->environment_storage_buffer.buffer,
                 rs->probe_storage_buffer.buffer,
@@ -1116,7 +1124,7 @@ public:
                     state,
                     rs->texture_cache,
                     &rs->scene_context->entities,
-                    // &rs->rt_cache->mesh_data_buffer,
+                    &rs->scene_context->instance_color_storage_buffer,
                     &rs->probe_storage_buffer,
                     &rs->light_probe_settings_buffer,
                     &rs->light_probe_ray_buffer,
@@ -1224,7 +1232,7 @@ public:
         // rs->indices.insert_memory_barrier(command_buffer);
         rs->material_storage_buffer.insert_memory_barrier(command_buffer);
         rs->environment_storage_buffer.insert_memory_barrier(command_buffer);
-        rs->instance_storage_buffer.insert_memory_barrier(command_buffer);
+        rs->scene_context->instance_storage_buffer.insert_memory_barrier(command_buffer);
         rs->animation_storage_buffer.insert_memory_barrier(command_buffer);
         
         rs->job_storage_buffer().insert_memory_barrier(command_buffer);
@@ -1264,7 +1272,7 @@ public:
         u64 mesh_id,
         u32 mat_id, // todo(zack): remove this
         m44 transform,
-        u64 gfx_id,
+        u32 gfx_id,
         u64 gfx_count,
         u32 instance_count = 1,
         u32 instance_offset = 0,
@@ -1277,7 +1285,7 @@ public:
 
         rs->render_job_count++;
         // auto* job = rs->render_jobs[rs->frame_count%rs->frame_overlap] + rs->render_job_count++;
-        auto* instance_buffer = &rs->instance_storage_buffer.pool[0];
+        auto* instance_buffer = &rs->scene_context->instance_storage_buffer.pool[0];
         // job->meshes = &rs->mesh_cache.get(mesh_id);
 
         // job->material = mat_id;
@@ -1294,10 +1302,12 @@ public:
                 rs->get_frame_data().rt_compute_pass.add_to_tlas(
                     *rs->vk_gfx,
                     *rs->rt_cache,
-                    gfx_id + i,
+                    gfx_id + (u32)i,
                     meshes->meshes[i].blas,
-                    // transform
-                    instance_count == 1 ? transform : instance_buffer[instance_offset + j]
+                    // transform,
+                    instance_count == 1 ? transform : instance_buffer[instance_offset + j],
+                    instance_count == 1 ? 0 : instance_offset,
+                    (u32)j
                 );
             }
 
@@ -1424,8 +1434,9 @@ public:
                 VkBuffer buffers[]{
                     rs->vk_gfx->sporadic_uniform_buffer.buffer,
                     rs->job_storage_buffer().buffer,
-                    rs->instance_storage_buffer.buffer,
+                    rs->scene_context->instance_storage_buffer.buffer,
                     rs->get_frame_data().indexed_indirect_storage_buffer.buffer,                    
+                    rs->scene_context->instance_color_storage_buffer.buffer,
                     rs->material_storage_buffer.buffer,
                     rs->environment_storage_buffer.buffer,
                     rs->probe_storage_buffer.buffer,
@@ -2032,6 +2043,11 @@ public:
     }
     void set_entity_albedo(system_t* rs, gfx_entity_id id, u32 albedo) {
         rs->scene_context->get_entity(id).albedo = albedo;
+    }
+
+    void set_entity_instance_data(system_t* rs, gfx_entity_id id, u32 offset, u32 count) {
+        rs->scene_context->get_entity(id).instance_offset = offset;
+        rs->scene_context->get_entity(id).instance_count = count;
     }
 
     #include "raytrace_pass.hpp"

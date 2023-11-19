@@ -24,7 +24,7 @@ struct flat_particle_system_t {
 };
 
 struct particle_system_settings_t {
-    u64 VERSION{0};
+    u64 VERSION{3};
 
     particle_t template_particle;
 
@@ -50,15 +50,106 @@ struct particle_system_settings_t {
         math::sphere_t sphere{v3f{0.0f}, 1.0f};
         math::rect3d_t box;
     };
+
+    gfx::color::color_variant_t particle_color{};
 };
 
-// template<>
-// particle_system_settings_t 
-// utl::memory_blob_t::deserialize<particle_system_settings_t>() {
-//     particle_system_settings_t settings{};
+template<>
+void utl::memory_blob_t::serialize<particle_system_settings_t>(arena_t* arena, const particle_system_settings_t& settings) {
+    serialize(arena, particle_system_settings_t{}.VERSION);
+    serialize(arena, settings.template_particle);
+    serialize(arena, settings.world_space);
+    serialize(arena, settings.max_count);
+    serialize(arena, settings.aabb);
+    serialize(arena, settings.acceleration);
+    serialize(arena, settings.velocity_random);
+    serialize(arena, settings.angular_velocity_random);
+    serialize(arena, settings.stream_rate);
+    serialize(arena, settings.spawn_rate);
+    serialize(arena, settings.life_random);
+    serialize(arena, settings.scale_over_life_time);
+    serialize(arena, settings.emitter_type);
+    serialize(arena, settings.box);
+    serialize(arena, settings.particle_color._type);
+    using namespace gfx::color;
+    switch(settings.particle_color._type) {
+        case color_variant_type::uniform:
+            serialize(arena, settings.particle_color.uniform);
+            break;
+        case color_variant_type::range:
+            serialize(arena, settings.particle_color.uniform);
+            break;
+        case color_variant_type::hex:
+            serialize(arena, settings.particle_color.hex);
+            break;
+        case color_variant_type::gradient:
+            serialize(arena, settings.particle_color.gradient);
+            break;
+    }
+}
 
-//     return settings;
-// }
+template<>
+particle_system_settings_t 
+utl::memory_blob_t::deserialize<particle_system_settings_t>(arena_t* arena) {
+    particle_system_settings_t settings{};
+
+    #define DESER(x) settings.x = deserialize<decltype(settings.x)>()
+    
+        DESER(VERSION);
+
+        zyy_info(__FUNCTION__, "Loading particle version: {}", settings.VERSION);
+
+        if (settings.VERSION == 0) {
+            constexpr u64 v0_size = 232;
+            read_offset -= sizeof(u64);
+            utl::copy(&settings, data+read_offset, v0_size);
+            advance(v0_size);
+        } else {
+            DESER(template_particle);
+            DESER(world_space);
+            DESER(max_count);
+            DESER(aabb);
+            DESER(acceleration);
+            DESER(velocity_random);
+            DESER(angular_velocity_random);
+            DESER(stream_rate);
+            DESER(spawn_rate);
+            DESER(life_random);
+            DESER(scale_over_life_time);
+            DESER(emitter_type);
+            DESER(box);
+            if (settings.VERSION > 1) {
+                // DESER(particle_color._type);
+                gfx::color::color_variant_type color_type = deserialize<gfx::color::color_variant_type>();
+            
+                settings.particle_color.set_type(color_type);
+                using namespace gfx::color;
+                switch(settings.particle_color._type) {
+                    case color_variant_type::uniform:
+                        DESER(particle_color.uniform);
+                        break;
+                    case color_variant_type::range:
+                        DESER(particle_color.uniform);
+                        break;
+                    case color_variant_type::hex:
+                        DESER(particle_color.hex);
+                        break;
+                    case color_variant_type::gradient:
+                        // DESER(particle_color.gradient);
+                        if (settings.VERSION == 2) {
+                            advance(sizeof(gfx::color::gradient_t));
+                        } else {
+                            settings.particle_color.gradient = deserialize<gfx::color::gradient_t>(arena);
+                        }
+                        break;
+                }
+            }
+        }
+
+    #undef DESER
+
+    return settings;
+}
 
 
 struct particle_system_t : public particle_system_settings_t {
@@ -252,11 +343,26 @@ particle_system_update(
         particle->orientation += (particle->orientation * glm::quat(0.0f, particle->angular_velocity)) * (0.5f * dt);
         particle->orientation = glm::normalize(particle->orientation);
         particle->scale = system->template_particle.scale * system->scale_over_life_time.sample(1.0f-life_alpha);
+        // particle->color = v4f{1.0f};
+        particle->color = system->particle_color.sample(1.0f-life_alpha);
 
         // if (particle->position.y < 0.0f) {
         //     particle->velocity.y = 7.0f;
         // }
         system->aabb.expand(particle->position);
+    }
+}
+
+inline static void 
+particle_system_build_colors(
+    particle_system_t* system, 
+    v4f* colors, u32 color_count
+) {
+    assert(system->live_count <= color_count);
+
+    range_u32(i, 0, system->live_count) {
+        auto* particle = system->particles + i;
+        colors[i] = particle->color;
     }
 }
 

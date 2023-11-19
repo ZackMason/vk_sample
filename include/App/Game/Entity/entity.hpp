@@ -66,8 +66,8 @@ struct entity_t {
     }
 
     struct renderable_t {
-        u64 gfx_id{0};
-        u64 gfx_entity_count{0};
+        u32 gfx_id{0};
+        u32 gfx_entity_count{0};
         u64 mesh_id{0};
         u32 albedo_id{std::numeric_limits<u32>::max()};
         u32 material_id{0};
@@ -89,6 +89,14 @@ struct entity_t {
             };
             m44* instance_buffer;
         };
+        union
+        {
+            struct {
+                v4f* dynamic_color_instance_buffer;
+                v4f* color_buffer; // non moving buffer
+            };
+            v4f* color_instance_buffer;
+        };
         u32 instance_buffer_offset{0};
 
         enum RenderFlag {
@@ -101,12 +109,14 @@ struct entity_t {
         void swap() {
             if (dynamic_instance_buffer == buffer) {
                 dynamic_instance_buffer = buffer + _instance_count;
+                dynamic_color_instance_buffer = color_buffer + _instance_count;
             } else {
                 dynamic_instance_buffer = buffer;
+                dynamic_color_instance_buffer = color_buffer;
             }
         }
 
-        void instance(utl::pool_t<m44>& pool, u32 count, bool dynamic = false) {
+        void instance(utl::pool_t<m44>& pool, utl::pool_t<v4f>& color_pool, u32 count, bool dynamic = false) {
             render_flags |= dynamic ? RenderFlag_DynamicInstance : RenderFlag_Instance;
             render_flags &= !dynamic ? ~RenderFlag_DynamicInstance : ~RenderFlag_Instance;
 
@@ -114,11 +124,16 @@ struct entity_t {
 
             if (dynamic) {
                 dynamic_instance_buffer = pool.allocate(count * 2);
+                dynamic_color_instance_buffer = color_pool.allocate(count*2);
                 std::fill(dynamic_instance_buffer, dynamic_instance_buffer+count*2+1, m44{1.0f});
+                std::fill(dynamic_color_instance_buffer, dynamic_color_instance_buffer+count*2+1, v4f{1.0f});
                 buffer = dynamic_instance_buffer;
+                color_buffer = dynamic_color_instance_buffer;
             } else {
                 buffer = instance_buffer = pool.allocate(count);
+                color_buffer = color_instance_buffer = color_pool.allocate(count);
                 std::fill(buffer, buffer+count+1, m44{1.0f});
+                std::fill(color_buffer, color_buffer+count+1, v4f{1.0f});
             }
             _instance_count = count;
         }
@@ -131,10 +146,12 @@ struct entity_t {
             }
         }
 
-        u32 instance_offset() {
+        u32 instance_offset(b32 and_swap = 1) {
             if (render_flags & RenderFlag_DynamicInstance) {
                 auto ret = dynamic_instance_buffer == buffer ? 0 : _instance_count;
-                swap();
+                if (and_swap) {
+                    swap();
+                }
                 return ret + instance_buffer_offset;
             } else {
                 return instance_buffer_offset;

@@ -449,7 +449,7 @@ draw_gui(game_memory_t* game_memory) {
         &game_state->render_system->scene_context->indices.pool,
         &game_state->gui.vertices[!(frame&1)].pool,
         &game_state->gui.indices[!(frame&1)].pool,
-        &game_state->render_system->instance_storage_buffer.pool,
+        &game_state->render_system->scene_context->instance_storage_buffer.pool,
         &game_state->render_system->scene_context->entities.pool,
         &game_state->render_system->job_storage_buffers[(frame&1)].pool,
     };
@@ -948,6 +948,8 @@ draw_gui(game_memory_t* game_memory) {
                         auto* probes = &game_state->render_system->probe_storage_buffer.pool[0];
                         auto* probe_box = &game_state->render_system->light_probes;
                         auto& probe_settings = game_state->render_system->light_probe_settings_buffer.pool[0];
+                        probe_box->aabb.min = probe_settings.aabb_min;
+                        probe_box->aabb.max = probe_settings.aabb_max;
                         im::text(state, fmt_sv("- AABB: {} - {}", probe_settings.aabb_min, probe_settings.aabb_max));
                         im::text(state, fmt_sv("- Dim: {} x {} x {}", probe_settings.dim.x, probe_settings.dim.y, probe_settings.dim.z));
                         u32 probe_count = probe_settings.dim.x * probe_settings.dim.y * probe_settings.dim.z;
@@ -983,13 +985,13 @@ draw_gui(game_memory_t* game_memory) {
                             env.ambient_color = gfx::color::to_color4(tc);
                         }
                         local_persist bool show_fog = false;
-                        if (im::text(state, "- Fog"sv, &show_fog)) { 
-                            gfx::color32 tc = gfx::color::to_color32(env.fog_color);
-                            im::color_edit(state, &tc);
-                            env.fog_color = gfx::color::to_color4(tc);
-                            // im::float_slider(state, &env.fog_density);
-                            im::float_edit(state, &env.fog_density);
-                        }
+                        // if (im::text(state, "- Fog"sv, &show_fog)) { 
+                        //     gfx::color32 tc = gfx::color::to_color32(env.fog_color);
+                        //     im::color_edit(state, &tc);
+                        //     env.fog_color = gfx::color::to_color4(tc);
+                        //     // im::float_slider(state, &env.fog_density);
+                        //     im::float_edit(state, &env.fog_density);
+                        // }
                         local_persist bool show_lights = !false;
                         local_persist bool light[512]{true};
                         if (im::text(state, "- Point Lights"sv, &show_lights)) { 

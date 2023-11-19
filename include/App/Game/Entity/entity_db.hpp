@@ -18,6 +18,22 @@ void co_kill_in_ten(coroutine_t* co, frame_arena_t& frame_arena) {
     co_end(co);
 }
 
+export_fn(void) on_trigger_set_light_probe(physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+    auto* self = (zyy::entity_t*)trigger->user_data;
+    auto* other_e = (zyy::entity_t*)other->user_data;
+    auto* world = (zyy::world_t*)trigger->api->user_world;
+    
+    if (other_e->type == zyy::entity_type::player) {
+        auto& min = world->render_system()->light_probe_settings_buffer.pool[0].aabb_min;
+        auto& max = world->render_system()->light_probe_settings_buffer.pool[0].aabb_max;
+        auto center = (min+max)*0.5f;
+        auto delta = center - self->global_transform().origin;
+
+        min += -delta;
+        max += -delta;
+    }
+}
+
 namespace zyy::db {
 
 #define DB_ENTRY static constexpr zyy::prefab_t

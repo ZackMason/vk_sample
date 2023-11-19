@@ -3,6 +3,8 @@
 #extension GL_ARB_shading_language_420pack : enable
 #extension GL_EXT_scalar_block_layout : enable
 
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+
 #include "packing.glsl"
 
 layout( location = 0 ) in vec3 aVertex;
@@ -25,12 +27,7 @@ void
 main() {
     voUV = aTexCoord.xy;
     voTexID = aTexID;
-    voColor = vec4(
-        float( aColor&0xff),
-        float((aColor&0xff00)>>8),
-        float((aColor&0xff0000)>>16),
-        float((aColor&0xff000000)>>24))/255.0;
-
+    voColor = rgba_to_color(aColor);
     vec4 pos;
 
     if (aNrm != 0) {

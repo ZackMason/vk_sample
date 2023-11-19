@@ -13,10 +13,13 @@ namespace rendering {
         gpu_ptr_t index_start;
         gpu_ptr_t material;
         gpu_ptr_t transform;
+        u32 instance_offset;
+        u32 instance_count;
         u32 albedo;
     };
 
-    DEFINE_TYPED_ID(gfx_entity_id);
+    // DEFINE_TYPED_ID(gfx_entity_id);
+    using gfx_entity_id = u32;
 
     struct scene_t {
         gpu_ptr_t vertex_buffer;
@@ -48,12 +51,13 @@ namespace rendering {
         gfx::vul::storage_buffer_t<gfx_entity_t, MAX_SCENE_ENTITIES>        entities;
         gfx::vul::storage_buffer_t<m44, MAX_SCENE_ENTITIES*2>               transform_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 2'000'000>                          instance_storage_buffer;
+        gfx::vul::storage_buffer_t<v4f, 2'000'000>                          instance_color_storage_buffer;
         gfx::vul::storage_buffer_t<gfx::material_t, 100>                    material_storage_buffer;
         gfx::vul::storage_buffer_t<lighting::point_light_t, 512>            point_light_storage_buffer;
         gfx::vul::storage_buffer_t<gfx::indirect_indexed_draw_t, MAX_SCENE_ENTITIES> indexed_indirect_storage_buffer{};
     
         u32 pingpong{0};
-        u64 entity_count{0};
+        u32 entity_count{0};
 
         explicit scene_context_t(gfx::vul::state_t& gfx_) : gfx{gfx_}
         {
@@ -64,6 +68,8 @@ namespace rendering {
             gfx.create_storage_buffer(&transform_storage_buffer);
             gfx.create_storage_buffer(&material_storage_buffer);
             gfx.create_storage_buffer(&indexed_indirect_storage_buffer);
+            gfx.create_storage_buffer(&instance_storage_buffer);
+            gfx.create_storage_buffer(&instance_color_storage_buffer);
 
             utl::memzero(&entities.pool[0], entities.size);
 
@@ -83,6 +89,8 @@ namespace rendering {
             gfx.destroy_data_buffer(transform_storage_buffer);
             gfx.destroy_data_buffer(material_storage_buffer);
             gfx.destroy_data_buffer(indexed_indirect_storage_buffer);
+            gfx.destroy_data_buffer(instance_storage_buffer);
+            gfx.destroy_data_buffer(instance_color_storage_buffer);
         }
 
         void begin_frame() {

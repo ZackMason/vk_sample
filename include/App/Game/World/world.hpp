@@ -68,6 +68,26 @@ namespace zyy {
             damage_event_t damage_event;
         };
     };
+    
+    struct world_path_t {
+        world_path_t* next{0};
+        world_path_t* prev{0};
+
+        u64 VERSION{0};
+
+        u32 count{0};
+        v3f* points{0};
+
+        void add_point(arena_t* arena, v3f point) {
+            tag_array(auto* new_points, v3f, arena, count+1);
+            if (count > 0) [[unlikely]] {
+                utl::copy(new_points, points, sizeof(v3f) * count);
+            }
+            new_points[count] = point;
+            count++;
+            points = new_points;
+        }
+    };
 
     // note(zack): everything I need to rebuild game state should be in this struct
     struct world_t {
@@ -107,7 +127,8 @@ namespace zyy {
 
         struct effects_buffer_t {
             m44* blood_splats{0};
-            u64 blood_entity{0};
+            v4f* blood_colors{0};
+            u32 blood_entity{0};
             umm blood_splat_count{0};
             umm blood_splat_max{0};
         } effects;
@@ -245,11 +266,11 @@ namespace zyy {
 
         if (def.gfx.mesh_name != ""sv) {
             auto& mesh_list = rendering::get_mesh(rs, def.gfx.mesh_name.view());
-            entity->gfx.gfx_entity_count = mesh_list.count;
+            entity->gfx.gfx_entity_count = (u32)mesh_list.count;
 
             rendering::initialize_entity(rs, entity->gfx.gfx_id, mesh_list.meshes[0].vertex_start, mesh_list.meshes[0].index_start);
             rendering::set_entity_albedo(rs, entity->gfx.gfx_id, u32(mesh_list.meshes[0].material.albedo_id));
-            for(u64 i = 1; i < mesh_list.count; i++) {
+            for(u32 i = 1; i < mesh_list.count; i++) {
                 auto& mesh = mesh_list.meshes[i];
                 rendering::register_entity(rs);
                 rendering::initialize_entity(rs, entity->gfx.gfx_id + i, mesh.vertex_start, mesh.index_start);
@@ -280,7 +301,14 @@ namespace zyy {
 
         if (def.emitter) {
             entity->gfx.particle_system = particle_system_create(&world->particle_arena, def.emitter->max_count);
-            entity->gfx.instance(world->render_system()->instance_storage_buffer.pool, def.emitter->max_count, 1);
+            entity->gfx.instance(
+                world->render_system()->scene_context->instance_storage_buffer.pool,
+                world->render_system()->scene_context->instance_color_storage_buffer.pool, def.emitter->max_count, 1);
+
+            range_u32(gi, 0, entity->gfx.gfx_entity_count) {
+                rendering::set_entity_instance_data(rs, entity->gfx.gfx_id + gi, entity->gfx.instance_offset(0), def.emitter->max_count);
+            }
+
             particle_system_settings_t& settings = *entity->gfx.particle_system;
             settings = *def.emitter;
             entity->gfx.particle_system->_stream_count = settings.stream_rate;
@@ -463,8 +491,11 @@ namespace zyy {
 
     void world_init_effects(world_t* world) {
         auto* rs = world->render_system();
-        rs->instance_storage_buffer.pool.clear();
-        world->effects.blood_splats = rs->instance_storage_buffer.pool.allocate(world->effects.blood_splat_max = 1024*2);
+        rs->scene_context->instance_storage_buffer.pool.clear();
+        rs->scene_context->instance_color_storage_buffer.pool.clear();
+        world->effects.blood_splats = rs->scene_context->instance_storage_buffer.pool.allocate(world->effects.blood_splat_max = 1024*2);
+        world->effects.blood_colors = rs->scene_context->instance_color_storage_buffer.pool.allocate(world->effects.blood_splat_max);
+        std::fill(world->effects.blood_colors, world->effects.blood_colors + world->effects.blood_splat_max + 1, v4f{0.0f});
         auto blood_id = world->effects.blood_entity = rendering::register_entity(rs);
         auto blood_mid = rendering::get_mesh_id(rs, "res/models/misc/bloodsplat_02.gltf");
         auto& mesh = rendering::get_mesh(rs, blood_mid);

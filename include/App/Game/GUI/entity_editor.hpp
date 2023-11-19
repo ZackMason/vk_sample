@@ -26,7 +26,7 @@ namespace csg {
     struct brush_t {
         brush_t* next{0};
         brush_type type{brush_type::box};
-        u64 gfx_id{0};
+        u32 gfx_id{0};
 
         math::transform_t transform{};
 
@@ -87,7 +87,7 @@ namespace csg {
             return builder.build(&arena);
         }
 
-        brush_t* new_box_brush(u64 gfx_id) {
+        brush_t* new_box_brush(u32 gfx_id) {
             tag_struct(auto* brush, brush_t, &arena);
             brush->type = brush_type::box;
             brush->box = {};
@@ -119,15 +119,16 @@ struct instanced_prefab_t {
     u32 instance_count = 1;
     u32 instance_offset = 0;
     m44* instances = 0;
+    v4f* instance_colors = 0;
     u32 dynamic = 0;
 
-    m44* dynamic_instances() {
+    std::pair<m44*, v4f*> dynamic_instances() {
         if (dynamic & 2) {
             dynamic = dynamic&1;
-            return instances;
+            return {instances, instance_colors};
         } else {
             dynamic = (dynamic&1)|2;
-            return instances + instance_count;
+            return {instances + instance_count, instance_colors + instance_count};
         }
     }
 };
@@ -205,6 +206,9 @@ struct entity_editor_t {
 
     edit_event_t redo_sentinel{};
     edit_event_t undo_sentinel{};
+
+    zyy::world_path_t paths{};
+    gfx::color::gradient_t* gradient{0};
 
     void redo() {
         auto* cmd = redo_sentinel.next;
@@ -315,6 +319,7 @@ struct entity_editor_t {
     void edit_vec3(v3f* where, v3f what) {
         edit_vec3(where, what, *where);
     }
+
     void edit_basis(m33* where, m33 what) {
         edit_basis(where, what, *where);
     }
@@ -339,7 +344,7 @@ struct entity_editor_t {
             rendering::set_entity_material(rs, inst->gfx_id, prefab.gfx.material_id);
             rendering::initialize_entity(rs, inst->gfx_id, mesh_list.meshes[0].vertex_start, mesh_list.meshes[0].index_start);
             rendering::set_entity_albedo(rs, inst->gfx_id, u32(mesh_list.meshes[0].material.albedo_id));
-            for(u64 i = 1; i < mesh_list.count; i++) {
+            for(u32 i = 1; i < (u32)mesh_list.count; i++) {
                 auto& mesh = mesh_list.meshes[i];
                 rendering::register_entity(rs);
                 rendering::set_entity_material(rs, inst->gfx_id + i, prefab.gfx.material_id);
@@ -351,12 +356,14 @@ struct entity_editor_t {
             inst->particle_system = particle_system_create(&arena, prefab.emitter->max_count);
             
             u32 count = prefab.emitter->max_count;
-            inst->instance_offset = safe_truncate_u64(rs->instance_storage_buffer.pool.count());
+            inst->instance_offset = safe_truncate_u64(rs->scene_context->instance_storage_buffer.pool.count());
 
-            inst->instances = rs->instance_storage_buffer.pool.allocate(count * 2);
+            inst->instances = rs->scene_context->instance_storage_buffer.pool.allocate(count * 2);
+            inst->instance_colors = rs->scene_context->instance_color_storage_buffer.pool.allocate(count * 2);
             inst->dynamic = 1;
             inst->instance_count = count;
             std::fill(inst->instances, inst->instances+count*2+1, m44{1.0f});
+            std::fill(inst->instance_colors, inst->instance_colors+count*2+1, v4f{1.0f});
                 
             particle_system_settings_t& settings = *inst->particle_system;
             settings = *prefab.emitter;
@@ -381,6 +388,8 @@ struct entity_editor_t {
         auto* prefab = instance_prefab(what->prefab, what->transform);
         
         selection = prefab;
+        entity = &prefab->prefab;
+
         return prefab;
     }
 
@@ -531,8 +540,12 @@ struct entity_editor_t {
         dlist_init(&prefabs);
         dlist_init(&redo_sentinel);
         dlist_init(&undo_sentinel);
+        dlist_init(&paths);
 
         camera.move(v3f{-10.0f, 4.0f, 00.0f});
+
+        // gradient.add(&arena, v4f{0.89f, 0.84f, 0.3f, 1.0f}, 0.0f);
+        // gradient.add(&arena, v4f{0.09f, 0.14f, 0.93f, 1.0f}, 1.0f);
     }
 };
 
@@ -557,13 +570,13 @@ void utl::memory_blob_t::serialize<entity_editor_t>(arena_t* arena, const entity
 }
 
 template<>
-entity_editor_t utl::memory_blob_t::deserialize<entity_editor_t>() {
+entity_editor_t utl::memory_blob_t::deserialize<entity_editor_t>(arena_t* arena) {
     entity_editor_t result = {0};
 
     auto header = deserialize<world_save_file_header_t>();
 
     range_u64(i, 0, header.prefab_count) {
-        auto prefab = deserialize<zyy::prefab_t>();
+        auto prefab = deserialize<zyy::prefab_t>(arena);
         auto transform = deserialize<math::transform_t>();
         result.instance_prefab(prefab, transform, 0);
     }
@@ -712,7 +725,7 @@ save_world_window(
         auto header = blob.deserialize<world_save_file_header_t>();
 
         range_u64(i, 0, header.prefab_count) {
-            auto prefab = blob.deserialize<zyy::prefab_t>();
+            auto prefab = blob.deserialize<zyy::prefab_t>(&arena);
             auto transform = blob.deserialize<math::transform_t>();
             ee->instance_prefab(prefab, transform);
         }
@@ -1045,6 +1058,27 @@ entity_editor_render(entity_editor_t* ee) {
             ee->redo();
         } else {
             ee->undo();
+        }
+    }
+
+    local_persist im::panel_state_t gradient_panel{
+        .pos = v2f{500.0f},
+        .size = v2f{200.0f},
+        .open = 1
+    };
+
+    gradient_panel.size = {};
+
+    // ee->gradient.sort();
+
+    if (ee->gradient) {
+        auto [open, want_to_close] = im::begin_panel(imgui, "Gradient Editor", &gradient_panel);
+        if (want_to_close) {
+            ee->gradient = 0;
+        } else if (open) {
+            im::gradient_edit(imgui, ee->gradient, &ee->arena, math::zero_to(v2f{400.0f, 500.0f}), 356);
+
+            im::end_panel(imgui, &gradient_panel);
         }
     }
 
@@ -1395,6 +1429,25 @@ entity_editor_render(entity_editor_t* ee) {
                 break;
                 case_invalid_default;
             };
+
+            std::string_view color_types[] = {
+                "hex",
+                "uniform",
+                "range",
+                "gradient",
+                "curve",
+            };
+            switch(particle.particle_color.set_type(im::enumeration<gfx::color::color_variant_type>(imgui, color_types, particle.particle_color._type))) {
+                case gfx::color::color_variant_type::hex:
+                    im::color_edit(imgui, &particle.particle_color.hex);
+                    break;
+                case gfx::color::color_variant_type::uniform:
+                    im::float4_drag(imgui, &particle.particle_color.uniform);
+                    break;
+                case gfx::color::color_variant_type::gradient:
+                    ee->gradient = &particle.particle_color.gradient;
+                    break;
+            }
             
             #undef float_prop
             #undef float3_prop
@@ -1497,6 +1550,7 @@ entity_editor_render(entity_editor_t* ee) {
         }
 
         im::text(imgui, "============================");
+
         if (im::text(imgui, "Add to World")) {
             auto* prefab = ee->instance_prefab(*ee->entity, math::transform_t{});
 
@@ -1504,6 +1558,49 @@ entity_editor_render(entity_editor_t* ee) {
 
             ee->entity = &ee->creating_entity;
             *ee->entity = {};
+        }
+
+        im::text(imgui, "============================");
+        if (im::text(imgui, "Add Path")) {
+            tag_struct(auto* path, zyy::world_path_t, &ee->arena);
+
+            dlist_insert_as_last(&ee->paths, path);
+        }
+        local_persist im::panel_state_t path_panel{
+            .pos = v2f{0.0f, 600.0f},
+            .open = 0,
+        };
+        if (!path_panel.open && im::text(imgui, "Show Paths")) {
+            path_panel.open = 1;
+        }
+        if (path_panel.open && im::begin_panel(imgui, "Paths", &path_panel)) {
+
+            local_persist bool open_paths[32] = {};
+            u32 path_i = 0;
+            for (auto* p = ee->paths.next;
+                p != &ee->paths;
+                node_next(p)
+            ) {
+                if (im::text(imgui, fmt_sv("Path[{}]", path_i), open_paths + path_i)) {
+                    if (im::text(imgui, "Add Point")) {
+                        v3f point{0.0f};
+                        if (p->count > 0) {
+                            point = p->points[p->count-1] + axis::forward;
+                        }
+                        p->add_point(&ee->arena, point);
+                    }
+                    im::text(imgui, fmt_sv("Count: {}", p->count));
+                    range_u64(pi, 0, p->count) {
+                        if (im::text(imgui, fmt_sv("Point: {}", p->points[pi]))) {
+                            ee->selection = p->points + pi;
+                            ee->entity = &ee->creating_entity; // clear entity selection
+                        }
+                    }
+                }
+
+                path_i += 1;
+            }
+            im::end_panel(imgui, &path_panel);
         }
 
         im::text(imgui, "====== Editor Settings =====");
@@ -1531,6 +1628,7 @@ entity_editor_render(entity_editor_t* ee) {
 
         im::end_panel(imgui, &pos, &size);
     }
+
 
     local_persist im::panel_state_t transform_panel{
         .pos = v2f{400.0f, 0.0f},
@@ -1633,8 +1731,10 @@ entity_editor_render(entity_editor_t* ee) {
 
 
     local_persist b32 show_entity_list = 1;
-    local_persist v2f entity_window_pos{0.0f, 600.0f};
+    local_persist v2f entity_window_pos{1200.0f, 0.0f};
     local_persist v2f entity_window_size;
+
+    entity_window_size = {};
 
     if (im::begin_panel(imgui, "Entities", &entity_window_pos, &entity_window_size, &show_entity_list)) {
         auto theme = imgui.theme;
@@ -1643,16 +1743,16 @@ entity_editor_render(entity_editor_t* ee) {
             prefab != &ee->prefabs;
             node_next(prefab)
         ) {
-            im::same_line(imgui);
-            
-            if (im::button(imgui, "[x]", gfx::color::rgba::red, gfx::color::rgba::white, (u64)prefab)) {
-                ee->remove_prefab(prefab);
-            }
-
             auto has_selected = ee->has_selection(&prefab->transform.origin);
 
             if (has_selected) {
                 imgui.theme.text_color = gfx::color::rgba::yellow;
+            }
+
+            im::same_line(imgui);
+            
+            if (im::button(imgui, "[x]", gfx::color::rgba::red, imgui.theme.text_color, (u64)prefab)) {
+                ee->remove_prefab(prefab);
             }
 
             if (im::text(imgui, 
@@ -1724,6 +1824,7 @@ entity_editor_update(entity_editor_t* ee) {
     auto dt = game_state->input().dt;
 
     auto& imgui = ee->imgui;
+    const auto& screen_size = imgui.ctx.screen_size;
     auto& camera = ee->camera;
     auto* input = &game_state->input();
     auto [mx, my] = input->mouse.pos;
@@ -1731,6 +1832,7 @@ entity_editor_update(entity_editor_t* ee) {
     game_state->render_system->set_view(camera.view(), (u32)game_state->width(), (u32)game_state->height());
 
     auto* rs = game_state->render_system;
+    auto vp = rs->projection * rs->view;
 
     auto draw = [&](const auto& entity, auto transform, auto id, u32 count, instanced_prefab_t* prefab = 0) {
         if (entity.gfx.mesh_name[0]) {
@@ -1777,6 +1879,26 @@ entity_editor_update(entity_editor_t* ee) {
 
     draw(ee->creating_entity, m44{1.0f}, 0, 1);
 
+    for(auto* p = ee->paths.next;
+        p != &ee->paths;
+        node_next(p)
+    ) {
+        if (p->count > 0) {
+            range_u64(i, 0, p->count) {
+                math::rect3d_t point_cube{
+                    .min = p->points[i] - v3f{0.1f},
+                    .max = p->points[i] + v3f{0.1f}
+                };
+                gfx::gui::draw_cube(&ee->imgui.ctx, point_cube, gfx::color::rgba::red);
+                if (i > 0) {
+                    auto sp0 = screen_size * v2f{math::world_to_screen(vp, p->points[i])};
+                    auto sp1 = screen_size * v2f{math::world_to_screen(vp, p->points[i-1])};
+                    gfx::gui::draw_line(&ee->imgui.ctx, sp0, sp1, 2.0f, gfx::color::rgba::yellow);
+                }
+            }
+        }
+    }
+
     for(auto* p = ee->prefabs.next;
         p != &ee->prefabs;
         node_next(p)
@@ -1792,6 +1914,7 @@ entity_editor_update(entity_editor_t* ee) {
                 }
                 particle_system_update(p->particle_system, p->transform.to_matrix(), input->dt);
                 particle_system_build_matrices(p->particle_system, p->transform.to_matrix(), p->instances, p->instance_count);
+                particle_system_build_colors(p->particle_system, p->instance_colors, p->instance_count);
             }
         }
         draw(p->prefab, p->transform.to_matrix(), p->gfx_id, p->gfx_entity_count, p);
@@ -1896,7 +2019,8 @@ void load_world_file_for_edit(entity_editor_t* ee, const char* name) {
 void load_world_file(zyy::world_t* world, const char* name) {
     std::ifstream file{name, std::ios::binary};
 
-    arena_t* arena = &world->frame_arena.get();
+    // arena_t* arena = &world->frame_arena.get();
+    arena_t* arena = &world->arena;
 
     file.seekg(0, std::ios::end);
     const size_t file_size = file.tellg();
@@ -1910,7 +2034,7 @@ void load_world_file(zyy::world_t* world, const char* name) {
     auto header = blob.deserialize<world_save_file_header_t>();
     
     range_u64(i, 0, header.prefab_count) {
-        auto prefab = blob.deserialize<zyy::prefab_t>();
+        auto prefab = blob.deserialize<zyy::prefab_t>(arena);
         auto transform = blob.deserialize<math::transform_t>();
 
         zyy::tag_spawn(world, prefab, transform.origin, transform.basis);

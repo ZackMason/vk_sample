@@ -97,7 +97,8 @@ generate_forest(arena_t* arena) {
     generator->add_step("Planting Trees", WORLD_STEP_TYPE_LAMBDA(environment) {
         auto* tree = zyy::tag_spawn(world, zyy::db::environmental::tree_01, axis::down);
         constexpr u32 tree_count = 4000;
-        tree->gfx.instance(world->render_system()->instance_storage_buffer.pool, tree_count);
+        tree->gfx.instance(world->render_system()->scene_context->instance_storage_buffer.pool, 
+            world->render_system()->scene_context->instance_color_storage_buffer.pool, tree_count);
         
         for (size_t i = 0; i < tree_count; i++) {
             // tree->gfx.dynamic_instance_buffer[i + tree_count] = 
@@ -113,7 +114,10 @@ generate_forest(arena_t* arena) {
         return;
         auto* grass = zyy::tag_spawn(world, zyy::db::environmental::grass_02);
         constexpr u32 grass_count = 90'000;
-        grass->gfx.instance(world->render_system()->instance_storage_buffer.pool, grass_count);
+        grass->gfx.instance(
+            world->render_system()->scene_context->instance_storage_buffer.pool, 
+            world->render_system()->scene_context->instance_color_storage_buffer.pool, 
+            grass_count);
         grass->gfx.material_id = 4;
         
         for (size_t i = 0; i < grass_count; i++) {
@@ -148,7 +152,9 @@ generate_sponza(arena_t* arena) {
 auto SPAWN_FIRE_PARTICLE(auto* world, auto pos, auto mat, auto size) {
     auto* ps = zyy::tag_spawn(world, zyy::db::particle::plasma, pos);
     ps->gfx.particle_system = particle_system_create(&world->particle_arena, 64);
-    ps->gfx.instance(world->render_system()->instance_storage_buffer.pool, 64, 1);
+    ps->gfx.instance(
+        world->render_system()->scene_context->instance_storage_buffer.pool,
+        world->render_system()->scene_context->instance_color_storage_buffer.pool, 64, 1);
     ps->gfx.material_id = mat;
     ps->gfx.particle_system->acceleration = v3f{axis::up*9.81f*0.1f};
     ps->gfx.particle_system->spawn_rate = 0.02f;
@@ -209,7 +215,10 @@ generate_particle_test(arena_t* arena) {
             teapot_particle->gfx.material_id = 4;
             // teapot_particle->coroutine->start();
             teapot_particle->gfx.particle_system = particle_system_create(&world->particle_arena, 30000);
-            teapot_particle->gfx.instance(world->render_system()->instance_storage_buffer.pool, 30000, 1);
+            teapot_particle->gfx.instance(
+                world->render_system()->scene_context->instance_storage_buffer.pool, 
+                world->render_system()->scene_context->instance_color_storage_buffer.pool, 
+                30000, 1);
 
             teapot_particle->gfx.particle_system->spawn_rate = 0.02f;
             teapot_particle->gfx.particle_system->scale_over_life_time = math::range_t(1.0f, 0.0f);
@@ -504,7 +513,9 @@ generate_world_0(arena_t* arena) {
         teapot_particle->gfx.material_id = 4;
 
         teapot_particle->gfx.particle_system = particle_system_create(&world->particle_arena, 1000);
-        teapot_particle->gfx.instance(world->render_system()->instance_storage_buffer.pool, 1000, 1);
+        teapot_particle->gfx.instance(
+            world->render_system()->scene_context->instance_storage_buffer.pool,
+            world->render_system()->scene_context->instance_color_storage_buffer.pool, 1000, 1);
 
         teapot_particle->gfx.particle_system->spawn_rate = 0.0002f;
         teapot_particle->gfx.particle_system->scale_over_life_time = math::range_t(1.0f, 0.0f);
@@ -560,7 +571,9 @@ generate_world_0(arena_t* arena) {
         return;
         auto* tree = zyy::tag_spawn(world, zyy::db::environmental::tree_01, axis::down);
         constexpr u32 tree_count = 2000;
-        tree->gfx.instance(world->render_system()->instance_storage_buffer.pool, tree_count);
+        tree->gfx.instance(
+            world->render_system()->scene_context->instance_storage_buffer.pool,
+            world->render_system()->scene_context->instance_color_storage_buffer.pool, tree_count);
         
         for (size_t i = 0; i < tree_count; i++) {
             // tree->gfx.dynamic_instance_buffer[i + tree_count] = 

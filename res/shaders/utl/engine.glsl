@@ -4,6 +4,8 @@ struct Entity {
     uint64_t index_start;
     uint64_t material;
     uint64_t transform;
+    uint instance_offset;
+    uint instance_count;
     uint albedo;
 };
 

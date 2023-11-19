@@ -9,8 +9,7 @@
 #include "utl.glsl"
 #include "rng.glsl"
 #include "sky.glsl"
-
-
+#include "packing.glsl"
 
 layout(location = 2) rayPayloadInEXT bool shadowed;
 
@@ -41,9 +40,19 @@ layout(std430, set = 0, binding = 6, scalar) readonly buffer ProbeSettingsBuffer
 layout(set = 0, binding = 3, scalar) readonly buffer EnvironmentBuffer {
 	Environment uEnvironment;
 };
+
 layout(set = 0, binding = 8, scalar) readonly buffer PointLightBuffer {
 	PointLight point_lights[];
 };
+
+struct InstanceDataExt {
+	vec4 color;
+};
+
+layout(std430, set = 0, binding = 9, scalar) readonly buffer InstanceDataExtBuffer {
+	// vec4 colors[];
+    InstanceDataExt data[];
+} uInstanceDataExt;
 
 layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; };
 layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; 
@@ -64,13 +73,18 @@ void main()
 {
     vec3 direction = data.direction.xyz;
     // MeshDesc mesh = uMeshDesc.i[gl_InstanceCustomIndexEXT];
-    Entity entity = uEntityBuffer.e[gl_InstanceCustomIndexEXT];
+    uvec2 ids = split_u64(gl_InstanceCustomIndexEXT);
+    Entity entity = uEntityBuffer.e[nonuniformEXT(ids.x)];
     Vertices vertices = Vertices(entity.vertex_start);
     Indices indices = Indices(entity.index_start);
     Material material = Materials(entity.material).m[0];
+    vec4 instance_color = vec4(1.0);
 
+    if (entity.instance_count > 1) {
+        instance_color = uInstanceDataExt.data[nonuniformEXT(ids.y)].color;
+    }
+    
     uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;
-
 
     const vec3 bary = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 
@@ -81,7 +95,6 @@ void main()
     Vertex v2 = vertices.v[tri.z];
 
     vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
-    // vec4 albedo = vec4(1.0);
 
     vec3 n = normalize(v0.n * bary.x + v1.n * bary.y + v2.n * bary.z);
     vec3 p = (v0.p * bary.x + v1.p * bary.y + v2.p * bary.z);
@@ -93,6 +106,8 @@ void main()
     vec4 albedo = triplanar_material != 0 ?
         texture_triplanar(uTextureCache[nonuniformEXT(entity.albedo%4096)], wp*0.5, wn) :
         texture(uTextureCache[nonuniformEXT(entity.albedo%4096)], uv);
+
+    albedo *= instance_color;
 
     vec3 L = normalize(uEnvironment.sun.direction.xyz);
 
@@ -120,7 +135,6 @@ void main()
 
     if (shadowed) {
         shadow = 0.0001530000113;
-
     }
     
     data.distance = 0.0;

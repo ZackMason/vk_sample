@@ -639,6 +639,21 @@ app_init_graphics(game_memory_t* game_memory) {
 
             make_material("water", unlit_mat);
         }
+        { // 11 water triplanar
+            auto unlit_mat = gfx::material_t::plastic(v4f{0.098f, 0.3216f, 0.8078f, 1.0f});
+            unlit_mat.flags = gfx::material_water | gfx::material_lit | gfx::material_triplanar;
+            unlit_mat.roughness = 0.5f;
+            unlit_mat.emission = 0.0f;
+
+            make_material("water_triplanar", unlit_mat);
+        }
+        { // 12 emission
+            auto unlit_mat = gfx::material_t::plastic(gfx::color::v4::white);
+            unlit_mat.flags = 0;//gfx::material_lit;
+            unlit_mat.emission = 10.0f;
+
+            make_material("emission white", unlit_mat);
+        }
         make_material("blue-plastic", gfx::material_t::plastic(gfx::color::v4::blue));
         make_material("gold-metal", gfx::material_t::plastic(gfx::color::v4::yellow));
         make_material("silver-metal", gfx::material_t::plastic(gfx::color::v4::white));
@@ -761,6 +776,8 @@ app_on_init(game_memory_t* game_memory) {
     new (game_state) game_state_t{game_memory, game_memory->arena};
     
     game_state->game_memory = game_memory;
+
+    utl::rng::random_s::randomize();
     
     arena_t* main_arena = &game_state->main_arena;
     arena_t* string_arena = &game_state->string_arena;
@@ -996,7 +1013,7 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
     if (input->pressed.keys[key_id::F5]) {
         zyy::world_destroy_all(game_state->game_world);
         zyy::world_free(game_state->game_world);
-        game_state->render_system->instance_storage_buffer.pool.clear();
+        game_state->render_system->scene_context->instance_storage_buffer.pool.clear();
         game_state->render_system->scene_context->entities.pool.clear();
         game_state->render_system->scene_context->entity_count = 0;
         game_state->game_world = zyy::world_init(game_state, game_state->game_memory->physics);
@@ -1267,6 +1284,14 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
                 e->gfx.dynamic_instance_buffer, 
                 e->gfx._instance_count
             );
+            particle_system_build_colors(
+                e->gfx.particle_system, 
+                e->gfx.dynamic_color_instance_buffer, 
+                e->gfx._instance_count
+            );
+            range_u32(gi, 0, e->gfx.gfx_entity_count) {
+                rendering::set_entity_instance_data(rs, e->gfx.gfx_id + gi, e->gfx.instance_offset(0), ps->live_count);
+            }
         }
 
         v3f size = e->aabb.size()*0.5f;
@@ -1727,8 +1752,6 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
                     0, sizeof(constants), &constants
                 );
             }
-        
-
 
             {
                 VkVertexInputBindingDescription2EXT vertexInputBinding{};

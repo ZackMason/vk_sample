@@ -67,6 +67,7 @@ layout ( location = 0 ) in flat uint vMatId;
 layout ( location = 1 ) in vec2 vTexCoord;
 layout ( location = 2 ) in vec3 vN;
 layout ( location = 3 ) in vec3 vWorldPos;
+layout ( location = 4 ) in vec4 vDrawColor;
 
 layout ( location = 6 ) in flat uint vAlbedoId;
 layout ( location = 7 ) in flat uint vNormalId;
@@ -201,7 +202,6 @@ main( )
 			vec4 albedo = (triplanar_material > 0) ? 
 				texture_triplanar(uSampler[vAlbedoId], vWorldPos * 0.5, vN).rgba :
 				texture( uSampler[vAlbedoId], vTexCoord ).rgba;
-			if (albedo.a < 0.015) { discard; }
 			rgb = albedo.rgb * material.albedo.rgb;
 			alpha = albedo.a * material.albedo.a;
 			break;
@@ -221,16 +221,16 @@ main( )
 		// float water_noise = fbm(vWorldPos.xz/4.0 - Sporadic.uTime * 0.1, 4)
 		// 	* fbm(vWorldPos.xz/2.0 + Sporadic.uTime * 0.25, 3);
 
-		vec2 water_uv = vTexCoord * 10.0f;
+		vec2 water_uv = vTexCoord * 10.0;
 		if (triplanar_material > 0) {
-			water_uv = vWorldPos.xz;
+			water_uv = vWorldPos.xz * 2.0;
 		}
 
 		float water_noise = cell(water_uv, Sporadic.uTime);
 		water_noise *= water_noise;
 		// water_noise = smoothstep(0.2, 0.25, water_noise);
 
-		rgb = mix(material.albedo.rgb, material.albedo.rgb * 0.3, water_noise);
+		rgb = mix(material.albedo.rgb, material.albedo.rgb * 1.3, water_noise);
 		float steps = 16.0;
 		// rgb = floor(rgb * steps + 0.5) / steps;
 	}
@@ -238,9 +238,12 @@ main( )
 	float depth = length(vCameraPos.xyz - vWorldPos);
 	vec3 V = normalize(vCameraPos.xyz - vWorldPos);
 	
-	vec3 albedo = rgb;
-
+	vec3 albedo = rgb * (vDrawColor.rgb);
+	// alpha *= vDrawColor.a;
+	
+	if (alpha < 0.015) { discard; }
 	// albedo = pow(albedo, vec3(1.0/2.2));
+
 
 	float metallic = material.metallic;
 	float roughness = material.roughness;
@@ -299,7 +302,8 @@ main( )
 		apply_light(surface, light_solution, rgb);
 		// rgb *= expo;
 	} else {
-		rgb = sqr(surface.albedo) * (material.emission*30.0);// * pow(2, ev100 + material.emission - 3.0) * expo;
+		rgb = sqr(surface.albedo) * (material.emission*40.0);// * pow(2, ev100 + material.emission - 3.0) * expo;
+		// rgb = sqr(surface.emissive) * 10.0;
 
 		// rgb = material.albedo * material.emission * 1.0;
 		// rgb = sqr(rgb);
@@ -311,7 +315,6 @@ main( )
     	rgb += reflectivity * sqrt(sqrt(max(vec3(0.0), sky_color(reflected_view, L)))); 
 	}
     
-
 	// rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
 	
 	// rgb = V;
@@ -319,7 +322,6 @@ main( )
 	// rgb = N;
  
 	// rgb = env;	
-
 
 	// rgb = env / 2.0f;	
 

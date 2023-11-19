@@ -153,11 +153,12 @@ struct prefab_t {
 }
 
 template<>
-zyy::prefab_t utl::memory_blob_t::deserialize<zyy::prefab_t>() {
+zyy::prefab_t utl::memory_blob_t::deserialize<zyy::prefab_t>(arena_t* arena) {
     zyy::prefab_t prefab{};
 
     #define DESER(x) x = deserialize<decltype(x)>();
     #define OPTDESER(x) x = try_deserialize<decltype(x)::value_type>();
+    #define AOPTDESER(x) x = try_deserialize<decltype(x)::value_type>(arena);
 
     DESER(prefab.VERSION);
     DESER(prefab.type);
@@ -171,12 +172,13 @@ zyy::prefab_t utl::memory_blob_t::deserialize<zyy::prefab_t>() {
     prefab.spawn_bullet.function = 0;
     DESER(prefab.on_hit_effect);
     prefab.on_hit_effect.function = 0;
-    OPTDESER(prefab.emitter);
+    AOPTDESER(prefab.emitter);
     DESER(prefab.brain_type);
      DESER(prefab.inventory_size);
  
     #undef DESER
     #undef OPTDESER
+    #undef AOPTDESER
 
     return prefab;
 }
@@ -228,9 +230,9 @@ load_from_file(arena_t* arena, std::string_view path) {
     
     utl::memory_blob_t loader{data};
 
-    entity = loader.deserialize<zyy::prefab_t>();
+    entity = loader.deserialize<zyy::prefab_t>(arena);
 
-    end_temporary_memory(temp);
+    // end_temporary_memory(temp);
 
     return entity;
 }

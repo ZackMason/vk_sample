@@ -320,6 +320,7 @@ struct rt_compute_pass_t {
         gfx::vul::state_t& gfx, 
         texture_cache_t& texture_cache,
         gfx::vul::gpu_buffer_t* rt_mesh_data,
+        gfx::vul::gpu_buffer_t* instance_colors,
         gfx::vul::gpu_buffer_t* probe_data,
         gfx::vul::gpu_buffer_t* probe_settings,
         gfx::vul::gpu_buffer_t* probe_rays,
@@ -330,13 +331,17 @@ struct rt_compute_pass_t {
         gfx::vul::texture_2d_t* visibility_texture,
         gfx::vul::texture_2d_t* filter_texture
     ) {
-        VkDescriptorBufferInfo buffer_info[9];
+        VkDescriptorBufferInfo buffer_info[10];
         u32 b = 0;
         buffer_info[b].buffer = tlas.buffer.buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
         buffer_info[b].buffer = rt_mesh_data->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        buffer_info[b].buffer = instance_colors->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
@@ -402,12 +407,13 @@ struct rt_compute_pass_t {
             .bind_buffer(0, buffer_info + 0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, &descriptor_acceleration_structure_info)
             .bind_image(1, ovdii, array_count(ovdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_image(2, vdii, array_count(vdii), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
-            .bind_buffer(3, buffer_info + 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(3, buffer_info + 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_buffer(4, buffer_info + 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
-            .bind_buffer(5, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
-            .bind_buffer(6, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
-            .bind_buffer(7, buffer_info + 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
-            .bind_buffer(8, buffer_info + 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(5, buffer_info + 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(6, buffer_info + 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(7, buffer_info + 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+            .bind_buffer(8, buffer_info + 7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(9, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .build(descriptor_sets[0], descriptor_set_layouts[0]);
     }
 
@@ -508,23 +514,25 @@ struct rt_compute_pass_t {
     void add_to_tlas(
         gfx::vul::state_t& gfx,
         rt_cache_t& cache,
-        u64 gfx_id,
+        u32 gfx_id,
         u64 blas_id,
         m44 t,
-        umm transform_count = 1
+        u32 instance_offset = 0,
+        u32 instance_id = 0
     ) {
         TIMED_FUNCTION;
         VkTransformMatrixKHR transform_matrix{};
         t = glm::transpose(t);
-        utl::copy(&transform_matrix, &t, sizeof(transform_matrix));
+        // utl::copy(&transform_matrix, &t, sizeof(transform_matrix));
         auto i = instance_count++;
         assert(instance_count < array_count(tlas_instances));
         if (instance_count > array_count(tlas_instances)) {
             zyy_error(__FUNCTION__, "TLAS OVERFLOW"); return;
         }
         VkAccelerationStructureInstanceKHR& acceleration_structure_instance    = tlas_instances[i];
-        acceleration_structure_instance.transform                              = transform_matrix;
-        acceleration_structure_instance.instanceCustomIndex                    = gfx_id;
+        utl::copy(&acceleration_structure_instance.transform, &t, sizeof(transform_matrix));
+        // acceleration_structure_instance.transform                              = transform_matrix;
+        acceleration_structure_instance.instanceCustomIndex                    = packing::pack(gfx_id, instance_id+instance_offset);
         acceleration_structure_instance.mask                                   = 0xFF;
         acceleration_structure_instance.instanceShaderBindingTableRecordOffset = 0;
         acceleration_structure_instance.flags                                  = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;

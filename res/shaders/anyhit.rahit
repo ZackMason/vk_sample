@@ -13,11 +13,17 @@ hitAttributeEXT vec2 attribs;
 #include "lighting.glsl"
 #include "raycommon.glsl"
 #include "engine.glsl"
+#include "packing.glsl"
 
 layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];
 
 // layout(set = 0, binding = 4, scalar) buffer MeshDesc_ { MeshDesc i[]; } uMeshDesc;
 layout(set = 0, binding = 4, scalar) readonly buffer GfxEntity_ { Entity e[]; } uEntityBuffer;
+
+layout(std430, set = 0, binding = 9, scalar) readonly buffer InstanceDataExt {
+	vec4 colors[];
+} uInstanceDataExt;
+
 
 layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; }; // Positions of an object
 layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Triangle indices
@@ -26,7 +32,9 @@ layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Triangle indic
 void main()
 {
     // MeshDesc mesh = uMeshDesc.i[gl_InstanceCustomIndexEXT];
-    Entity entity = uEntityBuffer.e[gl_InstanceCustomIndexEXT];
+    uvec2 ids = split_u64(gl_InstanceCustomIndexEXT);
+    Entity entity = uEntityBuffer.e[nonuniformEXT(ids.x)];
+
     Vertices vertices = Vertices(entity.vertex_start);
     Indices indices = Indices(entity.index_start);
 
@@ -40,6 +48,12 @@ void main()
 
     vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
     vec4 albedo = texture(uTextureCache[nonuniformEXT(entity.albedo%4096)], uv);
+
+    if (entity.instance_count > 1) {
+        // albedo *= uInstanceDataExt.colors[nonuniformEXT(ids.y)];
+        // albedo.a = 0.0;
+    }
+    // albedo = vec4(0);
 
     if (albedo.a < 0.2) {
         ignoreIntersectionEXT;

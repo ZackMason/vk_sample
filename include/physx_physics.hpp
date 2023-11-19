@@ -208,7 +208,6 @@ void physx_rigidbody_set_ccd(rigidbody_t* rb, bool x) {
 void physx_rigidbody_set_gravity(rigidbody_t* rb, bool x) {
     if (rb->type == rigidbody_type::DYNAMIC) {
         PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
-        
         actor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, !x);
     }
 }
@@ -539,7 +538,7 @@ physx_sphere_overlap_world(const api_t* api, arena_t* arena, v3f o, f32 radius, 
     PxQueryFilterData filter{};
     filter.data.word0 = layer;
 
-    bool status = ps->world->scene->overlap(sphere, pos, hit);
+    bool status = ps->world->scene->overlap(sphere, pos, hit, filter);
 
     if (status) {
         auto* buffer = push_struct<overlap_hitbuffer_t>(arena);
