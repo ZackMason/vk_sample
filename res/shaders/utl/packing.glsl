@@ -83,6 +83,10 @@ uvec2 split_u64(uint64_t x) {
     return uvec2(x,(x>>32)) & 0xffffffff;
 }
 
+uvec2 split_u24(uint x) {
+    return uvec2(x,(x>>12)) & 0x00ffffff;
+}
+
 vec4 rgba_to_color(uint rgba) {
     return vec4(
         float( rgba&0xff),

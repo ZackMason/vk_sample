@@ -21,6 +21,11 @@ namespace rendering {
     // DEFINE_TYPED_ID(gfx_entity_id);
     using gfx_entity_id = u32;
 
+    struct gfx_instance_t {
+        gfx_entity_id   gfx_id;
+        u32             instance_id;        
+    };
+
     struct scene_t {
         gpu_ptr_t vertex_buffer;
         gpu_ptr_t index_buffer;

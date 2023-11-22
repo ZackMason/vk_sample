@@ -139,7 +139,7 @@ struct saved_prefab_t {
 };
 
 enum struct edit_type_t {
-    TEXT, VEC3, BASIS, INSERT, REMOVE
+    GROUP, TEXT, VEC3, BASIS, INSERT, REMOVE
 };
 
 enum edit_change_type {
@@ -168,6 +168,10 @@ struct prefab_insert_t {
     instanced_prefab_t* head;
 };
 
+struct group_event_t {
+    struct edit_event_t* head{0};
+};
+
 void execute_edit(auto& edit, u32 which) {
     *edit.where = edit.change[which];
 }
@@ -190,8 +194,58 @@ struct edit_event_t {
         vec3_edit_t vec3_edit;   
         basis_edit_t basis_edit;   
         prefab_insert_t prefab_insert;
+        group_event_t group;
     };
 };
+
+void execute(edit_event_t* cmd, b32 undo = 0);
+
+void execute_group(auto& edit, u32 which) {
+    if (!edit.head) {
+        return;
+    }
+    if (which == Edit_To) {
+        for (
+            auto* event = edit.head->prev;
+            event != edit.head;
+            event = event->prev
+        ) {
+            execute(event, false);
+        }
+    } else {
+        for (
+            auto* event = edit.head->next;
+            event != edit.head;
+            node_next(event)
+        ) {
+            execute(event, true);
+        }
+    }
+}
+
+void execute(edit_event_t* cmd, b32 undo) {
+    switch (cmd->type) {
+        case edit_type_t::GROUP:
+            execute_group(cmd->group, !undo ? Edit_To : Edit_From);
+            break;
+        case edit_type_t::REMOVE:
+            execute_insert(cmd->prefab_insert, !undo ? Edit_From : Edit_To);
+            break;
+        case edit_type_t::INSERT:
+            execute_insert(cmd->prefab_insert, !undo ? Edit_To : Edit_From);
+            break;
+        case edit_type_t::TEXT:
+            execute_edit(cmd->text_edit, !undo ? Edit_To : Edit_From);
+            break;
+        case edit_type_t::VEC3:
+            execute_edit(cmd->vec3_edit, !undo ? Edit_To : Edit_From);
+            break;
+        case edit_type_t::BASIS:
+            execute_edit(cmd->basis_edit, !undo ? Edit_To : Edit_From);
+            break;
+        case_invalid_default;
+    }
+}
 
 enum struct selection_mode {
     pos, scale, rotation,
@@ -206,6 +260,7 @@ struct entity_editor_t {
 
     edit_event_t redo_sentinel{};
     edit_event_t undo_sentinel{};
+    edit_event_t* event_group{0};
 
     zyy::world_path_t paths{};
     gfx::color::gradient_t* gradient{0};
@@ -214,26 +269,9 @@ struct entity_editor_t {
         auto* cmd = redo_sentinel.next;
         if (cmd != &redo_sentinel) {
             dlist_remove(cmd);
-            // todo: Execute the cmd
-            switch (cmd->type)
-            {
-            case edit_type_t::REMOVE:
-                execute_insert(cmd->prefab_insert, Edit_From);
-                break;
-            case edit_type_t::INSERT:
-                execute_insert(cmd->prefab_insert, Edit_To);
-                break;
-            case edit_type_t::TEXT:
-                execute_edit(cmd->text_edit, Edit_To);
-                break;
-            case edit_type_t::VEC3:
-                execute_edit(cmd->vec3_edit, Edit_To);
-                break;
-            case edit_type_t::BASIS:
-                execute_edit(cmd->basis_edit, Edit_To);
-                break;
-            case_invalid_default;
-            }
+            
+            execute(cmd);
+            
             dlist_insert(&undo_sentinel, cmd);
         }
     }
@@ -242,41 +280,38 @@ struct entity_editor_t {
         auto* cmd = undo_sentinel.next;
         if (cmd != &undo_sentinel) {
             dlist_remove(cmd);
-            // todo: Execute the cmd
-            switch (cmd->type)
-            {
-            case edit_type_t::REMOVE:
-                execute_insert(cmd->prefab_insert, Edit_To);
-                break;
-            case edit_type_t::INSERT:
-                execute_insert(cmd->prefab_insert, Edit_From);
-                break;
-            case edit_type_t::TEXT:
-                execute_edit(cmd->text_edit, Edit_From);
-                break;
-            case edit_type_t::VEC3:
-                execute_edit(cmd->vec3_edit, Edit_From);
-                break;
-            case edit_type_t::BASIS:
-                execute_edit(cmd->basis_edit, Edit_From);
-                break;
-            case_invalid_default;
-            }
+            execute(cmd, 0b11);
             dlist_insert(&redo_sentinel, cmd);
         }
     }
 
     void on_add_to_undo() {
-        // for (auto* cmd = redo_sentinel.next;
-        //     cmd != &redo_sentinel;
-        //     // node_next(cmd)
-        // ) {
-        //     auto* next = cmd->next;
-        //     dlist_remove(cmd);
-        //     dlist_insert_as_last(&undo_sentinel, cmd);
-        //     cmd = next;
-        // }
         dlist_init(&redo_sentinel);
+    }
+
+    void insert_edit_event(auto* edit) {
+        if (event_group) {
+            dlist_insert(event_group->group.head, edit);
+        } else {
+            dlist_insert(&undo_sentinel, edit);
+        }
+    }
+
+    void begin_event_group() {
+        tag_struct(auto* edit, edit_event_t, &undo_arena);
+        edit->type = edit_type_t::GROUP;
+        tag_struct(edit->group.head, edit_event_t, &undo_arena);
+
+        dlist_init(edit->group.head);
+        event_group = edit;
+    }
+
+    void end_event_group() {
+        if (event_group) {
+            auto* edit = event_group;
+            event_group = 0;
+            insert_edit_event(edit);
+        }
     }
 
     void edit_char(char* where, char what) {
@@ -287,7 +322,7 @@ struct entity_editor_t {
         edit->text_edit.change[Edit_To] = what;
 
         execute_edit(edit->text_edit, Edit_To);
-        dlist_insert(&undo_sentinel, edit);
+        insert_edit_event(edit);
         on_add_to_undo();
     }
 
@@ -299,7 +334,7 @@ struct entity_editor_t {
         edit->vec3_edit.change[Edit_To] = what;
 
         execute_edit(edit->vec3_edit, Edit_To);
-        dlist_insert(&undo_sentinel, edit);
+        insert_edit_event(edit);
         on_add_to_undo();
     }
 
@@ -312,7 +347,7 @@ struct entity_editor_t {
         edit->basis_edit.change[Edit_To] = what;
 
         execute_edit(edit->basis_edit, Edit_To);
-        dlist_insert(&undo_sentinel, edit);
+        insert_edit_event(edit);
         on_add_to_undo();
     }
 
@@ -380,7 +415,7 @@ struct entity_editor_t {
         edit->prefab_insert.prefab = what;
 
         execute_insert(edit->prefab_insert, Edit_To);
-        dlist_insert(&undo_sentinel, edit);
+        insert_edit_event(edit);
         on_add_to_undo();
     }
 
@@ -404,7 +439,7 @@ struct entity_editor_t {
         }
 
         execute_insert(edit->prefab_insert, Edit_From);
-        dlist_insert(&undo_sentinel, edit);
+        insert_edit_event(edit);
         on_add_to_undo();
     }
 
@@ -575,11 +610,15 @@ entity_editor_t utl::memory_blob_t::deserialize<entity_editor_t>(arena_t* arena)
 
     auto header = deserialize<world_save_file_header_t>();
 
+    result.begin_event_group();
+
     range_u64(i, 0, header.prefab_count) {
         auto prefab = deserialize<zyy::prefab_t>(arena);
         auto transform = deserialize<math::transform_t>();
         result.instance_prefab(prefab, transform, 0);
     }
+
+    result.end_event_group();
 
     return result;
 }
@@ -653,7 +692,7 @@ object_gui(gfx::gui::im::state_t& imgui, auto& value, size_t depth = 0) {
     object_data_gui(imgui, type, (std::byte*)&value, 0, depth+2);
 }
 
-void load_world_file_for_edit(entity_editor_t* ee, const char* name);
+// void load_world_file_for_edit(entity_editor_t* ee, const char* name);
 
 static bool
 save_world_window(
@@ -724,11 +763,16 @@ save_world_window(
         utl::memory_blob_t blob{(std::byte*)bytes};
         auto header = blob.deserialize<world_save_file_header_t>();
 
+        ee->begin_event_group();
+
         range_u64(i, 0, header.prefab_count) {
             auto prefab = blob.deserialize<zyy::prefab_t>(&arena);
             auto transform = blob.deserialize<math::transform_t>();
             ee->instance_prefab(prefab, transform);
         }
+
+        ee->end_event_group();
+
         arena_clear(&arena);
     } else {
         // ee->save_to_file(file);   
@@ -1739,6 +1783,14 @@ entity_editor_render(entity_editor_t* ee) {
     if (im::begin_panel(imgui, "Entities", &entity_window_pos, &entity_window_size, &show_entity_list)) {
         auto theme = imgui.theme;
 
+        im::begin_drag(imgui);
+
+        if (im::is_dragging(imgui)) {
+            u64 dummy = 0;
+            im::drag_user_data(imgui, dummy, "delete");
+            im::text(imgui, "Delete");
+        }
+
         for(auto* prefab = ee->prefabs.next;
             prefab != &ee->prefabs;
             node_next(prefab)
@@ -1748,6 +1800,8 @@ entity_editor_render(entity_editor_t* ee) {
             if (has_selected) {
                 imgui.theme.text_color = gfx::color::rgba::yellow;
             }
+
+            im::drag_user_data(imgui, *prefab, "prefab_t");
 
             im::same_line(imgui);
             
@@ -1773,6 +1827,28 @@ entity_editor_render(entity_editor_t* ee) {
             }
             imgui.theme = theme;
         }
+
+        if (im::released_drag(imgui)) {
+            auto drag_event = *imgui.drag_event;
+            if ("prefab_t"sv == drag_event.type_name) {
+                auto* prefab = (instanced_prefab_t*)drag_event.user_data;
+
+                if (drag_event.dropped_id) {
+                    if ("delete"sv == drag_event.dropped_type_name) {
+                        ee->remove_prefab(prefab);
+                    }
+                    if ("prefab_t"sv == drag_event.dropped_type_name) {
+                        auto* dropped_prefab = (instanced_prefab_t*)drag_event.dropped_user_data;
+                        ee->remove_prefab(prefab);
+                        // Todo(Zack): hook up insert with undo system
+                        dlist_insert(dropped_prefab, prefab);
+                    }
+                }
+            }
+        }
+
+        im::end_drag(imgui);
+
         im::end_panel(imgui, &entity_window_pos, &entity_window_size);
     }
 
@@ -1810,7 +1886,11 @@ entity_editor_render(entity_editor_t* ee) {
                     auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
                     dragged->transform.origin = start;
                 } else {
+                    auto delta = *ee->selection.selection - start;
                     ee->edit_vec3(ee->selection, *ee->selection.selection, start);
+                    for (auto& other_selected: ee->selection_stack.view()) {
+                        ee->edit_vec3(other_selected.selection, *other_selected.selection + delta);
+                    }
                 }
             }
         }
@@ -1984,37 +2064,37 @@ entity_editor_update(entity_editor_t* ee) {
     }
 }
 
-void load_world_file_for_edit(entity_editor_t* ee, const char* name) {
-    std::ifstream file{name, std::ios::binary};
+// void load_world_file_for_edit(entity_editor_t* ee, const char* name) {
+//     std::ifstream file{name, std::ios::binary};
 
-    for (auto* prefab = ee->prefabs.next;
-        prefab != &ee->prefabs;
-        node_next(prefab)
-    ) {
-        ee->remove_prefab(prefab);
-    }
+//     for (auto* prefab = ee->prefabs.next;
+//         prefab != &ee->prefabs;
+//         node_next(prefab)
+//     ) {
+//         ee->remove_prefab(prefab);
+//     }
 
-    world_save_file_header_t header = {};
+//     world_save_file_header_t header = {};
 
-    file.read((char*)&header, sizeof(header));
+//     file.read((char*)&header, sizeof(header));
     
-    assert(header.prefab_size == sizeof(zyy::prefab_t));
+//     assert(header.prefab_size == sizeof(zyy::prefab_t));
     
-    range_u64(i, 0, header.prefab_count) {
-        math::transform_t transform;
-        zyy::prefab_t prefab = {};
+//     range_u64(i, 0, header.prefab_count) {
+//         math::transform_t transform;
+//         zyy::prefab_t prefab = {};
 
-        file.read((char*)&prefab, header.prefab_size);
-        file.read((char*)&transform, sizeof(transform));
+//         file.read((char*)&prefab, header.prefab_size);
+//         file.read((char*)&transform, sizeof(transform));
 
-        if (prefab.VERSION != zyy::prefab_t{}.VERSION) {
-            zyy_error(__FUNCTION__, "Prefab version ({}) not supported", prefab.VERSION);
-        } else {
-            auto* inst = ee->instance_prefab(prefab, transform);
-        }
+//         if (prefab.VERSION != zyy::prefab_t{}.VERSION) {
+//             zyy_error(__FUNCTION__, "Prefab version ({}) not supported", prefab.VERSION);
+//         } else {
+//             auto* inst = ee->instance_prefab(prefab, transform);
+//         }
 
-    }
-}
+//     }
+// }
 
 void load_world_file(zyy::world_t* world, const char* name) {
     std::ifstream file{name, std::ios::binary};

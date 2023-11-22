@@ -533,6 +533,7 @@ struct rt_compute_pass_t {
         utl::copy(&acceleration_structure_instance.transform, &t, sizeof(transform_matrix));
         // acceleration_structure_instance.transform                              = transform_matrix;
         acceleration_structure_instance.instanceCustomIndex                    = packing::pack(gfx_id, instance_id+instance_offset);
+        // acceleration_structure_instance.instanceCustomIndex                    = packing::pack(gfx_id, instance_id+instance_offset);
         acceleration_structure_instance.mask                                   = 0xFF;
         acceleration_structure_instance.instanceShaderBindingTableRecordOffset = 0;
         acceleration_structure_instance.flags                                  = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;

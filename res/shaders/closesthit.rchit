@@ -81,7 +81,7 @@ void main()
     vec4 instance_color = vec4(1.0);
 
     if (entity.instance_count > 1) {
-        instance_color = uInstanceDataExt.data[nonuniformEXT(ids.y)].color;
+        // instance_color = uInstanceDataExt.data[nonuniformEXT(ids.x)].color;
     }
     
     uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;

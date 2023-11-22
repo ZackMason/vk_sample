@@ -55,7 +55,7 @@ init_physx(api_t* api, arena_t* arena) {
 
     api->create_rigidbody     = physx_create_rigidbody;
     api->create_collider      = physx_create_collider;
-    api->raycast_world        = physx_raycast_world;
+    api->_raycast_world        = physx_raycast_world;
     api->_sphere_overlap_world = physx_sphere_overlap_world;
 
     api->create_scene       = physx_create_scene;
@@ -64,6 +64,8 @@ init_physx(api_t* api, arena_t* arena) {
     // api->rigidbody_set_active = physx_rigidbody_set_active;
     api->collider_set_trigger = physx_collider_set_trigger;
     api->collider_set_active = physx_collider_set_active;
+    api->collider_set_transform = physx_collider_set_transform;
+    api->collider_get_transform = physx_collider_get_transform;
 
     api->rigidbody_add_impulse = physx_rigidbody_add_impulse;
     api->rigidbody_add_force = physx_rigidbody_add_force;
@@ -94,7 +96,7 @@ init_custom(api_t* api, arena_t* arena) {
 
     api->create_rigidbody   = custom_create_rigidbody;
     api->create_collider    = custom_create_collider;
-    api->raycast_world      = custom_raycast_world;
+    api->_raycast_world      = custom_raycast_world;
 
     api->create_scene       = custom_create_scene;
     api->destroy_scene      = custom_destroy_scene;

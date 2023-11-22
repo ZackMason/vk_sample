@@ -31,10 +31,10 @@ zyy::entity_t* explosion_at_point(
 
 
 
-void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other);
-void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other);
+void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other, physics::collider_t* self_shape, physics::collider_t* other_shape);
+void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other, physics::collider_t* self_shape, physics::collider_t* other_shape);
 
-export_fn(void) on_trigger_pickup_weapon(physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+export_fn(void) on_trigger_pickup_weapon(physics::rigidbody_t* trigger, physics::rigidbody_t* other, physics::collider_t* trigger_shape, physics::collider_t* other_shape) {
     auto* self = (zyy::entity_t*)trigger->user_data;   
     auto* other_e = (zyy::entity_t*)other->user_data;
     auto* world = (zyy::world_t*)trigger->api->user_world;

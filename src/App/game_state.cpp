@@ -134,7 +134,7 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     
     math::ray_t game_ui_ray{ui.eye, ui.look};
     DEBUG_DIAGRAM(game_ui_ray);
-    auto raycast = world->physics->raycast_world(world->physics, ui.eye, ui.look);
+    auto raycast = world->physics->raycast_world(ui.eye, ui.look);
     if (raycast.hit) {
         auto* rb = (physics::rigidbody_t*)raycast.user_data;
         auto* entity = (zyy::entity_t*)rb->user_data;

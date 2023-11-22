@@ -51,7 +51,7 @@ generate_homebase(arena_t* arena) {
 #define SPAWN_GUN(gun, where) do{\
     auto* shotgun = zyy::tag_spawn(world,   \
         (gun), (where));  \
-    shotgun->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {   \
+    shotgun->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other, physics::collider_t* trigger_shape, physics::collider_t* other_shape) {   \
         auto* self = (zyy::entity_t*)trigger->user_data;    \
         auto* other_e = (zyy::entity_t*)other->user_data;   \
         auto* world = (zyy::world_t*)trigger->api->user_world;  \
@@ -202,7 +202,7 @@ generate_particle_test(arena_t* arena) {
             },
         };
         auto* spawner = zyy::tag_spawn(world, spawner_p);
-        spawner->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+        spawner->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other, physics::collider_t* trigger_shape, physics::collider_t* other_shape) {
             auto* p = (zyy::entity_t*)trigger->user_data;
             auto* o = (zyy::entity_t*)other->user_data;
             auto* world = (zyy::world_t*)trigger->api->user_world;
@@ -390,7 +390,7 @@ generate_world_1(arena_t* arena) {
         };
         auto* e_room = zyy::tag_spawn(world, enemy_room);
             e_room->gfx.material_id = 0;
-            e_room->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+            e_room->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other, physics::collider_t* trigger_shape, physics::collider_t* other_shape) {
                 auto* self = (zyy::entity_t*)trigger->user_data;
                 auto* o = (zyy::entity_t*)other->user_data;
                 auto* world = (zyy::world_t*)trigger->api->user_world;
@@ -491,7 +491,7 @@ generate_world_0(arena_t* arena) {
         };
         auto* e_room = zyy::tag_spawn(world, enemy_room, axis::forward * 50.0f);
             e_room->gfx.material_id = 1;
-            e_room->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+            e_room->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other, physics::collider_t* trigger_shape, physics::collider_t* other_shape) {
                 auto* self = (zyy::entity_t*)trigger->user_data;
                 auto* o = (zyy::entity_t*)other->user_data;
                 auto* world = (zyy::world_t*)trigger->api->user_world;
@@ -539,7 +539,7 @@ generate_world_0(arena_t* arena) {
                     v3f{x * 6.0f, 0, y * 6.0f});
 
                 platform->physics.rigidbody->on_trigger_end =
-                platform->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+                platform->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other, physics::collider_t* trigger_shape, physics::collider_t* other_shape) {
                     auto* p = (zyy::entity_t*)trigger->user_data;
                     auto* o = (zyy::entity_t*)other->user_data;
                     // if (o->type == zyy::entity_type::player) 

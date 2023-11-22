@@ -63,12 +63,18 @@ struct collider_t {
     void set_trigger(bool x);
     void set_active(bool x);
 
+    // not cached
+    math::transform_t local_transform() const;
+
+    // local space
+    void set_transform(const math::transform_t& transform) const;
+
     // Todo(Zack)
     // v3f                 offset;
     // glm::quat           orientation;
 };
 
-using rigidbody_on_collision_function = void(*)(rigidbody_t*, rigidbody_t*);
+using rigidbody_on_collision_function = void(*)(rigidbody_t*, rigidbody_t*, collider_t*, collider_t*);
 using rigidbody_set_active_function = void(*)(rigidbody_t*, bool);
 
 struct rigidbody_flags {
@@ -270,10 +276,12 @@ using destroy_scene_function = void(*)(api_t*);
 using create_rigidbody_function = rigidbody_t*(*)(api_t*, void* entity, rigidbody_type, const v3f& position, const quat& rotation);
 using create_collider_function = collider_t*(*)(api_t*, rigidbody_t*, collider_shape_type, void* collider_info);
 using simulate_function = void(*)(api_t*, f32 dt);
-using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd);
+using raycast_world_function = raycast_result_t(*)(const api_t*, v3f ro, v3f rd, u32 layer);
 using sphere_overlap_world_function = overlap_hitbuffer_t*(*)(const api_t*, arena_t* arena, v3f o, f32 radius, u32 layer);
 
 using collider_set_trigger_function = void(*)(collider_t*, bool);
+using collider_set_transform_function = void(*)(const collider_t*, const math::transform_t& transform);
+using collider_get_transform_function = math::transform_t(*)(const collider_t*);
 
 #if ZYY_INTERNAL
 using get_debug_table_function = debug_table_t*(*)(void);
@@ -311,9 +319,13 @@ struct export_dll api_t {
     create_scene_function       create_scene{0};
     destroy_scene_function      destroy_scene{0};
 
-    raycast_world_function          raycast_world{0};
+    raycast_world_function          _raycast_world{0};
+    raycast_result_t                raycast_world(v3f ro, v3f rd, u32 layer = 0xffffffff) {
+        return _raycast_world(this, ro, rd, layer);
+    }
+
     sphere_overlap_world_function   _sphere_overlap_world{0};
-    overlap_hitbuffer_t* sphere_overlap_world(arena_t* result_arena, v3f o, f32 radius, u32 layer = 0xffffffff) {
+    overlap_hitbuffer_t*            sphere_overlap_world(arena_t* result_arena, v3f o, f32 radius, u32 layer = 0xffffffff) {
         return _sphere_overlap_world(this, result_arena, o, radius, layer);
     }
     
@@ -321,6 +333,8 @@ struct export_dll api_t {
     // rigidbody_set_active_function rigidbody_set_active{0};
     collider_set_trigger_function collider_set_trigger{0};
     collider_set_trigger_function collider_set_active{0};
+    collider_set_transform_function collider_set_transform{0};
+    collider_get_transform_function collider_get_transform{0};
 
     rigidbody_add_force_function rigidbody_add_impulse{0};
     rigidbody_add_force_function rigidbody_add_force{0};
@@ -373,6 +387,14 @@ void collider_t::set_trigger(bool x) {
 
 void collider_t::set_active(bool x) {
     rigidbody->api->collider_set_active(this, x);
+}
+
+void collider_t::set_transform(const math::transform_t& transform) const {
+    rigidbody->api->collider_set_transform(this, transform);
+}
+
+math::transform_t collider_t::local_transform() const {
+    return rigidbody->api->collider_get_transform(this);
 }
 
 void rigidbody_t::set_transform(const m44& transform) {

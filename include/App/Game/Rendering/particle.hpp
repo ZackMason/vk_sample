@@ -264,7 +264,7 @@ particle_system_spawn(
     auto* particle = system->particles + system->live_count++;
     *particle = system->template_particle;
     
-    particle->life_time += system->rng.range(system->life_random);
+    particle->life_time -= system->rng.range(system->life_random);
 
     if (++system->_stream_count >= system->stream_rate) {
         system->_stream_count = 0;
@@ -336,7 +336,7 @@ particle_system_update(
             }
         }
 
-        const f32 life_alpha = particle->life_time / (system->template_particle.life_time + system->life_random.max);
+        const f32 life_alpha = particle->life_time / (system->template_particle.life_time);
 
         particle->velocity += system->acceleration * dt;
         particle->position += particle->orientation * (particle->velocity * dt);

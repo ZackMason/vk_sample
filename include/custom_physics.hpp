@@ -67,7 +67,7 @@ custom_create_collider(api_t* api, rigidbody_t* rigidbody, collider_shape_type t
 }
 
 raycast_result_t
-custom_raycast_world(const api_t* api, v3f ro, v3f rd) {
+custom_raycast_world(const api_t* api, v3f ro, v3f rd, u32 layer) {
     return {};
 }
 

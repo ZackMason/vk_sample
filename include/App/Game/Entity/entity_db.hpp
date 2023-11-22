@@ -18,7 +18,7 @@ void co_kill_in_ten(coroutine_t* co, frame_arena_t& frame_arena) {
     co_end(co);
 }
 
-export_fn(void) on_trigger_set_light_probe(physics::rigidbody_t* trigger, physics::rigidbody_t* other) {
+export_fn(void) on_trigger_set_light_probe(physics::rigidbody_t* trigger, physics::rigidbody_t* other, physics::collider_t* trigger_shape, physics::collider_t* other_shape) {
     auto* self = (zyy::entity_t*)trigger->user_data;
     auto* other_e = (zyy::entity_t*)other->user_data;
     auto* world = (zyy::world_t*)trigger->api->user_world;
@@ -27,7 +27,8 @@ export_fn(void) on_trigger_set_light_probe(physics::rigidbody_t* trigger, physic
         auto& min = world->render_system()->light_probe_settings_buffer.pool[0].aabb_min;
         auto& max = world->render_system()->light_probe_settings_buffer.pool[0].aabb_max;
         auto center = (min+max)*0.5f;
-        auto delta = center - self->global_transform().origin;
+        auto shape_transform = self->global_transform() * trigger_shape->local_transform();
+        auto delta = center - shape_transform.origin;
 
         min += -delta;
         max += -delta;

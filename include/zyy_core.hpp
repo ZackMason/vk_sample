@@ -2064,6 +2064,11 @@ namespace packing {
         return result;
     }
 
+    u32 pack1212to24(u16 a, u16 b) {
+        u32 result = u32(a) | (u32(b)<<12);
+        return result & (0x00ffffff);
+    }
+
     u32 pack_normal(v3f n) {
         u32 r=0;
         r |= u32((n.x*0.5f+0.5f)*255.0f)<<0;
@@ -3592,11 +3597,15 @@ namespace gui {
         struct drag_event_t {
             void* user_data{0};
             umm user_data_size{0};
+            const char* type_name=0;
 
-            stack_string<32> type_name = {};
+            void* dropped_user_data{0};
+            umm dropped_user_data_size{0};
+            const char* dropped_type_name=0;
 
             u64 widget_id{0};
-            // u64 widget_parent{0};
+            u64 dropped_id{0};
+
             f32 start_time{0.0f};
             v2f start_pos{};
         };
@@ -3621,6 +3630,11 @@ namespace gui {
             v3f gizmo_axis_wdir{};
 
             u32 selected_index = 0xfffffff; // gradient_editor
+
+            b32 dragging_enabled = false;
+            void* drag_user_data = 0; // used to pass data from user, set before draggable ui
+            size_t drag_user_data_size = 0;
+            const char* drag_user_type_name = 0;
 
             theme_t theme;
 
@@ -3665,6 +3679,42 @@ namespace gui {
 
         //     return w;
         // }
+
+        void
+        begin_drag(state_t& imgui) {
+            assert(imgui.dragging_enabled == 0);
+            // if (imgui.ctx.input->mouse.buttons[0] == false) {
+            // }
+            imgui.dragging_enabled = 1;
+        }
+        
+        template<typename T>
+        void drag_user_data(state_t& imgui, T& data, const char* data_type_name) {
+            imgui.drag_user_data = &data;
+            imgui.drag_user_data_size = sizeof(T);
+            imgui.drag_user_type_name = data_type_name;
+        }
+
+        bool released_drag(state_t& imgui) {
+            if (imgui.ctx.input->released.mouse_btns[0] && imgui.drag_event && imgui.drag_event->widget_id) {
+                return true;
+            }
+            return imgui.drag_event && imgui.drag_event->dropped_id != 0;
+        }
+
+        bool is_dragging(state_t& imgui) {
+            return !!imgui.drag_event && imgui.dragging_enabled;
+        }
+
+
+        // call after released event handler
+        void
+        end_drag(state_t& imgui) {
+            if (imgui.ctx.input->released.mouse_btns[0]) {
+                imgui.drag_event = std::nullopt;
+            }
+            imgui.dragging_enabled = 0;            
+        }
 
         inline void
         space(state_t& imgui, f32 offset) {
@@ -5133,6 +5183,16 @@ namespace gui {
             if (text_box.contains(v2f{x,y})) {
                 imgui.hot = txt_id;
             } else if (imgui.hot.id == txt_id) {
+                if (imgui.active.id == txt_id && imgui.dragging_enabled && !imgui.drag_event) {
+                    drag_event_t drag_event{};
+                    drag_event.start_time = imgui.time();
+                    drag_event.start_pos = v2f{x,y};
+                    drag_event.widget_id = txt_id;
+                    drag_event.user_data = imgui.drag_user_data;
+                    drag_event.user_data_size = imgui.drag_user_data_size;
+                    drag_event.type_name = imgui.drag_user_type_name;
+                    imgui.drag_event.emplace(drag_event);
+                }
                 imgui.hot.id = 0;
             }
 
@@ -5143,6 +5203,12 @@ namespace gui {
                         if (toggle_state) {
                             *toggle_state = result;
                         }
+                        if (imgui.drag_event) {
+                            imgui.drag_event->dropped_id = txt_id;
+                            imgui.drag_event->dropped_type_name = imgui.drag_user_type_name;
+                            imgui.drag_event->dropped_user_data = imgui.drag_user_data;
+                            imgui.drag_event->dropped_user_data_size = imgui.drag_user_data_size;
+                        }                        
                     }
                     imgui.active = 0;
                 }
@@ -5153,9 +5219,20 @@ namespace gui {
                 }
             }
 
+            auto save_temp = temp_cursor;
+            if (imgui.drag_event && imgui.drag_event->widget_id == txt_id) {
+                temp_cursor = v2f{x,y};
+            }
+
             auto shadow_cursor = temp_cursor + imgui.theme.shadow_distance;
             string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
+
+            if (imgui.drag_event && imgui.drag_event->widget_id == txt_id) {
+                auto text_height = temp_cursor.y - y;
+                temp_cursor = save_temp + v2f{0.0f, text_height};
+            }
+
             // draw_rect(&imgui.ctx, text_box, gfx::color::rgba::purple);
             if (imgui.next_same_line) {
                 imgui.next_same_line = false;

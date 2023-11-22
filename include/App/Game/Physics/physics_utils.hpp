@@ -9,6 +9,22 @@
 
 namespace physics {
 
+math::transform_t
+cast_transform(const physx::PxTransform& transform) {
+    v3f origin{
+        transform.p.x,
+        transform.p.y,
+        transform.p.z
+    };
+    quat orientation{};
+    orientation.x = transform.q.x;
+    orientation.y = transform.q.y;
+    orientation.z = transform.q.z;
+    orientation.w = transform.q.w;
+    
+    return math::transform_t{origin, orientation};
+}
+
 physx::PxTransform
 cast_transform(v3f origin, quat orientation) {
     physx::PxVec3 p;

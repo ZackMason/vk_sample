@@ -39,7 +39,7 @@ void co_blood(coroutine_t* co, frame_arena_t& frame_arena) {
                 v3f rd=e->global_transform().basis * ((ps->particles[i].velocity/20.0f));
                 math::ray_t blood_ray{ro,rd};
                 DEBUG_DIAGRAM_(blood_ray, 0.0001f);
-                if (auto ray = physics->raycast_world(physics, ro, rd); ray.hit) {
+                if (auto ray = physics->raycast_world(ro, rd); ray.hit) {
                     auto* rb = (physics::rigidbody_t*)ray.user_data;
                     if (rb->type==physics::rigidbody_type::STATIC) {
                         math::transform_t transform{ray.point + ray.normal * 0.01f};
@@ -97,7 +97,7 @@ zyy::entity_t* spawn_blood(
     return ps;
 }
 
-void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
+void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other, physics::collider_t* self_shape, physics::collider_t* other_shape) {
     auto* hit_entity = (zyy::entity_t*)other->user_data;
     auto* self_entity = (zyy::entity_t*)self->user_data;
     auto* world = (zyy::world_t*)self->api->user_world;
@@ -165,7 +165,12 @@ void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
     }
 }
 
-void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other) {
+void rocket_on_hit(
+    physics::rigidbody_t* self, 
+    physics::rigidbody_t* other, 
+    physics::collider_t* self_shape, 
+    physics::collider_t* other_shape
+) {
     auto* hit_entity = (zyy::entity_t*)other->user_data;
     auto* self_entity = (zyy::entity_t*)self->user_data;
     auto* world = (zyy::world_t*)self->api->user_world;

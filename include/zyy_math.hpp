@@ -743,6 +743,10 @@ struct transform_t {
         res[3] = v4f(origin,1.0f);
         return res;
     }
+
+    math::transform_t operator*(const math::transform_t& o) const {
+        return math::transform_t{to_matrix() * o.to_matrix()};
+    }
     
 	operator m44() const {
 		return to_matrix();

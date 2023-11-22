@@ -48,15 +48,17 @@ class rigidbody_event_callback : public physx::PxSimulationEventCallback {
             const PxTriggerPair& tp = pairs[i];
             
             auto* rb0 = (rigidbody_t*)tp.triggerActor->userData;
+            auto* s0  = (collider_t*)tp.triggerShape->userData;
             auto* rb1 = (rigidbody_t*)tp.otherActor->userData;
+            auto* s1  = (collider_t*)tp.otherShape->userData;
 
             if (tp.status == PxPairFlag::eNOTIFY_TOUCH_FOUND) {
                 if (rb0->on_trigger) {
-                    rb0->on_trigger(rb0, rb1);
+                    rb0->on_trigger(rb0, rb1, s0, s1);
                 }
             } else if (tp.status == PxPairFlag::eNOTIFY_TOUCH_LOST) {
                 if (rb0->on_trigger_end) {
-                    rb0->on_trigger_end(rb0, rb1);
+                    rb0->on_trigger_end(rb0, rb1, s0, s1);
                 }
             }
         }
@@ -72,23 +74,26 @@ class rigidbody_event_callback : public physx::PxSimulationEventCallback {
 
         for(PxU32 i=0; i < nbPairs; i++) {
             const PxContactPair& cp = pairs[i];
-            
+
             auto* rb0 = (rigidbody_t*)pairHeader.actors[0]->userData;
             auto* rb1 = (rigidbody_t*)pairHeader.actors[1]->userData;
 
+            auto* s0 = (collider_t*)cp.shapes[0]->userData;
+            auto* s1 = (collider_t*)cp.shapes[1]->userData;
+            
             if (cp.events & PxPairFlag::eNOTIFY_TOUCH_FOUND) {      
                 if (rb0->on_collision) {
-                    rb0->on_collision(rb0, rb1);
+                    rb0->on_collision(rb0, rb1, s0, s1);
                 }
                 if (rb1->on_collision) {
-                    rb1->on_collision(rb1, rb0);
+                    rb1->on_collision(rb1, rb0, s1, s0);
                 }
             } else if (cp.events & PxPairFlag::eNOTIFY_TOUCH_LOST) {
                 if (rb0->on_collision_end) {
-                    rb0->on_collision_end(rb0, rb1);
+                    rb0->on_collision_end(rb0, rb1, s0, s1);
                 }
                 if (rb1->on_collision_end) {
-                    rb1->on_collision_end(rb1, rb0);
+                    rb1->on_collision_end(rb1, rb0, s1, s0);
                 }
             }
         }
@@ -106,12 +111,14 @@ public:
         physx::PxRigidActor* a = hit.shape->getActor();
         auto* rb0 = (rigidbody_t*)hit.controller->getActor()->userData;
         auto* rb1 = (rigidbody_t*)a->userData;
+        auto* s0 = (collider_t*)0;
+        auto* s1 = (collider_t*)hit.shape->userData;
 
         if (rb0->on_collision) {
-            rb0->on_collision(rb0, rb1);
+            rb0->on_collision(rb0, rb1, s0, s1);
         }
         if (rb1->on_collision) {
-            rb1->on_collision(rb1, rb0);
+            rb1->on_collision(rb1, rb0, s1, s0);
         }
 
         PxRigidDynamic* actor = hit.shape->getActor()->is<PxRigidDynamic>();
@@ -248,6 +255,16 @@ void physx_rigidbody_add_force_at_point(rigidbody_t* rb, const v3f& v, const v3f
         const PxVec3 localPos = globalPose.transformInv(pvec(p));
         PxRigidBodyExt::addForceAtLocalPos(*actor, pvec(v), localPos, PxForceMode::eFORCE);
     }
+}
+
+void physx_collider_set_transform(const collider_t* collider, const math::transform_t& transform) {
+    auto* shape = (PxShape*)collider->shape;
+    shape->setLocalPose(cast_transform(transform));
+}
+
+math::transform_t physx_collider_get_transform(const collider_t* collider) {
+    auto* shape = (PxShape*)collider->shape;
+    return cast_transform(shape->getLocalPose());
 }
 
 void physx_collider_set_active(collider_t* collider, bool x) {
@@ -555,7 +572,7 @@ physx_sphere_overlap_world(const api_t* api, arena_t* arena, v3f o, f32 radius, 
 }
 
 raycast_result_t
-physx_raycast_world(const api_t* api, v3f ro, v3f rd) {
+physx_raycast_world(const api_t* api, v3f ro, v3f rd, u32 layer) {
     TIMED_FUNCTION;
     auto* ps = get_physx(api);
     auto dist = glm::length(rd);
@@ -569,6 +586,8 @@ physx_raycast_world(const api_t* api, v3f ro, v3f rd) {
     physx::PxRaycastBuffer hit{};
 
     PxQueryFilterData filter_data(PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC);
+
+    filter_data.data.word0 = layer;
 
     raycast_result_t result{};
     result.hit = ps->world->scene->raycast(pro, prd, dist, hit, PxHitFlag::eDEFAULT, filter_data);

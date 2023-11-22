@@ -7,7 +7,7 @@
 #define SPAWN_GUN(gun, where) do{\
     auto* shotgun = zyy::spawn(world, world->render_system(),   \
         (gun), (where));  \
-    shotgun->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other) {   \
+    shotgun->physics.rigidbody->on_trigger = [](physics::rigidbody_t* trigger, physics::rigidbody_t* other, physics::collider_t* trigger_shape, physics::collider_t* other_shape) {   \
         auto* self = (zyy::entity_t*)trigger->user_data;    \
         auto* other_e = (zyy::entity_t*)other->user_data;   \
         auto* world = (zyy::world_t*)trigger->api->user_world;  \
