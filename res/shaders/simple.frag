@@ -238,7 +238,7 @@ main( )
 	float depth = length(vCameraPos.xyz - vWorldPos);
 	vec3 V = normalize(vCameraPos.xyz - vWorldPos);
 	
-	vec3 albedo = rgb * (vDrawColor.rgb);
+	vec3 albedo = rgb * sqr(vDrawColor.rgb);
 	// alpha *= vDrawColor.a;
 	
 	if (alpha < 0.015) { discard; }

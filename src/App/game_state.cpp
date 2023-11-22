@@ -1621,8 +1621,9 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
             VkColorBlendEquationEXT blend_fn[1];
             blend_fn[0] = gfx::vul::utl::alpha_blending();
-            ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
-            VkBool32 fb_blend[1] { true };
+            // ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
+            VkBool32 fb_blend[1] { false };
+            // VkBool32 fb_blend[1] { true };
             ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
             // ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
 

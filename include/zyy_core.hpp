@@ -2675,7 +2675,8 @@ namespace color {
             range_u32(i, 1, count) {
                 if ((positions[i-1] < t && positions[i] > t) || i == count-1) {
                     auto lt = (t - positions[i-1]) / (positions[i] - positions[i-1]);
-                    return glm::sqrt(glm::mix(math::sqr(colors[i-1]), math::sqr(colors[i]), glm::clamp(lt, 0.0f, 1.0f)));
+                    return glm::mix(math::sqr(colors[i-1]), math::sqr(colors[i]), glm::clamp(lt, 0.0f, 1.0f));
+                    // return glm::sqrt(glm::mix(math::sqr(colors[i-1]), math::sqr(colors[i]), glm::clamp(lt, 0.0f, 1.0f)));
                 }
             }
             

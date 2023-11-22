@@ -258,6 +258,8 @@ struct entity_editor_t {
     arena_t arena{};
     arena_t undo_arena{};
 
+    f32 time_scale{1.0f};
+
     edit_event_t redo_sentinel{};
     edit_event_t undo_sentinel{};
     edit_event_t* event_group{0};
@@ -1901,12 +1903,18 @@ inline static void
 entity_editor_update(entity_editor_t* ee) {
     auto* game_state = ee->game_state;
     auto* pack_file = game_state->resource_file;
-    auto dt = game_state->input().dt;
+    auto* input = &game_state->input();
+    auto dt = input->dt * ee->time_scale;
+
+    if (input->pressed.keys[key_id::F6]) {
+        ee->time_scale *= 0.5f;
+    } else if (input->pressed.keys[key_id::F7]) {
+        ee->time_scale *= 2.0f;
+    }
 
     auto& imgui = ee->imgui;
     const auto& screen_size = imgui.ctx.screen_size;
     auto& camera = ee->camera;
-    auto* input = &game_state->input();
     auto [mx, my] = input->mouse.pos;
    
     game_state->render_system->set_view(camera.view(), (u32)game_state->width(), (u32)game_state->height());
@@ -1992,7 +2000,7 @@ entity_editor_update(entity_editor_t* ee) {
                 if (p->dynamic & 2) {
                     instances = instances + p->instance_count;
                 }
-                particle_system_update(p->particle_system, p->transform.to_matrix(), input->dt);
+                particle_system_update(p->particle_system, p->transform.to_matrix(), dt);
                 particle_system_build_matrices(p->particle_system, p->transform.to_matrix(), p->instances, p->instance_count);
                 particle_system_build_colors(p->particle_system, p->instance_colors, p->instance_count);
             }
@@ -2036,9 +2044,9 @@ entity_editor_update(entity_editor_t* ee) {
             pc.move_input.y += input->mouse.delta[1] * 0.1f;
         }
 
-        camera.move(camera_move_speed * dt * camera.forward() * pc.move_input.z);
-        camera.move(camera_move_speed * dt * camera.right() * pc.move_input.x);
-        camera.move(camera_move_speed * dt * axis::up * pc.move_input.y);
+        camera.move(camera_move_speed * input->dt * camera.forward() * pc.move_input.z);
+        camera.move(camera_move_speed * input->dt * camera.right() * pc.move_input.x);
+        camera.move(camera_move_speed * input->dt * axis::up * pc.move_input.y);
         camera.rotate(dt * pc.look_input);
 
         if (input->mouse.scroll[1]) {
