@@ -77,6 +77,8 @@ struct collider_t {
 using rigidbody_on_collision_function = void(*)(rigidbody_t*, rigidbody_t*, collider_t*, collider_t*);
 using rigidbody_set_active_function = void(*)(rigidbody_t*, bool);
 
+using enumerate_collision_callbacks_function = void(*)(const char** buffer, u32* size);
+
 struct rigidbody_flags {
     enum {
         ACTIVE = BIT(0),     // todo(Zack): this can be removed

@@ -68,7 +68,7 @@ zyy::entity_t* spawn_explosion(
     zyy::prefab_t particle_prefab,
     u32 material = 2
 ) {
-    particle_prefab.coroutine = co_kill_in_x(0.990f);
+    particle_prefab.coroutine = co_kill_in_x(1.490f);
 
     particle_prefab.emitter->max_count = count;
 
@@ -256,17 +256,19 @@ zyy::entity_t* explosion_at_point(
     };
 
     // auto explosion = zyy::db::particle::orb;
-    local_persist auto explosion = load_from_file(&world->arena, "./res/entity/explosion_up.entt");
+    // local_persist auto explosion = load_from_file(&world->arena, "./res/entity/explosion_up.entt");
+    auto explosion = world->prefab_loader.load(&world->arena, "./res/entity/explosion_up.entt");
+    spawn_explosion(world, rnd_pos(1.0f), 64, explosion, 4);
     // explosion.emitter->template_particle.life_time = 4.01f;
     // explosion.emitter->scale_over_life_time = math::range_t{14.0f, 4.2f};
     // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 8);
     // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 8);
-    explosion.emitter->scale_over_life_time = math::range_t{1.0f, 0.2f};
-    spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 5);
-    spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 6);
-    explosion.emitter->scale_over_life_time = math::range_t{0.50f, 0.1f};
-    spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 5);
-    spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 6);
+    // explosion.emitter->scale_over_life_time = math::range_t{1.0f, 0.2f};
+    // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 5);
+    // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 6);
+    // explosion.emitter->scale_over_life_time = math::range_t{0.50f, 0.1f};
+    // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 5);
+    // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 6);
 
     end_temporary_memory(memory);
 

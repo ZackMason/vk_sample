@@ -6,6 +6,8 @@
 #include "dialog_window.hpp"
 #include "App/Game/Entity/entity.hpp"
 #include "App/Game/Entity/zyy_entity_prefab.hpp"
+#include "App/Game/Entity/zyy_coroutine_callbacks.hpp"
+#include "App/Game/Entity/zyy_physics_callbacks.hpp"
 
 #include "App/game_state.hpp"
 
@@ -910,11 +912,14 @@ load_texture_window(
     return false;
 }
 
+using enumerate_callbacks_function = void(*)(const char**, u32*);
+
 static bool
 load_function_window(
     gfx::gui::im::state_t& imgui,
     entity_editor_t* ee,
-    char* buffer
+    char* buffer,
+    enumerate_callbacks_function enumerate_callbacks = 0
 ) {
     using namespace gfx::gui;
     local_persist dialog_window_t dialog_box{.position = v2f{500.0f, 300.0f}};;
@@ -960,11 +965,36 @@ load_function_window(
         // im::space(imgui, 32.0f);
     };
 
+    auto draw_functions_enumerated = [&]() {
+        auto memory = begin_temporary_memory(&ee->arena);
+
+        u32 count;
+        enumerate_callbacks(0, &count);
+
+        tag_array(const char** names, const char*, memory.arena, count);
+
+        enumerate_callbacks(names, &count);
+
+        range_u32(i, 0, count) {
+            if (im::text(imgui, names[i])) {
+                utl::copy(file, names[i], std::strlen(names[i]));
+            }
+        }
+        
+        end_temporary_memory(memory);
+    };
+
     dialog_box
         .set_title("Load Callback")
-        .set_description("Select a function")
-        .draw(imgui, draw_files)
-        .into(file);
+        .set_description("Select a function");
+
+    if (enumerate_callbacks) {
+        dialog_box.draw(imgui, draw_functions_enumerated);
+    } else {
+        dialog_box.draw(imgui, draw_files);
+    }
+
+    dialog_box.into(file);
 
         
     if (dialog_box.done == 2) {
@@ -1085,7 +1115,11 @@ entity_editor_render(entity_editor_t* ee) {
         show_texture_dialog = load_texture_window(imgui, ee);
     }
     if (show_function_dialog) {
-        show_function_dialog = load_function_window(imgui, ee, show_function_dialog) ? show_function_dialog : 0;
+        if (show_function_dialog == ee->entity->coroutine.name) {
+            show_function_dialog = load_function_window(imgui, ee, show_function_dialog, enumerate_coroutine_callbacks) ? show_function_dialog : 0;
+        } else {
+            show_function_dialog = load_function_window(imgui, ee, show_function_dialog) ? show_function_dialog : 0;
+        }
     }
 
     bool ctrl_held = game_state->input().keys[key_id::LEFT_CONTROL] || game_state->input().keys[key_id::RIGHT_CONTROL];

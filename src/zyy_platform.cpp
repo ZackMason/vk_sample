@@ -261,7 +261,7 @@ bool check_buffer_overflow() {
 
 FILETIME gs_game_dll_write_time;
 
-FILETIME win32_last_write_time(const char* path){
+FILETIME win32_last_write_time(const char* path) {
 	FILETIME time = {};
 	WIN32_FILE_ATTRIBUTE_DATA data;
 

@@ -47,6 +47,8 @@ platform_api_t Platform;
 #include "App/Game/Items/explosion_effect.hpp"
 #include "App/zyy_weapon_common.cpp"
 
+#include "App/Game/Entity/zyy_physics_callbacks.hpp"
+
 #if ZYY_INTERNAL
 debug_table_t gs_debug_table;
 size_t gs_main_debug_record_size = __COUNTER__;

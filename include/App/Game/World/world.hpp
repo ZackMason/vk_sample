@@ -18,7 +18,21 @@ namespace zyy {
         none = 0ui32,
         player = 1ui32,
         enemy = 2ui32,
-        everything = 0xffffffffui32,        
+        everything = 0xffff'ffffui32,        
+    };
+
+    struct prefab_loader_t {
+        utl::hash_trie_t<std::string_view, zyy::prefab_t>* map = 0; 
+
+        zyy::prefab_t load(arena_t* arena, std::string_view name) {
+            b32   has = 0;
+            auto* prefab = utl::hash_get(&map, name, arena, &has);
+            assert(prefab);
+            if (!has) {
+                *prefab = load_from_file(arena, name);
+            }
+            return *prefab;
+        }
     };
 
     static constexpr u64 max_entities = 15000;
@@ -96,8 +110,8 @@ namespace zyy {
         arena_t arena;
         arena_t particle_arena;
         frame_arena_t frame_arena;
-        // arena_t frame_arena[2];
-        // u64     frame_count{0};
+
+        prefab_loader_t prefab_loader{};
 
         size_t          entity_count{0};
         size_t          entity_capacity{0};

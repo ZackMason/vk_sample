@@ -6437,15 +6437,21 @@ struct hash_trie_t {
 };
 
 template <typename Key, typename Value>
-Value* hash_get(hash_trie_t<Key,Value>** map, Key key, arena_t* arena=0) {
+Value* hash_get(hash_trie_t<Key,Value>** map, Key key, arena_t* arena=0, b32* had = 0) {
     for (u64 h = std::hash<Key>{}(key); *map; h>>=2) {
         if (key == (*map)->key) {
+            if (had) {
+                *had = 1;
+            }
             return &(*map)->value;
         }
         map = &(*map)->child[h>>62];
     }
     if (!arena) {
         return 0;
+    }
+    if (had) {
+        *had = 0;
     }
     *map = push_struct<hash_trie_t<Key, Value>>(arena);
     **map = {};

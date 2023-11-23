@@ -241,7 +241,7 @@ main( )
 	vec3 albedo = rgb * sqr(vDrawColor.rgb);
 	// alpha *= vDrawColor.a;
 	
-	if (alpha < 0.015) { discard; }
+	if (alpha < 0.15) { discard; }
 	// albedo = pow(albedo, vec3(1.0/2.2));
 
 
