@@ -31,6 +31,7 @@ load_save_particle_dialog(
     return true;
 }
 
+global_variable f32 BEHAVIOR_RECT_PAD_SIZE = 10.0f;
 void draw_behavior(
     gfx::gui::im::state_t& imgui,
     bt::behavior_t* node,
@@ -103,6 +104,8 @@ void draw_behavior(
     // auto text_size = gfx::font_get_size(imgui.ctx.font, "Active Selector wow");
     // rect.expand(cursor+v2f{text_size.x,0.0f});
 
+
+    rect.pull(v2f{BEHAVIOR_RECT_PAD_SIZE});
     gfx::gui::draw_round_rect(&imgui.ctx, rect, 4.0f, imgui.theme.bg_color);
 
     auto save_rect = rect;
@@ -120,6 +123,7 @@ void draw_behavior(
     auto dt = blkbrd_time - node->touch;
     
     cc = gfx::color::to_color32(gfx::color::to_color3(cc) * math::sqr(1.0f-(dt/(1.0f+dt))));
+
 
     gfx::gui::draw_round_rect(&imgui.ctx, rect, 4.0f, cc);
     rect = save_rect;
@@ -191,6 +195,8 @@ void draw_behavior(
             draw_node(c, rect, i);
         }
     }
+
+    rect.pull(v2f{-BEHAVIOR_RECT_PAD_SIZE});
 }
 
 void 
@@ -237,19 +243,28 @@ draw_behavior_tree(
             im::point_edit(imgui, &camera_screen.min, screen, screen, gfx::color::rgba::white);
             im::point_edit(imgui, &camera_screen.max, screen, screen, gfx::color::rgba::white);
         }
+
+
+
         if (im::text(imgui, "Open", &open[0])) {
-            if (im::text(imgui, "- floats", &open[1])) {
-                utl::hash_foreach<std::string_view, f32>(blkbrd->floats, print_field);
-                im::text(imgui, "-----------------");
+            local_persist u64 blkbrd_tab = 0;
+            std::string_view blkbrd_tab_names[] = {
+                "floats",
+                "bools",
+                "points"
+            };
+            switch (blkbrd_tab = im::tabs(imgui, blkbrd_tab_names, blkbrd_tab)) {
+                case "floats"_sid: 
+                    utl::hash_foreach<std::string_view, f32>(blkbrd->floats, print_field);
+                    break;
+                case "bools"_sid:
+                    utl::hash_foreach<std::string_view, b32>(blkbrd->bools, print_field);
+                    break;              
+                case "points"_sid:
+                    utl::hash_foreach<std::string_view, v3f>(blkbrd->points, print_field);
+                    break;
             }
-            if (im::text(imgui, "- bools", &open[2])) {
-                utl::hash_foreach<std::string_view, b32>(blkbrd->bools, print_field);
-                im::text(imgui, "-----------------");
-            }
-            if (im::text(imgui, "- points", &open[3])) {
-                utl::hash_foreach<std::string_view, v3f>(blkbrd->points, print_field);
-                im::text(imgui, "-----------------");
-            }
+            im::text(imgui, "-----------------");
         }
         im::end_panel(imgui, &blkbrd_aabb.min, &size);
     }
@@ -268,18 +283,24 @@ draw_behavior_tree(
         draw_behavior(imgui, root, rects, blkbrd->time, drag);
     }
 
+    // resolve overlapping rects
     range_u64(i, 0, rects.count()) {
         auto& a = *rects[i];
+        a.pull(v2f{BEHAVIOR_RECT_PAD_SIZE});
         range_u64(j, 0, rects.count()) {
             if (i==j) continue;
             auto& b = *rects[j];
+            b.pull(v2f{BEHAVIOR_RECT_PAD_SIZE});
 
             if (a.intersect(b)) {
                 auto delta = a.center() - b.center() + v2f{1.0f};
                 a.add(delta*0.05f);
                 b.add(-delta*0.05f);
             }
+
+            b.pull(v2f{-BEHAVIOR_RECT_PAD_SIZE});
         }
+        a.pull(v2f{-BEHAVIOR_RECT_PAD_SIZE});
     }
  
     for(f32 i = 0.0f; i < screen.max.x; i += 256.0f) {
@@ -313,8 +334,6 @@ draw_behavior_tree(
     }
 }
 
-
-
 void
 watch_game_state(game_state_t* game_state) {
     auto* rs = game_state->render_system;
@@ -322,6 +341,8 @@ watch_game_state(game_state_t* game_state) {
     DEBUG_WATCH(time_scale)->max_f32 = 2.0f;
     // auto* window_size = &game_state->game_memory->config.graphics_config.window_size;
     // DEBUG_WATCH(window_size);
+    DEBUG_WATCH(&BEHAVIOR_RECT_PAD_SIZE);
+
     DEBUG_WATCH(&game_state->gui.state.theme.shadow_distance);
 
     DEBUG_WATCH(&gs_rtx_on)->max_u32 = 2;
@@ -402,16 +423,304 @@ set_ui_textures(game_state_t* game_state) {
         ui_textures, array_count(ui_textures)
     );
     
-
 }
 
+void draw_worlds(auto* game_state, auto& state) {
+    using namespace gfx::gui;
+    auto* world = game_state->game_world;
 
+    if (world->world_generator == nullptr) {
+        const math::rect2d_t screen{v2f{0.0f}, v2f{state.ctx.screen_size}};
+        local_persist math::rect2d_t world_rect{v2f{550,350}, v2f{550,350}};
+
+        // im::point_edit(state, &world_rect.min, screen, screen, gfx::color::rgba::red);
+        // im::point_edit(state, &world_rect.max, screen, screen, gfx::color::rgba::red);
+        
+        local_persist v2f world_size = world_rect.size();
+        local_persist b32 world_open = 1;
+        if (im::begin_panel(state, "World Select"sv, &world_rect.min, &world_size, &world_open)) {
+            #define WORLD_GUI(name) if (im::text(state, #name)) {world->world_generator = generate_##name(&world->arena); }
+                WORLD_GUI(world_maze);
+                WORLD_GUI(room_03);
+                WORLD_GUI(town_01);
+                WORLD_GUI(world_0);
+                WORLD_GUI(world_1);
+                WORLD_GUI(forest);
+                WORLD_GUI(probe_test);
+                WORLD_GUI(world_test);
+                WORLD_GUI(homebase);
+                WORLD_GUI(sponza);
+                WORLD_GUI(particle_test);
+                WORLD_GUI(crash_test);
+            #undef WORLD_GUI
+
+            for (const auto& entry : std::filesystem::recursive_directory_iterator("./")) {
+                auto filename = entry.path().string();
+                if (entry.is_directory()) {
+                    continue;
+                } else if (entry.is_regular_file() && utl::has_extension(filename, "zyy")) {
+                    if (im::text(state, filename)) {
+                        tag_array(auto* str, char, &world->arena, filename.size()+1);
+                        utl::copy(str, filename.c_str(), filename.size()+1);
+                        world->world_generator = generate_world_from_file(&world->arena, str);
+                    }
+                }
+            }
+
+            im::end_panel(state, &world_rect.min, &world_size);
+        }
+    }
+
+    if (world->world_generator && world->world_generator->is_done() == false) {
+        auto* generator = world->world_generator;
+
+        local_persist v2f panel_pos{350,350};
+        local_persist v2f panel_size{800,600};
+        local_persist b32 panel_open = 1;
+
+        panel_size = {};
+
+        if (im::begin_panel(state, "Loading"sv, &panel_pos, &panel_size, &panel_open)) {
+            im::text(state, fmt_sv("Loading World {}/{}", generator->completed_count, generator->step_count));
+
+            const auto theme = state.theme;
+
+            state.theme.text_color = gfx::color::rgba::green;
+            auto* step = generator->first_step;
+            for (size_t i = 0; i < generator->completed_count && step; i++) {
+                im::text(state, fmt_sv("Step {}: {}", i, step->name));
+                node_next(step);
+            }
+
+            state.theme.text_color = gfx::color::rgba::purple;
+                
+            if (generator->completed_count < generator->step_count) {
+                im::text(state, fmt_sv("Step {}: {}", generator->completed_count, step->name));
+            }
+
+            state.theme = theme;
+
+            state.hot = 0; state.active = 0; // @hack to clear ui state
+            im::end_panel(state, &panel_pos, &panel_size);
+        }
+    }
+}
+
+bool // want to hide; 
+draw_entity_gui(auto* game_state, auto& state) {
+    using namespace gfx::gui;
+    const m44 vp = 
+            game_state->render_system->vp;
+
+    local_persist zyy::entity_t* selected_entity{0};
+    local_persist v3f default_widget_pos{10.0f};
+    local_persist v3f* widget_pos = &default_widget_pos;
+    local_persist bt::behavior_tree_t* behavior_tree{0};
+    local_persist blackboard_t* blackboard{0};
+        
+    if (behavior_tree) {
+        draw_behavior_tree(state, behavior_tree, blackboard);
+        return true;
+    }
+
+    for (size_t i = 0; i < game_state->game_world->entity_capacity; i++) {
+        auto* e = game_state->game_world->entities + i;
+        if (e->is_alive() == false) { continue; }
+
+        const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
+
+        bool is_selected = widget_pos == &e->transform.origin;
+        if (is_selected) {
+            selected_entity = e;
+            if (e->gfx.mesh_id) {
+                // gfx::gui::draw_mesh(
+                //     &state.ctx,
+                //     &game_state->render_system->mesh_cache.get(e->gfx.mesh_id),
+                //     &game_state->render_system->scene_context->vertices.pool[0],
+                //     &game_state->render_system->scene_context->indices.pool[0],
+                //     e->global_transform().to_matrix(),
+                //     gfx::color::to_color32(v4f{1.0f, 1.0f, 0.1f, 0.5f})
+                //     // gfx::color::rgba::yellow
+                // );
+            }
+        }
+        bool not_player = e != game_state->game_world->player;
+        bool opened = false;
+        if ((is_selected) && im::begin_panel_3d(state, 
+            e->name.c_data ? 
+            std::string_view{fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e)}:
+            std::string_view{fmt_sv("Entity: {}", (void*)e)},
+            vp, e->global_transform().origin
+        )) {
+
+            opened = true;
+            im::text(state, 
+                e->name.c_data ? 
+                fmt_sv("Entity: {}", std::string_view{e->name}) :
+                fmt_sv("Entity: {}", (void*)e)
+            );
+
+            if (e->parent && im::text(state, fmt_sv("Parent: {}",(void*)e->parent))) {
+                v2f s;
+                widget_pos = &e->parent->transform.origin; 
+                im::end_panel(state, 0, &s);
+                break;
+            }
+            im::text(state, 
+                fmt_sv("Children[{}]", zyy::entity_child_count(e))
+            );
+
+#if ZYY_INTERNAL
+            auto _DEBUG_meta = e->_DEBUG_meta;
+            auto spawn_delta = game_state->game_world->time() - _DEBUG_meta.game_time;
+            
+            im::text(state, "DEBUG_meta:");
+            im::text(state, fmt_sv("- Spawn Time: {} - (T {:+}s)", _DEBUG_meta.game_time, spawn_delta));
+            if (_DEBUG_meta.prefab_name) im::text(state, fmt_sv("- Prefab Name: {}", _DEBUG_meta.prefab_name));
+            if (_DEBUG_meta.function) im::text(state, fmt_sv("- Function: {}", _DEBUG_meta.function));
+            if (_DEBUG_meta.file_name) {
+                if (im::text(state, fmt_sv("- Filename: {}:({})", utl::trim_filename(_DEBUG_meta.file_name), _DEBUG_meta.line_number))) {
+                    std::system(fmt_sv("code -g {}:{}:0", _DEBUG_meta.file_name, _DEBUG_meta.line_number).data());
+                }
+            }
+#endif
+
+            // im::text(state, 
+            //     fmt_sv("Screen Pos: {:.2f} {:.2f}", ndc.x, ndc.y)
+            // );
+            im::text(state, 
+                fmt_sv("Mesh ID: {}", e->gfx.mesh_id)
+            );
+
+            if (im::text(state,
+                fmt_sv("Origin: {:.2f} {:.2f} {:.2f}", 
+                    e->global_transform().origin.x,
+                    e->global_transform().origin.y,
+                    e->global_transform().origin.z
+                )
+            )) {
+                widget_pos = &e->transform.origin;
+            }
+
+            switch(e->physics.flags) {
+                case zyy::PhysicsEntityFlags_None:
+                    im::text(state, "Physics Type: None");
+                    break;
+                case zyy::PhysicsEntityFlags_Character:
+                    im::text(state, "Physics Type: Character");
+                    break;
+                case zyy::PhysicsEntityFlags_Kinematic:
+                    im::text(state, "Physics Type: Kinematic");
+                    break;
+                case zyy::PhysicsEntityFlags_Static:
+                    im::text(state, "Physics Type: Static");
+                    break;
+                case zyy::PhysicsEntityFlags_Dynamic:
+                    im::text(state, "Physics Type: Dynamic");
+                    break;
+            }
+            if (e->physics.rigidbody) {
+                im::text(state, fmt_sv("Velocity: {}", e->physics.rigidbody->velocity));
+            }
+
+            switch(e->type) {
+                case zyy::entity_type::weapon: {
+                    auto stats = e->stats.weapon;
+                    im::text(state, "Type: Weapon");
+                    im::text(state, "- Stats");
+                    im::text(state, fmt_sv("--- Damage: {}", stats.stats.damage));
+                    im::text(state, fmt_sv("--- Pen: {}", stats.stats.pen));
+                    im::text(state, fmt_sv("- Fire Rate: {}", stats.fire_rate));
+                    im::text(state, fmt_sv("- Load Speed: {}", stats.load_speed));
+                    im::text(state, "- Ammo");
+                    im::text(state, fmt_sv("--- {}/{}", stats.mag.current, stats.mag.max));
+                }   break;
+            }
+
+            im::text(state, fmt_sv("AABB: {} {}", e->aabb.min, e->aabb.max));
+
+            if (e->brain_id != uid::invalid_id) {
+                if (e->brain.type == brain_type::person) {
+                    // im::float_slider(state, &e->brain.person.fear);
+                    if (im::text(state, "Open Behavior Tree")) {
+                        behavior_tree = &e->brain.person.tree;
+                        blackboard = &e->brain.blackboard;
+                    }
+                }
+            }
+
+            if (im::text(state, fmt_sv("Kill\0: {}"sv, (void*)e))) {
+                auto* te = e->next;
+                zyy_info("gui", "Killing entity: {}", (void*)e);
+                e->queue_free();
+                // zyy::world_destroy_entity(game_state->game_world, e);
+                if (!te) {
+                    v2f s ={};
+                    im::end_panel(state, 0, &s);
+                    break;
+                }
+                e = te;
+            }
+
+            if (check_for_debugger() && im::text(state, fmt_sv("Breakpoint\0{}"sv, e->id))) {
+                e->flags ^= zyy::EntityFlags_Breakpoint;
+            }
+
+            v2f e_panel_size = {};
+            im::end_panel(state, 0, &e_panel_size);
+        }
+        auto entity_id_color = static_cast<u32>(utl::rng::fnv_hash_u64(e->id));
+        entity_id_color |= gfx::color::rgba::clear_alpha;
+        if (!opened && !is_selected && (not_player && im::draw_hiding_circle_3d(
+            state, vp, e->global_transform().origin, 0.1f, 
+            entity_id_color, 2.0f)) && state.ctx.input->pressed.mouse_btns[0]
+        ) {
+            widget_pos = &e->transform.origin;
+        }
+
+        const auto panel = im::get_last_panel(state);
+        if (is_selected && opened && im::draw_circle(state, panel.max, 8.0f, gfx::color::rgba::red, 4)) {
+            widget_pos = &default_widget_pos;
+        }
+    }
+
+    if (widget_pos == &default_widget_pos) {
+        selected_entity = 0;
+    }
+
+    im::gizmo(state, widget_pos, vp);
+
+    if (selected_entity && 
+        selected_entity->physics.rigidbody //&&
+        // (selected_entity->physics.rigidbody->type == physics::rigidbody_type::KINEMATIC ||
+        //  selected_entity->physics.rigidbody->type == physics::rigidbody_type::STATIC 
+        // )
+    ) {
+        selected_entity->physics.rigidbody->set_transform(selected_entity->global_transform().to_matrix());
+    }
+
+    return false;
+}
+
+void begin_gui(auto* game_state) {
+    using namespace gfx::gui;
+
+    const u64 frame{++game_state->gui.ctx.frame};
+
+    ctx_clear(
+        &game_state->gui.ctx, 
+        &game_state->gui.vertices[(frame&1)].pool, 
+        &game_state->gui.indices[(frame&1)].pool);
+    im::clear(game_state->gui.state);
+}
 
 void 
 draw_gui(game_memory_t* game_memory) {
+    using namespace gfx::gui;
     TIMED_FUNCTION;
-    game_state_t* game_state = get_game_state(game_memory);
+    auto* game_state = (game_state_t*)game_memory->game_state;
     auto* input = &game_memory->input;
+    const u64 frame{game_state->gui.ctx.frame};
 
     local_persist f32 test_float = 0.0f;
     local_persist dialog_window_t dialog{
@@ -422,8 +731,6 @@ draw_gui(game_memory_t* game_memory) {
 
     auto* render_system = game_state->render_system;
 
-    const u64 frame{++game_state->gui.ctx.frame};
-    auto string_mark = arena_get_mark(&game_state->string_arena);
 
     arena_t* display_arenas[] = {
         &game_state->main_arena,
@@ -484,9 +791,7 @@ draw_gui(game_memory_t* game_memory) {
     };
 
     // std::lock_guard lock{game_state->render_system->ticket};
-    gfx::gui::ctx_clear(&game_state->gui.ctx, 
-        &game_state->gui.vertices[(frame&1)].pool, &game_state->gui.indices[(frame&1)].pool);
-    
+
     const auto dt = game_memory->input.dt;
 
     game_state->time_text_anim -= dt;
@@ -529,15 +834,7 @@ draw_gui(game_memory_t* game_memory) {
 
     {
         using namespace std::string_view_literals;
-        using namespace gfx::gui;
-        im::clear(state);
-
-#ifdef DEBUG_STATE 
-        DEBUG_STATE_DRAW(state, render_system->projection, render_system->view, render_system->viewport());
-        if (gs_show_watcher) {
-            DEBUG_STATE_DRAW_WATCH_WINDOW(state);
-        }
-#endif
+        
 
     // state.theme.bg_color = 
     //    gfx::color::rgba::dark_gray & ( ~(u32(f32(0xff) * gs_panel_opacity) << 24) );
@@ -555,11 +852,6 @@ draw_gui(game_memory_t* game_memory) {
 
         local_persist b32 load_system{0};
         local_persist particle_system_t* saving_system{0};
-        local_persist bt::behavior_tree_t* behavior_tree{0};
-        local_persist blackboard_t* blackboard{0};
-        local_persist v3f default_widget_pos{10.0f};
-        local_persist zyy::entity_t* selected_entity{0};
-        local_persist v3f* widget_pos = &default_widget_pos;
         local_persist bool show_probes = false;
 
         if (saving_system) {
@@ -568,88 +860,7 @@ draw_gui(game_memory_t* game_memory) {
             }
         }
 
-        if (behavior_tree) {
-            draw_behavior_tree(state, behavior_tree, blackboard);
-            return;
-        }
-
-        auto* world = game_state->game_world;
-        if (world->world_generator == nullptr) {
-            const math::rect2d_t screen{v2f{0.0f}, v2f{state.ctx.screen_size}};
-            local_persist math::rect2d_t world_rect{v2f{550,350}, v2f{550,350}};
-
-            // im::point_edit(state, &world_rect.min, screen, screen, gfx::color::rgba::red);
-            // im::point_edit(state, &world_rect.max, screen, screen, gfx::color::rgba::red);
-            
-            local_persist v2f world_size = world_rect.size();
-            local_persist b32 world_open = 1;
-            if (im::begin_panel(state, "World Select"sv, &world_rect.min, &world_size, &world_open)) {
-                #define WORLD_GUI(name) if (im::text(state, #name)) {world->world_generator = generate_##name(&world->arena); }
-                    WORLD_GUI(world_maze);
-                    WORLD_GUI(room_03);
-                    WORLD_GUI(town_01);
-                    WORLD_GUI(world_0);
-                    WORLD_GUI(world_1);
-                    WORLD_GUI(forest);
-                    WORLD_GUI(probe_test);
-                    WORLD_GUI(world_test);
-                    WORLD_GUI(homebase);
-                    WORLD_GUI(sponza);
-                    WORLD_GUI(particle_test);
-                    WORLD_GUI(crash_test);
-                #undef WORLD_GUI
-
-                for (const auto& entry : std::filesystem::recursive_directory_iterator("./")) {
-                    auto filename = entry.path().string();
-                    if (entry.is_directory()) {
-                        continue;
-                    } else if (entry.is_regular_file() && utl::has_extension(filename, "zyy")) {
-                        if (im::text(state, filename)) {
-                            tag_array(auto* str, char, &world->arena, filename.size()+1);
-                            utl::copy(str, filename.c_str(), filename.size()+1);
-                            world->world_generator = generate_world_from_file(&world->arena, str);
-                        }
-                    }
-                }
-
-                im::end_panel(state, &world_rect.min, &world_size);
-            }
-        }
-
-        if (world->world_generator && world->world_generator->is_done() == false) {
-            auto* generator = world->world_generator;
-
-            local_persist v2f panel_pos{350,350};
-            local_persist v2f panel_size{800,600};
-            local_persist b32 panel_open = 1;
-
-            panel_size = {};
-
-            if (im::begin_panel(state, "Loading"sv, &panel_pos, &panel_size, &panel_open)) {
-                im::text(state, fmt_sv("Loading World {}/{}", generator->completed_count, generator->step_count));
-
-                const auto theme = state.theme;
-
-                state.theme.text_color = gfx::color::rgba::green;
-                auto* step = generator->first_step;
-                for (size_t i = 0; i < generator->completed_count && step; i++) {
-                    im::text(state, fmt_sv("Step {}: {}", i, step->name));
-                    node_next(step);
-                }
-
-                state.theme.text_color = gfx::color::rgba::purple;
-                    
-                if (generator->completed_count < generator->step_count) {
-                    im::text(state, fmt_sv("Step {}: {}", generator->completed_count, step->name));
-                }
-
-                state.theme = theme;
-
-                state.hot = 0; state.active = 0; // @hack to clear ui state
-                im::end_panel(state, &panel_pos, &panel_size);
-            }
-        }
-
+        
         local_persist bool show_entities = false;
         local_persist v2f main_pos = {};
         local_persist v2f main_size = {};
@@ -758,10 +969,10 @@ draw_gui(game_memory_t* game_memory) {
                 }
             }
 #endif
-            
+
             if (open_tab == "Stats"_sid) {
 
-                object_gui(state, game_state->render_system->stats);
+                // object_gui(state, game_state->render_system->stats);
                 
                 {
                     const auto [x,y] = game_memory->input.mouse.pos;
@@ -1010,7 +1221,7 @@ draw_gui(game_memory_t* game_memory) {
                                     im::float_drag(state, &point_lights[i].range, 1.0f);
                                     im::float_drag(state, &point_lights[i].power, 1.0f);
 
-                                    widget_pos = (v3f*)&point_lights[i].pos;
+                                    // widget_pos = (v3f*)&point_lights[i].pos;
                                 }
                             }
                         }
@@ -1148,256 +1359,7 @@ draw_gui(game_memory_t* game_memory) {
         }
 
         // for (zyy::entity_t* e = game_itr(game_state->game_world); e; e = e->next) {
-        for (size_t i = 0; i < game_state->game_world->entity_capacity; i++) {
-            auto* e = game_state->game_world->entities + i;
-            if (e->is_alive() == false) { continue; }
-
-            const v3f ndc = math::world_to_screen(vp, e->global_transform().origin);
-
-            bool is_selected = widget_pos == &e->transform.origin;
-            if (is_selected) {
-                selected_entity = e;
-                if (e->gfx.mesh_id) {
-                    // gfx::gui::draw_mesh(
-                    //     &state.ctx,
-                    //     &game_state->render_system->mesh_cache.get(e->gfx.mesh_id),
-                    //     &game_state->render_system->scene_context->vertices.pool[0],
-                    //     &game_state->render_system->scene_context->indices.pool[0],
-                    //     e->global_transform().to_matrix(),
-                    //     gfx::color::to_color32(v4f{1.0f, 1.0f, 0.1f, 0.5f})
-                    //     // gfx::color::rgba::yellow
-                    // );
-                }
-            }
-            bool not_player = e != game_state->game_world->player;
-            bool opened = false;
-            if ((show_entities || is_selected) && im::begin_panel_3d(state, 
-                e->name.c_data ? 
-                std::string_view{fmt_sv("Entity: {}\0{}"sv, std::string_view{e->name}, (void*)e)}:
-                std::string_view{fmt_sv("Entity: {}", (void*)e)},
-                vp, e->global_transform().origin
-            )) {
-
-                opened = true;
-                im::text(state, 
-                    e->name.c_data ? 
-                    fmt_sv("Entity: {}", std::string_view{e->name}) :
-                    fmt_sv("Entity: {}", (void*)e)
-                );
-
-                if (e->parent && im::text(state, fmt_sv("Parent: {}",(void*)e->parent))) {
-                    v2f s;
-                    widget_pos = &e->parent->transform.origin; 
-                    im::end_panel(state, 0, &s);
-                    break;
-                }
-                im::text(state, 
-                    fmt_sv("Children[{}]", zyy::entity_child_count(e))
-                );
-
-#if ZYY_INTERNAL
-                auto _DEBUG_meta = e->_DEBUG_meta;
-                auto spawn_delta = game_state->game_world->time() - _DEBUG_meta.game_time;
-                
-                im::text(state, "DEBUG_meta:");
-                im::text(state, fmt_sv("- Spawn Time: {} - (T {:+}s)", _DEBUG_meta.game_time, spawn_delta));
-                if (_DEBUG_meta.prefab_name) im::text(state, fmt_sv("- Prefab Name: {}", _DEBUG_meta.prefab_name));
-                if (_DEBUG_meta.function) im::text(state, fmt_sv("- Function: {}", _DEBUG_meta.function));
-                if (_DEBUG_meta.file_name) {
-                    if (im::text(state, fmt_sv("- Filename: {}:({})", utl::trim_filename(_DEBUG_meta.file_name), _DEBUG_meta.line_number))) {
-                        std::system(fmt_sv("code -g {}:{}:0", _DEBUG_meta.file_name, _DEBUG_meta.line_number).data());
-                    }
-                }
-#endif
-
-                // im::text(state, 
-                //     fmt_sv("Screen Pos: {:.2f} {:.2f}", ndc.x, ndc.y)
-                // );
-                im::text(state, 
-                    fmt_sv("Mesh ID: {}", e->gfx.mesh_id)
-                );
-
-                if (im::text(state,
-                    fmt_sv("Origin: {:.2f} {:.2f} {:.2f}", 
-                        e->global_transform().origin.x,
-                        e->global_transform().origin.y,
-                        e->global_transform().origin.z
-                    )
-                )) {
-                    widget_pos = &e->transform.origin;
-                }
-
-                switch(e->physics.flags) {
-                    case zyy::PhysicsEntityFlags_None:
-                        im::text(state, "Physics Type: None");
-                        break;
-                    case zyy::PhysicsEntityFlags_Character:
-                        im::text(state, "Physics Type: Character");
-                        break;
-                    case zyy::PhysicsEntityFlags_Kinematic:
-                        im::text(state, "Physics Type: Kinematic");
-                        break;
-                    case zyy::PhysicsEntityFlags_Static:
-                        im::text(state, "Physics Type: Static");
-                        break;
-                    case zyy::PhysicsEntityFlags_Dynamic:
-                        im::text(state, "Physics Type: Dynamic");
-                        break;
-                }
-                if (e->physics.rigidbody) {
-                    im::text(state, fmt_sv("Velocity: {}", e->physics.rigidbody->velocity));
-                }
-
-                switch(e->type) {
-                    case zyy::entity_type::weapon: {
-                        auto stats = e->stats.weapon;
-                        im::text(state, "Type: Weapon");
-                        im::text(state, "- Stats");
-                        im::text(state, fmt_sv("--- Damage: {}", stats.stats.damage));
-                        im::text(state, fmt_sv("--- Pen: {}", stats.stats.pen));
-                        im::text(state, fmt_sv("- Fire Rate: {}", stats.fire_rate));
-                        im::text(state, fmt_sv("- Load Speed: {}", stats.load_speed));
-                        im::text(state, "- Ammo");
-                        im::text(state, fmt_sv("--- {}/{}", stats.mag.current, stats.mag.max));
-                    }   break;
-                }
-
-                im::text(state, fmt_sv("AABB: {} {}", e->aabb.min, e->aabb.max));
-
-                if (e->brain_id != uid::invalid_id) {
-                    if (e->brain.type == brain_type::person) {
-                        // im::float_slider(state, &e->brain.person.fear);
-                        if (im::text(state, "Open Behavior Tree")) {
-                            behavior_tree = &e->brain.person.tree;
-                            blackboard = &e->brain.blackboard;
-                        }
-                    }
-                }
-
-                if (im::text(state, fmt_sv("Kill\0: {}"sv, (void*)e))) {
-                    auto* te = e->next;
-                    zyy_info("gui", "Killing entity: {}", (void*)e);
-                    e->queue_free();
-                    // zyy::world_destroy_entity(game_state->game_world, e);
-                    if (!te) {
-                        v2f s ={};
-                        im::end_panel(state, 0, &s);
-                        break;
-                    }
-                    e = te;
-                }
-
-                
-
-                if (check_for_debugger() && im::text(state, fmt_sv("Breakpoint\0{}"sv, e->id))) {
-                    e->flags ^= zyy::EntityFlags_Breakpoint;
-                }
-
-                if (e->gfx.particle_system) {
-                    auto* ps = e->gfx.particle_system;
-                    im::text(state, fmt_sv("Particle System - {} / {}", ps->live_count, ps->max_count));
-                    auto* alloc_info = get_allocation_tag(ps);
-                    if (alloc_info) {
-                        im::text(state, fmt_sv("- Particle Alloc Info: {}({})", alloc_info->file_name, alloc_info->line_number));
-                    }
-                    im::text(state, "- Particle Template");
-
-                    if (im::text(state, "--- Save: ")) {
-                        load_system = 0;
-                        saving_system = ps;
-                    }
-                    if (im::text(state, "--- Load: ")) {
-                        load_system = 1;
-                        saving_system = ps;
-                    }
-
-                    im::same_line(state);
-                    im::text(state, "--- life_time: ");
-                    im::float_slider(state, &ps->template_particle.life_time, 0.0f, 2.0f);
-                    
-                    im::same_line(state);
-                    im::text(state, "--- velocity: ");
-                    im::vec3(state, ps->template_particle.velocity, -1.0f, 1.0f);
-
-                    im::same_line(state);
-                    im::text(state, "- acceleration: ");
-                    im::vec3(state, ps->acceleration, -1.0f, 1.0f);
-
-                    im::same_line(state);
-                    im::text(state, "- spawn_rate: ");
-                    im::float_slider(state, &ps->spawn_rate, 0.0f, 1.0f);
-
-                    im::same_line(state);
-                    im::text(state, "- scale_over_life_time.min: ");
-                    im::float_slider(state, &ps->scale_over_life_time.min, 0.0f, 4.0f);
-                    
-                    im::same_line(state);
-                    im::text(state, "- scale_over_life_time.max: ");
-                    im::float_slider(state, &ps->scale_over_life_time.max, 0.0f, 4.0f);
-
-                    im::same_line(state);
-                    im::text(state, "- velocity_random.min: ");
-                    im::vec3(state, ps->velocity_random.min, -1.0f, 1.0f);
-                    
-                    im::same_line(state);
-                    im::text(state, "- velocity_random.max: ");
-                    im::vec3(state, ps->velocity_random.max, -1.0f, 1.0f);
-
-
-                    bool is_box = ps->emitter_type == particle_emitter_type::box;
-                    im::same_line(state);
-                    im::text(state, "- emitter_type == box: ");
-                    im::checkbox(state, &is_box);
-                    ps->emitter_type = is_box ? particle_emitter_type::box : particle_emitter_type::sphere;
-                    if (is_box) {
-                        im::same_line(state);
-                        im::text(state, "--- min: ");
-                        im::vec3(state, ps->box.min, -4.0f, 4.0f);
-                        im::same_line(state);
-                        im::text(state, "--- max: ");
-                        im::vec3(state, ps->box.max, -4.0f, 4.0f);
-                    } else {
-                        im::same_line(state);
-                        im::text(state, "--- origin: ");
-                        im::vec3(state, ps->sphere.origin, -4.0f, 4.0f);
-                        im::same_line(state);
-                        im::text(state, "--- radius: ");
-                        im::float_slider(state, &ps->sphere.radius, 0.0f, 10.0f, v2f{128.0f, 16.0f});
-                    }
-                }
-                v2f e_panel_size = {};
-                im::end_panel(state, 0, &e_panel_size);
-            }
-            auto entity_id_color = static_cast<u32>(utl::rng::fnv_hash_u64(e->id));
-            entity_id_color |= gfx::color::rgba::clear_alpha;
-            if (!opened && !is_selected && (not_player && im::draw_hiding_circle_3d(
-                state, vp, e->global_transform().origin, 0.1f, 
-                entity_id_color, 2.0f)) && state.ctx.input->pressed.mouse_btns[0]
-            ) {
-                widget_pos = &e->transform.origin;
-            }
-
-            const auto panel = im::get_last_panel(state);
-            if (is_selected && opened && im::draw_circle(state, panel.max, 8.0f, gfx::color::rgba::red, 4)) {
-                widget_pos = &default_widget_pos;
-            }
-        }
-
-        if (widget_pos == &default_widget_pos) {
-            selected_entity = 0;
-        }
-
-        im::gizmo(state, widget_pos, vp);
-
-        if (selected_entity && 
-            selected_entity->physics.rigidbody //&&
-            // (selected_entity->physics.rigidbody->type == physics::rigidbody_type::KINEMATIC ||
-            //  selected_entity->physics.rigidbody->type == physics::rigidbody_type::STATIC 
-            // )
-        ) {
-            selected_entity->physics.rigidbody->set_transform(selected_entity->global_transform().to_matrix());
-        }
-
+        
         local_persist math::rect2d_t depth_uv{v2f{0.0}, v2f{0.04, 0.2}};
         local_persist math::rect2d_t color_uv{v2f{0.0}, v2f{0.04, 0.2}};
         // local_persist math::rect2d_t color_uv{v2f{0.0}, v2f{0.01, 0.15}};
@@ -1420,8 +1382,6 @@ draw_gui(game_memory_t* game_memory) {
             im::image(state, 2, {v2f{0.0f, 800}, v2f{state.ctx.screen_size.x * 0.3f, state.ctx.screen_size.y}}, color_uv);
             im::image(state, 3, {v2f{state.ctx.screen_size.x *  0.7f, 800}, v2f{state.ctx.screen_size}}, depth_uv, 0xff0000ff);
         }
-
-        draw_game_gui(game_memory);
 
         local_persist viewport_t viewport{};
         viewport.images[0] = 1;
@@ -1480,7 +1440,13 @@ draw_gui(game_memory_t* game_memory) {
 
         // const math::rect2d_t screen{v2f{0.0f}, state.ctx.screen_size};
         // im::image(state, 2, math::rect2d_t{v2f{state.ctx.screen_size.x - 400, 0.0f}, v2f{state.ctx.screen_size.x, 400.0f}});
+        
+#ifdef DEBUG_STATE 
+        DEBUG_STATE_DRAW(state, render_system->projection, render_system->view, render_system->viewport());
+        if (gs_show_watcher) {
+            DEBUG_STATE_DRAW_WATCH_WINDOW(state);
+        }
+#endif
     }
 
-    arena_set_mark(&game_state->string_arena, string_mark);
 }

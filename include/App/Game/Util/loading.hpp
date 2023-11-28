@@ -7,7 +7,8 @@ inline gfx::mesh_list_t
 load_bin_mesh_data(
     arena_t* arena,
     std::byte* data,
-    utl::pool_t<gfx::vertex_t>* vertices,
+    utl::allocator_t* vertices,
+    // utl::pool_t<gfx::vertex_t>* vertices,
     utl::pool_t<u32>* indices    
 ) {
     gfx::mesh_list_t results;
@@ -34,14 +35,16 @@ load_bin_mesh_data(
         const size_t vertex_count = blob.deserialize<u64>();
         const size_t vertex_bytes = sizeof(gfx::vertex_t) * vertex_count;
 
-        const u32 vertex_start = safe_truncate_u64(vertices->count());
         const u32 index_start = safe_truncate_u64(indices->count());
+
+        auto* v = (gfx::vertex_t*)vertices->allocate(vertex_bytes);
+        const u32 vertex_start = safe_truncate_u64(v - (gfx::vertex_t*)vertices->arena.start);
+
 
         results.meshes[i].vertex_count = safe_truncate_u64(vertex_count);
         results.meshes[i].vertex_start = vertex_start;
         results.meshes[i].index_start = index_start;
 
-        gfx::vertex_t* v = vertices->allocate(vertex_count);
 
         utl::copy(v, blob.read_data(), vertex_bytes);
         blob.advance(vertex_bytes);
@@ -80,7 +83,8 @@ load_bin_mesh(
     arena_t* arena,
     utl::res::pack_file_t* packed_file,
     std::string_view path,
-    utl::pool_t<gfx::vertex_t>* vertices,
+    // utl::pool_t<gfx::vertex_t>* vertices,
+    utl::allocator_t* vertices,
     utl::pool_t<u32>* indices
 ) {
     const size_t file_index = utl::res::pack_file_find_file(packed_file, path);

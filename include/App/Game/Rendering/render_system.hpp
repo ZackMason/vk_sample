@@ -1196,6 +1196,8 @@ public:
         // state.create_index_buffer(&rs->indices);
         state.create_vertex_buffer(&rs->skinned_vertices);
         state.create_index_buffer(&rs->skinned_indices);
+
+        rs->scene_context->vertices.create_allocator(&rs->arena);
     
        // lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
@@ -1512,7 +1514,7 @@ public:
             auto loaded_mesh = load_bin_mesh_data(
                 &rs->arena,
                 file_data, 
-                &rs->scene_context->vertices.pool,
+                &rs->scene_context->vertices.allocator,
                 &rs->scene_context->indices.pool
             );
 

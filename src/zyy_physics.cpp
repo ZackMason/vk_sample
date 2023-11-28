@@ -71,6 +71,8 @@ init_physx(api_t* api, arena_t* arena) {
     api->rigidbody_add_force = physx_rigidbody_add_force;
     api->rigidbody_set_velocity = physx_rigidbody_set_velocity;
     api->rigidbody_add_force_at_point = physx_rigidbody_add_force_at_point;
+    api->rigidbody_set_character_height = physx_rigidbody_set_character_height;
+    api->rigidbody_set_character_radius = physx_rigidbody_set_character_radius;
 
     api->rigidbody_set_gravity = physx_rigidbody_set_gravity;
     api->rigidbody_set_ccd = physx_rigidbody_set_ccd;

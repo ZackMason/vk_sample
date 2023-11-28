@@ -94,6 +94,7 @@ struct prefab_t {
     using coroutine_function = void(*)(coroutine_t*, frame_arena_t&);
     mod_function<coroutine_function> coroutine{0};
     std::optional<character_stats_t> stats{};
+    std::optional<stealth_t> stealth{};
     std::optional<wep::base_weapon_t> weapon{};
 
     struct physics_t {
@@ -223,9 +224,9 @@ load_from_file(arena_t* arena, std::string_view path) {
     // so we use arena to read the whole file
     // and go through serialization
 
-    auto temp = begin_temporary_memory(arena);
+    // auto temp = begin_temporary_memory(arena);
 
-    std::byte* data = push_bytes(temp.arena, size);
+    std::byte* data = push_bytes(arena, size);
     file.read((char*)data, size);
     
     utl::memory_blob_t loader{data};

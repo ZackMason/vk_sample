@@ -132,6 +132,9 @@ struct rigidbody_t {
     void set_layer(u32 l);
     void set_group(u32 g);
 
+    void set_character_height(f32 height);
+    void set_character_radius(f32 radius);
+
     inline void set_velocity(const v3f& vel);
     inline void add_impulse(const v3f& force);
     inline void add_force_ex(const v3f& force);
@@ -238,6 +241,24 @@ struct rigidbody_t {
     }
 };
 
+using joint_on_break_callback = void(*)(rigidbody_t*, rigidbody_t*);
+
+struct joint_t {
+    void* api_data{0};
+    
+    joint_on_break_callback on_break{0};
+    
+    rigidbody_t* r0{0};
+    rigidbody_t* r1{0};
+    f32 break_force_limit{0.0f}; // 0.0f == unbreakable
+    f32 break_torque_limit{0.0f}; // 0.0f == unbreakable
+
+    b32 dirty = 0;
+
+    
+    b32 is_broken() const;
+};
+
 // Todo(Zack): Change to hit result
 struct raycast_result_t {
     bool hit{false};
@@ -297,6 +318,7 @@ using rigidbody_add_force_at_point_function = void(*)(rigidbody_t*, const v3f&, 
 using rigidbody_set_gravity_function = void(*)(rigidbody_t*, bool);
 using rigidbody_set_ccd_function = void(*)(rigidbody_t*, bool);
 using rigidbody_set_mass_function = void(*)(rigidbody_t*, f32);
+using rigidbody_set_float_function = void(*)(rigidbody_t*, f32);
 using rigidbody_set_collision_flags_function = void(*)(rigidbody_t*);
 
 
@@ -345,6 +367,8 @@ struct export_dll api_t {
     rigidbody_set_ccd_function rigidbody_set_ccd{0};
     rigidbody_set_mass_function rigidbody_set_mass{0};
     rigidbody_add_force_function rigidbody_set_velocity{0};
+    rigidbody_set_float_function rigidbody_set_character_height{0};
+    rigidbody_set_float_function rigidbody_set_character_radius{0};
 
     rigidbody_set_collision_flags_function rigidbody_set_collision_flags{0};
 
@@ -425,6 +449,16 @@ void rigidbody_t::add_force_at_point_ex(const v3f& f, const v3f& p) {
 
 void rigidbody_t::set_gravity(bool x) {
     this->api->rigidbody_set_gravity(this, x);
+}
+
+void rigidbody_t::set_character_height(f32 height) {
+    assert(this->type == rigidbody_type::CHARACTER);
+    this->api->rigidbody_set_character_height(this, height);
+}
+
+void rigidbody_t::set_character_radius(f32 radius) {
+    assert(this->type == rigidbody_type::CHARACTER);
+    this->api->rigidbody_set_character_radius(this, radius);
 }
 
 void rigidbody_t::set_layer(u32 l) {

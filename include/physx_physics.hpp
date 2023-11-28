@@ -189,6 +189,22 @@ void physx_rigidbody_set_collision_flags(rigidbody_t* rb) {
     }
 }
 
+void physx_rigidbody_set_character_radius(rigidbody_t* rb, f32 x) {
+    if (rb->type == rigidbody_type::CHARACTER) {
+        auto* controller = (PxCapsuleController*)rb->api_data;
+        
+        controller->setRadius(x);
+    }
+}
+
+void physx_rigidbody_set_character_height(rigidbody_t* rb, f32 x) {
+    if (rb->type == rigidbody_type::CHARACTER) {
+        auto* controller = (PxCapsuleController*)rb->api_data;
+        
+        controller->setHeight(x);
+    }
+}
+
 void physx_rigidbody_set_mass(rigidbody_t* rb, f32 x) {
     if (rb->type == rigidbody_type::DYNAMIC) {
         PxRigidDynamic* actor = (PxRigidDynamic*)rb->api_data;
@@ -335,7 +351,7 @@ physx_create_rigidbody_impl(
     const auto* ps = get_physx(api);
     assert(api->rigidbody_count < PHYSICS_MAX_RIGIDBODY_COUNT);
     rigidbody_t* rb = &api->rigidbodies[api->rigidbody_count++];
-    *rb = {api};
+    *rb = rigidbody_t{api};
     
     const auto t = cast_transform(math::transform_t{position, orientation});
     switch (rb->type = type) {
@@ -571,6 +587,28 @@ physx_sphere_overlap_world(const api_t* api, arena_t* arena, v3f o, f32 radius, 
     }
 }
 
+struct query_filter_t : public physx::PxQueryFilterCallback {
+    u32 layer = 0;
+
+    virtual physx::PxQueryHitType::Enum preFilter(const physx::PxFilterData& filterData, const physx::PxShape* shape, const physx::PxRigidActor* actor, physx::PxHitFlags& queryFlags) {
+        auto shape_filter_data = shape->getQueryFilterData();
+        // if (filterData.word0 & shape_filter_data.word0) {
+        if (layer & shape_filter_data.word0) {
+            return physx::PxQueryHitType::eBLOCK;
+        } else {
+            return physx::PxQueryHitType::eNONE;
+        }
+    }
+	virtual physx::PxQueryHitType::Enum postFilter(const physx::PxFilterData& filterData, const physx::PxQueryHit& hit, const physx::PxShape* shape, const physx::PxRigidActor* actor) {
+        auto shape_filter_data = shape->getQueryFilterData();
+        if (filterData.word0 & shape_filter_data.word0) {
+            return physx::PxQueryHitType::eBLOCK;
+        } else {
+            return physx::PxQueryHitType::eNONE;
+        }
+    }
+};
+
 raycast_result_t
 physx_raycast_world(const api_t* api, v3f ro, v3f rd, u32 layer) {
     TIMED_FUNCTION;
@@ -585,17 +623,31 @@ physx_raycast_world(const api_t* api, v3f ro, v3f rd, u32 layer) {
     const physx::PxVec3 prd{ rd.x, rd.y, rd.z };
     physx::PxRaycastBuffer hit{};
 
-    PxQueryFilterData filter_data(PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC);
+    PxQueryFilterData filter_data(PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC | PxQueryFlag::ePREFILTER);
+    // query_filter_t filter_callback{};
+    // filter_callback.layer = layer;
 
+    filter_data.data = {};
+    // filter_data.data.word3 = layer;
+    // filter_data.data.word2 = layer;
+    // filter_data.data.word1 = layer;
     filter_data.data.word0 = layer;
 
     raycast_result_t result{};
-    result.hit = ps->world->scene->raycast(pro, prd, dist, hit, PxHitFlag::eDEFAULT, filter_data);
+    result.hit = ps->world->scene->raycast(pro, prd, dist, hit, PxHitFlag::eDEFAULT, filter_data);//, &filter_callback);
     if (result.hit) {
-        result.user_data = hit.block.actor->userData;
-        
+        auto* rigidbody = (rigidbody_t*)hit.block.actor->userData;
+
+        // Todo(Zack): Find more idiomatic approach
+        // nvidia doesnt exactly make it clear how to do these filters
+        if ((rigidbody->layer & layer) == 0) {
+            // continue;
+        }
+
         const auto [nx,ny,nz] = hit.block.normal;
         const auto [px,py,pz] = hit.block.position;
+        
+        result.user_data = rigidbody;
         result.distance = hit.block.distance;
         result.point = v3f{px,py,pz};
         result.normal = v3f{nx,ny,nz};

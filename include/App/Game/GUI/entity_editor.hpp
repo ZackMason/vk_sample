@@ -9,6 +9,7 @@
 #include "App/Game/Entity/zyy_coroutine_callbacks.hpp"
 #include "App/Game/Entity/zyy_physics_callbacks.hpp"
 
+
 #include "App/game_state.hpp"
 
 #include <filesystem>
@@ -104,10 +105,6 @@ namespace csg {
     };
 };
 
-struct world_save_file_header_t {
-    u64 prefab_count{0};
-    u64 prefab_size;
-};
 
 struct instanced_prefab_t {
     instanced_prefab_t* next = 0;
@@ -440,6 +437,7 @@ struct entity_editor_t {
 
         if (selection.prefab == what) {
             selection.prefab = 0;
+            entity = &creating_entity;
         }
 
         execute_insert(edit->prefab_insert, Edit_From);
@@ -540,7 +538,7 @@ struct entity_editor_t {
 
         world_save_file_header_t header {
             .prefab_count = dlist_count(prefabs), 
-            .prefab_size = sizeof(zyy::prefab_t),
+            // .prefab_size = sizeof(zyy::prefab_t),
         };
         
         file.write((char*)&header, sizeof(header));
@@ -593,7 +591,7 @@ template<>
 void utl::memory_blob_t::serialize<entity_editor_t>(arena_t* arena, const entity_editor_t& ee) {
     world_save_file_header_t header {
         .prefab_count = dlist_count(ee.prefabs), 
-        .prefab_size = sizeof(zyy::prefab_t),
+        // .prefab_size = sizeof(zyy::prefab_t),
     };
         
     serialize(arena, header);
@@ -609,20 +607,22 @@ void utl::memory_blob_t::serialize<entity_editor_t>(arena_t* arena, const entity
 }
 
 template<>
-entity_editor_t utl::memory_blob_t::deserialize<entity_editor_t>(arena_t* arena) {
+entity_editor_t 
+utl::memory_blob_t::deserialize<entity_editor_t>(arena_t* arena) {
     entity_editor_t result = {0};
 
     auto header = deserialize<world_save_file_header_t>();
 
     result.begin_event_group();
+    defer {
+        result.end_event_group();
+    };
 
     range_u64(i, 0, header.prefab_count) {
         auto prefab = deserialize<zyy::prefab_t>(arena);
         auto transform = deserialize<math::transform_t>();
         result.instance_prefab(prefab, transform, 0);
     }
-
-    result.end_event_group();
 
     return result;
 }
@@ -632,69 +632,69 @@ REFLECT_TYPE(std::string_view) {
     };
 };
 
-inline static void
-object_data_gui(gfx::gui::im::state_t& imgui, reflect::type_t type, std::byte* data, const char* prop_name = 0, size_t depth = 0) {
-    using namespace gfx::gui;
-    char depth_str[32];
-    utl::memzero(depth_str, 32);
-    std::memset(depth_str, '-', depth?depth-1:0);
+// inline static void
+// object_data_gui(gfx::gui::im::state_t& imgui, reflect::type_t type, std::byte* data, const char* prop_name = 0, size_t depth = 0) {
+//     using namespace gfx::gui;
+//     char depth_str[32];
+//     utl::memzero(depth_str, 32);
+//     std::memset(depth_str, '-', depth?depth-1:0);
 
-    auto show_property = type.get_property("show");
-    bool show = true;
+//     auto show_property = type.get_property("show");
+//     bool show = true;
 
-    if (show_property.valid()) {
-        show_property.get_value_raw(data, (std::byte*)&show);
-        if (im::text(imgui, fmt_sv("{} {}: {}", depth_str, type.name, prop_name?prop_name:""))) {
-            show = !show;
-            show_property.set_value_raw(data, show);
-        }
-    } else {
-        im::text(imgui, fmt_sv("{} {}: {}", depth_str, type.name, prop_name?prop_name:""));
-    }
+//     if (show_property.valid()) {
+//         show_property.get_value_raw(data, (std::byte*)&show);
+//         if (im::text(imgui, fmt_sv("{} {}: {}", depth_str, type.name, prop_name?prop_name:""))) {
+//             show = !show;
+//             show_property.set_value_raw(data, show);
+//         }
+//     } else {
+//         im::text(imgui, fmt_sv("{} {}: {}", depth_str, type.name, prop_name?prop_name:""));
+//     }
 
-    if (!show) return;
-    if (type == reflect::type<f32>::info) {
-        im::indent(imgui, v2f{depth*28.0f,0.0f});
-        im::float_slider(imgui, (f32*)data);
-    } else if (type == reflect::type<u64>::info) {
-        im::text(imgui, fmt_sv("{}", *(u64*)data));
-    } else if (type == reflect::type<v3f>::info) {
-        const auto theme = imgui.theme;
+//     if (!show) return;
+//     if (type == reflect::type<f32>::info) {
+//         im::indent(imgui, v2f{depth*28.0f,0.0f});
+//         im::float_slider(imgui, (f32*)data);
+//     } else if (type == reflect::type<u64>::info) {
+//         im::text(imgui, fmt_sv("{}", *(u64*)data));
+//     } else if (type == reflect::type<v3f>::info) {
+//         const auto theme = imgui.theme;
 
-        imgui.theme.fg_color = gfx::color::rgba::red;
-        im::same_line(imgui);
-        im::indent(imgui, v2f{depth*28.0f,0.0f});
-        im::float_slider(imgui, (f32*)data);
+//         imgui.theme.fg_color = gfx::color::rgba::red;
+//         im::same_line(imgui);
+//         im::indent(imgui, v2f{depth*28.0f,0.0f});
+//         im::float_slider(imgui, (f32*)data);
 
-        imgui.theme.fg_color = gfx::color::rgba::green;
-        im::same_line(imgui);
-        im::indent(imgui, v2f{depth*28.0f,0.0f});
-        im::indent(imgui, v2f{depth*28.0f,0.0f});
-        im::float_slider(imgui, (f32*)data+1);
+//         imgui.theme.fg_color = gfx::color::rgba::green;
+//         im::same_line(imgui);
+//         im::indent(imgui, v2f{depth*28.0f,0.0f});
+//         im::indent(imgui, v2f{depth*28.0f,0.0f});
+//         im::float_slider(imgui, (f32*)data+1);
 
-        imgui.theme.fg_color = gfx::color::rgba::blue;
-        im::indent(imgui, v2f{depth*28.0f,0.0f});
-        im::indent(imgui, v2f{depth*28.0f,0.0f});
-        im::indent(imgui, v2f{depth*28.0f,0.0f});
-        im::float_slider(imgui, (f32*)data+2);
+//         imgui.theme.fg_color = gfx::color::rgba::blue;
+//         im::indent(imgui, v2f{depth*28.0f,0.0f});
+//         im::indent(imgui, v2f{depth*28.0f,0.0f});
+//         im::indent(imgui, v2f{depth*28.0f,0.0f});
+//         im::float_slider(imgui, (f32*)data+2);
 
-        imgui.theme = theme;
-    } else 
-    for(auto& p: std::span{type.properties, type.property_count}) {
-        if (p.type) {
-            object_data_gui(imgui, *p.type, data + p.offset, p.name.data(), depth + 2);
-        } else {
-            im::text(imgui, "Unregistered type");
-        }
-    }
-}
+//         imgui.theme = theme;
+//     } else 
+//     for(auto& p: std::span{type.properties, type.property_count}) {
+//         if (p.type) {
+//             object_data_gui(imgui, *p.type, data + p.offset, p.name.data(), depth + 2);
+//         } else {
+//             im::text(imgui, "Unregistered type");
+//         }
+//     }
+// }
 
-inline static void
-object_gui(gfx::gui::im::state_t& imgui, auto& value, size_t depth = 0) {
-    const auto type = reflect::type<std::remove_reference<decltype(value)>::type>::info;
+// inline static void
+// object_gui(gfx::gui::im::state_t& imgui, auto& value, size_t depth = 0) {
+//     const auto type = reflect::type<std::remove_reference<decltype(value)>::type>::info;
             
-    object_data_gui(imgui, type, (std::byte*)&value, 0, depth+2);
-}
+//     object_data_gui(imgui, type, (std::byte*)&value, 0, depth+2);
+// }
 
 // void load_world_file_for_edit(entity_editor_t* ee, const char* name);
 
@@ -753,6 +753,9 @@ save_world_window(
         }
 
         arena_t arena = {};
+        defer {
+            arena_clear(&arena);
+        };
         char* bytes;
         {
             std::ifstream f{file, std::ios::binary};
@@ -768,16 +771,15 @@ save_world_window(
         auto header = blob.deserialize<world_save_file_header_t>();
 
         ee->begin_event_group();
+        defer {
+            ee->end_event_group();
+        };
 
         range_u64(i, 0, header.prefab_count) {
             auto prefab = blob.deserialize<zyy::prefab_t>(&arena);
             auto transform = blob.deserialize<math::transform_t>();
             ee->instance_prefab(prefab, transform);
         }
-
-        ee->end_event_group();
-
-        arena_clear(&arena);
     } else {
         // ee->save_to_file(file);   
         arena_t arena = {};
@@ -1088,8 +1090,6 @@ entity_editor_render(entity_editor_t* ee) {
     using namespace gfx::gui;
     using namespace std::string_view_literals;
 
-    const u64 frame{++ee->game_state->gui.ctx.frame};
-    
     // local_persist char mesh_name[512];
     local_persist bool show_load = false;
     local_persist bool show_save = false;
@@ -1100,13 +1100,13 @@ entity_editor_render(entity_editor_t* ee) {
     local_persist char* show_function_dialog;
 
 
+    
     auto* game_state = ee->game_state;
     auto* rs = game_state->render_system;
     auto& imgui = ee->imgui;
+    
     const auto width = game_state->gui.ctx.screen_size.x;
-    gfx::gui::ctx_clear(&game_state->gui.ctx, &game_state->gui.vertices[frame&1].pool, &game_state->gui.indices[frame&1].pool);
-
-    im::clear(imgui);
+    
 
     if (show_mesh_dialog) {
         show_mesh_dialog = load_mesh_window(imgui, ee);
@@ -1711,7 +1711,7 @@ entity_editor_render(entity_editor_t* ee) {
 
 
     local_persist im::panel_state_t transform_panel{
-        .pos = v2f{400.0f, 0.0f},
+        .pos = v2f{680.0f, 0.0f},
         .open = 1,
     };
 
@@ -1811,7 +1811,7 @@ entity_editor_render(entity_editor_t* ee) {
 
 
     local_persist b32 show_entity_list = 1;
-    local_persist v2f entity_window_pos{1200.0f, 0.0f};
+    local_persist v2f entity_window_pos{1600.0f, 0.0f};
     local_persist v2f entity_window_size;
 
     entity_window_size = {};
@@ -1923,6 +1923,10 @@ entity_editor_render(entity_editor_t* ee) {
                     dragged->transform.origin = start;
                 } else {
                     auto delta = *ee->selection.selection - start;
+                    ee->begin_event_group();
+                    defer {
+                        ee->end_event_group();
+                    };
                     ee->edit_vec3(ee->selection, *ee->selection.selection, start);
                     for (auto& other_selected: ee->selection_stack.view()) {
                         ee->edit_vec3(other_selected.selection, *other_selected.selection + delta);
@@ -1997,7 +2001,9 @@ entity_editor_update(entity_editor_t* ee) {
         }
     };
 
+    begin_gui(ee->game_state);
     entity_editor_render(ee);
+    draw_gui(ee->game_state->game_memory);
 
     draw(ee->creating_entity, m44{1.0f}, 0, 1);
 
@@ -2138,30 +2144,7 @@ entity_editor_update(entity_editor_t* ee) {
 //     }
 // }
 
-void load_world_file(zyy::world_t* world, const char* name) {
-    std::ifstream file{name, std::ios::binary};
 
-    // arena_t* arena = &world->frame_arena.get();
-    arena_t* arena = &world->arena;
-
-    file.seekg(0, std::ios::end);
-    const size_t file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    auto* bytes = (char*)push_bytes(arena, file_size);
-    file.read(bytes, file_size);
-
-    utl::memory_blob_t blob{(std::byte*)bytes};
-
-    auto header = blob.deserialize<world_save_file_header_t>();
-    
-    range_u64(i, 0, header.prefab_count) {
-        auto prefab = blob.deserialize<zyy::prefab_t>(arena);
-        auto transform = blob.deserialize<math::transform_t>();
-
-        zyy::tag_spawn(world, prefab, transform.origin, transform.basis);
-    }
-}
 
 
 #endif

@@ -17,7 +17,6 @@
 namespace zyy {
 
 struct world_t;
-struct world_t;
 
 // using entity_update_function = void(*)(entity_t*, world_t*);
 // using entity_interact_function = void(*)(entity_t*, world_t*);
@@ -177,7 +176,8 @@ struct entity_t {
     } physics{};
 
     struct stats_t {
-        character_stats_t character{};
+        struct character_t : public character_stats_t { stealth_t stealth; } character;
+
         wep::base_weapon_t weapon{};
         item::effect_t* effect{0};
     } stats{};

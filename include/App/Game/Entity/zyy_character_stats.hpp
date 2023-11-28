@@ -41,7 +41,7 @@ namespace zyy {
     struct movement_t {
         f32 move_speed{1.0f};
     };
-
+    
     struct character_stats_t {
         health_t health{};
         movement_t movement{};

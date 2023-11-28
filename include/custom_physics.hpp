@@ -22,7 +22,7 @@ custom_create_rigidbody_impl(
 ) {
     assert(api->rigidbody_count < PHYSICS_MAX_RIGIDBODY_COUNT);
     rigidbody_t* rb = &api->rigidbodies[api->rigidbody_count++];
-    *rb = {api};
+    *rb = rigidbody_t{api};
     return rb;
 }
 

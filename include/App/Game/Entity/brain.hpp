@@ -250,7 +250,8 @@ struct sequence_t : public composite_t {
     behavior_t* itr=0;
 
     virtual void on_init(blackboard_t* blkbrd) override {
-        assert(head.next != &head);
+        // this assert stops catches empty sequences, but why?
+        // assert(head.next != &head);
         itr = head.next;
     }
 
@@ -698,7 +699,7 @@ struct move_toward_t : public bt::behavior_t {
     }
 
     virtual bt::behavior_status on_update(blackboard_t* blkbrd) override {
-        zyy_info("bt::move_toward", text);
+        // zyy_info("bt::move_toward", text);
 
         auto* target = utl::hash_get(&blkbrd->points, text, blkbrd->arena);
         auto* self = utl::hash_get(&blkbrd->points, "self"sv, blkbrd->arena);
@@ -750,7 +751,7 @@ person_init(arena_t* arena, brain_t* brain) {
         .selector()
             .sequence()
                 .condition("has_target")
-                .action<print_t>("has target")
+                // .action<print_t>("has target")
                 .selector()
                     .sequence()
                         .greater_than("fear", 0.5f)
@@ -764,16 +765,16 @@ person_init(arena_t* arena, brain_t* brain) {
                         .always_succeed<bt::sequence_t>()
                             .condition("has_range")
                             .action<breakpoint_t>("Attack")
-                            .action<print_t>("attack")
+                            // .action<print_t>("attack")
                         .end()
                     .end()
                     .sequence()
-                        .action<print_t>("Looking for weapon")
+                        // .action<print_t>("Looking for weapon")
                     .end()
                 .end()
             .end()
             .sequence()
-                .action<print_t>("looking for target")
+                // .action<print_t>("looking for target")
                 .action<move_toward_t>("rng_move")
                 .action<bt::wait_t>(8.0f)
             .end()

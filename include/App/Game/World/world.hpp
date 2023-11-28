@@ -349,7 +349,7 @@ namespace zyy {
 
 
         if (def.stats) {
-            entity->stats.character = *def.stats;
+            (character_stats_t&)entity->stats.character = *def.stats;
             entity->stats.character.health.current = 
                 entity->stats.character.health.max;
         } else if (def.weapon) {
@@ -363,12 +363,15 @@ namespace zyy {
             physics::rigidbody_t* rb{0};
             if (def.physics->flags & PhysicsEntityFlags_Character) {
                 rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::CHARACTER, entity->transform.origin, entity->transform.get_orientation());
-            } else if (def.physics->flags & PhysicsEntityFlags_Static) {
+            } else if (def.physics->flags & (PhysicsEntityFlags_Static | PhysicsEntityFlags_Trigger)) {
                 rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::STATIC, entity->transform.origin, entity->transform.get_orientation());
             } else if (def.physics->flags & PhysicsEntityFlags_Kinematic) {
                 rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::KINEMATIC, entity->transform.origin, entity->transform.get_orientation());
             } else if (def.physics->flags & PhysicsEntityFlags_Dynamic) {
                 rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::DYNAMIC, entity->transform.origin, entity->transform.get_orientation());
+            }
+            if (!rb) {
+                zyy_error(__FUNCTION__, "Failed to spawn rigidbody!");
             }
             assert(rb);
             entity->physics.rigidbody = rb;
@@ -450,10 +453,15 @@ namespace zyy {
             world->physics->set_rigidbody(0, rb);
         }
 
+        // TODO(Zack): Move layer settings to entity editor, for now
+        // player will be player level
+        // and all other will be enemy
         if (def.brain_type != brain_type::invalid) {
             world_new_brain(world, entity, def.brain_type);
-            if (def.brain_type != brain_type::player) {
+            if (def.brain_type == brain_type::player) {
                 entity->physics.rigidbody->set_layer(physics_layers::player);
+            } else { 
+                entity->physics.rigidbody->set_layer(physics_layers::enemy);
             }
         }
 
@@ -731,8 +739,7 @@ namespace zyy {
             mesh.meshes[i].material.albedo_id = tex;
         }
     }
-};
-
+}
 
 #if ZYY_INTERNAL
     #define tag_spawn(world, prefab, ...) \
@@ -741,3 +748,36 @@ namespace zyy {
     // #define tag_spawn(world, ...) 
         // spawn((world), (world)->render_system(), __VA_ARGS__)
 #endif
+
+// World Loading Stuff
+
+struct world_save_file_header_t {
+    u64 prefab_count{0};
+    u64 VERSION{0};
+};
+
+void load_world_file(zyy::world_t* world, const char* name) {
+    std::ifstream file{name, std::ios::binary};
+
+    // arena_t* arena = &world->frame_arena.get();
+    arena_t* arena = &world->arena;
+
+    file.seekg(0, std::ios::end);
+    const size_t file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    auto* bytes = (char*)push_bytes(arena, file_size);
+    file.read(bytes, file_size);
+
+    utl::memory_blob_t blob{(std::byte*)bytes};
+
+    auto header = blob.deserialize<world_save_file_header_t>();
+    
+    zyy_info(__FUNCTION__, "Loading world '{}' - save file version: {}", name, header.VERSION);
+    range_u64(i, 0, header.prefab_count) {
+        auto prefab = blob.deserialize<zyy::prefab_t>(arena);
+        auto transform = blob.deserialize<math::transform_t>();
+
+        zyy::tag_spawn(world, prefab, transform.origin, transform.basis);
+    }
+}

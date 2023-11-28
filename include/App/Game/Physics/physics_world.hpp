@@ -31,7 +31,7 @@ namespace physics {
         physx::PxPvd* pvd{nullptr};
         physx::PxPhysics* physics{nullptr};
         physx::PxDefaultCpuDispatcher* dispatcher{nullptr};
-        physx::PxCooking* cooking{nullptr};
+        // physx::PxCooking* cooking{nullptr};
     };
 
     inline void
@@ -54,8 +54,8 @@ namespace physics {
         assert(state.physics);
         state.dispatcher = PxDefaultCpuDispatcherCreate(0);
 
-        state.cooking = PxCreateCooking(PX_PHYSICS_VERSION, *state.foundation, PxCookingParams(state.physics->getTolerancesScale()));
-        assert(state.cooking);
+        // state.cooking = PxCreateCooking(PX_PHYSICS_VERSION, *state.foundation, PxCookingParams(state.physics->getTolerancesScale()));
+        // assert(state.cooking);
     }
 
     struct physics_world_t;

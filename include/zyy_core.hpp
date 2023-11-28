@@ -100,6 +100,7 @@ bool check_for_debugger()
 #include <chrono>
 #include <functional>
 #include <ranges>
+#include <mutex>
 
 #include <string>
 #include <string_view>
@@ -346,6 +347,20 @@ struct stack_string
     }
 };
 
+
+template<>
+struct fmt::formatter<v2f>
+{
+    template<typename ParseContext>
+    constexpr auto parse(ParseContext& ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FormatContext>
+    auto format(v2f const& v, FormatContext& ctx) {
+        return fmt::format_to(ctx.out(), "[{:.2f}, {:.2f}]", v.x, v.y);
+    }
+};
 
 template<>
 struct fmt::formatter<v3f>
@@ -1043,6 +1058,10 @@ u32 node_count(auto* node) {
     (sen)->next = (sen);\
     (sen)->prev = (sen);
 
+#define dlist_range(ele, name) for (auto* (name) = (ele)->next; (name) != (ele); node_next((name))) 
+
+#define dlist_empty(ele) ((ele)->next == (ele))
+
 u32 dlist_count(auto& head) {
     u32 result = 0;
     for (auto* n = head.next;
@@ -1075,6 +1094,7 @@ struct node_t {
     }
     virtual ~node_t() = default;
 };
+
 
 // allocators
 
@@ -1456,8 +1476,79 @@ T* co_push_stack_(coroutine_t* coro, arena_t* arena, umm count = 1) {
 #define co_push_stack(coro, stack, type) co_push_stack_<type>(coro, stack) 
 #define co_push_array_stack(coro, stack, type, count) co_push_stack_<type>(coro, stack, count) 
 
-
 namespace utl {
+
+struct allocator_t {
+    struct memory_block_t {
+        void* start = 0;
+        u64   size  = 0;
+        memory_block_t* next = this;
+        memory_block_t* prev = this;
+    };
+
+    arena_t arena{};
+    arena_t* block_arena{};
+    memory_block_t used_blocks{};
+    memory_block_t free_blocks{};
+
+    allocator_t() {
+        dlist_init(&used_blocks);
+        dlist_init(&free_blocks);
+    }
+
+    allocator_t(arena_t* block_arena_) {
+        block_arena = block_arena_;
+        dlist_init(&used_blocks);
+        dlist_init(&free_blocks);
+    }
+
+    virtual ~allocator_t() {
+    }
+
+    // void* allocate(u64 size, u64 line_number, const char* filename, const char* type_name, const char* function_name) {
+    // todo add source location
+    void* allocate(u64 size) {
+        // zyy_info(__FUNCTION__, "{} free blocks", dlist_count(free_blocks));
+        dlist_range(&free_blocks, block) {
+            if (block->size < size) { continue; }
+
+            dlist_remove(block);
+
+            dlist_insert_as_last(&used_blocks, block);
+
+            return block->start;
+        }
+        // if we reach here, theres no free blocks that fit
+
+        tag_struct(auto* new_block, memory_block_t, block_arena);            
+        auto* data = push_bytes(&arena, size);
+
+        utl::memzero(data, size);
+
+        new_block->start = data;
+        new_block->size  = size;
+
+        // dlist_init(new_block);
+        dlist_insert_as_last(&used_blocks, new_block);
+
+        return new_block->start;
+    }
+
+    void free(void* ptr) {
+        // remove from used blocks
+
+        dlist_range(&used_blocks, block) {
+            if (block->start == ptr) {
+                dlist_remove(block);
+                dlist_insert_as_last(&free_blocks, block);
+                return;
+            }
+        }
+        // should not reach here
+        assert(0);
+    }
+};
+
 
 struct string_builder_t {
     temporary_arena_t memory{};
@@ -1661,6 +1752,10 @@ struct pool_t : pool_base_t {
 
     size_t count() const {
         return top;
+    }
+
+    u64 size_bytes() const {
+        return sizeof(T) * capacity;
     }
 
     pool_t() {
@@ -1886,6 +1981,10 @@ namespace reflect {
         size_t method_count{};
         method_t methods[32];
 
+        constexpr auto hash() const {
+            return sid(name);
+        }
+
         constexpr type_t& add_property(const property_t& prop) {
             assert(property_count < array_count(properties));
             properties[property_count++] = prop;
@@ -1991,12 +2090,11 @@ struct fmt::formatter<reflect::object_t> {
             case type_tag::FLOAT64:       return fmt::format_to(ctx.out(), "{}", *(f64*)o.data);
             case type_tag::STRING:        return fmt::format_to(ctx.out(), "{}", std::string_view{(const char*)o.data, o.count});
             case type_tag::STRING_VIEW:   return fmt::format_to(ctx.out(), "{}", *(std::string_view*)o.data);
-            case type_tag::VOID_STAR:     return fmt::format_to(ctx.out(), "obj: {}", (void*)o.data);
+            case type_tag::VOID_STAR:     return fmt::format_to(ctx.out(), "{}: {}", o.type->name, (void*)o.data);
             default:                      return fmt::format_to(ctx.out(), "<unknown>");
         }
     }
 };
-
 
 REFLECT_TYPE_(bool);};
 REFLECT_TYPE_(f32);};
@@ -2673,10 +2771,10 @@ namespace color {
             }
 
             range_u32(i, 1, count) {
-                if ((positions[i-1] < t && positions[i] > t) || i == count-1) {
+                if ((positions[i-1] < t && positions[i] >= t)) {
                     auto lt = (t - positions[i-1]) / (positions[i] - positions[i-1]);
-                    return glm::mix(math::sqr(colors[i-1]), math::sqr(colors[i]), glm::clamp(lt, 0.0f, 1.0f));
-                    // return glm::sqrt(glm::mix(math::sqr(colors[i-1]), math::sqr(colors[i]), glm::clamp(lt, 0.0f, 1.0f)));
+                        // return glm::mix(math::sqr(colors[i-1]), math::sqr(colors[i]), glm::clamp(lt, 0.0f, 1.0f));
+                    return glm::sqrt(glm::mix(math::sqr(colors[i-1]), math::sqr(colors[i]), glm::clamp(lt, 0.0f, 1.0f)));
                 }
             }
             
@@ -3575,8 +3673,7 @@ namespace gui {
         // draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments, 0.25f, 0.25f);
         // draw_circle(ctx, inner.max, radius, color, num_segments, 0.25f, 0.0f);
         // draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments, 0.25f, 0.750f);
-    }   
-    
+    }
 
     namespace im {
         constexpr u64 id_ignore_clear_flag = 0b1;
@@ -3593,6 +3690,21 @@ namespace gui {
                 flags = id_ignore_clear_flag;
                 return *this;
             }
+        };
+
+        struct draw_command_t {
+            enum struct draw_type {
+                scissor, draw
+            } type;
+            union {
+                math::rect2d_t clip;
+                struct {
+                    u32 index_start{0};
+                    u32 vertex_start{0};
+                    u32 index_count{0};
+                    u32 vertex_count{0}; // for padding and stats
+                } draw;
+            };
         };
 
         struct drag_event_t {
@@ -3951,7 +4063,12 @@ namespace gui {
             }
 
             imgui.panel->draw_cursor = title_bar.min;
-            string_render(&imgui.ctx, name.sv(), &imgui.panel->draw_cursor, theme.text_color);
+
+            if (imgui.ctx.input->keys[key_id::LEFT_ALT]) {
+                string_render(&imgui.ctx, fmt_sv("{}: {}", name.sv(), imgui.panel->min), &imgui.panel->draw_cursor, theme.text_color);
+            } else {
+                string_render(&imgui.ctx, name.sv(), &imgui.panel->draw_cursor, theme.text_color);
+            }
 
             imgui.panel->draw_cursor.x = pos.x+theme.padding;
             imgui.panel->draw_cursor.y = title_bar.max.y + theme.padding;

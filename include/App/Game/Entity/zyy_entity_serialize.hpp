@@ -38,4 +38,3 @@ namespace zyy {
         return tag_spawn(clone_world?clone_world:world, prefab, entity->global_transform().origin);
     }
 }
-

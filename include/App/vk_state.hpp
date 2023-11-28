@@ -78,6 +78,14 @@ template <typename T, size_t N>
 struct vertex_buffer_t : public gpu_buffer_t {
     using gpu_buffer_t::gpu_buffer_t;
     utl::pool_t<T> pool{};
+    ::utl::allocator_t allocator{};
+
+    void create_allocator(arena_t* arena) {
+        allocator = ::utl::allocator_t{arena};
+        dlist_init(&allocator.free_blocks);
+        dlist_init(&allocator.used_blocks);
+        allocator.arena = arena_create(pool.start, pool.size_bytes());
+    }
 };
 
 template <size_t N>
@@ -90,6 +98,7 @@ template <typename T, size_t N>
 struct storage_buffer_t : public gpu_buffer_t {
     using gpu_buffer_t::gpu_buffer_t;
     utl::pool_t<T> pool{};
+    ::utl::allocator_t allocator{};
 };
 
 struct texture_2d_t {

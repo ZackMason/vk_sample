@@ -4,6 +4,7 @@ global_variable b32 gs_debug_camera_active;
 
 #include "App/game_state.hpp"
 
+#include "App/Game/Util/loading.hpp"
 #include "skeleton.hpp"
 
 #include "ProcGen/terrain.hpp"
@@ -19,14 +20,10 @@ global_variable b32 gs_debug_camera_active;
 #include "App/Game/Weapons/weapon_common.hpp"
 
 #include "App/Game/Rendering/assets.hpp"
-
-#include "App/Game/GUI/entity_editor.hpp"
 #include "App/Game/Physics/player_movement.hpp"
 
-#include "App/Game/Util/loading.hpp"
-#include "App/Game/Entity/zyy_entity_serialize.hpp"
-
-// global_variable f32 gs_dt;
+// Globals
+// Remove these!
 global_variable f32 gs_reload_time = 0.0f;
 global_variable f32 gs_jump_save_time = 0.0f;
 global_variable f32 gs_jump_load_time = 0.0f;
@@ -57,6 +54,26 @@ global_variable VkPolygonMode gs_poly_modes[] = {
 global_variable u32 gs_poly_mode;
 
 global_variable u32 gs_rtx_on = 0;
+
+
+world_generator_t*
+generate_world_from_file(arena_t* arena, std::string_view file) {
+    tag_struct(auto* generator, world_generator_t, arena);
+    generator->arena = arena;
+    generator->data = (void*)file.data();
+
+    generator->add_step("Loading", WORLD_STEP_TYPE_LAMBDA(environment) {
+        load_world_file(world, (const char*)data);
+    });
+    return generator;
+}
+#include <filesystem>
+
+#include "App/Game/GUI/debug_gui.hpp"
+
+#include "App/Game/GUI/entity_editor.hpp"
+
+#include "App/Game/Entity/zyy_entity_serialize.hpp"
 
 inline game_state_t*
 get_game_state(game_memory_t* mem) {
@@ -134,7 +151,7 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     
     math::ray_t game_ui_ray{ui.eye, ui.look};
     DEBUG_DIAGRAM(game_ui_ray);
-    auto raycast = world->physics->raycast_world(ui.eye, ui.look);
+    auto raycast = world->physics->raycast_world(ui.eye, ui.look, ~zyy::physics_layers::player);
     if (raycast.hit) {
         auto* rb = (physics::rigidbody_t*)raycast.user_data;
         auto* entity = (zyy::entity_t*)rb->user_data;
@@ -181,23 +198,6 @@ draw_game_gui(game_memory_t* game_memory) {
         gfx::gui::string_render(&imgui.ctx, fmt_sv("Chambered: {}", weapon.chamber_count), &weapon_display_start, gfx::color::rgba::white);
     }
 }
-
-world_generator_t*
-generate_world_from_file(arena_t* arena, std::string_view file) {
-    tag_struct(auto* generator, world_generator_t, arena);
-    generator->arena = arena;
-    generator->data = (void*)file.data();
-
-    generator->add_step("Loading", WORLD_STEP_TYPE_LAMBDA(environment) {
-        load_world_file(world, (const char*)data);
-    });
-    return generator;
-}
-
-#include "App/Game/GUI/debug_gui.hpp"
-
-
-
 
 inline static gfx::vul::texture_2d_t*
 make_grid_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size, v3f c1, v3f c2, f32 grid_count = 10.0f) {
@@ -1229,7 +1229,12 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     // rendering::begin_frame(game_state->render_system);
     // game_state->debug.debug_vertices.pool.clear();
 
-    draw_gui(game_state->game_memory);
+    begin_gui(game_state);
+    if (!draw_entity_gui(game_state, game_state->gui.state)) {
+        draw_gui(game_state->game_memory);
+        draw_game_gui(game_state->game_memory);
+        draw_worlds(game_state, game_state->gui.state);
+    }
 
     world->camera.reset_priority();
 
@@ -1789,10 +1794,10 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
 
             vkCmdDrawIndexed(command_buffer,
                 (u32)gui_indices.pool.count(),
-                1,
-                0,
-                0,
-                0
+                1, // instance count
+                0, // first index
+                0, // first vertex
+                0  // first instance
             );
         }
 

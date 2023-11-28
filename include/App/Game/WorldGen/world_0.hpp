@@ -329,11 +329,11 @@ generate_world_1(arena_t* arena) {
         SPAWN_GUN(zyy::db::weapons::rpg, axis::forward * 25.0f + axis::up * 3.0f);
 
 
-        auto lightning_powerup = load_from_file(&world->arena, "./res/entity/lightning_powerup.entt");
+        auto lightning_powerup = world->prefab_loader.load(&world->arena, "./res/entity/lightning_powerup.entt");
         auto expo_powerup = load_from_file(&world->arena, "./res/entity/explosive_shot.entt");
         zyy::tag_spawn(world, lightning_powerup, axis::backward * 20.0f + axis::up * 3.0f);
-        zyy::tag_spawn(world, expo_powerup, axis::backward * 15.0f + axis::up * 3.0f);
-        // zyy::tag_spawn(world, expo_powerup, axis::left * 20.0f + axis::up * 3.0f);
+        // zyy::tag_spawn(world, expo_powerup, axis::backward * 15.0f + axis::up * 3.0f);
+        
         // zyy::tag_spawn(world, zyy::db::items::lightning_powerup, axis::backward * 15.0f + axis::up * 3.0f);
         range_u64(i, 0, 10) {
             auto spos = v3f{10.0f, 0.0f, 10.0f} + v3f{f32(i/10)*3.0f, 1.0f, f32(i%10)*3.0f};

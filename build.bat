@@ -18,10 +18,10 @@ if exist C:\Users\zack (
     set PhysXInclude=/I %PhysXSDK%/include
 )
 if exist C:\Users\crazy (
-    set PhysXSDK=C:\Users\crazy\Documents\GitHub\Physx5\PhysX\physx
+    set PhysXSDK=C:\Users\crazy\Documents\GitHub\PhysX\physx
     set PhysXInclude=/I %PhysXSDK%\include
 )
-Set PhysXCompiler=%PhysXSDK%\bin\win.x86_64.vc142.md
+Set PhysXCompiler=%PhysXSDK%\bin\win.x86_64.vc143.md
 rem use physx checked or debug for development
 set PhysXOpt=release
 set PhysXLinkLibs=PhysX_64.lib PhysXCommon_64.lib PhysXCooking_64.lib PhysXFoundation_64.lib PhysXExtensions_static_64.lib PhysXCharacterKinematic_static_64.lib PhysXPvdSDK_static_64.lib PhysXVehicle_static_64.lib

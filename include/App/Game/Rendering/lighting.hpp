@@ -133,6 +133,7 @@ namespace rendering::lighting {
         const u32 PROBE_MAX_COUNT_SQRT = (u32)std::sqrt(PROBE_MAX_COUNT);
         probe_box->irradiance_texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         probe_box->visibility_texture.format = VK_FORMAT_R16G16B16A16_SFLOAT;//VK_FORMAT_R16G16_SFLOAT;
+        // probe_box->irradiance_texture.filter = VK_FILTER_NEAREST;
 
         // todo: optimization with half texture height and glossy GI
         
