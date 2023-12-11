@@ -18,14 +18,15 @@ namespace rendering {
         u32 albedo;
     };
 
-    // DEFINE_TYPED_ID(gfx_entity_id);
     using gfx_entity_id = u32;
 
-    struct gfx_instance_t {
-        gfx_entity_id   gfx_id;
-        u32             instance_id;        
+    struct gfx_instance_id_t {
+        gfx_entity_id gfx_id;
+        u32           instance_id;
     };
 
+    // DEFINE_TYPED_ID(gfx_entity_id);
+    
     struct scene_t {
         gpu_ptr_t vertex_buffer;
         gpu_ptr_t index_buffer;
@@ -54,6 +55,7 @@ namespace rendering {
         gfx::vul::vertex_buffer_t<gfx::vertex_t, max_scene_vertex_count>    vertices;
         gfx::vul::index_buffer_t<max_scene_index_count>                     indices;
         gfx::vul::storage_buffer_t<gfx_entity_t, MAX_SCENE_ENTITIES>        entities;
+        gfx::vul::storage_buffer_t<gfx_instance_id_t, MAX_SCENE_ENTITIES>   entity_instances;
         gfx::vul::storage_buffer_t<m44, MAX_SCENE_ENTITIES*2>               transform_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 2'000'000>                          instance_storage_buffer;
         gfx::vul::storage_buffer_t<v4f, 2'000'000>                          instance_color_storage_buffer;

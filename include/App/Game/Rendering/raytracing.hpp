@@ -529,10 +529,12 @@ struct rt_compute_pass_t {
         if (instance_count > array_count(tlas_instances)) {
             zyy_error(__FUNCTION__, "TLAS OVERFLOW"); return;
         }
+
         VkAccelerationStructureInstanceKHR& acceleration_structure_instance    = tlas_instances[i];
         utl::copy(&acceleration_structure_instance.transform, &t, sizeof(transform_matrix));
         // acceleration_structure_instance.transform                              = transform_matrix;
-        acceleration_structure_instance.instanceCustomIndex                    = packing::pack(gfx_id, instance_id+instance_offset);
+        acceleration_structure_instance.instanceCustomIndex                    = gfx_id;
+        // acceleration_structure_instance.instanceCustomIndex                    = packing::pack(gfx_id, instance_id+instance_offset);
         // acceleration_structure_instance.instanceCustomIndex                    = packing::pack(gfx_id, instance_id+instance_offset);
         acceleration_structure_instance.mask                                   = 0xFF;
         acceleration_structure_instance.instanceShaderBindingTableRecordOffset = 0;

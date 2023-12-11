@@ -81,9 +81,7 @@ struct vertex_buffer_t : public gpu_buffer_t {
     ::utl::allocator_t allocator{};
 
     void create_allocator(arena_t* arena) {
-        allocator = ::utl::allocator_t{arena};
-        dlist_init(&allocator.free_blocks);
-        dlist_init(&allocator.used_blocks);
+        allocator.block_arena = arena;
         allocator.arena = arena_create(pool.start, pool.size_bytes());
     }
 };
@@ -92,6 +90,12 @@ template <size_t N>
 struct index_buffer_t : public gpu_buffer_t {
     using gpu_buffer_t::gpu_buffer_t;
     utl::pool_t<u32> pool{};
+    ::utl::allocator_t allocator{};
+
+    void create_allocator(arena_t* arena) {
+        allocator.block_arena = arena;
+        allocator.arena = arena_create(pool.start, pool.size_bytes());
+    }
 };
 
 template <typename T, size_t N>
@@ -99,6 +103,13 @@ struct storage_buffer_t : public gpu_buffer_t {
     using gpu_buffer_t::gpu_buffer_t;
     utl::pool_t<T> pool{};
     ::utl::allocator_t allocator{};
+
+    void create_allocator(arena_t* arena) {
+        allocator = ::utl::allocator_t{arena};
+        dlist_init(&allocator.free_blocks);
+        dlist_init(&allocator.used_blocks);
+        allocator.arena = arena_create(pool.start, pool.size_bytes());
+    }
 };
 
 struct texture_2d_t {
@@ -131,9 +142,13 @@ struct cube_map_t {
     VkDeviceMemory memory;
 };
 
+enum sporadic_light_info : u32 {
+    light_probe = (1<<0),
+};
+
 struct sporadic_buffer_t {
     int mode;
-    int use_lighting;
+    u32 lighting_info;
     int num_instances;
     f32 time;
 };
@@ -989,6 +1004,16 @@ inline VkViewport viewport(
     viewport.minDepth = minDepth;
     viewport.maxDepth = maxDepth;
     return viewport;
+}
+
+inline VkRect2D rect2D(math::rect2d_t rect)
+{
+    VkRect2D rect2D {};
+    rect2D.extent.width = (i32)rect.size().x;
+    rect2D.extent.height = (i32)rect.size().y;
+    rect2D.offset.x = (i32)rect.min.x;
+    rect2D.offset.y = (i32)rect.min.y;
+    return rect2D;
 }
 
 inline VkRect2D rect2D(

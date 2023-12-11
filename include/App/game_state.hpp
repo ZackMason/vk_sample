@@ -11,6 +11,38 @@
 #include "App/Game/GUI/viewport.hpp"
 #include "App/Game/GUI/debug_state.hpp"
 
+namespace fullscreen_mode { enum : u8 {
+    window, fullscreen, borderless
+};}
+
+namespace vsync_mode { enum : u8 {
+    off = 0, on = 1,
+};}
+
+namespace ddgi_mode { enum : u8 {
+    off = 0, realtime = 1, baked = 2,
+};}
+
+struct game_graphics_config_t {
+    u64 VERSION{0};
+
+    u16 width;
+    u16 height;
+
+    u32 fps_max;
+    f32 gamma;
+
+    f32 fov;
+    f32 scale;
+
+    u8 fullscreen;
+    u8 vsync;
+    u8 aa_mode;
+    
+    // advanced
+    u8 ddgi = ddgi_mode::realtime;
+    u8 lighting;
+};
 
 namespace zyy {
     struct world_t;
@@ -26,6 +58,7 @@ struct player_controller_t {
     b32 jump;
     b32 sprint;
     b32 swap;
+    b32 emote;
 };
 
 inline static player_controller_t 
@@ -49,11 +82,25 @@ gamepad_controller(app_input_t* input) {
     pc.jump = input->gamepads->buttons[button_id::action_down].is_held;
     pc.sprint = input->gamepads->buttons[button_id::action_right].is_held;
     pc.swap =  input->gamepads->buttons[button_id::action_left].is_held;
+    pc.emote = input->gamepads->buttons[button_id::dpad_down].is_pressed;
     return pc;
 }
 
 struct input_mapping_t {
     i32 look_button{0};
+    i32 fire_button{0};
+    i32 aim_button{0};
+
+    u16 move_forward{'W'};
+    u16 move_backward{'S'};
+    u16 move_left{'A'};
+    u16 move_right{'D'};
+
+    u16 jump{key_id::SPACE};
+    u16 sprint{key_id::LEFT_SHIFT};
+    u16 swap{'X'};
+    u16 swap2{key_id::TAB};
+    u16 emote{'G'};
 };
 
 inline static player_controller_t
@@ -77,15 +124,55 @@ keyboard_controller(app_input_t* input, input_mapping_t mapping = input_mapping_
         f32(input->keys['I']) - f32(input->keys['K'])
     } * 1.50f);
 
-    pc.fire1 = input->keys['F'] || input->mouse.buttons[0];
-    pc.iron_sight = input->mouse.buttons[1];
-    pc.jump = input->keys[key_id::SPACE];
-    pc.sprint = input->keys[key_id::LEFT_SHIFT];
-    pc.swap = input->pressed.keys[key_id::X] || input->pressed.keys[key_id::TAB];
+    pc.fire1 = input->keys['F'] || input->mouse.buttons[mapping.fire_button];
+    pc.iron_sight = input->mouse.buttons[mapping.aim_button];
+    pc.jump = input->keys[mapping.jump];
+    pc.sprint = input->keys[mapping.sprint];
+    pc.swap = input->pressed.keys[mapping.swap] || input->pressed.keys[mapping.swap2];
+    pc.emote = input->pressed.keys[mapping.emote];
     return pc;
 }
 
 struct debug_console_t;
+
+struct player_game_save_data_t {
+    u64 VERSION{0};
+    string_buffer name;
+
+    u64 money{0};
+};
+
+struct player_save_file_header_t {
+    u64 VERSION{0};
+    game_graphics_config_t graphics_config;
+    player_game_save_data_t player_data;
+};
+
+
+template<>
+void
+utl::memory_blob_t::serialize<player_game_save_data_t>(
+    arena_t* arena, 
+    const player_game_save_data_t& save_data
+) {
+    serialize(arena, save_data.VERSION);
+    serialize(arena, save_data.name);
+    serialize(arena, save_data.money);
+}
+
+template<>
+player_game_save_data_t
+utl::memory_blob_t::deserialize<player_game_save_data_t>(arena_t* arena) {
+    player_game_save_data_t save_data{};
+
+    save_data.VERSION = deserialize<u64>();
+
+    save_data.name = deserialize<string_buffer>();
+
+    save_data.money = deserialize<u64>();
+
+    return save_data;
+}
 
 struct game_state_t {
     game_memory_t*       game_memory{nullptr};
@@ -98,6 +185,8 @@ struct game_state_t {
     arena_t             texture_arena;
 
     debug_state_t* debug_state{0};
+
+    game_graphics_config_t graphics_config{};
 
     struct modding_t {
         utl::mod_loader_t  loader{};
@@ -129,15 +218,16 @@ struct game_state_t {
 
         arena_t  arena;
 
-        gfx::gui::im::state_t state;
-        explicit gui_state_t() : state {
+        gfx::gui::im::state_t imgui;
+        explicit gui_state_t() : imgui {
             .ctx = ctx,
             .theme = gfx::gui::theme_t {
-                .fg_color = gfx::color::rgba::gray,
+                .fg_color = gfx::color::rgba::dark_red,
                 .bg_color = gfx::color::rgba::black,
                 .text_color = gfx::color::rgba::cream,
                 .disabled_color = gfx::color::rgba::dark_gray,
                 .border_color = gfx::color::rgba::white,
+                .shadow_color = gfx::color::rgba::dark_red,
 
                 .padding = 4.0f,
                 .margin = 8.0f

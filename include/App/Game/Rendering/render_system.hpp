@@ -786,8 +786,9 @@ public:
             submitInfo.commandBufferCount = 1;
             submitInfo.pCommandBuffers = &command_buffer;
 
-            if (vkQueueSubmit(queue, 1, &submitInfo, fence) != VK_SUCCESS) {
-                zyy_error(__FUNCTION__, "failed to submit draw command buffer!");
+            auto submit_result = vkQueueSubmit(queue, 1, &submitInfo, fence);
+            if (submit_result != VK_SUCCESS) {
+                zyy_error(__FUNCTION__, "failed to submit draw command buffer!\n\n\t{}", gfx::vul::utl::error_string(submit_result));
                 // std::terminate();
                 *(volatile int*)0 = 1;
             }
@@ -909,6 +910,7 @@ public:
 
         pp_material_t postprocess_params{};
 
+
         probe_buffer_t<10000> probe_storage_buffer;
         gfx::vul::storage_buffer_t<lighting::probe_settings_t, 1> light_probe_settings_buffer;
         gfx::vul::storage_buffer_t<lighting::probe_ray_result_t, lighting::PROBE_MAX_COUNT * lighting::PROBE_RAY_MAX*2> light_probe_ray_buffer;
@@ -1024,7 +1026,8 @@ public:
         rs->postprocess_params.data[1] = 1.0f; // exposure
         rs->postprocess_params.data[2] = 1.0f; //contrast
         rs->postprocess_params.data[3] = 1.0f; // gamma
-        rs->postprocess_params.data[4] = 24.0f; // number of colors
+        // rs->postprocess_params.data[4] = 24.0f; // number of colors
+        rs->postprocess_params.data[4] = 0.0f; // number of colors
         rs->postprocess_params.data[5] = 0.0f; // pixelate
 
         const i32 w = state.swap_chain_extent.width;
@@ -1198,6 +1201,7 @@ public:
         state.create_index_buffer(&rs->skinned_indices);
 
         rs->scene_context->vertices.create_allocator(&rs->arena);
+        rs->scene_context->indices.create_allocator(&rs->arena);
     
        // lighting::set_probes(*rs->vk_gfx, &rs->light_probes, &rs->arena);
 
@@ -1515,7 +1519,7 @@ public:
                 &rs->arena,
                 file_data, 
                 &rs->scene_context->vertices.allocator,
-                &rs->scene_context->indices.pool
+                &rs->scene_context->indices.allocator
             );
 
             range_u64(m, 0, loaded_mesh.count) {

@@ -113,6 +113,7 @@ descriptor_allocator_t::allocate(VkDescriptorSet* set, VkDescriptorSetLayout lay
     //initialize the currentPool handle if it's null
     if (current_pool == VK_NULL_HANDLE) {
         current_pool = get_pool();
+        assert(current_pool);
         // used.push_back(current_pool);
         used_pools[used_pool_count++] = current_pool;
         assert(used_pool_count < MAX_DESCRIPTOR_POOLS);

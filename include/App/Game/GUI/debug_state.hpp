@@ -84,6 +84,20 @@ struct debug_variable_t {
     };
 };
 
+struct debug_alert_t {
+    // debug_alert_t* next = 0;
+    string_buffer message{};
+    f32 time;
+
+    void make(arena_t* arena, std::string_view text, f32 t) {
+        time = t;
+
+        message = {};
+        message.push(arena, std::span((char*)text.data(), text.size()));
+    }
+};
+
+
 struct debug_console_t;
 struct debug_state_t {
     f32& time;
@@ -95,6 +109,40 @@ struct debug_state_t {
     f32 timeout{1.0f};
     v3f focus_point{0.0f};
     f32 focus_distance{0.10f};
+
+    f32 debug_alert_show_time{10.0f};
+    u64 active_alert_count = 0;
+    buffer<debug_alert_t> debug_alerts = {};
+
+    void alert(std::string_view text) {
+        if (active_alert_count < debug_alerts.count) {
+            debug_alerts.data[active_alert_count++].make(&arena, text, time);
+        } else {
+            debug_alert_t debug_alert = {};
+            debug_alert.make(&arena, text, time);
+            debug_alerts.push(&arena, debug_alert);
+            active_alert_count++;
+        }
+    }
+
+    void sort_active_alerts() {
+        debug_alerts.sort([](auto& a, auto& b) {
+            return a.time < b.time;
+        });
+
+        active_alert_count = 0;
+        range_u64(i, 0, debug_alerts.count) {
+            if (time - debug_alerts.data[i].time < debug_alert_show_time) {
+                active_alert_count++;
+            }
+        }
+    }
+
+    b32 has_alert() {
+        return active_alert_count > 0;
+    }
+
+    v3f* selection = 0;
 
     debug_variable_t* variables{0};
     debug_variable_t* first_free{0};
@@ -165,14 +213,23 @@ struct debug_state_t {
 
         const auto theme = imgui.theme;
 
+        // imgui.theme.bg_color &= ~gfx::color::rgba::clear_alpha;
+        // imgui.theme.bg_color = 0x0;
+        // imgui.theme.fg_color = 0x0;
+
         local_persist v2f watch_pos{imgui.ctx.screen_size*0.2f};
         local_persist v2f watch_size{100.0f};
+        local_persist v2f scroll_size{0.0f, 100.0f};
+        local_persist f32 scroll;
         local_persist b32 watch_open{true};
  
         if (im::begin_panel(imgui, "Watch Window", &watch_pos, &watch_size, &watch_open)) {
             im::text(imgui, "Watch Window");
 
             im::text_edit(imgui, watcher_needle, &watcher_wpos, "watcher_text_box"_sid);
+
+            im::begin_scroll_rect(imgui, &scroll, &scroll_size);
+            
 
             u64 shown = 0;
             node_for(auto, watcher, var) {
@@ -206,9 +263,8 @@ struct debug_state_t {
                     im::text(imgui, "Unsupported type");
                 }
             }
+            im::end_scroll_rect(imgui, &scroll, &scroll_size);
             
-            imgui.theme.bg_color = 0x0;
-            imgui.theme.fg_color = 0x0;
             im::end_panel(imgui, &watch_pos, &watch_size);
         }
 
@@ -390,6 +446,8 @@ struct debug_console_t {
         command_t command{};
     };
 
+    void* user_data = 0; // store game_state
+
     console_command_t console_commands[64]{};
     u32 command_count{0};
 
@@ -410,6 +468,16 @@ struct debug_console_t {
             float f;
             ss >> f;
             return f;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    std::optional<std::string_view> last_args() const {
+        const auto& message = last_message();
+        auto i = std::string_view{message.text}.find_first_of(" ");
+        if (i != std::string_view::npos) {
+            return std::string_view{message.text}.substr(i);
         } else {
             return std::nullopt;
         }

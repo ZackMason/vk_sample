@@ -19,13 +19,16 @@ layout( set = 4, binding = 1 ) uniform sampler2D uProbeSampler[3];
 #include "material.glsl"
 #include "ddgi.glsl"
 
+#define LIGHTING_INFO_PROBE_FLAG 1
+
 layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 {
 	int		uMode;
-	int		uUseLighting;
+	uint	uLightInfo;
 	int		uNumInstances;
 	float 	uTime;
-} Sporadic;
+} Sporadic;        
+
 
 struct ObjectData {
 	mat4 model;
@@ -174,6 +177,10 @@ vec3 screenspace_dither(vec2 uv) {
     return vDither.rgb / 255.0;
 }
 
+vec3 paletize(vec3 rgb, float n) {
+    return floor(rgb*(n-1.0)+0.5)/(n-1);
+}
+
 
 void
 main( )
@@ -217,25 +224,27 @@ main( )
 			rgb = vec3( 1., 1., 0. );
 	}
 
+	float depth = length(vCameraPos.xyz - vWorldPos);
+
 	if (water_material != 0) {
 		// float water_noise = fbm(vWorldPos.xz/4.0 - Sporadic.uTime * 0.1, 4)
 		// 	* fbm(vWorldPos.xz/2.0 + Sporadic.uTime * 0.25, 3);
 
 		vec2 water_uv = vTexCoord * 10.0;
 		if (triplanar_material > 0) {
-			water_uv = vWorldPos.xz * 2.0;
+			water_uv = vWorldPos.xz * 2.0f;
 		}
 
 		float water_noise = cell(water_uv, Sporadic.uTime);
 		water_noise *= water_noise;
+		water_noise = mix(water_noise, 1.0, saturate(depth/25.0f));
 		// water_noise = smoothstep(0.2, 0.25, water_noise);
 
 		rgb = mix(material.albedo.rgb, material.albedo.rgb * 1.3, water_noise);
-		float steps = 16.0;
-		// rgb = floor(rgb * steps + 0.5) / steps;
+		// float steps = 24.0;
+		// rgb = paletize(rgb, steps);
 	}
 
-	float depth = length(vCameraPos.xyz - vWorldPos);
 	vec3 V = normalize(vCameraPos.xyz - vWorldPos);
 	
 	vec3 albedo = sqr(rgb) * sqr(vDrawColor.rgb);
@@ -292,14 +301,15 @@ main( )
 	
 
 	if (lit_material > 0) {
-		vec2 probe_uv = encode_oct(N * 0.5 + 0.5);
-		light_solution.indirect.diffuse += light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
-		{	// quantize lighting
-			// light_solution.indirect.diffuse = sqrt(light_solution.indirect.diffuse);
-			// light_solution.indirect.diffuse = floor(light_solution.indirect.diffuse * 8.0 + .50) / 8.0;
-
-			// light_solution.indirect.diffuse += screenspace_dither(probe_uv * 600.0);
+		
+		if ((Sporadic.uLightInfo & 1) == 1) {
+			light_solution.indirect.diffuse += light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
+		} else {
+			float nol = saturate(dot(surface.normal, L));
+			nol = nol * 0.7 + 0.3;
+			light_solution.direct.diffuse = surface.albedo * max(nol, uEnvironment.ambient_strength) + uEnvironment.ambient_color.rgb;
 		}
+
 		rgb = vec3(0.0);
 		apply_light(surface, light_solution, rgb);
 		// rgb *= expo;
@@ -316,8 +326,14 @@ main( )
 
     	rgb += reflectivity * sqrt(sqrt(max(vec3(0.0), sky_color(reflected_view, L)))); 
 	}
+
+	if (water_material != 0) {
+		float steps = 24.0;
+		rgb = paletize(rgb, steps);
+	}
+
     
-	// rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
+	rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
 	
 	// rgb = V;
 

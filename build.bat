@@ -63,5 +63,4 @@ if "%~1"=="web" (
 if "%~1"=="tests" (
     cl %OptimizationFlags% -DZYY_INTERNAL=0 %IncludeFlags% %CompilerFlags% ..\tests\tests.cpp /link %LinkFlags% %SDLLinkFlags%
 )
-
 popd build

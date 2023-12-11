@@ -78,9 +78,11 @@ void free_all_used_blocks() {
         block != head;
         node_next(block)
     ) {
-        auto result = VirtualFree(block, 0, MEM_RELEASE);
+        auto* memory = block;
+        block = block->next;
+        dlist_remove(memory);
+        auto result = VirtualFree(memory, 0, MEM_RELEASE);
         assert(result);
-        dlist_remove(block);
     }
 }
 
@@ -162,6 +164,8 @@ void win32_read_blocks_from_file(HANDLE file, win32_memory_block_t* head) {
             break;
         }
     }
+    SetFilePointer(file, 0, NULL, FILE_BEGIN);
+
     zyy_info(__FUNCTION__, "Done Loading Loop: {} Blocks - {}Mb", blocks_loaded, bytes_loaded/megabytes(1));
 }
 
@@ -175,6 +179,7 @@ void win32_save_loop_file(HANDLE file) {
 }
 
 void win32_free(void* ptr) {
+    // return;
     auto* free_block = (win32_memory_block_t*)((u8*)ptr - sizeof(win32_memory_block_t));
 
     {
@@ -196,7 +201,7 @@ void win32_free(void* ptr) {
 }
 
 void* win32_alloc(size_t size) {
-#if 0
+#if 1
     {
         // Note
         // theres a problem in that in the game layer 
@@ -207,7 +212,11 @@ void* win32_alloc(size_t size) {
             block != head;
             node_next(block)
         ) {
-            if (block->size / 2 > size) {
+            // skip blocks that are twice as big as what we are looking for
+            if (block->size / 2 > size) { 
+                continue;
+            }
+            if (block->size < size) {
                 continue;
             }
             dlist_remove(block);
@@ -220,6 +229,7 @@ void* win32_alloc(size_t size) {
         }
     }
 #endif
+
     zyy_info(__FUNCTION__, "Allocating: {}", size);
     void* memory = VirtualAlloc(0, size + sizeof(win32_memory_block_t), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     assert(memory);
@@ -233,6 +243,8 @@ void* win32_alloc(size_t size) {
         std::lock_guard lock{allocation_ticket};
         dlist_insert_as_last(head, block);
     }
+
+    return block+1;
     
     return (u8*)memory + sizeof(win32_memory_block_t);
 }
@@ -833,24 +845,24 @@ main(int argc, char* argv[]) {
     
     // game_memory.input.pressed.keys[key_id::F9] = 1;
 
-    _set_se_translator([](unsigned int u, EXCEPTION_POINTERS *pExp) {
-        std::string error = "SE Exception: ";
+    // _set_se_translator([](unsigned int u, EXCEPTION_POINTERS *pExp) {
+    //     std::string error = "SE Exception: ";
         
-        switch (u) {
-        case EXCEPTION_BREAKPOINT: break; // ignore
-        case EXCEPTION_ACCESS_VIOLATION: 
-            throw access_violation_exception{ 
-                pExp->ExceptionRecord->ExceptionInformation[0], 
-                (void*)pExp->ExceptionRecord->ExceptionInformation[1]
-            };
+    //     switch (u) {
+    //     case EXCEPTION_BREAKPOINT: break; // ignore
+    //     case EXCEPTION_ACCESS_VIOLATION: 
+    //         throw access_violation_exception{ 
+    //             pExp->ExceptionRecord->ExceptionInformation[0], 
+    //             (void*)pExp->ExceptionRecord->ExceptionInformation[1]
+    //         };
 
-        default:
-            char result[11];
-            sprintf_s(result, 11, "0x%08X", u);
-            error += result;
-            throw std::runtime_error(error.c_str());
-        };
-    });
+    //     default:
+    //         char result[11];
+    //         sprintf_s(result, 11, "0x%08X", u);
+    //         error += result;
+    //         throw std::runtime_error(error.c_str());
+    //     };
+    // });
 
     while(game_memory.running && !glfwWindowShouldClose(window)) {
         if (check_buffer_overflow()) { 
@@ -885,8 +897,10 @@ main(int argc, char* argv[]) {
             if (gs_loop_file) {
                 gs_loop_file = win32_end_loop_file("state1.replay", gs_loop_file);
                 win32_load_loop_file(gs_loop_file);
-                CloseHandle(gs_loop_file);
-                gs_loop_file = 0;
+
+                //@keep Do this for loops probably
+                // CloseHandle(gs_loop_file);
+                // gs_loop_file = 0;
             } else {
                 zyy_warn("loop", "No loop file");
             }

@@ -152,10 +152,12 @@ void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other, phys
             );
         }
         self_entity->queue_free(0);
+
+        // @hardcoded particle position
         if (self_entity->first_child && self_entity->first_child->gfx.particle_system) {
             self_entity->first_child->gfx.particle_system->spawn_timer = 1000.0f;
         } else {
-            zyy_warn(__FUNCTION__, "Tried to get bullet particles system but failed");
+            assert(!"Tried to get bullet particles system but failed");
         }
 
         // auto* hole = zyy::tag_spawn(world, zyy::db::misc::bullet_hole, self->position);
@@ -254,6 +256,8 @@ zyy::entity_t* explosion_at_point(
     auto rnd_pos = [=](f32 s) {
         return s * utl::rng::random_s::randnv() + pos;
     };
+    
+    end_temporary_memory(memory);
 
     // auto explosion = zyy::db::particle::orb;
     // local_persist auto explosion = load_from_file(&world->arena, "./res/entity/explosion_up.entt");
@@ -270,7 +274,6 @@ zyy::entity_t* explosion_at_point(
     // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 5);
     // spawn_explosion(world, rnd_pos(1.0f), 30, explosion, 6);
 
-    end_temporary_memory(memory);
 
     return 0;
 }

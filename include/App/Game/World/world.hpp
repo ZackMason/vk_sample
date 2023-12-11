@@ -18,17 +18,25 @@ namespace zyy {
         none = 0ui32,
         player = 1ui32,
         enemy = 2ui32,
+        player_bullets = 4ui32,
+        enemy_bullets = 8ui32,
+        environment = (1ui32 << 31ui32),
         everything = 0xffff'ffffui32,        
     };
+
+    constexpr u32 player_collision_group = ~physics_layers::player_bullets;
+    constexpr u32 enemy_collision_group = ~physics_layers::enemy_bullets;
+    constexpr u32 player_bullet_collision_group = ~physics_layers::player & ~physics_layers::player_bullets;
+    constexpr u32 enemy_bullet_collision_group = ~physics_layers::enemy & ~physics_layers::enemy_bullets;
 
     struct prefab_loader_t {
         utl::hash_trie_t<std::string_view, zyy::prefab_t>* map = 0; 
 
         zyy::prefab_t load(arena_t* arena, std::string_view name) {
-            b32   has = 0;
-            auto* prefab = utl::hash_get(&map, name, arena, &has);
-            assert(prefab);
-            if (!has) {
+            b32 had = 0;
+            auto* prefab = utl::hash_get(&map, name, arena, &had);
+            
+            if (had == 0) {
                 *prefab = load_from_file(arena, name);
             }
             return *prefab;
@@ -201,7 +209,7 @@ namespace zyy {
         assert(world->entity_capacity < array_count(world->entities));
         entity_t* e{0};
 
-        if (world->free_entities) {
+        if (false && world->free_entities) {
             node_pop(e, world->free_entities);
             world->entity_count++;
             assert(e);
@@ -262,6 +270,8 @@ namespace zyy {
         assert(entity->next_child == nullptr);
 
         entity_init(entity, rendering::get_mesh_id(rs, def.gfx.mesh_name.view()));
+
+        entity->flags = def.flags;
 
         entity->gfx.material_id = def.gfx.material_id;
         entity->gfx.gfx_id  = rendering::register_entity(rs);
@@ -458,10 +468,17 @@ namespace zyy {
         // and all other will be enemy
         if (def.brain_type != brain_type::invalid) {
             world_new_brain(world, entity, def.brain_type);
-            if (def.brain_type == brain_type::player) {
-                entity->physics.rigidbody->set_layer(physics_layers::player);
-            } else { 
-                entity->physics.rigidbody->set_layer(physics_layers::enemy);
+
+            if (entity->physics.rigidbody == nullptr) {
+                DEBUG_STATE.alert(fmt_sv("AI Entity: {} has no rigidbody", def.type_name.view()));
+            } else {
+                if (def.brain_type == brain_type::player) {
+                    entity->physics.rigidbody->set_layer(physics_layers::player);
+                    entity->physics.rigidbody->set_group(player_collision_group);
+                } else { 
+                    entity->physics.rigidbody->set_layer(physics_layers::enemy);
+                    entity->physics.rigidbody->set_group(enemy_collision_group);
+                }
             }
         }
 
@@ -508,6 +525,11 @@ namespace zyy {
     world_free(world_t*& world) {
         arena_clear(&world->arena);
         arena_clear(&world->particle_arena);
+        
+        world->render_system()->scene_context->instance_storage_buffer.pool.clear();
+        world->render_system()->scene_context->entities.pool.clear();
+        world->render_system()->scene_context->entity_count = 0;
+        
         world = nullptr;
     }
 
@@ -530,7 +552,10 @@ namespace zyy {
     world_init(game_state_t* game_state, physics::api_t* phys_api) {
         TIMED_FUNCTION;
         
-        world_t* world = bootstrap_arena(world_t, megabytes(32));
+        arena_t arena = arena_create(megabytes(32));
+        tag_struct(auto* world, world_t, &arena);
+        world->arena = arena;
+        // world_t* world = bootstrap_arena(world_t, megabytes(32));
         world->game_state = game_state;
         world->physics = phys_api;
         phys_api->user_world = world;
@@ -616,6 +641,20 @@ namespace zyy {
         } else {
             assert(0);
         }
+    }
+
+    static entity_t*
+    find_entity_by_name(world_t* world, std::string_view name) {
+        TIMED_FUNCTION;
+        range_u64(i, 0, world->entity_capacity) {
+            if (world->entities[i].is_alive()) {
+                if (world->entities[i].name.sv() == name) {
+                    return world->entities + i;
+                }
+            }
+        }
+         
+        return nullptr;
     }
 
     static entity_t*
@@ -753,8 +792,23 @@ namespace zyy {
 
 struct world_save_file_header_t {
     u64 prefab_count{0};
-    u64 VERSION{0};
+    u64 VERSION{0}; 
 };
+
+template<>
+world_save_file_header_t
+utl::memory_blob_t::deserialize<world_save_file_header_t>(arena_t* arena) {
+    world_save_file_header_t result = {};
+
+    result.prefab_count = deserialize<u64>();
+    result.VERSION = deserialize<u64>();
+
+    if (result.VERSION <= world_save_file_header_t{}.VERSION) {
+
+    }
+
+    return result;
+}
 
 void load_world_file(zyy::world_t* world, const char* name) {
     std::ifstream file{name, std::ios::binary};
@@ -779,5 +833,31 @@ void load_world_file(zyy::world_t* world, const char* name) {
         auto transform = blob.deserialize<math::transform_t>();
 
         zyy::tag_spawn(world, prefab, transform.origin, transform.basis);
+    }
+}
+
+void load_world_file(zyy::world_t* world, const char* name, auto&& callback) {
+    std::ifstream file{name, std::ios::binary};
+
+    // arena_t* arena = &world->frame_arena.get();
+    arena_t* arena = &world->arena;
+
+    file.seekg(0, std::ios::end);
+    const size_t file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    auto* bytes = (char*)push_bytes(arena, file_size);
+    file.read(bytes, file_size);
+
+    utl::memory_blob_t blob{(std::byte*)bytes};
+
+    auto header = blob.deserialize<world_save_file_header_t>();
+    
+    zyy_info(__FUNCTION__, "Loading world '{}' - save file version: {}", name, header.VERSION);
+    range_u64(i, 0, header.prefab_count) {
+        auto prefab = blob.deserialize<zyy::prefab_t>(arena);
+        auto transform = blob.deserialize<math::transform_t>();
+
+        callback(world, prefab, transform.origin, transform.basis);
     }
 }

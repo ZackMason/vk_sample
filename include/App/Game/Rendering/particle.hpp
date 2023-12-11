@@ -137,6 +137,7 @@ utl::memory_blob_t::deserialize<particle_system_settings_t>(arena_t* arena) {
                     case color_variant_type::gradient:
                         // DESER(particle_color.gradient);
                         if (settings.VERSION == 2) {
+                            zyy_warn(__FUNCTION__, "Loaded degen gradient");
                             advance(sizeof(gfx::color::gradient_t));
                         } else {
                             settings.particle_color.gradient = deserialize<gfx::color::gradient_t>(arena);
@@ -406,6 +407,10 @@ particle_system_create(
     system->max_count = max_particle_count;
     system->live_count = 0;
     system->spawn_timer = 0.0f;
+
+    range_u64(i, 0, max_particle_count) {
+        system->particles[i].life_time = 0.0f;
+    }
 
     if (seed) system->rng.seed(seed);
 

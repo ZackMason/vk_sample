@@ -7,15 +7,16 @@
 
 // Vulkan Sample Program Fragment Shader:
 
-// also, can't specify packing
+#define LIGHTING_INFO_PROBE_FLAG 1
+
 layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 {
 	int		uMode;
-	int		uUseLighting;
+	uint	uLightInfo;
 	int		uNumInstances;
-	int 	pad;
-} Sporadic;
-        
+	float 	uTime;
+} Sporadic;        
+
 layout( std140, set = 1, binding = 0 ) uniform sceneBuf
 {
 	mat4		uProjection;

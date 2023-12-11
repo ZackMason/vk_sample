@@ -3,9 +3,18 @@ include libs.ninja
 # Variables
 
 ## physics flags are hard coded
-OptimizationFlags = /DNDEBUG /O2 /Zi /fp:fast /arch:AVX2
+## Release Flags
+#OptimizationFlags = /DNDEBUG /O2 /Zi /fp:fast /arch:AVX2
+
+## Fast Debug
 #OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /O2 /fp:fast /arch:AVX2
-#OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /O0 /fp:fast /arch:AVX2
+
+## Debug
+#OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /Od /fp:fast /arch:AVX2
+
+## Sanatized
+OptimizationFlags = /UNDEBUG /DEBUG /Zi /Od /fp:fast /arch:AVX2 /fsanitize=address
+
 cflags = -FC -WX -W4 -wd4127 -wd4100 -wd4201 -wd4505 -wd4702 -wd4701 -wd4189 -MD -EHa /std:c++20
 lflags = -incremental:no -opt:ref user32.lib gdi32.lib shell32.lib /nologo /NOIMPLIB /NOEXP
 sdl_lflags = SDL2.lib SDL2_mixer.lib SDL2main.lib
@@ -19,7 +28,7 @@ PhysXLinkLibs=PhysX_64.lib PhysXCommon_64.lib PhysXCooking_64.lib PhysXFoundatio
 msvc_deps_prefix = Note: including file:
 
 glslc_iflags = -Ires/shaders/utl -Ires/shaders/rt
-glslc_oflags = --target-env=vulkan1.3 --target-spv=spv1.6 -O
+glslc_oflags = -Werror --target-env=vulkan1.3 --target-spv=spv1.6 -O
 
 # Rules
 rule compile_cpp

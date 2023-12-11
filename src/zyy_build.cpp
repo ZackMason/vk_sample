@@ -6,10 +6,22 @@
 #include "khr/spirv_reflect.h"
 #include "khr/spirv_reflect.c"
 
+namespace zyy {
+
+struct program_context_t {
+    utl::allocator_t allocator{};
+};
+
+global_variable program_context_t global_context{};
+
+}
+
 #include "App/Game/GUI/debug_state.hpp"
 
 global_variable f32 bloom_filter_radius = 0.0025f;
 
+#undef assert
+#define assert(expr) if (!(expr)) { zyy_warn(__FUNCTION__, "{}", #expr); DEBUG_STATE.alert(fmt_sv("Assertion Failed: {}:{} - {}", ::utl::trim_filename(__FILE__), __LINE__, #expr)); }
 
 // #undef zyy_warn
 // #undef zyy_info

@@ -722,7 +722,7 @@ struct run_away_t : public bt::behavior_t {
     }
 
     virtual bt::behavior_status on_update(blackboard_t* blkbrd) override {
-        zyy_info("bt::run_away", text);
+        // zyy_info("bt::run_away", text);
         auto* target = utl::hash_get(&blkbrd->points, text, blkbrd->arena);
         auto* self = utl::hash_get(&blkbrd->points, "self"sv, blkbrd->arena);
 
@@ -743,15 +743,12 @@ person_init(arena_t* arena, brain_t* brain) {
     brain->blackboard = {};
     brain->blackboard.arena = arena;
 
-    // brain->blackboard.get_float("test") = 0.5f;
-
     bt::builder_t builder{.arena = arena};
 
     builder
         .selector()
             .sequence()
                 .condition("has_target")
-                // .action<print_t>("has target")
                 .selector()
                     .sequence()
                         .greater_than("fear", 0.5f)
@@ -765,7 +762,6 @@ person_init(arena_t* arena, brain_t* brain) {
                         .always_succeed<bt::sequence_t>()
                             .condition("has_range")
                             .action<breakpoint_t>("Attack")
-                            // .action<print_t>("attack")
                         .end()
                     .end()
                     .sequence()
@@ -776,7 +772,7 @@ person_init(arena_t* arena, brain_t* brain) {
             .sequence()
                 // .action<print_t>("looking for target")
                 .action<move_toward_t>("rng_move")
-                .action<bt::wait_t>(8.0f)
+                .action<bt::wait_t>(3.0f)
             .end()
         .end();
 

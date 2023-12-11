@@ -213,9 +213,9 @@ namespace math {
     };
 
     struct position_pid_t {
-        pid_controller_t x;
-        pid_controller_t y;
-        pid_controller_t z;
+        pid_controller_t x{};
+        pid_controller_t y{};
+        pid_controller_t z{};
 
         explicit position_pid_t(const pid_controller_t& o = pid_controller_t{}) 
             : x{o}, y{o}, z{o}
@@ -472,6 +472,10 @@ struct aabb_t {
         *this = t;
     }
 
+    void pad(f32 amount) {
+        pull(v2f{-amount});
+    }
+
     void add(T amount) {
         aabb_t<T> t;
         t.expand(min + amount);
@@ -548,6 +552,20 @@ struct aabb_t {
         auto c = center();
         expand(c + s/2.0f);
         expand(c - s/2.0f);
+    }
+    
+    // this is clipper
+    // o is rect being clipped
+    aabb_t<v2f> clip(const aabb_t<v2f>& o) const {
+        aabb_t<T> result;
+
+        result.min.x = glm::max(min.x, o.min.x);
+        result.max.x = glm::min(max.x, o.max.x);
+        
+        result.min.y = glm::max(min.y, o.min.y);
+        result.max.y = glm::min(max.y, o.max.y);
+        
+        return result;
     }
     
     aabb_t<v2f> cut_left(f32 amount) {

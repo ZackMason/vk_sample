@@ -12,13 +12,16 @@
 layout(binding = 4, set = 1) uniform sampler2D uProbeSampler[2];
 #include "material.glsl"
 
+#define LIGHTING_INFO_PROBE_FLAG 1
+
 layout( std140, set = 0, binding = 0 ) uniform sporadicBuf
 {
 	int		uMode;
-	int		uUseLighting;
+	uint	uLightInfo;
 	int		uNumInstances;
 	float 	uTime;
-} Sporadic;
+} Sporadic;        
+
 
 struct ObjectData {
 	mat4 model;

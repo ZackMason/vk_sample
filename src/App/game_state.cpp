@@ -63,7 +63,14 @@ generate_world_from_file(arena_t* arena, std::string_view file) {
     generator->data = (void*)file.data();
 
     generator->add_step("Loading", WORLD_STEP_TYPE_LAMBDA(environment) {
-        load_world_file(world, (const char*)data);
+        auto* file_name = (const char*)data;
+
+        load_world_file(world, file_name, [&](auto world, auto prefab, v3f o, const m33& b) {
+            generator->add_step(prefab.type_name.data(), WORLD_STEP_TYPE_LAMBDA(environment) {
+
+            });
+            zyy::tag_spawn(world, prefab, o, b);
+        });
     });
     return generator;
 }
@@ -86,13 +93,28 @@ struct game_theme_t {
     f32 action_bar_size = 32.0f * 2.0f;
 
     gfx::color32 action_bar_color = gfx::color::rgba::black;
+    gfx::color32 action_bar_fg_color = gfx::color::rgba::ue5_bg;
     gfx::color32 action_button_color = gfx::color::rgba::gray;
 };
+
+namespace available_options { enum : u32 {
+    name        = 1,
+    open        = 2,
+    activate    = 4,
+    pickup      = 8,
+};}
+
+namespace ui_styles { enum : u32 {
+    first, second,
+};}
+
 
 struct game_ui_t {
     game_theme_t game_theme{};
 
     zyy::entity_t* entity = 0;
+
+    u32 options_available = available_options::name;
 
     zyy::health_t health;
     zyy::wep::ammo_mag_t mag;
@@ -100,10 +122,15 @@ struct game_ui_t {
     v3f eye;
     v3f look;
 
+    v3f aim_location;
+
     math::rect2d_t screen{};
+
+    inline static u32 highlight_option = 0;
+    inline static u32 ui_style = ui_styles::second;
 };
 
-void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
+void draw_game_ui_first(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
     auto screen = game_ui->screen;
     auto game_theme = game_ui->game_theme;
 
@@ -115,6 +142,8 @@ void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
     game_theme.action_bar_size = (mid_panel.size().x + game_theme.padding * 2.0f) / 11.0f;
     auto [action_bar, middle] = math::cut_bottom(mid_panel, game_theme.action_bar_size + game_theme.padding*2.0f);
 
+    gfx::gui::draw_rect(&imgui.ctx, action_bar, game_theme.action_bar_color);
+
     for (i32 i = 0; i < 10; i++) {
         math::rect2d_t box{
             .min = action_bar.center() - game_theme.action_bar_size * 0.5f,
@@ -123,11 +152,65 @@ void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
         auto width_plus_pad = (box.size().x + game_theme.padding);
         box.add(v2f{(f32(i)-4.5f) * width_plus_pad, 0.0f}); 
         
-        gfx::gui::string_render(&imgui.ctx, fmt_sv("{}", i), box.min + game_theme.padding, gfx::color::rgba::white);
         gfx::gui::draw_rect(&imgui.ctx, box, game_theme.action_button_color);
+        gfx::gui::string_render(&imgui.ctx, fmt_sv("{}", i), box.min + game_theme.padding, gfx::color::rgba::white);
     }
+}
+
+void draw_game_ui_second(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
+    auto screen = game_ui->screen;
+    auto game_theme = game_ui->game_theme;
+
+    const auto split_width = screen.size().x / 4.0f;
+
+    auto [left_panel, mid_plus_right] = math::cut_left(screen, split_width);
+    auto [right_panel, mid_panel] = math::cut_right(mid_plus_right, split_width);
+
+    game_theme.action_bar_size = (mid_panel.size().x + game_theme.padding * 2.0f) / 11.0f;
+    auto [action_bar, middle] = math::cut_bottom(right_panel, game_theme.action_bar_size + game_theme.padding*2.0f);
+    
+    auto action_tab = action_bar;
+    action_tab.min.x += action_bar.size().x * 0.38f;
+    action_tab.min.y += action_bar.size().y * 0.38f;
+    action_tab.add(v2f{0.0f, -action_bar.size().y});
 
     gfx::gui::draw_rect(&imgui.ctx, action_bar, game_theme.action_bar_color);
+    gfx::gui::draw_rect(&imgui.ctx, action_tab, game_theme.action_bar_color);
+
+    const f32 border_size = 4.0f;
+    action_bar.pad(border_size);
+    action_tab.pad(border_size);
+    action_tab.max.y += border_size * 2.0f;
+
+    gfx::gui::draw_rect(&imgui.ctx, action_bar, game_theme.action_bar_fg_color);
+    gfx::gui::draw_rect(&imgui.ctx, action_tab, game_theme.action_bar_fg_color);
+
+    v2f cursor = action_tab.min + 2.0f;
+    gfx::gui::string_render(&imgui.ctx, fmt_sv("Health: {} / {}", game_ui->health.current, game_ui->health.max), &cursor, gfx::color::rgba::light_green);
+
+    // for (i32 i = 0; i < 10; i++) {
+    //     math::rect2d_t box{
+    //         .min = action_bar.center() - game_theme.action_bar_size * 0.5f,
+    //         .max = action_bar.center() + game_theme.action_bar_size * 0.5f,
+    //     };
+    //     auto width_plus_pad = (box.size().x + game_theme.padding);
+    //     box.add(v2f{(f32(i)-4.5f) * width_plus_pad, 0.0f}); 
+        
+    //     gfx::gui::draw_rect(&imgui.ctx, box, game_theme.action_button_color);
+    //     gfx::gui::string_render(&imgui.ctx, fmt_sv("{}", i), box.min + game_theme.padding, gfx::color::rgba::white);
+    // }
+}
+
+void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
+    switch(game_ui->ui_style) {
+        case ui_styles::first:
+            draw_game_ui_first(imgui, game_ui);
+            break;
+        case ui_styles::second:
+            draw_game_ui_second(imgui, game_ui);
+            break;
+        case_invalid_default;
+    }
 }
 
 game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
@@ -135,6 +218,7 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     if (player == nullptr) {
         return ui;
     }
+
 
     ui.screen = math::rect2d_t{v2f{0.0f}, world->render_system()->screen_size()};
 
@@ -159,7 +243,36 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
             zyy_warn(__FUNCTION__, "Ray Hit Player");
         }
         ui.entity = entity;
+    } else {
+        ui.entity = nullptr;
     }
+
+    if (player->primary_weapon.entity) {
+        auto* weapon = player->primary_weapon.entity;
+        const auto weapon_forward = -weapon->global_transform().basis[2];
+        math::ray_t aim_ray{weapon->global_transform().origin, weapon_forward * 100.0f};
+
+        ui.mag = weapon->stats.weapon.mag;
+
+        auto aim_raycast = world->physics->raycast_world(aim_ray.origin, aim_ray.direction, ~zyy::physics_layers::player);
+        if (aim_raycast.hit) {
+            ui.aim_location = aim_raycast.point;
+        } else {
+            ui.aim_location = aim_ray.at(100.0f);
+        }
+    }
+
+    if (ui.entity) {
+        ui.options_available = available_options::name;
+
+        if (ui.entity->flags & zyy::EntityFlags_Interactable) {
+            ui.options_available |= available_options::activate;
+        }
+        if (ui.entity->flags & zyy::EntityFlags_Pickupable) {
+            ui.options_available |= available_options::pickup;
+        }
+    }
+
 
     return ui;
 }
@@ -170,30 +283,85 @@ draw_game_gui(game_memory_t* game_memory) {
     game_state_t* game_state = get_game_state(game_memory);
     auto* world = game_state->game_world;
     auto* player = world->player;
+    const auto& vp = game_state->render_system->vp;
+    auto& imgui = game_state->gui.imgui;
+    const auto center = imgui.ctx.screen_size * 0.5f;
 
     if(!player || !world) return;
 
     auto game_ui = create_game_ui(world, player);
 
-    auto& imgui = game_state->gui.state;
+    imgui.begin_free_drawing();
+    defer {
+        imgui.end_free_drawing();
+    };
+
+    if (game_memory->input.mouse.scroll.y != 0.0f) {
+        game_ui.highlight_option += u32(game_memory->input.mouse.scroll.y);
+    }
 
     draw_game_ui(imgui, &game_ui);
 
     if (game_ui.entity) {
         v2f look_at_cursor = imgui.ctx.screen_size * v2f{0.5f} + v2f{128.0f, 0.0f};
-        if (game_ui.entity->name.data) {
-            gfx::gui::string_render(&imgui.ctx, fmt_sv("{}", game_ui.entity->name.c_data), &look_at_cursor, gfx::color::rgba::white);
+
+        constexpr auto selection_color = gfx::color::rgba::yellow;
+        constexpr auto normal_color = gfx::color::rgba::white;
+        auto color = normal_color;
+
+        gfx::gui::im::draw_circle(imgui, center, 4.0f, gfx::color::rgba::light_gray);
+        gfx::gui::im::draw_circle(imgui, center, 2.0f, gfx::color::rgba::white);
+
+        u32 option_count = 0;
+
+        if (option_count == game_ui.highlight_option) color = selection_color;
+        if (game_ui.options_available & available_options::name) {
+            if (game_ui.entity->name.data) {
+                option_count += 1;
+                gfx::gui::string_render(&imgui.ctx, fmt_sv("{}", game_ui.entity->name.c_data), &look_at_cursor, color);
+            }
+        }
+
+        color = normal_color;
+        if (option_count == game_ui.highlight_option) color = selection_color;
+
+        constexpr f32 indent = 0.0f;
+        look_at_cursor.x += indent;
+
+
+        if (game_ui.options_available & available_options::pickup) {
+            gfx::gui::string_render(&imgui.ctx, "Pickup", &look_at_cursor, color);
+            option_count += 1;
+        }
+
+        color = normal_color;
+        if (option_count == game_ui.highlight_option) color = selection_color;
+
+        if (game_ui.options_available & available_options::activate) {
+            gfx::gui::string_render(&imgui.ctx, "Activate", &look_at_cursor, color);
+            option_count += 1;
+        }
+
+        if (option_count) {
+            game_ui.highlight_option = game_ui.highlight_option % option_count;
         }
     }
 
     if (player->primary_weapon.entity) {
         const auto& weapon = player->primary_weapon.entity->stats.weapon;
         const auto& stats = player->stats.character;
-        const auto center = imgui.ctx.screen_size * 0.5f;
-        gfx::gui::im::draw_circle(imgui, center, 2.0f, gfx::color::rgba::white);
-        gfx::gui::im::draw_circle(imgui, center, 4.0f, gfx::color::rgba::light_gray);
+
+        {
+            const v3f spos = math::world_to_screen(vp, game_ui.aim_location);
+            const math::rect3d_t viewable{v3f{0.0f}, v3f{1.0f}};
+            if (viewable.contains(spos)) {
+                const v2f screen = v2f{spos} * imgui.ctx.screen_size;
+                gfx::gui::draw_circle(&imgui.ctx, screen, 3.0f, gfx::color::rgba::white);
+            }
+        }
+
         v2f weapon_display_start = imgui.ctx.screen_size * v2f{0.05f, 0.9f};
-        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", game_ui.health.current, game_ui.health.max), &weapon_display_start, gfx::color::rgba::white);
+        
         gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", game_ui.mag.current, game_ui.mag.max), &weapon_display_start, gfx::color::rgba::white);
         gfx::gui::string_render(&imgui.ctx, fmt_sv("Chambered: {}", weapon.chamber_count), &weapon_display_start, gfx::color::rgba::white);
     }
@@ -803,6 +971,7 @@ app_on_init(game_memory_t* game_memory) {
 #ifdef ZYY_INTERNAL
     tag_struct(gs_debug_state->console, debug_console_t, main_arena);
     auto* console = gs_debug_state->console;
+    console->user_data = game_state;
 
     console_add_command(console, "help", [](void* data) {
         auto* console = (debug_console_t*)data;
@@ -896,6 +1065,31 @@ app_on_init(game_memory_t* game_memory) {
         
     // }, console);
 
+    console_add_command(console, "select", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        auto* game_state = (game_state_t*)console->user_data;
+        auto args = console->last_args();
+        if (args) {
+            auto [name, rest] = utl::cut_left(*args, " "sv);
+            auto* entity = zyy::find_entity_by_name(game_state->game_world, name);
+            if (entity) {
+                DEBUG_STATE.selection = &entity->transform.origin;
+            } else {
+                DEBUG_STATE.selection = nullptr;
+            }
+        }
+    }, console);
+
+    console_add_command(console, "overflow", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        auto* game_state = (game_state_t*)console->user_data;
+        auto* world = game_state->game_world;
+
+        tag_array(auto* arr, char, &world->arena, 1);
+        arr[1] = 'a';
+    }, console);
+
+
     console_log(console, "Enter a command");
 
 #endif
@@ -940,7 +1134,7 @@ app_on_init(game_memory_t* game_memory) {
 
     game_state->scene.sporadic_buffer.time = game_state->input().time;
     game_state->scene.sporadic_buffer.mode = 1;
-    game_state->scene.sporadic_buffer.use_lighting = 1;
+    // game_state->scene.sporadic_buffer.use_lighting = 1;
 
     zyy_info("game_state", "world size: {}mb", GEN_TYPE_INFO(zyy::world_t).size/megabytes(1));
 }
@@ -989,18 +1183,18 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
 
     if (input->pressed.keys[key_id::F1]) {
         if (auto b = gs_show_watcher = !gs_show_watcher) {
-            game_state->gui.state.active = "watcher_text_box"_sid;
+            game_state->gui.imgui.active = "watcher_text_box"_sid;
         } else {
-            game_state->gui.state.hot = 
-            game_state->gui.state.active = 0;
+            game_state->gui.imgui.hot = 
+            game_state->gui.imgui.active = 0;
         }
     }
     if (input->pressed.keys[key_id::F2]) {
         if (auto b = gs_show_console = !gs_show_console) {
-            game_state->gui.state.active = "console_text_box"_sid;
+            game_state->gui.imgui.active = "console_text_box"_sid;
         } else {
-            game_state->gui.state.hot = 
-            game_state->gui.state.active = 0;
+            game_state->gui.imgui.hot = 
+            game_state->gui.imgui.active = 0;
         }
     }
     if (input->pressed.keys[key_id::F4]) {
@@ -1013,9 +1207,6 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
     if (input->pressed.keys[key_id::F5]) {
         zyy::world_destroy_all(game_state->game_world);
         zyy::world_free(game_state->game_world);
-        game_state->render_system->scene_context->instance_storage_buffer.pool.clear();
-        game_state->render_system->scene_context->entities.pool.clear();
-        game_state->render_system->scene_context->entity_count = 0;
         game_state->game_world = zyy::world_init(game_state, game_state->game_memory->physics);
 
         gs_debug_camera.camera = &game_state->game_world->camera;
@@ -1142,7 +1333,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     zyy::world_kill_free_queue(game_state->game_world);
 
     if (gs_debug_camera_active) {
-        auto& imgui = game_state->gui.state;
+        auto& imgui = game_state->gui.imgui;
         auto real_dt = input->dt;
         auto pc = keyboard_controller(input);
         const bool ignore_mouse = gfx::gui::im::want_mouse_capture(imgui);
@@ -1229,11 +1420,10 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     // rendering::begin_frame(game_state->render_system);
     // game_state->debug.debug_vertices.pool.clear();
 
-    begin_gui(game_state);
-    if (!draw_entity_gui(game_state, game_state->gui.state)) {
+    if (!draw_entity_gui(game_state, game_state->gui.imgui)) {
         draw_gui(game_state->game_memory);
         draw_game_gui(game_state->game_memory);
-        draw_worlds(game_state, game_state->gui.state);
+        draw_worlds(game_state, game_state->gui.imgui);
     }
 
     world->camera.reset_priority();
@@ -1335,7 +1525,15 @@ game_on_update(game_memory_t* game_memory) {
 
     auto* world_generator = game_state->game_world->world_generator;
     if (world_generator && world_generator->is_done() == false) {
-        world_generator->execute(game_state->game_world, [&](){draw_gui(game_memory);});
+        
+        // Todo(Zack): add config setting to turn this on and off
+        // try {
+            world_generator->execute(game_state->game_world, [&](){draw_gui(game_memory);});
+        // } catch ( std::exception& e) {
+            // DEBUG_STATE.alert(e.what());
+            // zyy_error("world_generator->execute", "Exception loading world: {}", e.what());
+            // game_state->game_world->world_generator->force_completion();
+        // }
         std::lock_guard lock{game_state->render_system->ticket};
         set_ui_textures(game_state);
         game_memory->input.keys[key_id::F9] = 1;
@@ -1363,57 +1561,11 @@ wait_for_frame(game_state_t* game_state) {
     // vkDeviceWaitIdle(vk_gfx.device);
 
     return rendering::wait_for_frame(game_state->render_system);
-
-    // vkWaitForFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2], VK_TRUE, UINT64_MAX);
-    // vkResetFences(vk_gfx.device, 1, &vk_gfx.in_flight_fence[frame_count%2]);
-    // u32 image_index;
-    // vkAcquireNextImageKHR(vk_gfx.device, vk_gfx.swap_chain, UINT64_MAX, 
-    //     vk_gfx.image_available_semaphore[frame_count%2], VK_NULL_HANDLE, &image_index);
-    // return image_index;
 }
 
 inline static void
 present_frame(game_state_t* game_state, VkCommandBuffer command_buffer, u32 image_index, u64 frame_count) {
-    
     rendering::present_frame(game_state->render_system, image_index);
-
-    // gfx::vul::state_t& vk_gfx = game_state->gfx;
-    // VkSubmitInfo submitInfo{};
-    // submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    // VkSemaphore waitSemaphores[] = {vk_gfx.image_available_semaphore[frame_count%2]};
-    // VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    // submitInfo.waitSemaphoreCount = 1;
-    // submitInfo.pWaitSemaphores = waitSemaphores;
-    // submitInfo.pWaitDstStageMask = waitStages;
-
-    // VkSemaphore signalSemaphores[] = {vk_gfx.render_finished_semaphore[frame_count%2]};
-    // submitInfo.signalSemaphoreCount = 1;
-    // submitInfo.pSignalSemaphores = signalSemaphores;
-
-    // submitInfo.commandBufferCount = 1;
-    // submitInfo.pCommandBuffers = &command_buffer;
-
-
-    // if (vkQueueSubmit(vk_gfx.gfx_queue, 1, &submitInfo, vk_gfx.in_flight_fence[frame_count%2]) != VK_SUCCESS) {
-    //     zyy_error(__FUNCTION__, "failed to submit draw command buffer!");
-    //     std::terminate();
-    // }
-
-    // VkPresentInfoKHR presentInfo{};
-    // presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    // presentInfo.waitSemaphoreCount = 1;
-    // presentInfo.pWaitSemaphores = signalSemaphores;
-
-    // VkSwapchainKHR swapChains[] = {vk_gfx.swap_chain};
-    // presentInfo.swapchainCount = 1;
-    // presentInfo.pSwapchains = swapChains;
-    // presentInfo.pImageIndices = &image_index;
-
-    // presentInfo.pResults = nullptr; // Optional
-
-    // vkQueuePresentKHR(vk_gfx.present_queue, &presentInfo);
 }
 
 void
@@ -1427,6 +1579,7 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
 
     game_state->scene.sporadic_buffer.time = game_state->input().time;
     *vk_gfx.sporadic_uniform_buffer.data = game_state->scene.sporadic_buffer;
+    vk_gfx.sporadic_uniform_buffer.data->lighting_info = game_state->graphics_config.ddgi != 0 ? gfx::vul::sporadic_light_info::light_probe : 0;
 
 #if 0
     {
@@ -1523,18 +1676,19 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
         auto& ext = vk_gfx.ext;
         rs->get_frame_data().mesh_pass.object_descriptors = VK_NULL_HANDLE;
         
-        rendering::memory_barriers(rs, command_buffer);
+        // rendering::memory_barriers(rs, command_buffer);
         const u64 gui_frame = (game_state->gui.ctx.frame&1);
         auto& gui_vertices = game_state->gui.vertices[gui_frame];
         auto& gui_indices = game_state->gui.indices[gui_frame];
-        gui_vertices.insert_memory_barrier(command_buffer);
-        gui_indices.insert_memory_barrier(command_buffer);
+        auto& imgui = game_state->gui.imgui;
+        // gui_vertices.insert_memory_barrier(command_buffer);
+        // gui_indices.insert_memory_barrier(command_buffer);
         
-        // if (gs_rtx_on) 
         {
-            rendering::begin_rt_pass(game_state->render_system, command_buffer);
-        // } else {
-            // game_state->render_system->rt_cache->frame = 0;
+            if (game_state->graphics_config.ddgi == ddgi_mode::realtime) {
+                rendering::begin_rt_pass(game_state->render_system, command_buffer);
+            }
+        
             VkBuffer buffers[1] = { game_state->render_system->scene_context->vertices.buffer };
             VkDeviceSize offsets[1] = { 0 };
 
@@ -1730,8 +1884,8 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
                 rendering::draw_postprocess(
                     rs, command_buffer,
                     assets::shaders::tonemap_frag.filename,
-                    gs_rtx_on && 0 ?
-                    &rs->frame_images[6].texture :
+                    // gs_rtx_on && 0 ?
+                    // &rs->frame_images[6].texture :
                     &rs->frame_images[frame_count%2].texture,
                     parameters
                 );
@@ -1739,8 +1893,14 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             gfx::vul::end_debug_marker(command_buffer);
             gfx::vul::begin_debug_marker(command_buffer, "UI Pass");
 
-            ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_TRUE);
-            ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
+            VkColorBlendEquationEXT blend_fn[1];
+            blend_fn[0] = gfx::vul::utl::alpha_blending();
+            VkBool32 fb_blend[1] { true };
+            ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
+            ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
+            
+            ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_FALSE);
+            ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_FALSE);
 
             vkCmdBindDescriptorSets(command_buffer, 
                 VK_PIPELINE_BIND_POINT_GRAPHICS, game_state->render_system->pipelines.gui.layout,
@@ -1792,13 +1952,64 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
             ext.vkCmdBindShadersEXT(command_buffer, 2, stages, gui_shaders);
 
-            vkCmdDrawIndexed(command_buffer,
-                (u32)gui_indices.pool.count(),
-                1, // instance count
-                0, // first index
-                0, // first vertex
-                0  // first instance
-            );
+            for (auto* draw_command = imgui.commands.next;
+                draw_command != &imgui.commands;
+                node_next(draw_command)
+            ) {
+                if (draw_command->type == gfx::gui::draw_command_t::draw_type::draw) {
+                    vkCmdDrawIndexed(command_buffer,
+                        draw_command->draw.index_count,
+                        1, // instance count
+                        draw_command->draw.index_start, // first index
+                        0, //draw_command->draw.vertex_start, // first vertex
+                        0  // first instance
+                    );
+                } else {
+                    auto scissor = gfx::vul::utl::rect2D(draw_command->clip);
+                    ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
+                }
+            }
+
+            for (auto* panel = imgui.panels.next;
+                panel != &imgui.panels;
+                node_next(panel)
+            ) {
+                if (panel->name == imgui.active.id) {
+                    dlist_remove(panel);
+                    dlist_insert_as_last(&imgui.panels, panel);
+                    break;
+                }
+            }
+            for (auto* panel = imgui.panels.next;
+                panel != &imgui.panels;
+                node_next(panel)
+            ) {
+                for (auto* draw_command = panel->draw_commands.next;
+                    draw_command != &panel->draw_commands;
+                    node_next(draw_command)
+                ) {
+                    if (draw_command->type == gfx::gui::draw_command_t::draw_type::draw) {
+                        vkCmdDrawIndexed(command_buffer,
+                            draw_command->draw.index_count,
+                            1, // instance count
+                            draw_command->draw.index_start, // first index
+                            0, //draw_command->draw.vertex_start, // first vertex
+                            0  // first instance
+                        );
+                    } else {
+                        auto scissor = gfx::vul::utl::rect2D(draw_command->clip);
+                        ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
+                    }
+                }
+            }
+
+            // vkCmdDrawIndexed(command_buffer,
+            //     (u32)gui_indices.pool.count(),
+            //     1, // instance count
+            //     0, // first index
+            //     0, // first vertex
+            //     0  // first instance
+            // );
         }
 
         khr.vkCmdEndRenderingKHR(command_buffer);
@@ -1885,6 +2096,8 @@ app_on_update(game_memory_t* game_memory) {
             DEBUG_STATE.begin_frame();
         }
 #endif
+
+    begin_gui(game_state);
 
     switch (scene_state) {
         case 0: // Editor

@@ -1,4 +1,4 @@
-#version 450
+#version 460
 #extension GL_ARB_separate_shader_objects  : enable
 #extension GL_ARB_shading_language_420pack : enable
 #extension GL_EXT_scalar_block_layout : enable
@@ -35,7 +35,8 @@ main() {
         pos = PushConstants.P * PushConstants.V * vec4(aVertex.xyz, 1.0);
     } else {
         voNormal = vec3(0,0,1);
-        pos = vec4(aVertex.xy * 2.0 - 1.0, 0.00001 * gl_VertexIndex, 1);
+        pos = vec4(aVertex.xy * 2.0 - 1.0, aVertex.z, 1);
+        // pos = vec4(aVertex.xy * 2.0 - 1.0, 0.00001 * gl_VertexIndex, 1);
     }
         
     gl_Position = pos;

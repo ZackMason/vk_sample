@@ -77,16 +77,30 @@ namespace zyy::wep {
             return false;
         }
 
-        void update(f32 dt) {
+        enum struct update_result_t : u32 {
+            idle,
+            chambered_round,
+            reload_start,
+            reloading,
+        };
+
+        update_result_t update(f32 dt) {
+            update_result_t result = update_result_t::idle;
             if (chamber_count == 0) {
                 if (mag.current > 0) {
                     chamber_round(dt);
+                    result = update_result_t::chambered_round;
                 } else {
+                    result = 
+                        action.reload_time == 0.0f ?
+                        update_result_t::reload_start :
+                        update_result_t::reloading;
                     reload(dt);
                 }
             } else if (action.fire_time > 0.0f) {
                 action.fire_time -= dt;
             }
+            return result;
         }
 
         bullet_t* fire(arena_t* arena, f32 dt, u64* count) {

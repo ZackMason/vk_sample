@@ -29,7 +29,7 @@ void entity_blackboard_common(zyy::entity_t* entity) {
 
 BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto* input = &world->game_state->input();
-    auto& imgui = world->game_state->gui.state;
+    auto& imgui = world->game_state->gui.imgui;
     auto pc = input->gamepads[0].is_connected ? gamepad_controller(input) : keyboard_controller(input);
     auto* physics = world->physics;
     auto* player = entity;
@@ -46,7 +46,9 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         );
     }
 
-    player->camera_controller.transform = 
+    auto& cc = player->camera_controller;
+
+    cc.transform = 
         player->transform;
     
     v3f move = pc.move_input;
@@ -54,8 +56,8 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
 
     // auto& yaw = gs_debug_camera_active ? gs_debug_camera.yaw : player->camera_controller.yaw;
     // auto& pitch = gs_debug_camera_active ? gs_debug_camera.pitch : player->camera_controller.pitch;
-    auto& yaw = player->camera_controller.yaw;
-    auto& pitch = player->camera_controller.pitch;
+    auto& yaw = cc.yaw;
+    auto& pitch = cc.pitch;
 
     const v3f forward = zyy::cam::get_direction(yaw, pitch);
     const v3f right   = glm::cross(forward, axis::up);
@@ -102,27 +104,38 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         // rigidbody->force += ((glm::normalize(planes::xz * forward) * move.z + right * move.x) * dt * move_speed);
     // }
 
-    if(player->primary_weapon.entity) {
+    if (player->primary_weapon.entity) {
         player->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up));
-        // player->primary_weapon.entity->transform.set_scale(v3f{3.0f});
+
         player->primary_weapon.entity->transform.origin =
             player->global_transform().origin +
-            forward + axis::up * .9f;
+            player->primary_weapon.entity->transform.basis *
+            (cc.hand_offset + cc.hand);
+            
+        player->primary_weapon.entity->transform.set_rotation(glm::quatLookAt(forward, axis::up)  * cc.hand_orientation);
             //  0.5f * (right + axis::up);
     }
+
+    cc.hand = tween::lerp_dt(player->camera_controller.hand, axis::forward + axis::up * .9f, 0.05f, dt);
+
     rigidbody->angular_velocity = v3f{0.0f};
+
+    if (pc.emote) {
+        cc.emote1();
+    }
 
     if (pc.jump && (is_on_ground || is_on_wall)) {
         rigidbody->velocity.y = 0.3f;// 50.0f * dt;
+        cc.hand_velocity += axis::up;
     }
     
-    player->camera_controller.transform.origin = player->transform.origin + axis::up * 1.0f;
+    cc.transform.origin = player->transform.origin + axis::up * 1.0f;
 
-    const auto stepped = player->camera_controller.walk_and_bob(dt * (pc.sprint ? 1.75f : 1.0f), glm::length(swizzle::xz(move)) > 0.0f && is_on_ground, move.x);
-    player->camera_controller.transform.origin += 
-        axis::up * player->camera_controller.head_height + 
-        axis::up * player->camera_controller.head_offset;
-    player->camera_controller.translate(v3f{0.0f});
+    const auto stepped = cc.walk_and_bob(dt * (pc.sprint ? 1.75f : 1.0f), glm::length(swizzle::xz(move)) > 0.0f && is_on_ground, move.x);
+        cc.transform.origin += 
+        axis::up * cc.head_height + 
+        axis::up * cc.head_offset;
+    cc.translate(v3f{0.0f});
 
     auto& hand_pid_x = player->camera_controller.hand_controller.x;
     auto& hand_pid_y = player->camera_controller.hand_controller.y;
@@ -148,18 +161,46 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     //     player->camera_controller.last_position = player->primary_weapon.entity->transform.origin;
 
     // }
-    
-    
+    const auto hand_return_force = -cc.hand * 20.0f;
+    cc.hand_velocity += hand_return_force * dt;
+
+    cc.hand_orientation += (cc.hand_orientation * quat(0.0f, cc.hand_angular_velocity)) * (0.5f * dt);
+    cc.hand_orientation = glm::normalize(cc.hand_orientation);
+    cc.hand_orientation = tween::damp(cc.hand_orientation, quat_identity, 6.0f, dt);
+    cc.hand_orientation = glm::normalize(cc.hand_orientation);
+
+
+    cc.hand += cc.hand_velocity * dt;
+    cc.hand_velocity = tween::damp(cc.hand_velocity, v3f{0.0f}, 0.995f, dt);
+    cc.hand_angular_velocity = tween::damp(cc.hand_angular_velocity, v3f{0.0f}, 5.0f, dt);
+
     if (stepped) {
         // Platform.audio.play_sound(0x1);
+        cc.hand_velocity += 1.0f * axis::up;
+        cc.hand_velocity += 0.3f * axis::right * utl::rng::random_s::randn();
+        cc.hand_velocity += 0.3f * axis::forward * utl::rng::random_s::randn();
     }
 
     auto* weapon_entity = player->primary_weapon.entity;
     auto& weapon = player->primary_weapon.entity->stats.weapon;
 
     if (player->primary_weapon.entity) {
-        weapon.update(dt);
+        using zyy::wep::base_weapon_t;
+        auto weapon_state = weapon.update(dt);
+        switch (weapon_state) {
+        case base_weapon_t::update_result_t::idle:
+            break;
+        case base_weapon_t::update_result_t::reload_start:
+            cc.emote1();
+            break;
+        case base_weapon_t::update_result_t::reloading:
+            break;
+        case base_weapon_t::update_result_t::chambered_round:
+            break;        
+        case_invalid_default;
+        }
     }
+
     if (!ignore_mouse && pc.fire1 && player->primary_weapon.entity 
         // && gfx::gui::im::want_mouse_capture(*gs_imgui_state) == false
     ) {
@@ -167,17 +208,27 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         u64 fired{0};
         auto* bullets = weapon.fire(fire_arena.arena, dt, &fired);
 
+        auto weapon_forward = -weapon_entity->global_transform().basis[2];
+
         range_u64(bullet, 0, fired) {
-            auto ro = weapon_entity->global_transform().origin + forward * 1.7f;
+            auto ro = weapon_entity->global_transform().origin + weapon_forward * 1.7f;
             auto r_angle = utl::rng::random_s::randf() * 1000.0f;
             auto r_radius = utl::rng::random_s::randf() * bullets[bullet].spread;
             v2f polar{math::from_polar(r_angle, r_radius)};
-            auto rd = glm::normalize(forward * 10.0f + right * polar.x + axis::up * polar.y);
+            auto rd = glm::normalize(weapon_forward * 10.0f + right * polar.x + axis::up * polar.y);
             bullets[bullet].ray = math::ray_t{ro, rd};
             math::ray_t gun_shot{ro, rd};
             DEBUG_DIAGRAM(gun_shot);
+
+            cc.hand_velocity += 10.0f * axis::backward * weapon.chamber_speed;
+            cc.hand_velocity += 10.0f * axis::right * utl::rng::random_s::randn() * weapon.chamber_speed;
+            cc.hand_velocity += 10.0f * axis::up * utl::rng::random_s::randn() * weapon.chamber_speed;
+            
+            cc.hand_angular_velocity.x += weapon.chamber_speed * 8.0f;
+            cc.hand_angular_velocity.z += weapon.chamber_speed * 12.0f * utl::rng::random_s::randn();
         }
         
+        // spawn the bullets from the gun
         range_u64(bullet, 0, fired) {
             auto* b = weapon.bullet_fn(
                 world, zyy::db::misc::plasma_bullet,

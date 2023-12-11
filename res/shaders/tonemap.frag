@@ -139,7 +139,8 @@ void main() {
 
     vec3 color = textureLod(uColor, uv, 0).rgb;
 
-    color = mix(color, (bloom), 0.025);
+    color = mix(color, (bloom), 0.01);
+
 
     if (uNumberOfColors != 0) {
         color = paletize(color, uNumberOfColors);

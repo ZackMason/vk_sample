@@ -252,7 +252,7 @@ enum struct selection_mode {
 
 struct entity_editor_t {
     game_state_t* game_state{0};
-    gfx::gui::im::state_t imgui;
+    // gfx::gui::im::state_t imgui;
 
     arena_t arena{};
     arena_t undo_arena{};
@@ -554,18 +554,7 @@ struct entity_editor_t {
 
 
     entity_editor_t(game_state_t* app_)
-    : game_state{app_}, imgui{
-        .ctx = game_state->gui.ctx,
-        .theme = gfx::gui::theme_t {
-            .fg_color = gfx::color::rgba::gray,
-            .bg_color = gfx::color::rgba::black,
-            .text_color = gfx::color::rgba::cream,
-            .disabled_color = gfx::color::rgba::dark_gray,
-            .border_color = gfx::color::rgba::white,
-
-            .padding = 4.0f,
-        },
-    }
+    : game_state{app_}
     {
         if (app_) {
             undo_arena = arena_sub_arena(&game_state->main_arena, megabytes(1));
@@ -606,27 +595,7 @@ void utl::memory_blob_t::serialize<entity_editor_t>(arena_t* arena, const entity
     }
 }
 
-template<>
-entity_editor_t 
-utl::memory_blob_t::deserialize<entity_editor_t>(arena_t* arena) {
-    entity_editor_t result = {0};
-
-    auto header = deserialize<world_save_file_header_t>();
-
-    result.begin_event_group();
-    defer {
-        result.end_event_group();
-    };
-
-    range_u64(i, 0, header.prefab_count) {
-        auto prefab = deserialize<zyy::prefab_t>(arena);
-        auto transform = deserialize<math::transform_t>();
-        result.instance_prefab(prefab, transform, 0);
-    }
-
-    return result;
-}
-
+// why is this here?
 REFLECT_TYPE(std::string_view) {
     REFLECT_TYPE_INFO(std::string_view)
     };
@@ -710,6 +679,15 @@ save_world_window(
 
     auto draw_files = [&](){
         auto* game_state = ee->game_state;
+
+        im::space(imgui, 64.0f);
+        local_persist v2f rect{0.0f, 256.0f};
+        local_persist f32 scroll;
+
+        im::begin_scroll_rect(imgui, &scroll, &rect);
+        defer {
+            im::end_scroll_rect(imgui, &scroll, &rect);
+        };
         
         for (const auto& entry : std::filesystem::recursive_directory_iterator("./")) {
             auto filename = entry.path().string();
@@ -776,7 +754,7 @@ save_world_window(
         };
 
         range_u64(i, 0, header.prefab_count) {
-            auto prefab = blob.deserialize<zyy::prefab_t>(&arena);
+            auto prefab = blob.deserialize<zyy::prefab_t>(&ee->arena);
             auto transform = blob.deserialize<math::transform_t>();
             ee->instance_prefab(prefab, transform);
         }
@@ -811,24 +789,22 @@ load_mesh_window(
 
         local_persist u64 file_start = 0;
         im::space(imgui, 64.0f);
-        im::same_line(imgui);
-        if (im::text(imgui, "Next")) file_start = (file_start+1) % pack_file->file_count;
-        if (im::text(imgui, "Prev")) file_start = file_start ? file_start-1 : pack_file->file_count-1;
-        u64 max_itrs = pack_file->file_count;
-        u64 skip_offset = 0;
-        for(u64 rf_i = 0; rf_i < 10 && max_itrs--; ) {
-            u64 rf_ = file_start + skip_offset + rf_i;
-            u64 rf = rf_ % game_state->resource_file->file_count;
+        
+        local_persist v2f rect{0.0f, 256.0f};
+        local_persist f32 scroll;
+
+        im::begin_scroll_rect(imgui, &scroll, &rect);
+        defer {
+            im::end_scroll_rect(imgui, &scroll, &rect);
+        };
+
+        for(u64 rf = 0; rf < pack_file->file_count; rf++) {
             if (pack_file->table[rf].file_type != utl::res::magic::mesh) {
-                skip_offset += 1;
                 continue;  
             }
             if (dialog_box.text_buffer[0] && std::strstr(pack_file->table[rf].name.c_data, dialog_box.text_buffer) == nullptr) {
-                skip_offset += 1;
                 continue;
             }
-            rf_i++;
-            // assert(rf < array_count(show_files));
             if (im::text(imgui, fmt_sv("- {}", pack_file->table[rf].name.c_data))) {
                 utl::copy(file, pack_file->table[rf].name.c_data, std::strlen(pack_file->table[rf].name.c_data));
             }
@@ -870,6 +846,14 @@ load_texture_window(
     auto draw_files = [&](){
         auto* game_state = ee->game_state;
         im::space(imgui, 64.0f);
+
+        local_persist v2f rect{0.0f, 256.0f};
+        local_persist f32 scroll;
+
+        im::begin_scroll_rect(imgui, &scroll, &rect);
+        defer {
+            im::end_scroll_rect(imgui, &scroll, &rect);
+        };
 
         for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/textures/")) {
             auto filename = entry.path().filename().string();
@@ -935,6 +919,14 @@ load_function_window(
     }
 
     auto draw_files = [&](){
+        local_persist v2f rect{0.0f, 256.0f};
+        local_persist f32 scroll;
+
+        im::begin_scroll_rect(imgui, &scroll, &rect);
+        defer {
+            im::end_scroll_rect(imgui, &scroll, &rect);
+        };
+     
         // im::space(imgui, 64.0f);    
         auto* game_state = ee->game_state;
         std::string_view splice;
@@ -1027,6 +1019,14 @@ load_entity_window(
 
     auto draw_files = [&](){
         im::space(imgui, 64.0f);
+        local_persist v2f rect{0.0f, 256.0f};
+        local_persist f32 scroll;
+
+        im::begin_scroll_rect(imgui, &scroll, &rect);
+        defer {
+            im::end_scroll_rect(imgui, &scroll, &rect);
+        };
+
         for (const auto& entry : std::filesystem::recursive_directory_iterator("./")) {
             auto filename = entry.path().string();
             if (entry.is_directory()) {
@@ -1103,7 +1103,7 @@ entity_editor_render(entity_editor_t* ee) {
     
     auto* game_state = ee->game_state;
     auto* rs = game_state->render_system;
-    auto& imgui = ee->imgui;
+    auto& imgui = game_state->gui.imgui;
     
     const auto width = game_state->gui.ctx.screen_size.x;
     
@@ -1147,24 +1147,33 @@ entity_editor_render(entity_editor_t* ee) {
         .open = 1
     };
 
-    gradient_panel.size = {};
+    // gradient_panel.size = {};
 
     // ee->gradient.sort();
 
     if (ee->gradient) {
         auto [open, want_to_close] = im::begin_panel(imgui, "Gradient Editor", &gradient_panel);
+
+        local_persist f32 grad_scroll;
+        local_persist v2f grad_size {400.0f, 500.0f};
+
         if (want_to_close) {
             ee->gradient = 0;
         } else if (open) {
-            im::gradient_edit(imgui, ee->gradient, &ee->arena, math::zero_to(v2f{400.0f, 500.0f}), 356);
+            im::begin_scroll_rect(imgui, &grad_scroll, &grad_size);
+            
+            im::gradient_edit(imgui, ee->gradient, &ee->arena, math::zero_to(grad_size), 356);
+            
+            im::end_scroll_rect(imgui, &grad_scroll, &grad_size);
+            grad_size.x -= imgui.theme.padding;
 
             im::end_panel(imgui, &gradient_panel);
         }
     }
 
     local_persist v2f pos{0.0f};
-    local_persist v2f size = {};
     local_persist b32 opened = 1;
+    local_persist v2f size = {};
 
     if (im::begin_panel(imgui, "World Editor", &pos, &size, &opened)) {
         local_persist bool saving = false;
@@ -1259,6 +1268,23 @@ entity_editor_render(entity_editor_t* ee) {
         if (im::text(imgui, fmt_sv("Type: {}"sv, types[(u32)ee->entity->type]))) {
             ee->entity->type = (zyy::entity_type)(((u32)ee->entity->type + 1) % (u32)zyy::entity_type::SIZE);
         }
+
+        std::string_view entity_flags[] {
+            "<x>",
+            "<x>",
+            "<x>",
+            "EntityFlags_Pickupable",
+            "EntityFlags_Interactable",
+            "<x>",
+            "<x>",
+        };
+        
+        local_persist bool show_flags;
+
+        if (im::text(imgui, "Flags"sv, &show_flags)) {
+            im::bitflag(imgui, std::span{entity_flags}, &ee->entity->flags);
+        }
+
   
         if (im::text(imgui, "Graphics"sv, &show_graphics)) {
             im::same_line(imgui);
@@ -1520,9 +1546,11 @@ entity_editor_render(entity_editor_t* ee) {
             switch(particle.particle_color.set_type(im::enumeration<gfx::color::color_variant_type>(imgui, color_types, particle.particle_color._type))) {
                 case gfx::color::color_variant_type::hex:
                     im::color_edit(imgui, &particle.particle_color.hex);
+                    ee->gradient = nullptr;
                     break;
                 case gfx::color::color_variant_type::uniform:
                     im::float4_drag(imgui, &particle.particle_color.uniform);
+                    ee->gradient = nullptr;
                     break;
                 case gfx::color::color_variant_type::gradient:
                     ee->gradient = &particle.particle_color.gradient;
@@ -1564,6 +1592,7 @@ entity_editor_render(entity_editor_t* ee) {
             float_prop(chamber_speed);
 
             float_prop(stats.damage);
+            float_prop(stats.spread);
             uint_prop(chamber_max);
             uint_prop(chamber_mult);
             uint_prop(mag.max);
@@ -1715,7 +1744,7 @@ entity_editor_render(entity_editor_t* ee) {
         .open = 1,
     };
 
-    transform_panel.size = {};
+    // transform_panel.size = {};
 
 
     if (im::begin_panel(imgui, "Transform", &transform_panel)) {
@@ -1814,7 +1843,7 @@ entity_editor_render(entity_editor_t* ee) {
     local_persist v2f entity_window_pos{1600.0f, 0.0f};
     local_persist v2f entity_window_size;
 
-    entity_window_size = {};
+    // entity_window_size = {};
 
     if (im::begin_panel(imgui, "Entities", &entity_window_pos, &entity_window_size, &show_entity_list)) {
         auto theme = imgui.theme;
@@ -1845,6 +1874,7 @@ entity_editor_render(entity_editor_t* ee) {
                 ee->remove_prefab(prefab);
             }
 
+            // click on entity in list
             if (im::text(imgui, 
                 prefab->prefab.type_name.empty() ? 
                     fmt_sv("Entity: {} ", (void*)prefab):
@@ -1860,6 +1890,7 @@ entity_editor_render(entity_editor_t* ee) {
                 }
                 ee->selection = prefab;
                 ee->entity = &prefab->prefab;
+                ee->gradient = 0;
             }
             imgui.theme = theme;
         }
@@ -1950,7 +1981,7 @@ entity_editor_update(entity_editor_t* ee) {
         ee->time_scale *= 2.0f;
     }
 
-    auto& imgui = ee->imgui;
+    auto& imgui = game_state->gui.imgui;
     const auto& screen_size = imgui.ctx.screen_size;
     auto& camera = ee->camera;
     auto [mx, my] = input->mouse.pos;
@@ -2001,9 +2032,8 @@ entity_editor_update(entity_editor_t* ee) {
         }
     };
 
-    begin_gui(ee->game_state);
     entity_editor_render(ee);
-    draw_gui(ee->game_state->game_memory);
+    // draw_gui(ee->game_state->game_memory);
 
     draw(ee->creating_entity, m44{1.0f}, 0, 1);
 
@@ -2017,11 +2047,11 @@ entity_editor_update(entity_editor_t* ee) {
                     .min = p->points[i] - v3f{0.1f},
                     .max = p->points[i] + v3f{0.1f}
                 };
-                gfx::gui::draw_cube(&ee->imgui.ctx, point_cube, gfx::color::rgba::red);
+                gfx::gui::draw_cube(&imgui.ctx, point_cube, gfx::color::rgba::red);
                 if (i > 0) {
                     auto sp0 = screen_size * v2f{math::world_to_screen(vp, p->points[i])};
                     auto sp1 = screen_size * v2f{math::world_to_screen(vp, p->points[i-1])};
-                    gfx::gui::draw_line(&ee->imgui.ctx, sp0, sp1, 2.0f, gfx::color::rgba::yellow);
+                    gfx::gui::draw_line(&imgui.ctx, sp0, sp1, 2.0f, gfx::color::rgba::yellow);
                 }
             }
         }

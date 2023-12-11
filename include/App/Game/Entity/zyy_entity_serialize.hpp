@@ -23,7 +23,6 @@ namespace zyy {
             std::memcpy(result.gfx.mesh_name.buffer, mesh.name.data(), mesh.name.size());
         }
 
-
         return result;
     }
 

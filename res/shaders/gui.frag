@@ -57,6 +57,7 @@ void main() {
         }
     } 
 
+    // color.rgb *= voColor.rgb;
     color.rgb *= voColor.rgb * voColor.rgb;
     
     fFragColor.rgb = color.rgb;
@@ -74,4 +75,6 @@ void main() {
     if (fFragColor.a < 0.01) {
         discard;
     }
+
+    // fFragColor.rgb *= fFragColor.rgb;
 }

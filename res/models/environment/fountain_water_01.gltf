@@ -15,12 +15,17 @@
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"Cube"
+			"name":"water",
+			"scale":[
+				2,
+				2,
+				2
+			]
 		}
 	],
 	"meshes":[
 		{
-			"name":"Cube.001",
+			"name":"water",
 			"primitives":[
 				{
 					"attributes":{
@@ -37,68 +42,68 @@
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":204,
+			"count":4608,
 			"max":[
-				0.2307366579771042,
-				0.026989180594682693,
-				0.5153348445892334
+				1.9631338119506836,
+				1.8837273120880127,
+				1.9631338119506836
 			],
 			"min":[
-				-0.2307366579771042,
-				-0.028238683938980103,
-				-1.3449866771697998
+				-1.9631338119506836,
+				0.8053848743438721,
+				-1.9631338119506836
 			],
 			"type":"VEC3"
 		},
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":204,
+			"count":4608,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":204,
+			"count":4608,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5123,
-			"count":324,
+			"count":24576,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":2448,
+			"byteLength":55296,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":2448,
-			"byteOffset":2448,
+			"byteLength":55296,
+			"byteOffset":55296,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":1632,
-			"byteOffset":4896,
+			"byteLength":36864,
+			"byteOffset":110592,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":648,
-			"byteOffset":6528,
+			"byteLength":49152,
+			"byteOffset":147456,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":7176,
-			"uri":"knife_01.bin"
+			"byteLength":196608,
+			"uri":"fountain_water_01.bin"
 		}
 	]
 }

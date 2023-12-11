@@ -64,6 +64,11 @@ struct first_person_controller_t {
     math::transform_t transform{};
 
     math::position_pid_t hand_controller{};
+    v3f hand_offset{axis::forward + axis::up * .9f};
+    v3f hand{0.0f};
+    v3f hand_velocity = {};
+    v3f hand_angular_velocity = {};
+    quat hand_orientation = quat_identity;
     v3f last_position{};
 
     u32 prio = 1;
@@ -77,6 +82,12 @@ struct first_person_controller_t {
     f32 right_offset{0.0};
     f32 step_time{0.5f};
     f32 step_timer{step_time};
+
+    void emote1() {
+        hand_angular_velocity.x -= 60.0f;
+        hand_angular_velocity.z += 40.0f * utl::rng::random_s::randn();
+        hand += axis::backward * 4.0f;
+    }
 
     // returns true if you should want to play a sound
     bool walk_and_bob(f32 dt, b32 walking, f32 walking_right) {

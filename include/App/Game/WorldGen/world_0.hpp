@@ -79,7 +79,12 @@ generate_crash_test(arena_t* arena) {
     auto* generator = generate_world_test(arena);
 
     generator->add_step("Placing Weapons", WORLD_STEP_TYPE_LAMBDA(items) {
-        SPAWN_GUN(zyy::db::weapons::shotgun, axis::right * 30.0f + axis::up * 2.0f);
+        auto rifle = load_from_file(&world->arena, "./res/entity/rifle_01.entt");
+        auto* r = zyy::tag_spawn(world, rifle, axis::forward * 15.0f + axis::up * 3.0f);
+        
+        r->physics.rigidbody->on_trigger = [](auto a, auto b, auto as, auto bs) {
+            *(volatile int*)0 = 1;
+        };
     });
 
     return generator;
@@ -328,21 +333,28 @@ generate_world_1(arena_t* arena) {
         zyy::tag_spawn(world, rifle, axis::forward * 15.0f + axis::up * 3.0f);
         SPAWN_GUN(zyy::db::weapons::rpg, axis::forward * 25.0f + axis::up * 3.0f);
 
+        assert(!"Hello World!");
+        assert(!"Hello Captian!");
+        assert(!"Hello Sailor!");
 
+        // zyy_info(__FUNCTION__, "Loading Lightning");
         auto lightning_powerup = world->prefab_loader.load(&world->arena, "./res/entity/lightning_powerup.entt");
         auto expo_powerup = load_from_file(&world->arena, "./res/entity/explosive_shot.entt");
         zyy::tag_spawn(world, lightning_powerup, axis::backward * 20.0f + axis::up * 3.0f);
+        // zyy_info(__FUNCTION__, "Spawned Lightning");
+
         // zyy::tag_spawn(world, expo_powerup, axis::backward * 15.0f + axis::up * 3.0f);
         
         // zyy::tag_spawn(world, zyy::db::items::lightning_powerup, axis::backward * 15.0f + axis::up * 3.0f);
+        auto cultist = world->prefab_loader.load(&world->arena, "./res/entity/cultist.entt");
         range_u64(i, 0, 10) {
             auto spos = v3f{10.0f, 0.0f, 10.0f} + v3f{f32(i/10)*3.0f, 1.0f, f32(i%10)*3.0f};
-            auto* person = zyy::tag_spawn(world, zyy::db::bads::person, spos);
-            person->physics.rigidbody->set_layer(1ui32);
+            auto* person = zyy::tag_spawn(world, cultist, spos);
+            // person->physics.rigidbody->set_layer(zyy::physics_layers::e);
         }
         // person->physics.rigidbody->set_group(~1ui32);
-
     });
+
     generator->add_step("World Geometry", WORLD_STEP_TYPE_LAMBDA(environment) {
         // zyy::tag_spawn(world, zyy::db::rooms::sponza);
         zyy::tag_spawn(world, zyy::db::misc::platform_1000, axis::down*2.0f);
@@ -364,8 +376,8 @@ generate_world_1(arena_t* arena) {
                     }
                     skull->physics.rigidbody->set_gravity(false);
                     skull->physics.rigidbody->set_ccd(true);
-                    skull->physics.rigidbody->set_layer(1ui32);
-                    // skull->physics.rigidbody->set_group(~1ui32);
+                    skull->physics.rigidbody->set_layer(zyy::physics_layers::enemy);
+                    skull->physics.rigidbody->set_group(zyy::enemy_collision_group);
                     // skull->gfx.material_id = 2;
                     *count -= 1;
                     co_yield(co);

@@ -74,8 +74,9 @@ struct mod_function {
 };
 
 struct prefab_t {
-    version_id VERSION{4};
+    version_id VERSION{5};
     entity_type type=entity_type::environment;
+    u64 flags = 0;
     stack_string<128> type_name{};
 
     struct gfx_t {
@@ -163,6 +164,9 @@ zyy::prefab_t utl::memory_blob_t::deserialize<zyy::prefab_t>(arena_t* arena) {
 
     DESER(prefab.VERSION);
     DESER(prefab.type);
+    if (prefab.VERSION >= 5) {
+        DESER(prefab.flags);
+    }
     DESER(prefab.type_name);
     DESER(prefab.gfx);
     DESER(prefab.coroutine);
@@ -175,7 +179,7 @@ zyy::prefab_t utl::memory_blob_t::deserialize<zyy::prefab_t>(arena_t* arena) {
     prefab.on_hit_effect.function = 0;
     AOPTDESER(prefab.emitter);
     DESER(prefab.brain_type);
-     DESER(prefab.inventory_size);
+    DESER(prefab.inventory_size);
  
     #undef DESER
     #undef OPTDESER
@@ -188,6 +192,7 @@ template<>
 void utl::memory_blob_t::serialize<zyy::prefab_t>(arena_t* arena, const zyy::prefab_t& prefab) {
     serialize(arena, zyy::prefab_t{}.VERSION);
     serialize(arena, prefab.type);
+    serialize(arena, prefab.flags);
     serialize(arena, prefab.type_name);
     // serialize<u64>(arena, 0);
     serialize(arena, prefab.gfx);

@@ -40,7 +40,6 @@ namespace zyy::wep {
         const zyy::prefab_t& prefab,
         bullet_t bullet        
     ) {
-
         auto* bullet_entity = zyy::tag_spawn(world, prefab, bullet.ray.at(0.5f));
         bullet_entity->gfx.material_id = 7; // unlit material @hardcode
         bullet_entity->stats.weapon.stats.damage = bullet.damage;
@@ -48,8 +47,9 @@ namespace zyy::wep {
         bullet_entity->physics.rigidbody->add_impulse(bullet.ray.direction*20.0f);
         bullet_entity->physics.rigidbody->set_ccd(true);
         bullet_entity->physics.rigidbody->set_mass(0.01f);
-        bullet_entity->physics.rigidbody->set_layer(2ui32);
-        bullet_entity->physics.rigidbody->set_group(~2ui32);
+        
+        bullet_entity->physics.rigidbody->set_layer(physics_layers::player_bullets);
+        bullet_entity->physics.rigidbody->set_group(zyy::player_bullet_collision_group);
 
         bullet_entity->coroutine->start();
         bullet_entity->add_child(spawn_puff(world, bullet.ray.origin, 10));
@@ -70,8 +70,10 @@ namespace zyy::wep {
         bullet_entity->physics.rigidbody->add_impulse(bullet.ray.direction*10.0f);
         bullet_entity->physics.rigidbody->set_ccd(true);
         bullet_entity->physics.rigidbody->set_mass(0.01f);
-        bullet_entity->physics.rigidbody->set_layer(2ui32);
-        bullet_entity->physics.rigidbody->set_group(~2ui32);
+        bullet_entity->physics.rigidbody->set_layer(zyy::physics_layers::player);
+        bullet_entity->physics.rigidbody->set_group(~zyy::physics_layers::player);
+        // bullet_entity->physics.rigidbody->set_layer(2ui32);
+        // bullet_entity->physics.rigidbody->set_group(~2ui32);
 
         bullet_entity->coroutine->start();
         bullet_entity->add_child(spawn_puff(world, bullet.ray.origin, 10));
