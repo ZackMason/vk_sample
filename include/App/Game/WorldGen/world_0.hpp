@@ -147,7 +147,7 @@ generate_sponza(arena_t* arena) {
 
         auto aabb = sponza->global_transform().xform_aabb(sponza->aabb);
         // world->render_system()->light_probes.grid_size = 3.0f;
-        // world->render_system()->light_probes.grid_size = 2.0f;
+    // world->render_system()->light_probes.grid_size = 2.0f;
         // rendering::update_probe_aabb(world->render_system(), aabb);
     });
 

@@ -17,7 +17,7 @@ struct skeleton_bone_t {
 
 struct skeleton_t {
     static constexpr u64 max_bones_() { return 256; }
-    skeleton_bone_t bones[256];
+    std::array<skeleton_bone_t, 256> bones{};
     u64          bone_count{0};
 
     constexpr skeleton_t& add_bone(skeleton_bone_t&& bone) {
@@ -44,20 +44,10 @@ struct skeleton_t {
     constexpr u64 max_bones() const noexcept { return max_bones_(); }
 };
 
-struct skeletal_mesh_asset_t {
-    gfx::skinned_vertex_t* vertices{0};
-    u64 vertex_count{0};
-    gfx::material_info_t* material_info{0};
-};
-
-struct skeletal_model_asset_t {
-    skeleton_t skeleton{};
-    skeletal_mesh_asset_t* meshes{0};
-    u64 mesh_count{0};
-};
 
 template <typename T>
 struct keyframe {
+    using value_type = T;
     f32 time{0.0f};
     T value{};
 };
@@ -107,6 +97,22 @@ struct bone_timeline_t {
     anim_pool_t<glm::quat>  rotations;
     anim_pool_t<v3f>        scales;
 
+    void optimize(auto& pool, auto& pool_count) {
+        range_u64(i, 1, pool_count - 1) {
+            if (pool[i-1].value == pool[i].value && pool[i].value == pool[i+1].value) {
+                utl::copy(pool+i, pool+i+1, sizeof(pool[0]) * (pool_count - i - 1));
+                pool_count--;
+                i--;
+                if (pool_count == 2) break;
+            }
+        };
+    }
+    void optimize() {
+        optimize(positions, position_count);
+        optimize(rotations, rotation_count);
+        optimize(scales, scale_count);
+    }
+
     m44 transform{};
     char name[1024]{};
     bone_id_t id{};
@@ -143,11 +149,20 @@ struct animation_t {
 
     u64 node_count{0};
     std::array<node_t, skeleton_t::max_bones_()> nodes{};
+
+    void optimize() {
+        range_u64(i, 0, node_count) {
+            if (nodes[i].bone) {
+                nodes[i].bone->optimize();
+            }
+        }
+    }
 };
 
 struct animator_t {
     f32 time{0.0f};
     animation_t* animation{nullptr};
+    skeleton_t* skeleton{nullptr};
     std::array<m44, skeleton_t::max_bones_()> matrices;
 
     void update(float dt) {
@@ -174,6 +189,23 @@ struct animator_t {
         std::fill(matrices.begin(), matrices.end(), m44(1.0f));
 		time = 0.0f;
 	}
+
+    math::transform_t bone_transform(std::string_view name) {
+        auto id = sid(name);
+        assert(animation);
+        auto bone_id = skeleton->find_bone_id(id);
+        const auto& bone = skeleton->find_bone(id);
+
+        if (bone.name_hash == "invalid"_sid) {
+            return math::transform_t{};
+        }
+
+        const auto& node = animation->nodes[bone_id];
+        return math::transform_t{
+            (matrices[bone_id]) * 
+            glm::inverse(node.offset)
+        };
+    }
 };
 
 template <typename T>

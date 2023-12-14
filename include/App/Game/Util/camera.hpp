@@ -64,7 +64,11 @@ struct first_person_controller_t {
     math::transform_t transform{};
 
     math::position_pid_t hand_controller{};
-    v3f hand_offset{axis::forward + axis::up * .9f};
+
+    constexpr inline static v3f hip_fire{axis::forward + axis::down * 0.9f};
+    constexpr inline static v3f aim_fire{axis::forward + axis::down * 0.7f};
+
+    v3f hand_offset{hip_fire};
     v3f hand{0.0f};
     v3f hand_velocity = {};
     v3f hand_angular_velocity = {};
@@ -86,7 +90,7 @@ struct first_person_controller_t {
     void emote1() {
         hand_angular_velocity.x -= 60.0f;
         hand_angular_velocity.z += 40.0f * utl::rng::random_s::randn();
-        hand += axis::backward * 4.0f;
+        hand_velocity += axis::forward * 40.0f;
     }
 
     // returns true if you should want to play a sound

@@ -1,6 +1,7 @@
 #ifndef APP_HPP
 #define APP_HPP
 
+#include <zyy_core.hpp>
 #include "App/vk_state.hpp"
 #include "App/gfx_pipelines.hpp"
 
@@ -10,6 +11,117 @@
 
 #include "App/Game/GUI/viewport.hpp"
 #include "App/Game/GUI/debug_state.hpp"
+#include "skeleton.hpp"
+
+struct loaded_skeletal_mesh_t {
+    string_buffer name;
+    gfx::anim::skeleton_t skeleton;
+    buffer<gfx::anim::animation_t> animations;
+    gfx::mesh_list_t mesh;
+};
+
+// todo remove this, this will crash if we reload and its not reset
+global_variable utl::pool_t<gfx::skinned_vertex_t>* gs_skinned_vertices;
+
+template<>
+loaded_skeletal_mesh_t
+utl::memory_blob_t::deserialize<loaded_skeletal_mesh_t>(arena_t* arena) {
+    loaded_skeletal_mesh_t result = {};
+
+    // read file meta data
+    const auto meta = deserialize<u64>();
+    const auto vers = deserialize<u64>();
+    const auto mesh = deserialize<u64>();
+
+    assert(meta == utl::res::magic::meta);
+    assert(vers == utl::res::magic::vers);
+    assert(mesh == utl::res::magic::skel);
+
+    result.mesh.count = deserialize<u64>();
+    zyy_warn(__FUNCTION__, "Loading {} meshes", result.mesh.count);
+    tag_array(result.mesh.meshes, gfx::mesh_view_t, arena, result.mesh.count);
+
+    u64 total_vertex_count = 0;
+    utl::pool_t<gfx::skinned_vertex_t>& vertices{*gs_skinned_vertices};
+
+    for (size_t j = 0; j < result.mesh.count; j++) {
+        std::string name = deserialize<std::string>();
+        zyy_info(__FUNCTION__, "Mesh name: {}", name);
+        const size_t vertex_count = deserialize<u64>();
+        const size_t vertex_bytes = sizeof(gfx::skinned_vertex_t) * vertex_count;
+
+        total_vertex_count += vertex_count;
+
+        const u32 vertex_start = safe_truncate_u64(vertices.count());
+        const u32 index_start = 0;
+
+        result.mesh.meshes[j].vertex_count = safe_truncate_u64(vertex_count);
+        result.mesh.meshes[j].vertex_start = vertex_start;
+        result.mesh.meshes[j].index_start = index_start;
+
+        gfx::skinned_vertex_t* v = vertices.allocate(vertex_count);
+
+        utl::copy(v, read_data(), vertex_bytes);
+        advance(vertex_bytes);
+
+        // no indices for skeletal meshes atm
+        // const size_t index_count = blob.deserialize<u64>();
+        // const size_t index_bytes = sizeof(u32) * index_count;
+        // results.meshes[j].index_count = safe_truncate_u64(index_count);
+
+        // u32* tris = indices->allocate(index_count);
+        // utl::copy(tris, blob.read_data(), index_bytes);
+        // blob.advance(index_bytes);
+
+        result.mesh.meshes[j].aabb = {};
+        range_u64(k, 0, vertex_count) {
+            result.mesh.meshes[j].aabb.expand(v[k].pos);
+        }
+    }
+
+    result.mesh.aabb = {};
+    range_u64(m, 0, result.mesh.count) {
+        result.mesh.aabb.expand(result.mesh.meshes[m].aabb);
+    }
+
+    const auto anim = deserialize<u64>();
+    assert(anim == utl::res::magic::anim);
+
+    const auto animation_count = deserialize<u64>();
+    const auto total_anim_size = deserialize<u64>();
+
+    auto* animations = (gfx::anim::animation_t*)read_data();
+    advance(total_anim_size);
+
+    const auto skeleton_size = deserialize<u64>();
+    assert(skeleton_size == sizeof(gfx::anim::skeleton_t));
+    auto* skeleton = (gfx::anim::skeleton_t*)read_data();
+    advance(skeleton_size);
+
+    range_u64(a, 0, animation_count) {
+        auto& animation = animations[a];
+        animation.optimize();
+        // zyy_info(__FUNCTION__, "Animation: {}, size: {}", animation.name, sizeof(gfx::anim::animation_t));
+        // range_u64(n, 0, animation.node_count) {
+        //     auto& node = animation.nodes[n];
+        //     auto& timeline = node.bone;
+        //     // if (timeline) {
+        //     //     zyy_info(__FUNCTION__, "Bone: {}, id: {}", timeline->name, timeline->id);
+        //     // }
+        // }
+    }
+    // range_u64(b, 0, skeleton->bone_count) {
+    //     auto& bone = skeleton->bones[b];
+    //     zyy_info(__FUNCTION__, "Bone: {}, parent: {}", bone.name_hash, bone.parent);
+    // }
+
+    result.animations.data = animations;
+    result.animations.count = animation_count;
+
+    result.skeleton = *skeleton;
+    
+    return result;
+}
 
 namespace fullscreen_mode { enum : u8 {
     window, fullscreen, borderless
@@ -89,7 +201,7 @@ gamepad_controller(app_input_t* input) {
 struct input_mapping_t {
     i32 look_button{0};
     i32 fire_button{0};
-    i32 aim_button{0};
+    i32 aim_button{1};
 
     u16 move_forward{'W'};
     u16 move_backward{'S'};
@@ -195,6 +307,8 @@ struct game_state_t {
     } modding;
 
     utl::res::pack_file_t *     resource_file{0};
+
+    utl::hash_trie_t<std::string_view, loaded_skeletal_mesh_t>* animations = 0;
 
     gfx::vul::state_t   gfx;
     rendering::system_t* render_system{0};

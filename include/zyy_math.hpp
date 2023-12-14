@@ -7,6 +7,7 @@ namespace axis {
     constexpr inline static v3f left        {-1.0f,0.0f, 0.0f};
     constexpr inline static v3f forward     {0.0f, 0.0f,-1.0f};
     constexpr inline static v3f backward    {0.0f, 0.0f, 1.0f};
+    
 };
 
 namespace planes {
@@ -20,7 +21,6 @@ namespace planes {
 };
 
 namespace swizzle {
-
     constexpr v2f xx(v2f v) { return v2f{v.x,v.x}; }
     constexpr v2f yx(v2f v) { return v2f{v.y,v.x}; }
     constexpr v2f yy(v2f v) { return v2f{v.y,v.y}; }
@@ -35,10 +35,14 @@ namespace swizzle {
     constexpr v2f zx(v3f v) { return v2f{v.z,v.x}; }
 };
 
-
-
 namespace math {
-
+    constexpr inline static v2f zero2{0.0f};
+    constexpr inline static v2f width2{1.0f, 0.0f};
+    constexpr inline static v2f height2{0.0f, 1.0f};
+    constexpr inline static v2f half2{0.5f};
+    constexpr inline static v2f half_width2{0.5f, 0.0f};
+    constexpr inline static v2f half_height2{0.5f, 0.5f};
+    
     m33 normalize(const m33& m) {
         return m33 {
             glm::normalize(m[0]),
@@ -600,6 +604,9 @@ struct aabb_t {
 using range_t = aabb_t<f32>;
 using rect2d_t = aabb_t<v2f>;
 using rect3d_t = aabb_t<v3f>;
+
+constexpr inline static rect2d_t r2zero{v2f{0.0f}, v2f{0.0f}};
+constexpr inline static rect3d_t r3zero{v3f{0.0f}, v3f{0.0f}};
 
 rect2d_t zero_to(v2f range) {
     return rect2d_t {

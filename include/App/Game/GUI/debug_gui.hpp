@@ -286,10 +286,12 @@ draw_behavior_tree(
                     utl::hash_foreach<std::string_view, f32>(blkbrd->floats, print_field);
                     break;
                 case "bools"_sid:
-                    utl::hash_foreach<std::string_view, b32>(blkbrd->bools, print_field);
+                    utl::hash_foreach<std::string_view, b32>(blkbrd->bools,  print_field);
                     break;              
                 case "points"_sid:
                     utl::hash_foreach<std::string_view, v3f>(blkbrd->points, print_field);
+                    break;
+                default: // closed
                     break;
             }
             im::text(imgui, "-----------------");
@@ -341,6 +343,205 @@ draw_behavior_tree(
         blkbrd = 0;
     }
 }
+
+void draw_animation_window(gfx::gui::im::state_t& imgui, math::rect2d_t r) { 
+}
+
+static bool
+animation_browser(
+    gfx::gui::im::state_t& imgui,
+    game_state_t* game_state,
+    utl::res::pack_file_t* pack_file
+) {
+    using namespace gfx::gui;
+    local_persist dialog_window_t dialog_box{.position = v2f{500.0f, 300.0f}};;
+    local_persist loaded_skeletal_mesh_t* selection = 0;
+    local_persist gfx::anim::animator_t animator{};
+
+    enum struct open_mode {
+        animations, skeleton,
+    };
+
+    local_persist open_mode mode = open_mode::animations;
+
+    // char file[512] = {};
+    
+    auto draw_selection = [&]{
+        local_persist v2f rect{712.0f, 256.0f};
+        local_persist f32 scroll;
+        auto text_color = gfx::color::rgba::white;
+
+        local_persist u64 sindex=0;
+        local_persist u64 bindex=0;
+
+        sindex = sindex % selection->animations.count;
+        bindex = bindex % selection->skeleton.bone_count;
+
+        animator.animation = selection->animations.data + sindex;
+        animator.skeleton = &selection->skeleton;
+
+        const f32 top_prc = 0.1f;
+
+        im::begin_scroll_rect(imgui, &scroll, &rect);
+        defer {
+            im::end_scroll_rect(imgui, &scroll, &rect);
+        };
+
+        auto r = im::get_draw_rect(imgui, rect).cut_left(rect.x * 0.95f);
+        auto o = r;
+        r.pad(8.0f);
+
+        auto [top, bottom] = math::cut_top(r, r.size().y * top_prc);
+        auto [top_r, top_l] = math::cut_right(top, top.size().x * 0.5f);
+
+        draw_rect(&imgui.ctx, r, gfx::color::rgba::ue5_bg);
+
+        im::set_draw_cursor(imgui, top_l.min);
+
+        switch(mode) {
+            case open_mode::animations: {
+                im::same_line(imgui);
+                if (im::text(imgui, "animations")) {
+                    mode = open_mode::skeleton;
+                }
+                if (im::text(imgui, selection->animations.data[sindex].name, 0, im::text_activate_mode::hover)) {
+                    
+                }
+
+                im::set_draw_cursor(imgui, top_r.min);
+
+                im::same_line(imgui);
+                im::text(imgui, fmt_sv("Animation Count: {}", selection->animations.count));
+                im::same_line(imgui);
+                if (im::button(imgui, "-", gfx::color::rgba::ue5_bg, text_color)) {
+                    sindex--;
+                }
+                if (im::button(imgui, "+", gfx::color::rgba::ue5_bg, text_color)) {
+                    sindex++;
+                }
+            } break;
+            case open_mode::skeleton: {
+                im::same_line(imgui);
+                if (im::text(imgui, "skeleton")) {
+                    mode = open_mode::animations;
+                }
+                if (selection->animations.data[sindex].nodes[bindex].bone) {
+                    im::text(imgui, std::string_view{selection->animations.data[sindex].nodes[bindex].bone->name});
+                } else {
+                    im::text(imgui, fmt_sv("No Bone: {}", bindex));
+                }
+                
+                im::set_draw_cursor(imgui, top_r.min);
+
+                im::same_line(imgui);
+                im::text(imgui, fmt_sv("Bone Count: {}", selection->skeleton.bone_count));
+                im::same_line(imgui);
+                if (im::button(imgui, "-", gfx::color::rgba::ue5_bg, text_color)) {
+                    bindex--;
+                }
+                if (im::button(imgui, "+", gfx::color::rgba::ue5_bg, text_color)) {
+                    bindex++;
+                }
+
+                if (!selection->animations.data[sindex].nodes[bindex].bone) {
+                    break;
+                }
+                auto& timeline = *selection->animations.data[sindex].nodes[bindex].bone;
+                if (im::text(imgui, "Optimize")) {
+                    timeline.optimize();
+                }
+                im::set_draw_cursor(imgui, bottom.min);
+
+                auto [mx,my] = imgui.ctx.input->mouse.pos;
+                auto mouse = v2f{mx,my};
+                math::rect2d_t tl_panel;
+                const f32 tl_size = bottom.size().y * 0.3333333f;
+                #define draw_timeline(name) do{\
+                    std::tie(tl_panel, bottom) = math::cut_top(bottom, tl_size);\
+                    auto [tl_label, tl_view] = math::cut_top(tl_panel, gfx::font_get_size(imgui.ctx.font, "Hello World").y + 4.0f);\
+                    tl_view.pad(1.0f);\
+                    draw_rect(&imgui.ctx, tl_view, gfx::color::rgba::dark_gray);\
+                    math::statistic_t stat = {};\
+                    math::begin_statistic(stat);\
+                    u64 highlight = timeline.name##_count;\
+                    range_u64(i, 0, timeline.name##_count) {\
+                        f32 time_prc = timeline.name##s[i].time/selection->animations.data[sindex].duration;\
+                        math::rect2d_t line{tl_view.sample(math::width2*time_prc), tl_view.sample(v2f{time_prc, 1.0f})};\
+                        line.max.x += 2.0f;\
+                        if (line.contains(mouse)) highlight = i;\
+                        draw_rect(&imgui.ctx, line, gfx::color::rgba::white);\
+                        math::update_statistic(stat, timeline.name##s[i].time);\
+                    }\
+                    im::set_draw_cursor(imgui, tl_label.min);\
+                    if (highlight<timeline.name##_count) im::same_line(imgui);\
+                    im::text(imgui, fmt_sv("{}[{}]", #name, timeline.name##_count));\
+                    if (highlight<timeline.name##_count) im::text(imgui, fmt_sv("{}", timeline.name##s[highlight].value));\
+                    math::end_statistic(stat);\
+                } while(0)
+
+                draw_timeline(position);
+                draw_timeline(rotation);
+                draw_timeline(scale);
+
+                #undef draw_timeline
+
+            } break;
+            case_invalid_default;
+        }
+
+        im::set_draw_cursor(imgui, o.sample(math::height2));
+    };
+    auto draw_files = [&]{
+        local_persist v2f rect{0.0f, 256.0f};
+        local_persist f32 scroll;
+
+        im::begin_scroll_rect(imgui, &scroll, &rect);
+        defer {
+            im::end_scroll_rect(imgui, &scroll, &rect);
+        };
+        
+        for(u64 rf = 0; rf < pack_file->file_count; rf++) {
+            if (pack_file->table[rf].file_type != utl::res::magic::skel) {
+                continue;  
+            }
+            if (dialog_box.text_buffer[0] && std::strstr(pack_file->table[rf].name.c_data, dialog_box.text_buffer) == nullptr) {
+                continue;
+            }
+            auto& resource = pack_file->table[rf];
+            if (im::text(imgui, fmt_sv("- {} ------ {}{}", resource.name.c_data, math::pretty_bytes(resource.size), math::pretty_bytes_postfix(resource.size)))) {
+                selection = utl::hash_get(&game_state->animations, pack_file->table[rf].name.sv());
+            }
+        }
+    };
+
+    auto draw = [&]{
+        if (selection) {
+            draw_selection();
+        } else {
+            draw_files();
+        }
+    };
+
+    dialog_box
+        // .set_title("Animation Browser")
+        .set_title(selection == nullptr ? "Select an Animation" : selection->name.data)
+        // .set_description(selection == nullptr ? "Select an Animation" : selection->name.data)
+        .draw(imgui, draw);
+        // .into(file);
+        
+    if (dialog_box.done == 2) {
+        selection = 0;
+        return false;
+    }
+
+    // if (!file[0]) {
+    // }
+
+    
+    return true;
+    // return false;
+}
+
 
 void
 watch_game_state(game_state_t* game_state) {
@@ -427,7 +628,6 @@ set_ui_textures(game_state_t* game_state) {
         vk_gfx.device,
         gui_pipeline.set_layouts, gui_pipeline.set_count, sizeof(m44)*2
     );
-
 
     game_state->default_font_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
@@ -1004,16 +1204,17 @@ draw_gui(game_memory_t* game_memory) {
                                 record->func_name ? record->func_name : "<Unknown>"), 
                             show_record + record_count++
                         )) {
-                            f32 hist[4096/32];
+                            f32 hist[1024];
+                            // f32 hist[256];
                             math::statistic_t debug_stat;
                             math::begin_statistic(debug_stat);
                             range_u64(j, 0, array_count(hist)) {
-                                const auto ms = f64(record->history[j*32])/f64(1e+6);
+                                // const auto ms = f64(record->history[(record->hist_id - j) % array_count(record->history)])/f64(1e+6);
+                                const auto ms = f64(record->history[j])/f64(1e+6);
                                 math::update_statistic(debug_stat, ms);
                                 hist[j] = (f32)ms;
                             }
-    
-            
+                
                             if (im::text(imgui,
                                 fmt_sv(" {:.2f}ms - [{:.3f}, {:.3f}]", cycle/1e+6, debug_stat.range.min, debug_stat.range.max)
                             )) {
@@ -1021,7 +1222,7 @@ draw_gui(game_memory_t* game_memory) {
                             }
                             math::end_statistic(debug_stat);
 
-                            im::histogram(imgui, hist, array_count(hist), (f32)debug_stat.range.max, v2f{4.0f*128.0f, 32.0f});
+                            im::histogram(imgui, hist, array_count(hist), (f32)debug_stat.range.max, v2f{12.0f*128.0f, 32.0f});
                         } else {
                             im::text(imgui,
                                 fmt_sv(" {:.2f}ms", cycle/1e+6)

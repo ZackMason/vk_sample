@@ -39,14 +39,26 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     const bool ignore_mouse = gfx::gui::im::want_mouse_capture(imgui) || gs_debug_camera_active;
     const bool ignore_keyboard = gfx::gui::im::want_mouse_capture(imgui) || gs_debug_camera_active;
 
+    auto& cc = player->camera_controller;
+
     if (pc.swap) {
+        if (player->primary_weapon.entity) {
+            player->primary_weapon.entity->transform.origin.y -= 10000.0f;
+        }
         std::swap(
             player->primary_weapon.entity,
             player->secondary_weapon.entity
         );
+
+        cc.emote1();
     }
 
-    auto& cc = player->camera_controller;
+    if (pc.iron_sight) {
+        cc.hand_offset = cc.aim_fire;
+    } else {
+        cc.hand_offset = cc.hip_fire;
+    }
+
 
     cc.transform = 
         player->transform;
@@ -109,6 +121,9 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
 
         player->primary_weapon.entity->transform.origin =
             player->global_transform().origin +
+            axis::up +
+            axis::up * cc.head_height +
+            axis::up * cc.head_offset +
             player->primary_weapon.entity->transform.basis *
             (cc.hand_offset + cc.hand);
             
@@ -137,6 +152,8 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         axis::up * cc.head_offset;
     cc.translate(v3f{0.0f});
 
+    cc.hand_velocity += 55.0f * axis::right * cc.right_offset * dt;
+
     auto& hand_pid_x = player->camera_controller.hand_controller.x;
     auto& hand_pid_y = player->camera_controller.hand_controller.y;
     auto& hand_pid_z = player->camera_controller.hand_controller.z;
@@ -157,10 +174,9 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     //             player->primary_weapon.entity->transform.origin,
     //             player->global_transform().origin +
     //             forward + axis::up * 0.3f);
-
     //     player->camera_controller.last_position = player->primary_weapon.entity->transform.origin;
-
     // }
+
     const auto hand_return_force = -cc.hand * 20.0f;
     cc.hand_velocity += hand_return_force * dt;
 
@@ -220,12 +236,14 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
             math::ray_t gun_shot{ro, rd};
             DEBUG_DIAGRAM(gun_shot);
 
-            cc.hand_velocity += 10.0f * axis::backward * weapon.chamber_speed;
-            cc.hand_velocity += 10.0f * axis::right * utl::rng::random_s::randn() * weapon.chamber_speed;
-            cc.hand_velocity += 10.0f * axis::up * utl::rng::random_s::randn() * weapon.chamber_speed;
+            auto weapon_kickback = std::max(0.01f, weapon.chamber_speed);
+
+            cc.hand_velocity += 10.0f * axis::backward * weapon_kickback;
+            cc.hand_velocity += 10.0f * axis::right * utl::rng::random_s::randn() * weapon_kickback;
+            cc.hand_velocity += 10.0f * axis::up * utl::rng::random_s::randn() * weapon_kickback;
             
-            cc.hand_angular_velocity.x += weapon.chamber_speed * 8.0f;
-            cc.hand_angular_velocity.z += weapon.chamber_speed * 12.0f * utl::rng::random_s::randn();
+            cc.hand_angular_velocity.x += weapon_kickback * 8.0f;
+            cc.hand_angular_velocity.z += weapon_kickback * 12.0f * utl::rng::random_s::randn();
         }
         
         // spawn the bullets from the gun

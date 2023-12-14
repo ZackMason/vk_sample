@@ -1035,7 +1035,7 @@ public:
         {
             const f32 aspect = (f32)w / (f32)h;
 
-            rs->projection = glm::perspective(45.0f, aspect, 0.3f, 1000.0f);
+            rs->projection = glm::perspective(45.0f, aspect, 0.1f, 300.0f);
             rs->projection[1][1] *= -1.0f;
         }
 

@@ -375,6 +375,20 @@ struct fmt::formatter<v3f>
     }
 };
 
+template<>
+struct fmt::formatter<quat>
+{
+    template<typename ParseContext>
+    constexpr auto parse(ParseContext& ctx) {
+        return ctx.begin();
+    }
+
+    template<typename FormatContext>
+    auto format(quat const& v, FormatContext& ctx) {
+        return fmt::format_to(ctx.out(), "[{:.2f}, {:.2f}, {:.2f}, {:.2f}]", v.x, v.y, v.z, v.w);
+    }
+};
+
 // why do I have two of these?
 template<typename T>
 struct fmt::formatter<glm::vec<3, T>>
@@ -849,7 +863,7 @@ struct debug_record_t {
     u64         hit_count{0};
 
     u16         hist_id{0};
-    u64         history[4096];
+    u64         history[1024];
 
     u16         set_breakpoint{0};
 };
@@ -1185,6 +1199,7 @@ memzero(void* buffer, umm size) {
 
 void*
 copy(void* dst, const void* src, umm size) {
+    return std::memmove(dst, src, size);
     return std::memcpy(dst, src, size);
 }
 
@@ -1503,6 +1518,16 @@ struct buffer
         if (data) {
             std::sort(data, data + count, fn);
         }
+    }
+
+    void push(arena_t* arena, std::string_view t) {
+        auto* new_data = reallocate(arena, count+t.size()/sizeof(T));
+        if (data) {
+            std::memcpy(new_data, data, count*sizeof(T));
+        }
+        data = new_data;
+        std::memcpy(data+count, t.data(), t.size());
+        count += t.size() / sizeof(T);
     }
 
     void push(arena_t* arena, std::span<T> v) {
@@ -4241,6 +4266,18 @@ namespace gui {
             return true;
         }
 
+        math::rect2d_t get_draw_rect(state_t& imgui, v2f size) {
+            return {
+                imgui.panel->draw_cursor,
+                imgui.panel->draw_cursor + size,
+            };
+        }
+
+        void set_draw_cursor(state_t& imgui, v2f p) {
+            imgui.panel->min.x = p.x;
+            imgui.panel->draw_cursor = p + imgui.theme.padding;
+        }
+
         void begin_scroll_rect(
             state_t& imgui,
             f32* scroll,
@@ -4269,7 +4306,8 @@ namespace gui {
             auto [x,y] = imgui.ctx.input->mouse.pos;
 
             imgui.panel->save();
-
+            imgui.panel->min = scissor.min;
+            imgui.panel->max = scissor.max;
             // auto is_active = imgui.active.id == scl_id;
             // auto is_hot = imgui.hot.id == scl_id;
             
@@ -4339,13 +4377,22 @@ namespace gui {
             // hover whole rect and mouse scroll
             if (scissor.contains(v2f{x,y})) {
                 auto& dw = imgui.ctx.input->mouse.scroll.y;
-                *scroll += dw * 3.0f;
+                local_persist f32 scroll_velocity;
+
+                scroll_velocity -= dw * 5.0f;
+
+                *scroll += scroll_velocity;
+
+                // scroll_velocity *= 0.0f; // @frame independent
+                scroll_velocity *= 0.9f; // @frame independent
+                
                 dw = 0.0f;
             }
 
             auto scroll_prc = (*scroll) / (draw_delta-size.y);
             auto scroll_ball_prc = (*scroll) / (draw_delta);
 
+            scroll_ball_prc = std::clamp(scroll_ball_prc, 0.0f, 1.0f - visible_prc);
             scroll_prc = std::clamp(scroll_prc, 0.0f, 1.0f);
 
             math::rect2d_t scroll_ball{
@@ -6558,7 +6605,7 @@ namespace gui {
             }
 
             const v2f text_size = font_get_size(imgui.ctx.dyn_font[font_size], name);
-            box.expand(box.min + text_size + imgui.theme.padding * 2.0f);
+            box.expand(box.min + text_size + math::width2 * text_size + imgui.theme.padding * 2.0f);
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
             if (box.contains( v2f{x,y} )) {
@@ -6571,13 +6618,15 @@ namespace gui {
 
             imgui.panel->update_cursor_max(box.max + imgui.theme.padding);
 
-            v2f same_line = box.min;
+            v2f same_line = box.sample(math::half2) - text_size * math::half2;
             // string_render(&imgui.ctx, name, same_line, text_color, imgui.ctx.dyn_font[font_size]);
             // draw_rect(&imgui.ctx, box, imgui.hot.id == btn_id ? imgui.theme.active_color : color);
 
-            draw_round_rect(&imgui.ctx, box, imgui.theme.border_radius, imgui.theme.border_color, 10);
-            box.pull(v2f{-1.0f});
-            draw_round_rect(&imgui.ctx, box, imgui.theme.border_radius, imgui.hot.id == btn_id ? imgui.theme.active_color : color, 10);
+            // draw_rect(&imgui.ctx, box, imgui.theme.border_color);
+            draw_rect(&imgui.ctx, box, imgui.hot.id == btn_id ? imgui.theme.active_color : color);
+            // draw_round_rect(&imgui.ctx, box, imgui.theme.border_radius, imgui.theme.border_color, 10);
+            // box.pull(v2f{-1.0f});
+            // draw_round_rect(&imgui.ctx, box, imgui.theme.border_radius, imgui.hot.id == btn_id ? imgui.theme.active_color : color, 10);
 
             string_render(&imgui.ctx, name, same_line, text_color, imgui.ctx.font);
             

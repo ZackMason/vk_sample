@@ -33,12 +33,6 @@ global_variable b32 gs_show_watcher=false;
 
 global_variable zyy::cam::first_person_controller_t gs_debug_camera;
 
-global_variable gfx::anim::skeleton_t* gs_skeleton;
-global_variable gfx::anim::animation_t* gs_animations;
-global_variable u64 gs_animation_count;
-global_variable gfx::anim::animator_t gs_animator;
-global_variable gfx::mesh_list_t gs_skinned_mesh;
-
 global_variable VkCullModeFlagBits gs_cull_modes[] = {
     VK_CULL_MODE_BACK_BIT,
     VK_CULL_MODE_FRONT_BIT,
@@ -126,6 +120,8 @@ struct game_ui_t {
 
     math::rect2d_t screen{};
 
+    inline static b32 inventory_open = 0;
+
     inline static u32 highlight_option = 0;
     inline static u32 ui_style = ui_styles::second;
 };
@@ -201,6 +197,45 @@ void draw_game_ui_second(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
     // }
 }
 
+void draw_game_inventory(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
+    const auto screen = game_ui->screen;
+    const auto game_theme = game_ui->game_theme;
+
+    constexpr f32 side_border_prc = 0.3f;
+    constexpr f32 top_border_prc = 0.15f;
+    constexpr f32 border_size = 4.0f;
+    constexpr f32 title_prc = 0.1f;
+    constexpr f32 title_pad = 0.0f;
+    constexpr gfx::color32 title_color = gfx::color::rgba::white;
+
+    const f32 side_border_pxl = screen.size().x * side_border_prc;
+    const f32 top_border_pxl  = screen.size().y * top_border_prc;
+    
+    auto [left_panel, r0]            = math::cut_left (screen, side_border_pxl);
+    auto [right_panel, middle_panel] = math::cut_right(r0,     side_border_pxl);
+
+    auto [r2, panel] = math::cut_bottom(middle_panel, top_border_pxl);
+    std::tie(r2, panel) = math::cut_top(panel,        top_border_pxl);
+
+    auto [panel_title, panel_body] = math::cut_top(panel, panel.size().y * title_prc);
+    panel_title.pad(title_pad);
+
+    // draw bg panel
+    gfx::gui::draw_rect(&imgui.ctx, panel, game_theme.action_bar_color);
+    panel.pad(border_size);
+    // gfx::gui::draw_rect(&imgui.ctx, panel, game_theme.action_bar_fg_color);
+
+    // draw title
+    constexpr std::string_view title = "Inventory"sv;
+    const auto title_size = gfx::font_get_size(imgui.ctx.font, title);
+    
+    v2f title_cursor = panel_title.sample(math::half2) - title_size * math::half2;
+    gfx::gui::draw_rect(&imgui.ctx, panel_title, game_theme.action_bar_fg_color);
+
+    gfx::gui::string_render(&imgui.ctx, title, &title_cursor, title_color);
+
+}
+
 void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
     switch(game_ui->ui_style) {
         case ui_styles::first:
@@ -211,6 +246,10 @@ void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
             break;
         case_invalid_default;
     }
+
+    if (game_ui->inventory_open) {
+        draw_game_inventory(imgui, game_ui);
+    }
 }
 
 game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
@@ -218,7 +257,6 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     if (player == nullptr) {
         return ui;
     }
-
 
     ui.screen = math::rect2d_t{v2f{0.0f}, world->render_system()->screen_size()};
 
@@ -232,6 +270,10 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     ui.look *= 9.0f;
 
     ui.health = player->stats.character.health;
+
+    if (world->game_state->input().pressed.keys[key_id::E]) {
+        ui.inventory_open ^= true;
+    }
     
     math::ray_t game_ui_ray{ui.eye, ui.look};
     DEBUG_DIAGRAM(game_ui_ray);
@@ -272,7 +314,6 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
             ui.options_available |= available_options::pickup;
         }
     }
-
 
     return ui;
 }
@@ -516,6 +557,8 @@ app_init_graphics(game_memory_t* game_memory) {
     //     rendering::add_mesh(game_state->render_system, file_name, loaded_mesh);
     // }
     
+    gs_skinned_vertices = &rs->skinned_vertices.pool;
+
     range_u64(i, 0, game_state->resource_file->file_count) {
         arena_t* arena = &game_state->mesh_arena;
         if (game_state->resource_file->table[i].file_type != utl::res::magic::skel) { 
@@ -528,104 +571,20 @@ app_init_graphics(game_memory_t* game_memory) {
         gfx::mesh_list_t results;
         utl::memory_blob_t blob{file_data};
 
-        // read file meta data
-        const auto meta = blob.deserialize<u64>();
-        const auto vers = blob.deserialize<u64>();
-        const auto mesh = blob.deserialize<u64>();
+        auto& animation_file = 
+            *utl::hash_get(&game_state->animations, std::string_view{file_name}, arena) =
+            blob.deserialize<loaded_skeletal_mesh_t>(arena);
 
-        assert(meta == utl::res::magic::meta);
-        assert(vers == utl::res::magic::vers);
-        assert(mesh == utl::res::magic::skel);
+        animation_file.name.push(arena, std::string_view{file_name});
 
-        results.count = blob.deserialize<u64>();
-        zyy_warn(__FUNCTION__, "Loading {} meshes", results.count);
-        tag_array(results.meshes, gfx::mesh_view_t, arena, results.count);
+        gfx::anim::animator_t animator;
 
-        u64 total_vertex_count = 0;
-        utl::pool_t<gfx::skinned_vertex_t>& vertices{rs->skinned_vertices.pool};
-
-        for (size_t j = 0; j < results.count; j++) {
-            std::string name = blob.deserialize<std::string>();
-            zyy_info(__FUNCTION__, "Mesh name: {}", name);
-            const size_t vertex_count = blob.deserialize<u64>();
-            const size_t vertex_bytes = sizeof(gfx::skinned_vertex_t) * vertex_count;
-
-            total_vertex_count += vertex_count;
-
-            const u32 vertex_start = safe_truncate_u64(vertices.count());
-            const u32 index_start = 0;
-
-            results.meshes[j].vertex_count = safe_truncate_u64(vertex_count);
-            results.meshes[j].vertex_start = vertex_start;
-            results.meshes[j].index_start = index_start;
-
-            gfx::skinned_vertex_t* v = vertices.allocate(vertex_count);
-
-            utl::copy(v, blob.read_data(), vertex_bytes);
-            blob.advance(vertex_bytes);
-
-            // no indices for skeletal meshes atm
-            // const size_t index_count = blob.deserialize<u64>();
-            // const size_t index_bytes = sizeof(u32) * index_count;
-            // results.meshes[j].index_count = safe_truncate_u64(index_count);
-
-            // u32* tris = indices->allocate(index_count);
-            // utl::copy(tris, blob.read_data(), index_bytes);
-            // blob.advance(index_bytes);
-
-            results.meshes[j].aabb = {};
-            range_u64(k, 0, vertex_count) {
-                results.meshes[j].aabb.expand(v[k].pos);
-            }
-        }
-
-        results.aabb = {};
-        range_u64(m, 0, results.count) {
-            results.aabb.expand(results.meshes[m].aabb);
-        }
-    
-        const auto anim = blob.deserialize<u64>();
-        assert(anim == utl::res::magic::anim);    
-
-        gs_animation_count = blob.deserialize<u64>();
-        const auto total_anim_size = blob.deserialize<u64>();
-
-        gs_animations = (gfx::anim::animation_t*) blob.read_data();
-        blob.advance(total_anim_size);
-
-
-        const auto skeleton_size = blob.deserialize<u64>();
-        assert(skeleton_size == sizeof(gfx::anim::skeleton_t));
-        gs_skeleton = (gfx::anim::skeleton_t*)blob.read_data();
-        blob.advance(skeleton_size);
-
-        // game_memory->message_box(
-        //     fmt_sv("Asset {} has skeleton, {} vertices, {} animations\n{} - {}s {} ticks\nSkeleton: {} bones", 
-        //     file_name, total_vertex_count, anim_count, 
-        //     animations[0].name, animations[0].duration, animations[0].ticks_per_second,
-        //     skeleton->bone_count).data());
-
-        range_u64(a, 0, gs_animation_count) {
-            auto& animation = gs_animations[a];
-            zyy_info(__FUNCTION__, "Animation: {}, size: {}", animation.name, sizeof(gfx::anim::animation_t));
-            range_u64(n, 0, animation.node_count) {
-                auto& node = animation.nodes[n];
-                auto& timeline = node.bone;
-                if (timeline) {
-                    zyy_info(__FUNCTION__, "Bone: {}, id: {}", timeline->name, timeline->id);
-                }
-            }
-        }
-        range_u64(b, 0, gs_skeleton->bone_count) {
-            auto& bone = gs_skeleton->bones[b];
-            zyy_info(__FUNCTION__, "Bone: {}, parent: {}", bone.name_hash, bone.parent);
+        animator.play_animation(animation_file.animations.data + 0);
+        range_u64(_, 0, 1000) {
+            animator.update(1.0f/60.0f);
         }
     }
 
-    gs_animator.play_animation(gs_animations);
-    range_u64(i, 0, 1000) {
-        gs_animator.update(1.0f/60.0f);
-    }
 
     {
         temporary_arena_t temp = begin_temporary_memory(&game_state->texture_arena);
@@ -1089,8 +1048,7 @@ app_on_init(game_memory_t* game_memory) {
         arr[1] = 'a';
     }, console);
 
-
-    console_log(console, "Enter a command");
+    CLOG("Enter a command");
 
 #endif
     auto& mod_loader = game_state->modding.loader;
@@ -1179,6 +1137,9 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
     }
     if (input->pressed.keys[key_id::F9]) {
         gs_jump_save_time = 1.0f;
+    }
+    if (input->pressed.keys[key_id::F12]) {
+        CLOG("noclip");
     }
 
     if (input->pressed.keys[key_id::F1]) {

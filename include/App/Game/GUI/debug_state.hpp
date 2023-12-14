@@ -294,6 +294,11 @@ struct debug_state_t {
             }
         }
 
+        imgui.begin_free_drawing();
+        defer {
+            imgui.end_free_drawing();
+        };
+
         math::rect3d_t viewable{v3f{0.0f}, v3f{viewport.z, viewport.w, 1.0f}};
         node_for(auto, variables, var) {
             // im::text(imgui, var->name);
@@ -594,6 +599,7 @@ draw_console(
     #define DEBUG_SET_TIMEOUT(time) DEBUG_STATE.timeout = (time)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport) DEBUG_STATE.draw(imgui, proj, view, viewport)
     #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui) DEBUG_STATE.draw_watch_window(imgui)
+    #define CLOG(text) console_log(DEBUG_STATE.console, (text))
 #else
     #define DEBUG_DIAGRAM(var) 
     #define DEBUG_DIAGRAM(var, time)
@@ -601,6 +607,7 @@ draw_console(
     #define DEBUG_SET_TIMEOUT(timeout)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport)
     #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui)
+    #define CLOG(text) 
 #endif
 
 debug_state_t* gs_debug_state;

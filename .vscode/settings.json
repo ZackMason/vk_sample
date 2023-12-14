@@ -109,6 +109,7 @@
     },
     "cmake.configureOnOpen": false,
     "cSpell.words": [
+      "blkbrd_tab",
       "bools",
       "dlist",
       "gamepads",

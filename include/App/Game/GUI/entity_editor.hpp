@@ -526,6 +526,11 @@ struct entity_editor_t {
     b32 global = 1;
     u32 mode = 0;
 
+    struct light_probe_editor_settings_t {
+        math::rect3d_t aabb{math::r3zero};
+        f32            grid_size{1.61f};
+    } light_probe_settings{};
+
     instanced_prefab_t prefabs{};
     zyy::prefab_t creating_entity{};
     zyy::prefab_t* entity{&creating_entity};
@@ -538,7 +543,10 @@ struct entity_editor_t {
 
         world_save_file_header_t header {
             .prefab_count = dlist_count(prefabs), 
-            // .prefab_size = sizeof(zyy::prefab_t),
+            .light_probe_count = 1,
+            .light_probe_min = light_probe_settings.aabb.min,
+            .light_probe_max = light_probe_settings.aabb.max,
+            .light_probe_grid_size = light_probe_settings.grid_size
         };
         
         file.write((char*)&header, sizeof(header));
@@ -580,7 +588,10 @@ template<>
 void utl::memory_blob_t::serialize<entity_editor_t>(arena_t* arena, const entity_editor_t& ee) {
     world_save_file_header_t header {
         .prefab_count = dlist_count(ee.prefabs), 
-        // .prefab_size = sizeof(zyy::prefab_t),
+        .light_probe_count = 1,
+        .light_probe_min = ee.light_probe_settings.aabb.min,
+        .light_probe_max = ee.light_probe_settings.aabb.max,
+        .light_probe_grid_size = ee.light_probe_settings.grid_size
     };
         
     serialize(arena, header);
@@ -757,6 +768,12 @@ save_world_window(
             auto prefab = blob.deserialize<zyy::prefab_t>(&ee->arena);
             auto transform = blob.deserialize<math::transform_t>();
             ee->instance_prefab(prefab, transform);
+        }
+
+        if (header.light_probe_count > 0) {
+            ee->light_probe_settings.aabb.min = header.light_probe_min;
+            ee->light_probe_settings.aabb.max = header.light_probe_max;
+            ee->light_probe_settings.grid_size = header.light_probe_grid_size;
         }
     } else {
         // ee->save_to_file(file);   
@@ -1097,6 +1114,7 @@ entity_editor_render(entity_editor_t* ee) {
     local_persist bool show_physics = false;
     local_persist bool show_mesh_dialog = false;
     local_persist bool show_texture_dialog = false;
+    local_persist bool show_animation_dialog = false;
     local_persist char* show_function_dialog;
 
 
@@ -1104,10 +1122,16 @@ entity_editor_render(entity_editor_t* ee) {
     auto* game_state = ee->game_state;
     auto* rs = game_state->render_system;
     auto& imgui = game_state->gui.imgui;
+    auto* input = imgui.ctx.input;
     
     const auto width = game_state->gui.ctx.screen_size.x;
     
-
+    if (input->pressed.keys[key_id::F1]) {
+        show_animation_dialog ^= true;
+    }
+    if (show_animation_dialog) {
+        show_animation_dialog = animation_browser(imgui, game_state, game_state->resource_file);
+    }
     if (show_mesh_dialog) {
         show_mesh_dialog = load_mesh_window(imgui, ee);
     }
@@ -1311,7 +1335,7 @@ entity_editor_render(entity_editor_t* ee) {
         
         if (ee->entity->physics) {
             im::same_line(imgui);
-            if (im::button(imgui, "[x]")) {
+            if (im::button(imgui, "[x]", gfx::color::rgba::ue5_bg, 0)) {
                 ee->entity->physics.reset();
             }
         }
@@ -1352,7 +1376,6 @@ entity_editor_render(entity_editor_t* ee) {
                 u64 wp = view.size();
                 im::text_edit(imgui, view, &wp, "on_trg_end"_sid);
             }
-
 
             local_persist bool show_shape[8] = {};
 
@@ -1406,9 +1429,10 @@ entity_editor_render(entity_editor_t* ee) {
                             world_pos = ee->selection.prefab->transform.xform(world_pos);
                         }
                         gfx::gui::draw_wire_sphere(&imgui.ctx, world_pos, shape.sphere.radius, rs->projection * rs->view);
-                        if (ee->selection.prefab) {
-                            shape.sphere.origin = ee->selection.prefab->transform.inv_xform(world_pos);
-                        }
+                        // why???
+                        // if (ee->selection.prefab) {
+                        //     shape.sphere.origin = ee->selection.prefab->transform.inv_xform(world_pos);
+                        // }
                         im::same_line(imgui);
 
                         // add math::transform_t* parent
@@ -1420,7 +1444,7 @@ entity_editor_render(entity_editor_t* ee) {
                                 ee->selection = &shape.sphere.origin;
                             }
                         }
-                        im::float3_drag(imgui, &shape.sphere.origin);
+                        im::float3_input(imgui, &shape.sphere.origin);
                         im::same_line(imgui);
                         im::text(imgui, "Radius: ");
                         im::float_drag(imgui, &shape.sphere.radius, 0.1f, 0.0f);
@@ -1731,7 +1755,20 @@ entity_editor_render(entity_editor_t* ee) {
 
             im::text(imgui, fmt_sv("Undo Count: {}", undo_count));
             im::text(imgui, fmt_sv("Redo Count: {}", redo_count));
+
         }
+
+        im::text(imgui, "======== Light Probe =======");
+        if (im::text(imgui, "Min")) {
+            ee->selection = &ee->light_probe_settings.aabb.min;
+        }
+        if (im::text(imgui, "Max")) {
+            ee->selection = &ee->light_probe_settings.aabb.max;
+        }
+
+        im::same_line(imgui);
+        im::text(imgui, "Grid Size");
+        im::float_input(imgui, &ee->light_probe_settings.grid_size);
 
         im::text(imgui, fmt_sv("Camera: {}", ee->camera.position));
 
@@ -1863,14 +1900,14 @@ entity_editor_render(entity_editor_t* ee) {
             auto has_selected = ee->has_selection(&prefab->transform.origin);
 
             if (has_selected) {
-                imgui.theme.text_color = gfx::color::rgba::yellow;
+                imgui.theme.text_color = gfx::color::flatten_color(gfx::color::rgba::yellow);
             }
 
             im::drag_user_data(imgui, *prefab, "prefab_t");
 
             im::same_line(imgui);
             
-            if (im::button(imgui, "[x]", gfx::color::rgba::red, imgui.theme.text_color, (u64)prefab)) {
+            if (im::button(imgui, "[x]", gfx::color::rgba::ue5_bg, imgui.theme.text_color, (u64)prefab)) {
                 ee->remove_prefab(prefab);
             }
 

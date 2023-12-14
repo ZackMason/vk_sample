@@ -219,7 +219,7 @@ zyy::entity_t* explosion_at_point(
         if (n->physics.rigidbody) {
             auto delta = (e_pos - pos);
             auto delta_normal = glm::normalize(delta);
-            auto delta_length = glm::dot(delta, delta);
+            auto delta_length = glm::dot(delta, delta) + 1.0f;
 
             auto force = delta_normal / delta_length; 
             n->physics.impulse += (force * 10.0f);

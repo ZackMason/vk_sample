@@ -792,19 +792,29 @@ namespace zyy {
 
 struct world_save_file_header_t {
     u64 prefab_count{0};
-    u64 VERSION{0}; 
+    u64 VERSION{1};
+
+    u32 light_probe_count{0};
+    v3f light_probe_min{};
+    v3f light_probe_max{};
+    f32 light_probe_grid_size{1.6f};
 };
 
 template<>
 world_save_file_header_t
-utl::memory_blob_t::deserialize<world_save_file_header_t>(arena_t* arena) {
+utl::memory_blob_t::deserialize<world_save_file_header_t>() {
     world_save_file_header_t result = {};
 
     result.prefab_count = deserialize<u64>();
     result.VERSION = deserialize<u64>();
 
     if (result.VERSION <= world_save_file_header_t{}.VERSION) {
-
+        if (result.VERSION >= 1) {
+            result.light_probe_count = deserialize<u32>();
+            result.light_probe_min = deserialize<v3f>();
+            result.light_probe_max = deserialize<v3f>();
+            result.light_probe_grid_size = deserialize<f32>();
+        }
     }
 
     return result;
@@ -834,6 +844,16 @@ void load_world_file(zyy::world_t* world, const char* name) {
 
         zyy::tag_spawn(world, prefab, transform.origin, transform.basis);
     }
+
+    if (header.light_probe_count > 0) {
+        math::rect3d_t probe_aabb{
+            .min = header.light_probe_min,
+            .max = header.light_probe_max,
+        };
+
+        world->render_system()->light_probes.grid_size = header.light_probe_grid_size;
+        rendering::update_probe_aabb(world->render_system(), probe_aabb);
+    }
 }
 
 void load_world_file(zyy::world_t* world, const char* name, auto&& callback) {
@@ -859,5 +879,15 @@ void load_world_file(zyy::world_t* world, const char* name, auto&& callback) {
         auto transform = blob.deserialize<math::transform_t>();
 
         callback(world, prefab, transform.origin, transform.basis);
+    }
+
+    if (header.light_probe_count > 0) {
+        math::rect3d_t probe_aabb{
+            .min = header.light_probe_min,
+            .max = header.light_probe_max,
+        };
+        
+        world->render_system()->light_probes.grid_size = header.light_probe_grid_size;
+        rendering::update_probe_aabb(world->render_system(), probe_aabb);
     }
 }
