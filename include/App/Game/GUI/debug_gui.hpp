@@ -597,10 +597,14 @@ set_ui_textures(game_state_t* game_state) {
     auto descriptor_set_layout_binding = gfx::vul::utl::descriptor_set_layout_binding(
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, array_count(ui_textures)
     );
-    for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = game_state->default_font_texture; }
+    for(size_t i = 0; i < array_count(ui_textures); i++) { ui_textures[i] = game_state->default_font.get<font_backend_t>()->texture; }
     ui_textures[1] = &rs->frame_images[0].texture;
     ui_textures[2] = &rs->light_probes.irradiance_texture;
     ui_textures[3] = &rs->light_probes.visibility_texture;
+    for(u32 i = 0; i < array_count(game_state->gui.ctx.dyn_font); i++) { 
+        ui_textures[4+i] = game_state->gui.ctx.dyn_font[i]->get<font_backend_t>()->texture; 
+        game_state->gui.ctx.dyn_font[i]->id = i;
+    }
 
     for (
         u64 txt_id = rs->texture_cache.first();
@@ -629,7 +633,7 @@ set_ui_textures(game_state_t* game_state) {
         gui_pipeline.set_layouts, gui_pipeline.set_count, sizeof(m44)*2
     );
 
-    game_state->default_font_descriptor = vk_gfx.create_image_descriptor_set(
+    game_state->ui_descriptor = vk_gfx.create_image_descriptor_set(
         vk_gfx.descriptor_pool,
         gui_pipeline.set_layouts[0],
         ui_textures, array_count(ui_textures)

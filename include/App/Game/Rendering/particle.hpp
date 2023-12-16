@@ -154,7 +154,8 @@ utl::memory_blob_t::deserialize<particle_system_settings_t>(arena_t* arena) {
 
 
 struct particle_system_t : public particle_system_settings_t {
-    particle_t* particles;
+    // particle_t* particles;
+    buffer<particle_t> particles;
     utl::rng::random_t<utl::rng::xor64_random_t> rng;
     u32 live_count{0};
     u32 instance_offset{0};
@@ -262,7 +263,7 @@ particle_system_spawn(
     const b32 world_space = system->world_space;
     // const m44 world_inv = glm::inverse(transform);
 
-    auto* particle = system->particles + system->live_count++;
+    auto* particle = system->particles.data + system->live_count++;
     *particle = system->template_particle;
     
     particle->life_time -= system->rng.range(system->life_random);
@@ -297,7 +298,7 @@ particle_system_kill_particle(
     u64 i
 ) {
     if (system->live_count) {
-        std::swap(system->particles[i], system->particles[system->live_count-1]);
+        std::swap(system->particles.data[i], system->particles.data[system->live_count-1]);
         system->live_count--;
     }
 }
@@ -326,13 +327,13 @@ particle_system_update(
 
     range_u64(i, 0, system->live_count) {
         restart_particle_update:
-        auto* particle = system->particles + i;
+        auto* particle = system->particles.data + i;
         particle->life_time -= dt;
 
         // Note(Zack): kill particle and restart loop
         if (particle->life_time <= 0.0f) {
             if (0 != --system->live_count) {
-                std::swap(*particle, system->particles[system->live_count]);
+                std::swap(*particle, system->particles.data[system->live_count]);
                 goto restart_particle_update;
             }
         }
@@ -362,7 +363,7 @@ particle_system_build_colors(
     assert(system->live_count <= color_count);
 
     range_u32(i, 0, system->live_count) {
-        auto* particle = system->particles + i;
+        auto* particle = system->particles.data + i;
         colors[i] = particle->color;
     }
 }
@@ -376,10 +377,9 @@ particle_system_build_matrices(
     assert(system->live_count <= matrix_count);
 
     const b32 world_space = system->world_space;
-    const auto world_inv = glm::inverse(transform);
 
     range_u32(i, 0, system->live_count) {
-        auto* particle = system->particles + i;
+        auto* particle = system->particles.data + i;
         matrix[i] = math::transform_t{}
             .translate(particle->position)
             .rotate_quat(particle->orientation)
@@ -388,10 +388,33 @@ particle_system_build_matrices(
 
         if (!world_space) {
             matrix[i] = transform * matrix[i];
-            // matrix[i] = world_inv * matrix[i];
         }
     }
 
+}
+
+inline static void
+particle_system_sort_view(
+    particle_system_t* system,
+    const m44& transform,
+    v3f camera_pos, v3f camera_forward
+) {
+    const b32 world_space = system->world_space;
+
+    std::span<particle_t> view{system->particles.data, system->live_count};
+
+    std::sort(view.begin(), view.end(), [&](auto& p0, auto& p1) {
+        v3f pp0 = p0.position;
+        v3f pp1 = p1.position;
+        if (!world_space) {
+            pp0 = transform * v4f{pp0, 1.0f};
+            pp1 = transform * v4f{pp1, 1.0f};
+        }
+        auto d0 = pp0 - camera_pos;
+        auto d1 = pp1 - camera_pos;
+        return glm::dot(d0, camera_forward) < glm::dot(d1, camera_forward);
+        return glm::dot(d0, camera_forward) > glm::dot(d1, camera_forward);
+    });
 }
 
 inline static particle_system_t*
@@ -402,14 +425,15 @@ particle_system_create(
     u64 seed = 0
 ) {
     tag_struct(auto* system, particle_system_t, system_arena);
-    tag_array(system->particles, particle_t, particle_arena?particle_arena:system_arena, max_particle_count);
+    tag_array(system->particles.data, particle_t, particle_arena?particle_arena:system_arena, max_particle_count);
 
-    system->max_count = max_particle_count;
+    system->particles.count =
+        system->max_count = max_particle_count;
     system->live_count = 0;
     system->spawn_timer = 0.0f;
 
     range_u64(i, 0, max_particle_count) {
-        system->particles[i].life_time = 0.0f;
+        system->particles.data[i].life_time = 0.0f;
     }
 
     if (seed) system->rng.seed(seed);

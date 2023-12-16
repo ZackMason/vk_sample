@@ -1089,7 +1089,7 @@ public:
 
        
         rs->environment_storage_buffer.pool[0].fog_color = v4f{0.5f,0.6f,0.7f,0.0f};
-        rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{1.f,2.f,3.f}),0.0f};
+        // rs->environment_storage_buffer.pool[0].sun.direction = v4f{glm::normalize(v3f{1.f,2.f,3.f}),0.0f};
         rs->environment_storage_buffer.pool[0].sun.color = v4f{glm::normalize(v3f{0.3922f, 0.5686f, 0.902f}),0.0f};
 
         tag_struct(rs->rt_cache, rt_cache_t, &rs->arena, state);
@@ -1277,7 +1277,7 @@ public:
         system_t* rs,
         u64 mesh_id,
         u32 mat_id, // todo(zack): remove this
-        m44 transform,
+        const m44& transform,
         u32 gfx_id,
         u64 gfx_count,
         u32 instance_count = 1,

@@ -56,39 +56,39 @@ namespace csg {
         u64 box_mesh_id = 0;
         gfx::mesh_list_t box_mesh;
 
-        gfx::mesh_list_t& build_unit_cube(utl::pool_t<gfx::vertex_t>& vertices, utl::pool_t<u32>& indices) {
-            gfx::mesh_builder_t builder{vertices, indices};
+        // gfx::mesh_list_t& build_unit_cube(utl::allocator_t& vertices, utl::allocator_t& indices) {
+        //     gfx::mesh_builder_t builder{vertices, indices};
 
-            math::rect3d_t box{};
-            box.expand(v3f{0.5f});
-            box.expand(v3f{-0.5f});
+        //     math::rect3d_t box{};
+        //     box.expand(v3f{0.5f});
+        //     box.expand(v3f{-0.5f});
 
-            builder.add_box(box);
+        //     builder.add_box(box);
             
-            return box_mesh = builder.build(&arena);
-        }
+        //     return box_mesh = builder.build(&arena);
+        // }
 
-        gfx::mesh_list_t build(utl::pool_t<gfx::vertex_t>& vertices, utl::pool_t<u32>& indices) {
-            // if (rebuild == 0) return *this;
+        // gfx::mesh_list_t build(utl::pool_t<gfx::vertex_t>& vertices, utl::pool_t<u32>& indices) {
+        //     // if (rebuild == 0) return *this;
 
-            gfx::mesh_builder_t builder{vertices, indices};
+        //     gfx::mesh_builder_t builder{vertices, indices};
 
-            node_for(auto, brushes, brush) {
-                if (brush->type == brush_type::box) {
-                    math::rect3d_t box{};
-                    // box.expand(brush->box.size*0.5f);
-                    // box.expand(-brush->box.size*0.5f);
-                    box.expand(v3f{0.5f});
-                    box.expand(v3f{-0.5f});
+        //     node_for(auto, brushes, brush) {
+        //         if (brush->type == brush_type::box) {
+        //             math::rect3d_t box{};
+        //             // box.expand(brush->box.size*0.5f);
+        //             // box.expand(-brush->box.size*0.5f);
+        //             box.expand(v3f{0.5f});
+        //             box.expand(v3f{-0.5f});
 
-                    builder.add_box(box, brush->transform);
-                }
-            }
+        //             builder.add_box(box, brush->transform);
+        //         }
+        //     }
 
-            rebuild = 0;
+        //     rebuild = 0;
             
-            return builder.build(&arena);
-        }
+        //     return builder.build(&arena);
+        // }
 
         brush_t* new_box_brush(u32 gfx_id) {
             tag_struct(auto* brush, brush_t, &arena);
@@ -104,7 +104,6 @@ namespace csg {
         }
     };
 };
-
 
 struct instanced_prefab_t {
     instanced_prefab_t* next = 0;
@@ -138,13 +137,18 @@ struct saved_prefab_t {
 };
 
 enum struct edit_type_t {
-    GROUP, TEXT, VEC3, BASIS, INSERT, REMOVE
+    GROUP, TEXT, VEC3, BASIS, INSERT, REMOVE, PREFAB, BYTES
 };
 
 enum edit_change_type {
     Edit_From = 0,
     Edit_To = 1,
     Edit_Count
+};
+
+struct prefab_edit_t {
+    zyy::prefab_t* where{0};
+    zyy::prefab_t change[Edit_Count];
 };
 
 struct text_edit_t {
@@ -165,6 +169,11 @@ struct basis_edit_t {
 struct prefab_insert_t {
     instanced_prefab_t* prefab;
     instanced_prefab_t* head;
+};
+
+struct byte_edit_t {
+    u64* where{0};
+    u64 change[Edit_Count];
 };
 
 struct group_event_t {
@@ -189,11 +198,13 @@ struct edit_event_t {
 
     edit_type_t type{};
     union {
-        text_edit_t text_edit{};   
-        vec3_edit_t vec3_edit;   
-        basis_edit_t basis_edit;   
+        text_edit_t     text_edit{};
+        vec3_edit_t     vec3_edit;
+        basis_edit_t    basis_edit;
+        byte_edit_t     byte_edit;
+        prefab_edit_t*  prefab_edit;
         prefab_insert_t prefab_insert;
-        group_event_t group;
+        group_event_t   group;
     };
 };
 
@@ -241,6 +252,12 @@ void execute(edit_event_t* cmd, b32 undo) {
             break;
         case edit_type_t::BASIS:
             execute_edit(cmd->basis_edit, !undo ? Edit_To : Edit_From);
+            break;
+        case edit_type_t::BYTES:
+            execute_edit(cmd->byte_edit, !undo ? Edit_To : Edit_From);
+            break;
+        case edit_type_t::PREFAB:
+            execute_edit(*cmd->prefab_edit, !undo ? Edit_To : Edit_From);
             break;
         case_invalid_default;
     }
@@ -339,6 +356,31 @@ struct entity_editor_t {
         on_add_to_undo();
     }
 
+    void edit_bytes(u8* where, u64 what, u64 from) {
+        tag_struct(auto* edit, edit_event_t, &undo_arena);
+        edit->type = edit_type_t::BYTES;
+        edit->byte_edit.where = (u64*)where;
+        edit->byte_edit.change[Edit_From] = from;
+        edit->byte_edit.change[Edit_To] = what;
+
+        execute_edit(edit->byte_edit, Edit_To);
+        insert_edit_event(edit);
+        on_add_to_undo();
+    }
+
+    void edit_prefab(zyy::prefab_t* where, zyy::prefab_t what, zyy::prefab_t from) {
+        tag_struct(auto* edit, edit_event_t, &undo_arena);
+        edit->type = edit_type_t::PREFAB;
+        tag_struct(edit->prefab_edit, prefab_edit_t, &undo_arena);
+        edit->prefab_edit->where = where;
+        edit->prefab_edit->change[Edit_From] = from;
+        edit->prefab_edit->change[Edit_To] = what;
+
+        execute_edit(*edit->prefab_edit, Edit_To);
+        insert_edit_event(edit);
+        on_add_to_undo();
+    }
+
     void edit_basis(m33* where, m33 what, m33 from) {
         tag_struct(auto* edit, edit_event_t, &undo_arena);
         edit->type = edit_type_t::BASIS;
@@ -350,6 +392,14 @@ struct entity_editor_t {
         execute_edit(edit->basis_edit, Edit_To);
         insert_edit_event(edit);
         on_add_to_undo();
+    }
+
+    void edit_bytes(u8* where, u64 what) {
+        edit_bytes(where, what, *where);
+    }
+
+    void edit_prefab(zyy::prefab_t* where, zyy::prefab_t what) {
+        edit_prefab(where, what, *where);
     }
 
     void edit_vec3(v3f* where, v3f what) {
@@ -565,10 +615,10 @@ struct entity_editor_t {
     : game_state{app_}
     {
         if (app_) {
-            undo_arena = arena_sub_arena(&game_state->main_arena, megabytes(1));
+            // undo_arena = arena_sub_arena(&game_state->main_arena, megabytes(1));
             editor_world = zyy::world_init(game_state, game_state->game_memory->physics);
-            auto& mesh = csg_world.build_unit_cube(app_->render_system->scene_context->vertices.pool, app_->render_system->scene_context->indices.pool);
-            csg_world.box_mesh_id = rendering::add_mesh(app_->render_system, "box_brush", mesh);
+            // auto& mesh = csg_world.build_unit_cube(app_->render_system->scene_context->vertices.allocator, app_->render_system->scene_context->indices.allocator);
+            // csg_world.box_mesh_id = rendering::add_mesh(app_->render_system, "box_brush", mesh);
         }
 
         dlist_init(&prefabs);
@@ -782,9 +832,10 @@ save_world_window(
         utl::memory_blob_t blob{&arena};
         blob.serialize(&arena, *ee);
 
-        std::ofstream f{file, std::ios::binary};
+        utl::write_binary_file(file, blob.data_view());
+        // std::ofstream f{file, std::ios::binary};
 
-        f.write((const char*)blob.data, blob.serialize_offset);
+        // f.write((const char*)blob.data, blob.serialize_offset);
         arena_clear(&arena);
     }
     
@@ -1231,6 +1282,8 @@ entity_editor_render(entity_editor_t* ee) {
         } else {
             im::text(imgui, "======== Edit Prefab ==========");
         }
+
+        auto prefab_start = *ee->entity;
         
         im::same_line(imgui);
         if (im::text(imgui, "Load"sv, &show_load)) {
@@ -1681,6 +1734,25 @@ entity_editor_render(entity_editor_t* ee) {
             };
             ee->entity->brain_type = im::enumeration<brain_type>(imgui, brain_types, ee->entity->brain_type);
         }
+        
+        auto diff = utl::memdif((const u8*)&prefab_start, (const u8*)ee->entity, sizeof(prefab_start));
+        if (diff != 0) {
+            std::swap(prefab_start, *ee->entity);
+            if (diff <= 8) {
+                // CLOG("Optimized");
+                u8* r = (u8*)&prefab_start;
+                u8* w = (u8*)ee->entity;
+                for (u64 i = 0; i < sizeof(zyy::prefab_t); i++) {
+                    if (*w != *r) {
+                        ee->edit_bytes(w, *(u64*)r);
+                        break;
+                    }
+                    w++; r++;
+                }
+            } else {
+                ee->edit_prefab(ee->entity, prefab_start);
+            }
+        }
 
         im::text(imgui, "============================");
 
@@ -1753,9 +1825,11 @@ entity_editor_render(entity_editor_t* ee) {
                 redo_count++;
             }
 
+            im::text(imgui, fmt_sv("Undo Memory Size: {}{}", 
+                math::pretty_bytes(ee->undo_arena.top), 
+                math::pretty_bytes_postfix(ee->undo_arena.top)));
             im::text(imgui, fmt_sv("Undo Count: {}", undo_count));
             im::text(imgui, fmt_sv("Redo Count: {}", redo_count));
-
         }
 
         im::text(imgui, "======== Light Probe =======");

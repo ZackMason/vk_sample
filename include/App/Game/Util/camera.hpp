@@ -87,6 +87,17 @@ struct first_person_controller_t {
     f32 step_time{0.5f};
     f32 step_timer{step_time};
 
+    f32 jump_time{1.0f};
+    f32 _jump_timer{jump_time};
+
+    void just_jumped(){
+        _jump_timer = jump_time;
+    }
+
+    b32 can_jump() {
+        return _jump_timer <= 0.0f;
+    }
+
     void emote1() {
         hand_angular_velocity.x -= 60.0f;
         hand_angular_velocity.z += 40.0f * utl::rng::random_s::randn();
@@ -95,6 +106,9 @@ struct first_person_controller_t {
 
     // returns true if you should want to play a sound
     bool walk_and_bob(f32 dt, b32 walking, f32 walking_right) {
+
+        _jump_timer -= dt;
+
         walk_time += 10.0f * dt * (walking ? 1.0f : 0.0f);
         head_offset += glm::sin(walk_time) * dt * (walking ? 1.0f : 0.0f) * 0.5f;
         // utl::noise::fbm(v2f{walk_time}) * dt;

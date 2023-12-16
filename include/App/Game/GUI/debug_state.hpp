@@ -531,7 +531,9 @@ console_log(
     void (*on_click)(void*) = 0,
     void* user_data = 0
 ) {
+    console_try_command(console, text);
     size_t text_size = text.size();
+
     while(text_size > 0) {
         auto* message = console->messages + console->message_top;
         console->message_top = (console->message_top + 1) % array_count(console->messages);
@@ -577,7 +579,7 @@ draw_console(
         
         if (im::text_edit(imgui, console->text_buffer, &console->text_size, "console_text_box"_sid)) {
             console_log(console, console->text_buffer);
-            console_try_command(console, console->text_buffer);
+            
             utl::memzero(console->text_buffer, array_count(console->text_buffer));
             console->text_size = 0;
         }
@@ -600,6 +602,7 @@ draw_console(
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport) DEBUG_STATE.draw(imgui, proj, view, viewport)
     #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui) DEBUG_STATE.draw_watch_window(imgui)
     #define CLOG(text) console_log(DEBUG_STATE.console, (text))
+    #define FLOG(text, ...) console_log(DEBUG_STATE.console, fmt_sv((text), __VA_ARGS__))
 #else
     #define DEBUG_DIAGRAM(var) 
     #define DEBUG_DIAGRAM(var, time)
@@ -608,6 +611,7 @@ draw_console(
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport)
     #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui)
     #define CLOG(text) 
+    #define FLOG(text, ...)
 #endif
 
 debug_state_t* gs_debug_state;

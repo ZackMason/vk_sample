@@ -357,6 +357,15 @@ namespace zyy {
             entity->stats.effect->on_hit_effect = def.on_hit_effect.get(mod_loader);
         }
 
+        // temporary
+        auto inventory_size = def.inventory_size;
+        if (def.brain_type == brain_type::player) {
+            inventory_size = 16;
+        }
+
+        if (inventory_size > 0) {
+            entity->inventory.init(&world->arena, inventory_size);
+        }
 
         if (def.stats) {
             (character_stats_t&)entity->stats.character = *def.stats;
@@ -821,18 +830,9 @@ utl::memory_blob_t::deserialize<world_save_file_header_t>() {
 }
 
 void load_world_file(zyy::world_t* world, const char* name) {
-    std::ifstream file{name, std::ios::binary};
-
-    // arena_t* arena = &world->frame_arena.get();
     arena_t* arena = &world->arena;
 
-    file.seekg(0, std::ios::end);
-    const size_t file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    auto* bytes = (char*)push_bytes(arena, file_size);
-    file.read(bytes, file_size);
-
+    auto [bytes, file_size] = utl::read_bin_file(arena, name);
     utl::memory_blob_t blob{(std::byte*)bytes};
 
     auto header = blob.deserialize<world_save_file_header_t>();
@@ -857,17 +857,9 @@ void load_world_file(zyy::world_t* world, const char* name) {
 }
 
 void load_world_file(zyy::world_t* world, const char* name, auto&& callback) {
-    std::ifstream file{name, std::ios::binary};
-
-    // arena_t* arena = &world->frame_arena.get();
     arena_t* arena = &world->arena;
 
-    file.seekg(0, std::ios::end);
-    const size_t file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    auto* bytes = (char*)push_bytes(arena, file_size);
-    file.read(bytes, file_size);
+    auto [bytes, file_size] = utl::read_bin_file(arena, name);
 
     utl::memory_blob_t blob{(std::byte*)bytes};
 

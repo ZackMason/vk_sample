@@ -15,7 +15,6 @@
 #include <variant>
 
 namespace zyy {
-
 struct world_t;
 
 // using entity_update_function = void(*)(entity_t*, world_t*);
@@ -48,6 +47,8 @@ struct entity_t {
     // math::transform_t   _global_transform;
 
     math::rect3d_t        aabb;
+
+    inventory_t inventory = {};
 
     void dirty_transform() {
         flags |= EntityFlags_DirtyTransform;

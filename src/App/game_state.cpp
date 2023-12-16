@@ -271,7 +271,7 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
 
     ui.health = player->stats.character.health;
 
-    if (world->game_state->input().pressed.keys[key_id::E]) {
+    if (world->game_state->input().pressed.keys['T']) {
         ui.inventory_open ^= true;
     }
     
@@ -371,6 +371,14 @@ draw_game_gui(game_memory_t* game_memory) {
 
 
         if (game_ui.options_available & available_options::pickup) {
+            if (option_count == game_ui.highlight_option) {
+                if (imgui.ctx.input->pressed.keys[key_id::E]) {
+                    // this is really bad
+                    if (!pickup_item(player, game_ui.entity)) { 
+                        assert(!"Cant Pickup");
+                    }
+                }
+            }
             gfx::gui::string_render(&imgui.ctx, "Pickup", &look_at_cursor, color);
             option_count += 1;
         }
@@ -509,6 +517,7 @@ app_init_graphics(game_memory_t* game_memory) {
         game_state->gfx.init(&game_memory->config, memory.arena);
         end_temporary_memory(memory);
     }
+
     // make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.3f}, v3f{0.6f}, 2.0f);
     // texture_add_border(&vk_gfx.null_texture, v3f{0.9f}, 4);
     // texture_add_border(&vk_gfx.null_texture, gfx::color::v3::yellow, 4);
@@ -587,19 +596,23 @@ app_init_graphics(game_memory_t* game_memory) {
 
 
     {
-        temporary_arena_t temp = begin_temporary_memory(&game_state->texture_arena);
+        auto* arena = &game_state->texture_arena;
 
-        gfx::font_load(temp.arena, &game_state->large_font, "./res/fonts/Go-Mono-Bold.ttf", 24.0f);
-        gfx::font_load(temp.arena, &game_state->default_font, "./res/fonts/Go-Mono-Bold.ttf", 18.0f);
-        tag_struct(game_state->default_font_texture, gfx::vul::texture_2d_t, &game_state->texture_arena);
+        gfx::font_load(arena, &game_state->large_font, "./res/fonts/Go-Mono-Bold.ttf", 24.0f);
+
+        gfx::font_load(arena, &game_state->default_font, "./res/fonts/Go-Mono-Bold.ttf", 18.0f);
+
+        tag_struct(auto* font_backend, font_backend_t, &game_state->texture_arena);
+        tag_struct(font_backend->texture, gfx::vul::texture_2d_t, &game_state->texture_arena);
+        
+        game_state->default_font.user_data = font_backend;
         
         vk_gfx.load_font_sampler(
-            temp.arena  ,
-            game_state->default_font_texture,
+            arena,
+            font_backend->texture,
             &game_state->default_font);
-
-        // end_temporary_memory(temp);
     }
+    
 
     if (1)
     {
@@ -623,6 +636,14 @@ app_init_graphics(game_memory_t* game_memory) {
         vk_gfx.load_texture_sampler(blood_texture);
 
         rs->texture_cache.insert("blood", *blood_texture);
+    }
+
+    for (size_t i = 0; i < array_count(game_state->gui.ctx.dyn_font); i++) {
+        auto* arena = &game_state->texture_arena;
+        auto& font = game_state->gui.ctx.dyn_font[i];
+        font = load_font(arena, vk_gfx, "./res/fonts/Go-Mono-Bold.ttf", (f32)i+8);
+
+        // game_state->default_font = *font;
     }
     
     set_ui_textures(game_state);
@@ -872,11 +893,6 @@ app_init_graphics(game_memory_t* game_memory) {
         (f32)game_memory->config.window_size[1]
     };
 
-    for (size_t i = 0; i < array_count(game_state->gui.ctx.dyn_font); i++) {
-        tag_struct(game_state->gui.ctx.dyn_font[i], gfx::font_t, &game_state->texture_arena);
-        gfx::font_load(&game_state->texture_arena, game_state->gui.ctx.dyn_font[i], "./res/fonts/Go-Mono-Bold.ttf", (f32)i+1);
-    }
-
     {
         auto memory = begin_temporary_memory(&game_state->main_arena);
 
@@ -884,6 +900,8 @@ app_init_graphics(game_memory_t* game_memory) {
         config.head = utl::load_config(memory.arena, "config.ini", &config.count);
         game_state->render_system->light_probe_ray_count = 
             utl::config_get_int(&config, "ddgi", 64);
+
+        FLOG("Light Probe Ray Count: {}", game_state->render_system->light_probe_ray_count);
 
         end_temporary_memory(memory);
     }
@@ -1095,6 +1113,26 @@ app_on_init(game_memory_t* game_memory) {
     // game_state->scene.sporadic_buffer.use_lighting = 1;
 
     zyy_info("game_state", "world size: {}mb", GEN_TYPE_INFO(zyy::world_t).size/megabytes(1));
+
+    {
+        auto memory = begin_temporary_memory(&game_state->main_arena);
+
+        utl::config_list_t config{};
+        config.head = utl::load_config(memory.arena, "config.ini", &config.count);
+        
+        auto* level = utl::config_find(&config, "start_level");
+        if (level) {
+            auto* world = game_state->game_world;
+            std::string_view level_name{level->as_sv()};
+            tag_array(auto* str, char, &world->arena, level_name.size()+1);
+            utl::copy(str, level_name.data(), level_name.size()+1);
+            world->world_generator = generate_world_from_file(&world->arena, str);
+        }
+
+        // CLOG(fmt_sv("Light Probe Ray Count: {}", game_state->render_system->light_probe_ray_count));
+
+        end_temporary_memory(memory);
+    }
 }
 
 export_fn(void) 
@@ -1273,20 +1311,20 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
             // @debug
 
-            // const auto entity_aabb = e->global_transform().xform_aabb(e->aabb);
-            // if (e->type != zyy::entity_type::player) {
-            //     DEBUG_DIAGRAM_(entity_aabb, 0.0000f);
-            // }
-            // if (e->gfx.particle_system) {
-            //     const auto particle_aabb = e->gfx.particle_system->aabb;
-            //     DEBUG_DIAGRAM_(particle_aabb, 0.0000f);
+            const auto entity_aabb = e->global_transform().xform_aabb(e->aabb);
+            if (e->type != zyy::entity_type::player) {
+                DEBUG_DIAGRAM_(entity_aabb, 0.0000f);
+            }
+            if (e->gfx.particle_system) {
+                const auto particle_aabb = e->gfx.particle_system->aabb;
+                DEBUG_DIAGRAM_(particle_aabb, 0.0000f);
             // } else if (e->gfx.mesh_id != -1) {
             //     auto& mesh = world->render_system()->mesh_cache.get(e->gfx.mesh_id);
             //     range_u64(j, 0, mesh.count) {
             //         const auto mesh_aabb = e->global_transform().xform_aabb(mesh.meshes[i].aabb);
             //         DEBUG_DIAGRAM_(mesh_aabb, 0.0000f);
             //     }
-            // }
+            }
         }
     }
     app_on_input(game_state, input);
@@ -1397,8 +1435,11 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     
         DEBUG_SET_FOCUS(world->player->global_transform().origin);
     }
+
+    auto camera_position = game_state->game_world->camera.origin;
+    auto camera_forward = game_state->game_world->camera.basis[2];
     
-    game_state->render_system->camera_pos = game_state->game_world->camera.origin;
+    game_state->render_system->camera_pos = camera_position;
     game_state->render_system->set_view(game_state->game_world->camera.inverse().to_matrix(), game_state->width(), game_state->height());
 
     // make sure not to allocate from buffer during sweep
@@ -1430,13 +1471,19 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
         if (e->gfx.particle_system) {
             auto* ps = e->gfx.particle_system;
+            auto transform = e->global_transform();
             // arena_sweep_keep(&world->particle_arena, (std::byte*)(ps->particles + ps->max_count));
             if (dt != 0.0f) {
-                particle_system_update(e->gfx.particle_system, e->global_transform(), dt);
+                particle_system_update(e->gfx.particle_system, transform, dt);
             }
+            particle_system_sort_view(
+                e->gfx.particle_system, 
+                transform,
+                camera_position, camera_forward
+            );
             particle_system_build_matrices(
                 e->gfx.particle_system, 
-                e->global_transform(),
+                transform,
                 e->gfx.dynamic_instance_buffer, 
                 e->gfx._instance_count
             );
@@ -1690,7 +1737,7 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
                 // colorAttachment.imageView = vk_gfx.swap_chain_image_views[image_index];
                 colorAttachment.imageView = rs->frame_images[frame_count%2].texture.image_view;
                 colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-                colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+                colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
                 colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
                 colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
 
@@ -1716,6 +1763,14 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             
                 khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
             }
+            VkColorBlendEquationEXT blend_fn[1];
+            blend_fn[0] = gfx::vul::utl::alpha_blending();
+            // blend_fn[0] = gfx::vul::utl::additive_blending();
+            ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
+            // VkBool32 fb_blend[1] { false };
+            VkBool32 fb_blend[1] { true };
+            ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
+
             auto view_dir = glm::inverse(rs->view) * v4f{axis::forward, 0.0f};
             rendering::draw_skybox(
                 rs, command_buffer, 
@@ -1739,12 +1794,6 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
             ext.vkCmdSetDepthCompareOpEXT(command_buffer, VK_COMPARE_OP_LESS_OR_EQUAL);
             ext.vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-            VkColorBlendEquationEXT blend_fn[1];
-            blend_fn[0] = gfx::vul::utl::alpha_blending();
-            // ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
-            VkBool32 fb_blend[1] { false };
-            // VkBool32 fb_blend[1] { true };
-            ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
             // ext.vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
 
             {
@@ -1806,7 +1855,7 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
             colorAttachment.imageView = vk_gfx.swap_chain_image_views[image_index];
             colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
             colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
             colorAttachment.clearValue.color = { 0.0f,0.0f,0.0f,0.0f };
 
@@ -1865,7 +1914,7 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
 
             vkCmdBindDescriptorSets(command_buffer, 
                 VK_PIPELINE_BIND_POINT_GRAPHICS, game_state->render_system->pipelines.gui.layout,
-                0, 1, &game_state->default_font_descriptor, 0, nullptr);
+                0, 1, &game_state->ui_descriptor, 0, nullptr);
 
             {
                 struct gui_pc_t {
@@ -2045,9 +2094,12 @@ app_on_render(game_memory_t* game_memory) {
 export_fn(void) 
 app_on_update(game_memory_t* game_memory) {
     auto* game_state = get_game_state(game_memory);
-    if (game_memory->input.pressed.keys[key_id::F3] || 
-        game_memory->input.gamepads->buttons[button_id::dpad_down].is_pressed) {
+    if (game_memory->input.keys[key_id::LEFT_SHIFT] && 
+        game_memory->input.pressed.keys[key_id::TAB]) { 
+    // if (game_memory->input.pressed.keys[key_id::F3] || 
+    //     game_memory->input.gamepads->buttons[button_id::dpad_down].is_pressed) {
         scene_state = !scene_state;
+        return;
     }
     u32 image_index = wait_for_frame(game_state);
     rendering::begin_frame(game_state->render_system);

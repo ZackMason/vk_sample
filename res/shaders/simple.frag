@@ -343,8 +343,8 @@ main( )
 
 	// rgb = env / 2.0f;	
 
-	fFragColor = vec4( rgb, alpha * alpha * alpha);
 	fFragColor = vec4( rgb, alpha);
+	fFragColor = vec4( rgb, alpha * alpha * alpha);
 }
 
 

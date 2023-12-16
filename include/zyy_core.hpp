@@ -1152,6 +1152,38 @@ bool has_extension(std::string_view str, std::string_view ext) {
     return get_extension(str) == ext;
 }
 
+struct timer_t {
+    f32 _time{1.0f};
+    f32 _timer{0.0f};
+
+    static timer_t create(f32 t, b32 one_shot = 1) {
+        timer_t result = {};
+        result.start(t, one_shot);
+        return result;
+    }
+
+    void start(f32 t, b32 one_shot = 1) {
+        _timer = _time = t;
+        flags = one_shot ? timer_flags::one_shot : timer_flags::repeat;
+    }
+    
+    b32 tick(f32 dt) {
+        if (_time && (_timer -= dt) <= 0.0f) {
+            if (flags == timer_flags::repeat) {
+                _timer = _time;
+            } else {
+                _time = 0.0f;
+            }
+            return 1;
+        }
+        return 0;
+    }
+
+    enum struct timer_flags : u32 { 
+        one_shot, repeat
+    } flags = timer_flags::one_shot;
+};
+
 struct spinlock_t {
   std::atomic<bool> lock_ = {0};
 
@@ -1502,6 +1534,66 @@ T* co_push_stack_(coroutine_t* coro, arena_t* arena, umm count = 1) {
 #define co_push_stack(coro, stack, type) co_push_stack_<type>(coro, stack) 
 #define co_push_array_stack(coro, stack, type, count) co_push_stack_<type>(coro, stack, count) 
 
+namespace utl {
+    // Todo(Zack): Merge blocks
+struct allocator_t {
+    struct memory_block_t {
+        void* start = 0;
+        u64   size  = 0;
+        memory_block_t* next = this;
+        memory_block_t* prev = this;
+    };
+
+    arena_t arena{};
+    arena_t* block_arena{&arena};
+    memory_block_t used_blocks{};
+    memory_block_t free_blocks{};
+
+    virtual ~allocator_t() = default;
+
+    // void* allocate(u64 size, u64 line_number, const char* filename, const char* type_name, const char* function_name) {
+    // todo add source location
+    void* allocate(u64 size) {
+        // zyy_info(__FUNCTION__, "{} free blocks", dlist_count(free_blocks));
+        dlist_range(&free_blocks, block) {
+            if (block->size < size) { continue; }
+
+            dlist_remove(block);
+
+            dlist_insert_as_last(&used_blocks, block);
+
+            return block->start;
+        }
+        // if we reach here, theres no free blocks that fit
+
+        tag_struct(auto* new_block, memory_block_t, block_arena);            
+        auto* data = push_bytes(&arena, size);
+
+        utl::memzero(data, size);
+
+        new_block->start = data;
+        new_block->size  = size;
+
+        dlist_insert_as_last(&used_blocks, new_block);
+
+        return new_block->start;
+    }
+
+    void free(void* ptr) {
+        // remove from used blocks
+        dlist_range(&used_blocks, block) {
+            if (block->start == ptr) {
+                dlist_remove(block);
+                dlist_insert_as_last(&free_blocks, block);
+                return;
+            }
+        }
+        // should not reach here
+        assert(0);
+    }
+};
+
+}
 
 template <typename T>
 struct buffer 
@@ -1514,36 +1606,66 @@ struct buffer
         return new_data;
     }
 
+    T* reallocate(utl::allocator_t* allocator, u64 size) {
+        auto* new_data = (T*)allocator->allocate(sizeof(T)*size);
+        return new_data;
+    }
+
+    void reserve(utl::allocator_t* allocator, u64 size) {
+        if (data) allocator->free(data);
+        data = allocator->allocate(size*sizeof(T));
+        count = size;
+    }
+
+    void reserve(arena_t* arena, u64 size) {
+        data = reallocate(arena, size);
+        count = size;
+    }
+
     void sort(auto&& fn) {
         if (data) {
             std::sort(data, data + count, fn);
         }
     }
 
-    void push(arena_t* arena, std::string_view t) {
-        auto* new_data = reallocate(arena, count+t.size()/sizeof(T));
+    template<typename Allocator>
+    void push(Allocator* allocator, std::string_view t) {
+        auto* new_data = reallocate(allocator, count+t.size()/sizeof(T));
         if (data) {
             std::memcpy(new_data, data, count*sizeof(T));
+            if constexpr (std::is_same_v<Allocator, utl::allocator_t>) {
+                allocator->free(data);
+            }
         }
         data = new_data;
         std::memcpy(data+count, t.data(), t.size());
         count += t.size() / sizeof(T);
+
+
     }
 
-    void push(arena_t* arena, std::span<T> v) {
-        auto* new_data = reallocate(arena, count+v.size());
+    template<typename Allocator>
+    void push(Allocator* allocator, std::span<T> v) {
+        auto* new_data = reallocate(allocator, count+v.size());
         if (data) {
             std::memcpy(new_data, data, count*sizeof(T));
+            if constexpr (std::is_same_v<Allocator, utl::allocator_t>) {
+                allocator->free(data);
+            }
         }
         data = new_data;
         std::memcpy(data+count, v.data(), v.size() * sizeof(T));
         count += v.size();
     }
 
-    void push(arena_t* arena, const T& o) {
-        auto* new_data = reallocate(arena, count+1);
+    template<typename Allocator>
+    void push(Allocator* allocator, const T& o) {
+        auto* new_data = reallocate(allocator, count+1);
         if (data) {
             std::memcpy(new_data, data, count*sizeof(T));
+            if constexpr (std::is_same_v<Allocator, utl::allocator_t>) {
+                allocator->free(data);
+            }
         }
         data = new_data;
         data[count++] = o;
@@ -1555,6 +1677,10 @@ struct buffer
 
     std::string_view sv() const {
         return std::string_view{data, count};
+    }
+
+    auto& operator[](u64 index) {
+        return data[index];
     }
 
     bool operator==(const buffer<T>& o) const {
@@ -1630,66 +1756,6 @@ void hash_foreach(hash_trie_t<Key,Value>* map, std::function<void(typename Key,t
         }
     }
 }
-
-
-// Todo(Zack): Merge blocks
-struct allocator_t {
-    struct memory_block_t {
-        void* start = 0;
-        u64   size  = 0;
-        memory_block_t* next = this;
-        memory_block_t* prev = this;
-    };
-
-    arena_t arena{};
-    arena_t* block_arena{&arena};
-    memory_block_t used_blocks{};
-    memory_block_t free_blocks{};
-
-    virtual ~allocator_t() = default;
-
-    // void* allocate(u64 size, u64 line_number, const char* filename, const char* type_name, const char* function_name) {
-    // todo add source location
-    void* allocate(u64 size) {
-        // zyy_info(__FUNCTION__, "{} free blocks", dlist_count(free_blocks));
-        dlist_range(&free_blocks, block) {
-            if (block->size < size) { continue; }
-
-            dlist_remove(block);
-
-            dlist_insert_as_last(&used_blocks, block);
-
-            return block->start;
-        }
-        // if we reach here, theres no free blocks that fit
-
-        tag_struct(auto* new_block, memory_block_t, block_arena);            
-        auto* data = push_bytes(&arena, size);
-
-        utl::memzero(data, size);
-
-        new_block->start = data;
-        new_block->size  = size;
-
-        dlist_insert_as_last(&used_blocks, new_block);
-
-        return new_block->start;
-    }
-
-    void free(void* ptr) {
-        // remove from used blocks
-        dlist_range(&used_blocks, block) {
-            if (block->start == ptr) {
-                dlist_remove(block);
-                dlist_insert_as_last(&free_blocks, block);
-                return;
-            }
-        }
-        // should not reach here
-        assert(0);
-    }
-};
-
 
 struct string_builder_t {
     temporary_arena_t memory{};
@@ -2477,6 +2543,8 @@ struct draw_mesh_command_t {
     u64 mesh_id{0};
     u64 material_id{0};
     u64 albedo_id{0};
+    u32 gfx_id{0};
+    u64 gfx_count{0};
 
     union {
         m44  transform;
@@ -2491,7 +2559,7 @@ struct render_command_t {
 
     union {
         draw_mesh_command_t draw_mesh{};
-        clear_texture_command_t clear_texture;
+        // clear_texture_command_t clear_texture;
     };
 };
 
@@ -4283,6 +4351,7 @@ namespace gui {
             f32* scroll,
             v2f* size_
         ) {
+            *size_ = glm::max(*size_, v2f{16.0f});
             auto size = *size_;
             const u64 scl_id = imgui.verify_id((u64)scroll);
 
@@ -4346,6 +4415,7 @@ namespace gui {
                 imgui.panel->draw_cursor + size
             };
             auto scroll_bar_size = 0.05f * scissor.size().x;
+            scroll_bar_size = std::min(scroll_bar_size, 16.0f);
             
             size_->x = std::max(size_->x, draw_width);
 
@@ -4355,18 +4425,38 @@ namespace gui {
             
             imgui.panel->update_cursor_max(scissor.max + imgui.theme.padding);
             
-            auto [scroll_bar, rest] = math::cut_right(scissor, scroll_bar_size);
-            auto [drag_col, rest2] = math::cut_right(rest, scroll_bar_size);
-            auto [drag_box, rest3] = math::cut_bottom(drag_col, scroll_bar_size);
+            // auto [scroll_bar, rest] = math::cut_right(scissor, scroll_bar_size);
+            // auto [drag_col, rest2] = math::cut_right(rest, scroll_bar_size);
+            // auto [drag_box, rest3] = math::cut_bottom(drag_col, scroll_bar_size);
+            
+            auto [right_panel, rest] = math::cut_right(scissor, scroll_bar_size);
+            right_panel.add(v2f{-4.0f, 0.0f});
+            auto [drag_box, scroll_bar] = math::cut_bottom(right_panel, scroll_bar_size);
+            // auto [drag_col, rest2] = math::cut_right(rest, scroll_bar_size);
+
             auto [x,y] = imgui.ctx.input->mouse.pos;
             auto clicked = imgui.ctx.input->mouse.buttons[0];
 
-            if (visible_prc == 1.0f) {
-                drag_box.add(v2f{scroll_bar.size().x, 0.0f});
-                scroll_bar.min = scroll_bar.max;
+            // if (visible_prc == 1.0f) {
+                // drag_box.add(v2f{scroll_bar.size().x, 0.0f});
+            //     scroll_bar.min = scroll_bar.max;
+            // }
+            v2f mouse{x,y};
+            if (right_panel.contains(mouse)) {
+                imgui.hot = scl_id;
             }
+            if (imgui.hot.id == scl_id) {
+                if (clicked) {
+                    if (scroll_bar.contains(mouse)) {
 
-            if (clicked && drag_box.contains(v2f{x,y})) {
+                    } else if (drag_box.contains(mouse)) {
+                        imgui.active = scl_id;
+                    }
+                } else {
+                    imgui.active = 0;
+                }
+            }
+            if (imgui.active.id == scl_id) {
                 size_->x += imgui.ctx.input->mouse.delta[0];
                 size_->y += imgui.ctx.input->mouse.delta[1];
             }
@@ -4389,11 +4479,13 @@ namespace gui {
                 dw = 0.0f;
             }
 
-            auto scroll_prc = (*scroll) / (draw_delta-size.y);
+            auto dy = glm::max(0.01f, (draw_delta-size.y));
+
+            auto scroll_prc = (*scroll) / dy;
             auto scroll_ball_prc = (*scroll) / (draw_delta);
 
-            scroll_ball_prc = std::clamp(scroll_ball_prc, 0.0f, 1.0f - visible_prc);
-            scroll_prc = std::clamp(scroll_prc, 0.0f, 1.0f);
+            scroll_ball_prc = glm::clamp(scroll_ball_prc, 0.0f, 1.0f - visible_prc);
+            scroll_prc = glm::clamp(scroll_prc, 0.0f, 1.0f);
 
             math::rect2d_t scroll_ball{
                 scroll_bar.sample(v2f{0.0f, scroll_ball_prc}),
@@ -4405,7 +4497,7 @@ namespace gui {
             draw_rect(&imgui.ctx, scroll_bar, color::flatten_color(imgui.theme.fg_color));
             draw_rect(&imgui.ctx, scroll_ball, imgui.theme.fg_color);
 
-            *scroll = (scroll_prc) * (draw_delta-size.y);
+            *scroll = (scroll_prc) * dy;
             
             imgui.panel->draw_cursor.y += size.y + imgui.theme.padding;
         }
@@ -6888,6 +6980,13 @@ struct font_t {
     u8* bitmap{0};
     stbtt_bakedchar cdata[96];
     u32 id{0};
+
+    void* user_data = 0;
+    
+    template<typename T>
+    T* get() {
+        return (T*)user_data;
+    }
 };
 
 inline void
@@ -6902,9 +7001,10 @@ font_load(
     font->size = size;
 
     font->bitmap = (u8*)push_bytes(arena, font->pixel_count*font->pixel_count);
-    size_t stack_mark = arena_get_mark(arena);
+    auto memory = begin_temporary_memory(arena);
+    // size_t stack_mark = arena_get_mark(arena);
 
-        font->ttf_buffer = (u8*)push_bytes(arena, 1<<20);
+        font->ttf_buffer = (u8*)push_bytes(memory.arena, 1<<20);
         
         FILE* file;
         fopen_s(&file, path.data(), "rb");
@@ -6914,7 +7014,8 @@ font_load(
                 
         fclose(file);
 
-    arena_set_mark(arena, stack_mark);
+    // arena_set_mark(arena, stack_mark);
+    end_temporary_memory(memory);
 }
 #else 
 {}
@@ -7161,7 +7262,6 @@ f32 fbm(v2f uv) {
     f += 0.0625f*noise21( uv ); uv = m*uv;
     return f;
 }
-
 
 };
 
@@ -7608,6 +7708,10 @@ struct memory_blob_t {
 
     std::byte* read_data() {
         return data + read_offset;
+    }
+
+    std::span<u8> data_view() {
+        return std::span{(u8*)data, serialize_offset};
     }
 
     // in bytes
@@ -8062,6 +8166,10 @@ struct config_t {
         return (i32)std::atoi(value);
     }
 
+    std::string_view as_sv() const {
+        return std::string_view{value};
+    }
+
     void print() const {
         fmt::print("{}={}\n", name, value);
     }
@@ -8092,11 +8200,16 @@ read_config(
     *config = nullptr;
 
     while (end != std::string_view::npos) {
+        if (start == std::string_view::npos) break;
         // zyy_info(__FUNCTION__, "Start: {}, End: {}", start, end);
         if (end == start) {
+        // if (end == start || text[start] == '#') {
             // zyy_info(__FUNCTION__, "Empty Line");
             start = end + 1;
             end = text.find('\n', start);
+            if (end == std::string_view::npos) {
+                end = text.size();
+            }
             continue;
         }
 
@@ -8162,6 +8275,48 @@ config_t* load_config(arena_t* arena, const char* file_name, size_t* count) {
     return config;
 }
 
+
+string_buffer read_text_file(arena_t* arena, std::string_view filename) {
+    string_buffer result = {};
+    
+    std::ifstream file{filename.data()};
+
+    file.seekg(0, std::ios::end);
+    const size_t file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    auto* bytes = (char*)push_bytes(arena, file_size);
+    file.read(bytes, file_size);
+
+    result.data = bytes;
+    result.count = file_size;
+
+    return result;
+}
+
+buffer<u8> read_bin_file(arena_t* arena, std::string_view filename) {
+    buffer<u8> result = {};
+    
+    std::ifstream file{filename.data(), std::ios::binary};
+
+    file.seekg(0, std::ios::end);
+    const size_t file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    auto* bytes = (u8*)push_bytes(arena, file_size);
+    file.read((char*)bytes, file_size);
+
+    result.data = bytes;
+    result.count = file_size;
+
+    return result;
+}
+
+void write_binary_file(std::string_view filename, std::span<u8> bytes) {
+    std::ofstream file{filename.data(), std::ios::binary};
+
+    file.write((char*)bytes.data(), bytes.size());
+}
 
 }; // namespace utl
 

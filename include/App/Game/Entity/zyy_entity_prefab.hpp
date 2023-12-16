@@ -145,7 +145,7 @@ struct prefab_t {
 
     prefab_t& operator=(const prefab_t& o) {
         if (this != &o) {
-            puts("Copy entity def");
+            // puts("Copy entity def");
             utl::copy(this, &o, sizeof(*this));
         }
         return *this;

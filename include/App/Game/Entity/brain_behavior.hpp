@@ -53,6 +53,12 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         cc.emote1();
     }
 
+    if (pc.inv1) { std::swap(player->inventory.items.data[0].entity, player->primary_weapon.entity); cc.emote1(); }
+    if (pc.inv2) { std::swap(player->inventory.items.data[1].entity, player->primary_weapon.entity); cc.emote1(); }
+    if (pc.inv3) { std::swap(player->inventory.items.data[2].entity, player->primary_weapon.entity); cc.emote1(); }
+    if (pc.inv4) { std::swap(player->inventory.items.data[3].entity, player->primary_weapon.entity); cc.emote1(); }
+    
+
     if (pc.iron_sight) {
         cc.hand_offset = cc.aim_fire;
     } else {
@@ -139,7 +145,8 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         cc.emote1();
     }
 
-    if (pc.jump && (is_on_ground || is_on_wall)) {
+    if (pc.jump && cc.can_jump() && (is_on_ground || is_on_wall)) {
+        cc.just_jumped();
         rigidbody->velocity.y = 0.3f;// 50.0f * dt;
         cc.hand_velocity += axis::up;
     }

@@ -171,11 +171,17 @@ struct player_controller_t {
     b32 sprint;
     b32 swap;
     b32 emote;
+    b32 interact;
+
+    b32 inv1;
+    b32 inv2;
+    b32 inv3;
+    b32 inv4;
 };
 
 inline static player_controller_t 
 gamepad_controller(app_input_t* input) {
-    player_controller_t pc{};
+    player_controller_t pc = {};
 
     pc.move_input = v3f{
         input->gamepads[0].left_stick.x,
@@ -210,14 +216,20 @@ struct input_mapping_t {
 
     u16 jump{key_id::SPACE};
     u16 sprint{key_id::LEFT_SHIFT};
+    u16 interact{'E'};
     u16 swap{'X'};
     u16 swap2{key_id::TAB};
     u16 emote{'G'};
+
+    u16 inv1{'1'};
+    u16 inv2{'2'};
+    u16 inv3{'3'};
+    u16 inv4{'4'};
 };
 
 inline static player_controller_t
 keyboard_controller(app_input_t* input, input_mapping_t mapping = input_mapping_t{.look_button=0}) {
-    player_controller_t pc{};
+    player_controller_t pc = {};
     pc.move_input = v3f{
         f32(input->keys['D']) - f32(input->keys['A']),
         // 0.0f,
@@ -242,30 +254,45 @@ keyboard_controller(app_input_t* input, input_mapping_t mapping = input_mapping_
     pc.sprint = input->keys[mapping.sprint];
     pc.swap = input->pressed.keys[mapping.swap] || input->pressed.keys[mapping.swap2];
     pc.emote = input->pressed.keys[mapping.emote];
+    pc.interact = input->pressed.keys[mapping.interact];
+
+    pc.inv1 = input->pressed.keys[mapping.inv1];
+    pc.inv2 = input->pressed.keys[mapping.inv2];
+    pc.inv3 = input->pressed.keys[mapping.inv3];
+    pc.inv4 = input->pressed.keys[mapping.inv4];
+
     return pc;
 }
 
 struct debug_console_t;
 
-struct player_game_save_data_t {
+struct minion_profile_t {
+    u64 VERSION{0};
+
+    string_buffer name = {};
+
+    f32 max_health;
+};
+
+struct player_profile_t {
     u64 VERSION{0};
     string_buffer name;
 
     u64 money{0};
+    buffer<minion_profile_t> minions = {};
 };
 
-struct player_save_file_header_t {
+struct settings_save_file_header_t {
     u64 VERSION{0};
     game_graphics_config_t graphics_config;
-    player_game_save_data_t player_data;
+    player_profile_t player_data;
 };
-
 
 template<>
 void
-utl::memory_blob_t::serialize<player_game_save_data_t>(
+utl::memory_blob_t::serialize<player_profile_t>(
     arena_t* arena, 
-    const player_game_save_data_t& save_data
+    const player_profile_t& save_data
 ) {
     serialize(arena, save_data.VERSION);
     serialize(arena, save_data.name);
@@ -273,9 +300,9 @@ utl::memory_blob_t::serialize<player_game_save_data_t>(
 }
 
 template<>
-player_game_save_data_t
-utl::memory_blob_t::deserialize<player_game_save_data_t>(arena_t* arena) {
-    player_game_save_data_t save_data{};
+player_profile_t
+utl::memory_blob_t::deserialize<player_profile_t>(arena_t* arena) {
+    player_profile_t save_data{};
 
     save_data.VERSION = deserialize<u64>();
 
@@ -285,6 +312,69 @@ utl::memory_blob_t::deserialize<player_game_save_data_t>(arena_t* arena) {
 
     return save_data;
 }
+
+template<>
+void
+utl::memory_blob_t::serialize<settings_save_file_header_t>(
+    arena_t* arena, 
+    const settings_save_file_header_t& header
+) {
+    serialize(arena, header.VERSION);
+    serialize(arena, header.graphics_config);
+    serialize(arena, header.player_data);
+}
+
+template<>
+settings_save_file_header_t
+utl::memory_blob_t::deserialize<settings_save_file_header_t>(arena_t* arena) {
+    settings_save_file_header_t header{};
+
+    header.VERSION = deserialize<u64>();
+
+    header.graphics_config = deserialize<game_graphics_config_t>();
+    header.player_data = deserialize<player_profile_t>();
+
+    return header;
+}
+
+
+
+struct font_backend_t {
+    gfx::vul::texture_2d_t* texture{nullptr};
+    // VkDescriptorSet         descriptor{0};
+};
+
+gfx::font_t* load_font(arena_t* arena, auto& gfx, std::string_view file, f32 size) {
+    gfx::font_t* font = 0;
+    tag_struct(font, gfx::font_t, arena);
+    gfx::font_load(arena, font, "./res/fonts/Go-Mono-Bold.ttf", size);
+    
+    tag_struct(auto* font_backend, font_backend_t, arena);
+    tag_struct(font_backend->texture, gfx::vul::texture_2d_t, arena);
+        
+    font->user_data = font_backend;
+        
+    gfx.load_font_sampler(
+        arena,
+        font_backend->texture,
+        font);
+
+    return font;
+}
+
+struct dynamic_font_t {
+    arena_t* arena = 0;
+    buffer<gfx::font_t> fonts = {};
+    
+    gfx::font_t* get_font(u32 size) {
+        for (auto& font: fonts.view()) {
+            if (font.size == (f32)size) {
+                return &font;
+            }
+        }
+        return 0;
+    }
+};
 
 struct game_state_t {
     game_memory_t*       game_memory{nullptr};
@@ -316,12 +406,11 @@ struct game_state_t {
     // todo(zack) clean this up
     gfx::font_t default_font;
     gfx::font_t large_font;
-    gfx::vul::texture_2d_t* default_font_texture{nullptr};
-    VkDescriptorSet default_font_descriptor;
+    // gfx::vul::texture_2d_t* default_font_texture{nullptr};
+    VkDescriptorSet ui_descriptor;
 
     struct scene_t {
         gfx::vul::sporadic_buffer_t sporadic_buffer;
-
     } scene;
     
     struct gui_state_t {

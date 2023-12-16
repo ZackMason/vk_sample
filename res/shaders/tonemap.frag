@@ -158,4 +158,5 @@ void main() {
 
     // color = bloom;
     fFragColor.rgb = color.rgb;
+    fFragColor.a = 1.0;
 }

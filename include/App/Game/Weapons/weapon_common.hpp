@@ -30,6 +30,40 @@ zyy::entity_t* explosion_at_point(
 );
 
 
+b32 pickup_item(zyy::entity_t* e, zyy::entity_t* o) {
+    // if (e->type == zyy::entity_type::player) {
+    if (e->primary_weapon.entity==0) {
+        o->physics.queue_free();
+        if (o->parent) {
+            o->parent->remove_child(o);
+        }
+        e->primary_weapon.entity = o;
+        o->flags &= ~zyy::EntityFlags_Pickupable;
+        return 1;
+    } else if (e->secondary_weapon.entity==0) {
+        o->physics.queue_free();
+        if (o->parent) {
+            o->parent->remove_child(o);
+        }
+        e->secondary_weapon.entity = o;
+        o->flags &= ~zyy::EntityFlags_Pickupable;
+        o->transform.origin = axis::down * 1000.0f;
+        return 1;
+    } else if (e->inventory.has()) {
+        if (e->inventory.add(o)) {
+            o->physics.queue_free();
+            if (o->parent) {
+                o->parent->remove_child(o);
+            }
+            o->flags &= ~zyy::EntityFlags_Pickupable;
+            o->transform.origin = axis::down * 1000.0f;
+            return 1;
+        }
+    }
+    return 0;
+    // }   
+}
+
 
 void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other, physics::collider_t* self_shape, physics::collider_t* other_shape);
 void rocket_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other, physics::collider_t* self_shape, physics::collider_t* other_shape);
@@ -39,21 +73,7 @@ export_fn(void) on_trigger_pickup_weapon(physics::rigidbody_t* trigger, physics:
     auto* other_e = (zyy::entity_t*)other->user_data;
     auto* world = (zyy::world_t*)trigger->api->user_world;
     if (other_e->type == zyy::entity_type::player) {
-        if (other_e->primary_weapon.entity==0) {
-            self->physics.queue_free();
-            if (self->parent) {
-                self->parent->remove_child(self);
-            }
-            other_e->primary_weapon.entity = self;
-            self->flags &= ~zyy::EntityFlags_Pickupable;
-        } else if (other_e->secondary_weapon.entity==0) {
-            self->physics.queue_free();
-            if (self->parent) {
-                self->parent->remove_child(self);
-            }
-            other_e->secondary_weapon.entity = self;
-            self->flags &= ~zyy::EntityFlags_Pickupable;
-        } 
+        pickup_item(other_e, self);
     }   
 };
 
