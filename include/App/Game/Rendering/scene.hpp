@@ -21,8 +21,8 @@ namespace rendering {
     using gfx_entity_id = u32;
 
     struct gfx_instance_id_t {
-        gfx_entity_id gfx_id;
-        u32           instance_id;
+        gfx_entity_id gfx_id{0};
+        u32           instance_id{0};
     };
 
     // DEFINE_TYPED_ID(gfx_entity_id);
@@ -49,6 +49,11 @@ namespace rendering {
     constexpr umm max_scene_vertex_count{10'000'000};
     constexpr umm max_scene_index_count{30'000'000};
 
+    struct instance_extra_data_t {
+        v4f color{1.0f};
+        u32 index{0};
+    };
+
     struct scene_context_t {
         gfx::vul::state_t& gfx;
         gfx::vul::uniform_buffer_t<scene_t>                                 scene_ubo;
@@ -58,7 +63,7 @@ namespace rendering {
         gfx::vul::storage_buffer_t<gfx_instance_id_t, MAX_SCENE_ENTITIES>   entity_instances;
         gfx::vul::storage_buffer_t<m44, MAX_SCENE_ENTITIES*2>               transform_storage_buffer;
         gfx::vul::storage_buffer_t<m44, 2'000'000>                          instance_storage_buffer;
-        gfx::vul::storage_buffer_t<v4f, 2'000'000>                          instance_color_storage_buffer;
+        gfx::vul::storage_buffer_t<instance_extra_data_t, 2'000'000>        instance_color_storage_buffer;
         gfx::vul::storage_buffer_t<gfx::material_t, 100>                    material_storage_buffer;
         gfx::vul::storage_buffer_t<lighting::point_light_t, 512>            point_light_storage_buffer;
         gfx::vul::storage_buffer_t<gfx::indirect_indexed_draw_t, MAX_SCENE_ENTITIES> indexed_indirect_storage_buffer{};
@@ -72,6 +77,7 @@ namespace rendering {
             gfx.create_index_buffer(&indices);
             gfx.create_uniform_buffer(&scene_ubo);
             gfx.create_storage_buffer(&entities);
+            gfx.create_storage_buffer(&entity_instances);
             gfx.create_storage_buffer(&transform_storage_buffer);
             gfx.create_storage_buffer(&material_storage_buffer);
             gfx.create_storage_buffer(&indexed_indirect_storage_buffer);
@@ -93,6 +99,7 @@ namespace rendering {
             gfx.destroy_data_buffer(indices);
             gfx.destroy_data_buffer(scene_ubo);
             gfx.destroy_data_buffer(entities);
+            gfx.destroy_data_buffer(entity_instances);
             gfx.destroy_data_buffer(transform_storage_buffer);
             gfx.destroy_data_buffer(material_storage_buffer);
             gfx.destroy_data_buffer(indexed_indirect_storage_buffer);

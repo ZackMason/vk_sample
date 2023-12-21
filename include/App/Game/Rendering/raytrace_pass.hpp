@@ -87,6 +87,7 @@ begin_rt_pass(
                 // cache.pipeline_layout,
                 rs->texture_cache, 
                 &rs->scene_context->entities,
+                &rs->scene_context->entity_instances,
                 &rs->scene_context->instance_color_storage_buffer,
                 // &cache.mesh_data_buffer, 
                 &rs->probe_storage_buffer,

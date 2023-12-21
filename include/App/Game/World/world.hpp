@@ -149,7 +149,7 @@ namespace zyy {
 
         struct effects_buffer_t {
             m44* blood_splats{0};
-            v4f* blood_colors{0};
+            rendering::instance_extra_data_t* blood_colors{0};
             u32 blood_entity{0};
             umm blood_splat_count{0};
             umm blood_splat_max{0};
@@ -550,7 +550,7 @@ namespace zyy {
         rs->scene_context->instance_color_storage_buffer.pool.clear();
         world->effects.blood_splats = rs->scene_context->instance_storage_buffer.pool.allocate(world->effects.blood_splat_max = 1024*2);
         world->effects.blood_colors = rs->scene_context->instance_color_storage_buffer.pool.allocate(world->effects.blood_splat_max);
-        std::fill(world->effects.blood_colors, world->effects.blood_colors + world->effects.blood_splat_max + 1, v4f{0.0f});
+        std::fill(world->effects.blood_colors, world->effects.blood_colors + world->effects.blood_splat_max + 1, rendering::instance_extra_data_t{});
         auto blood_id = world->effects.blood_entity = rendering::register_entity(rs);
         auto blood_mid = rendering::get_mesh_id(rs, "res/models/misc/bloodsplat_02.gltf");
         auto& mesh = rendering::get_mesh(rs, blood_mid);

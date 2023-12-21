@@ -92,10 +92,10 @@ struct entity_t {
         union
         {
             struct {
-                v4f* dynamic_color_instance_buffer;
-                v4f* color_buffer; // non moving buffer
+                rendering::instance_extra_data_t* dynamic_color_instance_buffer;
+                rendering::instance_extra_data_t* color_buffer; // non moving buffer
             };
-            v4f* color_instance_buffer;
+            rendering::instance_extra_data_t* color_instance_buffer;
         };
         u32 instance_buffer_offset{0};
 
@@ -116,7 +116,7 @@ struct entity_t {
             }
         }
 
-        void instance(utl::pool_t<m44>& pool, utl::pool_t<v4f>& color_pool, u32 count, bool dynamic = false) {
+        void instance(utl::pool_t<m44>& pool, utl::pool_t<rendering::instance_extra_data_t>& color_pool, u32 count, bool dynamic = false) {
             render_flags |= dynamic ? RenderFlag_DynamicInstance : RenderFlag_Instance;
             render_flags &= !dynamic ? ~RenderFlag_DynamicInstance : ~RenderFlag_Instance;
 
@@ -126,14 +126,14 @@ struct entity_t {
                 dynamic_instance_buffer = pool.allocate(count * 2);
                 dynamic_color_instance_buffer = color_pool.allocate(count*2);
                 std::fill(dynamic_instance_buffer, dynamic_instance_buffer+count*2+1, m44{1.0f});
-                std::fill(dynamic_color_instance_buffer, dynamic_color_instance_buffer+count*2+1, v4f{1.0f});
+                std::fill(dynamic_color_instance_buffer, dynamic_color_instance_buffer+count*2+1, rendering::instance_extra_data_t{});
                 buffer = dynamic_instance_buffer;
                 color_buffer = dynamic_color_instance_buffer;
             } else {
                 buffer = instance_buffer = pool.allocate(count);
                 color_buffer = color_instance_buffer = color_pool.allocate(count);
                 std::fill(buffer, buffer+count+1, m44{1.0f});
-                std::fill(color_buffer, color_buffer+count+1, v4f{1.0f});
+                std::fill(color_buffer, color_buffer+count+1, rendering::instance_extra_data_t{});
             }
             _instance_count = count;
         }
@@ -148,7 +148,7 @@ struct entity_t {
 
         u32 instance_offset(b32 and_swap = 1) {
             if (render_flags & RenderFlag_DynamicInstance) {
-                auto ret = dynamic_instance_buffer == buffer ? 0 : _instance_count;
+                auto ret = ((dynamic_instance_buffer == buffer)) ? 0 : _instance_count;
                 if (and_swap) {
                     swap();
                 }
@@ -161,7 +161,6 @@ struct entity_t {
         u32 instance_count() {
             return (particle_system ? particle_system->live_count : _instance_count); 
         }
-
 
         
     } gfx{};

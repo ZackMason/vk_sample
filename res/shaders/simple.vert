@@ -41,6 +41,7 @@ struct InstanceData {
 };
 struct InstanceDataExt {
 	vec4 color;
+	uint index;
 };
 
 layout(std430, set = 1, binding = 1) readonly buffer InstanceBuffer {

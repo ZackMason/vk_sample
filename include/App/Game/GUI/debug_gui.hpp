@@ -1024,6 +1024,7 @@ draw_gui(game_memory_t* game_memory) {
         // &game_state->game_world->physics->default_allocator.heap_arena,
         &game_state->render_system->arena,
         &game_state->render_system->frame_arena,
+        game_state->game_world->physics->arena,
     };
     utl::pool_base_t* display_pools[] = {
         &game_state->render_system->scene_context->vertices.pool,
@@ -1053,6 +1054,7 @@ draw_gui(game_memory_t* game_memory) {
         // "- Physics Heap",
         "- Rendering Arena",
         "- Rendering Frame Arena",
+        "- Physics Arena",
     };
     const char* display_pool_names[] = {
         "- 3D Vertex",

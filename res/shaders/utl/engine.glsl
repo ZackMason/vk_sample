@@ -9,11 +9,20 @@ struct Entity {
     uint albedo;
 };
 
+struct EntityInstance {
+    uint gfx_id;
+    uint instance_id;
+};
+
+struct InstanceDataExt {
+	vec4 color;
+    uint index;
+};
+
 struct Camera {
     mat4 view;
     mat4 proj;
 };
-
 
 struct Scene {
     uint64_t vertex_buffer;

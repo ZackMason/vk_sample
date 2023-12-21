@@ -38,10 +38,10 @@ struct Material {
     // uint padding[2];
 };
 
-void get_sprite_info(out uint index, out uint dimx, out uint dimy) {
-    index = (sprite_info >> 0) & 0xff;
-    dimx = (sprite_info >> 8) & 0xff;
-    dimy = (sprite_info >> 16) & 0xff;
+void get_sprite_info(in Material mat, out uint index, out uint dimx, out uint dimy) {
+    index = (mat.sprite_info >> 0) & 0xff;
+    dimx =  (mat.sprite_info >> 8) & 0xff;
+    dimy =  (mat.sprite_info >> 16) & 0xff;
 }
 
 vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)

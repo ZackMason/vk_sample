@@ -320,6 +320,7 @@ struct rt_compute_pass_t {
         gfx::vul::state_t& gfx, 
         texture_cache_t& texture_cache,
         gfx::vul::gpu_buffer_t* rt_mesh_data,
+        gfx::vul::gpu_buffer_t* rt_instances,
         gfx::vul::gpu_buffer_t* instance_colors,
         gfx::vul::gpu_buffer_t* probe_data,
         gfx::vul::gpu_buffer_t* probe_settings,
@@ -331,37 +332,50 @@ struct rt_compute_pass_t {
         gfx::vul::texture_2d_t* visibility_texture,
         gfx::vul::texture_2d_t* filter_texture
     ) {
-        VkDescriptorBufferInfo buffer_info[10];
+        VkDescriptorBufferInfo buffer_info[11];
         u32 b = 0;
+        // 0
         buffer_info[b].buffer = tlas.buffer.buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
+        // 1
         buffer_info[b].buffer = rt_mesh_data->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
+        // 2
         buffer_info[b].buffer = instance_colors->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
+        // 3
         buffer_info[b].buffer = probe_data->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
+        // 4
         buffer_info[b].buffer = probe_settings->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
+        // 5
         buffer_info[b].buffer = probe_rays->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
+        // 6
         buffer_info[b].buffer = environment->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
+        // 7
         buffer_info[b].buffer = point_lights->buffer;
+        buffer_info[b].offset = 0; 
+        buffer_info[b++].range = VK_WHOLE_SIZE;
+
+        // 8
+        buffer_info[b].buffer = rt_instances->buffer;
         buffer_info[b].offset = 0; 
         buffer_info[b++].range = VK_WHOLE_SIZE;
 
@@ -414,6 +428,7 @@ struct rt_compute_pass_t {
             .bind_buffer(7, buffer_info + 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
             .bind_buffer(8, buffer_info + 7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .bind_buffer(9, buffer_info + 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+            .bind_buffer(10, buffer_info + 8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
             .build(descriptor_sets[0], descriptor_set_layouts[0]);
     }
 
@@ -514,11 +529,11 @@ struct rt_compute_pass_t {
     void add_to_tlas(
         gfx::vul::state_t& gfx,
         rt_cache_t& cache,
-        u32 gfx_id,
+        u32 instance_id,
         u64 blas_id,
-        m44 t,
-        u32 instance_offset = 0,
-        u32 instance_id = 0
+        m44 t
+        // u32 instance_offset = 0,
+        // u32 instance_id = 0
     ) {
         TIMED_FUNCTION;
         VkTransformMatrixKHR transform_matrix{};
@@ -533,7 +548,7 @@ struct rt_compute_pass_t {
         VkAccelerationStructureInstanceKHR& acceleration_structure_instance    = tlas_instances[i];
         utl::copy(&acceleration_structure_instance.transform, &t, sizeof(transform_matrix));
         // acceleration_structure_instance.transform                              = transform_matrix;
-        acceleration_structure_instance.instanceCustomIndex                    = gfx_id;
+        acceleration_structure_instance.instanceCustomIndex                    = instance_id;
         // acceleration_structure_instance.instanceCustomIndex                    = packing::pack(gfx_id, instance_id+instance_offset);
         // acceleration_structure_instance.instanceCustomIndex                    = packing::pack(gfx_id, instance_id+instance_offset);
         acceleration_structure_instance.mask                                   = 0xFF;

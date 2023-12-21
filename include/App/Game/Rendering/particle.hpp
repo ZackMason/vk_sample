@@ -374,13 +374,13 @@ particle_system_update(
 inline static void 
 particle_system_build_colors(
     particle_system_t* system, 
-    v4f* colors, u32 color_count
+    rendering::instance_extra_data_t* data, u32 color_count
 ) {
     assert(system->live_count <= color_count);
 
     range_u32(i, 0, system->live_count) {
         auto* particle = system->particles.data + i;
-        colors[i] = particle->color;
+        data[i].color = particle->color;
     }
 }
 

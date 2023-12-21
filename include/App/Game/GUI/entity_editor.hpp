@@ -117,10 +117,10 @@ struct instanced_prefab_t {
     u32 instance_count = 1;
     u32 instance_offset = 0;
     m44* instances = 0;
-    v4f* instance_colors = 0;
+    rendering::instance_extra_data_t* instance_colors = 0;
     u32 dynamic = 0;
 
-    std::pair<m44*, v4f*> dynamic_instances() {
+    std::pair<m44*, rendering::instance_extra_data_t*> dynamic_instances() {
         if (dynamic & 2) {
             dynamic = dynamic&1;
             return {instances, instance_colors};
@@ -449,7 +449,7 @@ struct entity_editor_t {
             inst->dynamic = 1;
             inst->instance_count = count;
             std::fill(inst->instances, inst->instances+count*2+1, m44{1.0f});
-            std::fill(inst->instance_colors, inst->instance_colors+count*2+1, v4f{1.0f});
+            std::fill(inst->instance_colors, inst->instance_colors+count*2+1, rendering::instance_extra_data_t{});
                 
             particle_system_settings_t& settings = *inst->particle_system;
             settings = *prefab.emitter;
@@ -784,10 +784,10 @@ save_world_window(
     if (load) {
         // load_world_file_for_edit(ee, file);
         {
-            ee->begin_event_group();
-            defer {
-                ee->end_event_group();
-            };
+            // ee->begin_event_group();
+            // defer {
+            //     ee->end_event_group();
+            // };
             for (auto* prefab = ee->prefabs.next;
                 prefab != &ee->prefabs;
                 node_next(prefab)
@@ -1775,6 +1775,7 @@ entity_editor_render(entity_editor_t* ee) {
                 }
             };
 
+            puts("Edits");
             ee->begin_event_group();
             defer {
                 ee->end_event_group();
@@ -1845,6 +1846,10 @@ entity_editor_render(entity_editor_t* ee) {
 
         im::text(imgui, "====== Editor Settings =====");
         {
+            im::text(imgui, fmt_sv("Editor Total Memory Size: {}{}", 
+                math::pretty_bytes(ee->arena.top + ee->undo_arena.top), 
+                math::pretty_bytes_postfix(ee->arena.top + ee->undo_arena.top)));
+
             u64 redo_count = 0;
             u64 undo_count = 0;
             for(auto* u = ee->undo_sentinel.next;
@@ -2158,6 +2163,7 @@ entity_editor_update(entity_editor_t* ee) {
                 if (entity.gfx.albedo_texture.empty() == false) {
                     auto aid = (u32)rs->texture_cache.get_id(entity.gfx.albedo_texture.view());
                     if (aid == 0) {
+                        zyy_warn(__FUNCTION__, "Missing Texture: {}", entity.gfx.albedo_texture.view());
                         tag_array(auto* texture, char, &ee->game_state->texture_arena, entity.gfx.albedo_texture.size()+1);
                         utl::copy(texture, entity.gfx.albedo_texture.buffer, entity.gfx.albedo_texture.size());
                         texture[entity.gfx.albedo_texture.size()] = '\0';

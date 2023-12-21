@@ -899,6 +899,8 @@ public:
 
         scene_context_t* scene_context{0};
 
+        u32 rtx_instance_count = 0;
+
         m44 vp{1.0f};
         m44 projection{1.0f};
         m44 view{1.0f};
@@ -1127,6 +1129,7 @@ public:
                     state,
                     rs->texture_cache,
                     &rs->scene_context->entities,
+                    &rs->scene_context->entity_instances,
                     &rs->scene_context->instance_color_storage_buffer,
                     &rs->probe_storage_buffer,
                     &rs->light_probe_settings_buffer,
@@ -1221,6 +1224,7 @@ public:
     begin_frame(system_t* rs) {
         rs->stats.reset();
         rs->render_job_count = 0;
+        rs->rtx_instance_count = 0;
         // rs->frame_count++;
         rs->get_frame_data().dynamic_descriptor_allocator->reset_pools();        
         rs->job_storage_buffer().pool.clear();
@@ -1272,6 +1276,11 @@ public:
         rs->get_frame_data().present_queue(gfx.gfx_queue, gfx.swap_chain, image_index);
     }
 
+    u32 push_instance(system_t* rs, gfx_entity_id id, u32 instance) {
+        rs->scene_context->entity_instances.pool[rs->rtx_instance_count] = gfx_instance_id_t{id, instance};
+        return rs->rtx_instance_count++;
+    }
+
     inline void
     submit_job(
         system_t* rs,
@@ -1305,16 +1314,18 @@ public:
         auto* meshes = &rs->mesh_cache.get(mesh_id);
         for (size_t i = 0; i < meshes->count; i++) {
             if (rtx_on) {
-                for (size_t j = 0; j < instance_count; j++) { 
+                for (u32 j = 0; j < instance_count; j++) { 
+                    // auto instance = push_instance(rs, gfx_id + (u32)i, instance_count > 1 ? instance_offset + j : 0xffff'ffff);
+                    auto instance = push_instance(rs, gfx_id + (u32)i, instance_offset + j);
                     rs->get_frame_data().rt_compute_pass.add_to_tlas(
                         *rs->vk_gfx,
                         *rs->rt_cache,
-                        gfx_id + (u32)i,
+                        instance,
                         meshes->meshes[i].blas,
                         // transform,
-                        instance_count == 1 ? transform : instance_buffer[instance_offset + j],
-                        instance_count == 1 ? 0 : instance_offset,
-                        (u32)j
+                        instance_count == 1 ? transform : instance_buffer[instance_offset + j]
+                        // instance_count == 1 ? 0 : instance_offset,
+                        // (u32)j
                     );
                 }
             }

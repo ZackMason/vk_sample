@@ -31,6 +31,8 @@ layout(binding = 2, set = 0) uniform sampler2D uTextureCache[4096];
 layout(location = 0) rayPayloadInEXT RayData data;
 
 layout(set = 0, binding = 4, scalar) readonly buffer GfxEntity_ { Entity e[]; } uEntityBuffer;
+layout(set = 0, binding = 10, scalar) readonly buffer EntityInstance_ { EntityInstance i[]; } uEntityInstanceBuffer;
+
 // layout(set = 0, binding = 4, scalar) buffer MeshDesc_ { MeshDesc i[]; } uMeshDesc;
 
 layout(std430, set = 0, binding = 6, scalar) readonly buffer ProbeSettingsBuffer {
@@ -43,10 +45,6 @@ layout(set = 0, binding = 3, scalar) readonly buffer EnvironmentBuffer {
 
 layout(set = 0, binding = 8, scalar) readonly buffer PointLightBuffer {
 	PointLight point_lights[];
-};
-
-struct InstanceDataExt {
-	vec4 color;
 };
 
 layout(std430, set = 0, binding = 9, scalar) readonly buffer InstanceDataExtBuffer {
@@ -73,15 +71,17 @@ void main()
 {
     vec3 direction = data.direction.xyz;
     // MeshDesc mesh = uMeshDesc.i[gl_InstanceCustomIndexEXT];
-    uvec2 ids = split_u64(gl_InstanceCustomIndexEXT);
-    Entity entity = uEntityBuffer.e[nonuniformEXT(ids.x)];
+    uint id = gl_InstanceCustomIndexEXT;
+
+    EntityInstance instance = uEntityInstanceBuffer.i[nonuniformEXT(id)];
+    Entity entity = uEntityBuffer.e[nonuniformEXT(instance.gfx_id)];
     Vertices vertices = Vertices(entity.vertex_start);
     Indices indices = Indices(entity.index_start);
     Material material = Materials(entity.material).m[0];
     vec4 instance_color = vec4(1.0);
 
-    if (entity.instance_count > 1) {
-        // instance_color = uInstanceDataExt.data[nonuniformEXT(ids.x)].color;
+    if (instance.instance_id != 0xffffffff) {
+        instance_color = uInstanceDataExt.data[nonuniformEXT(instance.instance_id)].color;
     }
     
     uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;

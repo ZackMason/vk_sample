@@ -10,7 +10,7 @@ OptimizationFlags = /DNDEBUG /O2 /Zi /fp:fast /arch:AVX2
 #OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /O2 /fp:fast /arch:AVX2
 
 ## Debug
-#OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /Od /fp:fast /arch:AVX2
+OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /Od /fp:fast /arch:AVX2
 
 ## Sanatized
 #OptimizationFlags = /UNDEBUG /DEBUG /Zi /Od /fp:fast /arch:AVX2 /fsanitize=address
