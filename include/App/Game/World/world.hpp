@@ -159,6 +159,8 @@ namespace zyy {
             return game_state->time;
         }
 
+        std::array<gfx::render_group_t, 16> render_groups = {};
+
         rendering::system_t* 
         render_system() {
             return game_state->render_system;
@@ -303,7 +305,7 @@ namespace zyy {
             entity->aabb = rendering::get_mesh_aabb(rs, def.gfx.mesh_name.view());
         }
         if (def.type_name.empty() == false) {
-            entity->name.own(&world->game_state->string_arena, def.type_name.view());
+            entity->name.own(&world->arena, def.type_name.view());
         }
         entity->transform.origin = pos;
         entity->transform.basis = basis;
@@ -687,6 +689,7 @@ namespace zyy {
         world->frame_arena.active += 1;
         arena_clear(&world->frame_arena.get());
         world->events = 0;
+        std::fill(world->render_groups.begin(), world->render_groups.end(), gfx::render_group_t{});
     }
 
     static void

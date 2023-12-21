@@ -185,6 +185,8 @@ vec3 paletize(vec3 rgb, float n) {
 void
 main( )
 {
+	TotalLight light_solution = InitLightSolution();
+
 	vec3 rgb = vec3(0.0);
 	Material material = uMaterialBuffer.materials[vMatId];
 
@@ -230,17 +232,20 @@ main( )
 		// float water_noise = fbm(vWorldPos.xz/4.0 - Sporadic.uTime * 0.1, 4)
 		// 	* fbm(vWorldPos.xz/2.0 + Sporadic.uTime * 0.25, 3);
 
+		// light_solution.indirect.diffuse = vec3(0.2, 0.23, 0.4) ;
 		vec2 water_uv = vTexCoord * 10.0;
 		if (triplanar_material > 0) {
-			water_uv = vWorldPos.xz * 2.0f;
+			water_uv = vWorldPos.xz / 4.0f;
 		}
 
+		float water_dist = saturate(depth/25.0f);
 		float water_noise = cell(water_uv, Sporadic.uTime);
 		water_noise *= water_noise;
-		water_noise = mix(water_noise, 1.0, saturate(depth/25.0f));
+		// water_noise = mix(water_noise, 1.0, saturate(depth/25.0f));
 		// water_noise = smoothstep(0.2, 0.25, water_noise);
 
-		rgb = mix(material.albedo.rgb, material.albedo.rgb * 1.3, water_noise);
+		rgb = mix(material.albedo.rgb * 1.4, material.albedo.rgb * 1.6, water_noise);
+		// rgb = mix(material.albedo.rgb * 1.4, material.albedo.rgb * 1.6, water_noise * (1.0 - water_dist));
 		// float steps = 24.0;
 		// rgb = paletize(rgb, steps);
 	}
@@ -288,7 +293,6 @@ main( )
 	float ev100 = exposure_settings(aperture, shutter_speed, sensitivity);
 	float expo = exposure(ev100);
 
-	TotalLight light_solution = InitLightSolution();
 
 	Surface surface;
 	surface.point = vWorldPos;
@@ -329,7 +333,7 @@ main( )
 
 	if (water_material != 0) {
 		float steps = 24.0;
-		rgb = paletize(rgb, steps);
+		// rgb = paletize(rgb, steps);
 	}
 
     
@@ -343,8 +347,8 @@ main( )
 
 	// rgb = env / 2.0f;	
 
-	fFragColor = vec4( rgb, alpha);
-	fFragColor = vec4( rgb, alpha * alpha * alpha);
+	// fFragColor = vec4( rgb, alpha * alpha * alpha);
+	fFragColor = vec4( rgb, (alpha));
 }
 
 

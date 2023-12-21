@@ -41,6 +41,7 @@ vec3 sqr(vec3 x) {
 const uint PROBE_RAY_MAX = 256;
 const uint PROBE_IRRADIANCE_DIM = 8;
 const uint PROBE_VISIBILITY_DIM = 16;
+// const uint PROBE_VISIBILITY_DIM = 24;
 const uint PROBE_PADDING = 1;
 const uint PROBE_IRRADIANCE_TOTAL = PROBE_IRRADIANCE_DIM + 2 * PROBE_PADDING;
 const uint PROBE_VISIBILITY_TOTAL = PROBE_VISIBILITY_DIM + 2 * PROBE_PADDING;
@@ -59,7 +60,7 @@ vec2 encode_oct(in vec3 v)
 	// Project the sphere onto the octahedron, and then onto the xy plane
 	vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + abs(v.z)));
 	// Reflect the folds of the lower hemisphere over the diagonals
-	return (v.z <= 0.0) ? ((1.0 - abs(p.yx)) * sign_not_zero(p)) : p;
+	return (v.z < 0.0) ? ((1.0 - abs(p.yx)) * sign_not_zero(p)) : p;
 }
 
 vec3 decode_oct(vec2 e)
@@ -69,14 +70,14 @@ vec3 decode_oct(vec2 e)
 	return normalize(v);
 }
 
-vec2 normalized_oct_coord(ivec2 frag_coord, int probe_side_length)
-{
-    int probe_with_border_side = probe_side_length + 2;
+// vec2 normalized_oct_coord(ivec2 frag_coord, int probe_side_length)
+// {
+//     int probe_with_border_side = probe_side_length + 2;
 
-    vec2 oct_frag_coord = ivec2((frag_coord.x - 2) % probe_with_border_side, (frag_coord.y - 2) % probe_with_border_side);
-    // Add back the half pixel to get pixel center normalized coordinates
-    return (vec2(oct_frag_coord) + vec2(0.5f)) * (2.0f / float(probe_side_length)) - vec2(1.0f, 1.0f);
-}
+//     vec2 oct_frag_coord = ivec2((frag_coord.x - 2) % probe_with_border_side, (frag_coord.y - 2) % probe_with_border_side);
+//     // Add back the half pixel to get pixel center normalized coordinates
+//     return (vec2(oct_frag_coord) + vec2(0.5f)) * (2.0f / float(probe_side_length)) - vec2(1.0f, 1.0f);
+// }
 
 vec2 encode_hemioct(in vec3 v)
 {
@@ -96,7 +97,8 @@ vec3 probe_position(uvec3 probe_coord, vec3 grid_size, vec3 min_pos) {
 
 uvec2 probe_color_pixel(uvec3 probeCoord, uvec3 dim)
 {
-	return probeCoord.xz * PROBE_IRRADIANCE_TOTAL + uvec2(probeCoord.y * dim.x * PROBE_IRRADIANCE_TOTAL, 0) + 1;}
+	return probeCoord.xz * PROBE_IRRADIANCE_TOTAL + uvec2(probeCoord.y * dim.x * PROBE_IRRADIANCE_TOTAL, 0) + 1;
+}
 
 ivec2 probe_color_texel(uvec3 probeCoord, vec3 direction, uvec3 dim)
 {

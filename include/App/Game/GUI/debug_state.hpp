@@ -11,7 +11,7 @@ enum struct debug_variable_type {
     UINT32, INT32,
     FLOAT32, FLOAT64,
     VEC2, VEC3,
-    AABB, RAY,
+    AABB, RAY, TEXT,
     COUNT
 };
 
@@ -81,6 +81,7 @@ struct debug_variable_t {
         v3f as_v3f;
         math::rect3d_t as_aabb{};
         math::ray_t as_ray;
+        stack_string<32> as_text;
     };
 };
 
@@ -372,8 +373,12 @@ struct debug_state_t {
         if constexpr (std::is_same_v<T, v3f>) { var->type = debug_variable_type::VEC3; }
         if constexpr (std::is_same_v<T, math::ray_t>) { var->type = debug_variable_type::RAY; }
         if constexpr (std::is_same_v<T, math::rect3d_t>) { var->type = debug_variable_type::AABB; }
-        
-        utl::copy(&var->as_u32, &val, sizeof(val));
+        if constexpr (std::is_same_v<T, std::string_view>) { 
+            var->type = debug_variable_type::TEXT; 
+            utl::copy(&var->as_text.buffer, val.data(), val.size());
+        } else {
+            utl::copy(&var->as_u32, &val, sizeof(val));
+        }
 
         node_push(var, variables);
         return var;
@@ -461,6 +466,10 @@ struct debug_console_t {
 
     // i32 scroll{0};
 
+    const message_t& top_message() const {
+        return messages[message_top];
+    }
+
     const message_t& last_message() const {
         return messages[message_top?message_top-1:array_count(messages)-1];
     }
@@ -478,7 +487,7 @@ struct debug_console_t {
         }
     }
 
-    std::optional<std::string_view> last_args() const {
+    std::optional<std::string_view> get_args() const {
         const auto& message = last_message();
         auto i = std::string_view{message.text}.find_first_of(" ");
         if (i != std::string_view::npos) {
@@ -529,9 +538,9 @@ console_log(
     std::string_view text,
     gfx::color32 color = gfx::color::rgba::white,
     void (*on_click)(void*) = 0,
-    void* user_data = 0
+    void* user_data = 0,
+    b32 execute = 0
 ) {
-    console_try_command(console, text);
     size_t text_size = text.size();
 
     while(text_size > 0) {
@@ -546,6 +555,7 @@ console_log(
         message->command.data = user_data;
         message->command.command = on_click;
     }
+    if (execute) console_try_command(console, text);
 }
 
 inline void
@@ -578,7 +588,7 @@ draw_console(
         }
         
         if (im::text_edit(imgui, console->text_buffer, &console->text_size, "console_text_box"_sid)) {
-            console_log(console, console->text_buffer);
+            console_log(console, console->text_buffer, gfx::color::rgba::white, 0, 0, 1);
             
             utl::memzero(console->text_buffer, array_count(console->text_buffer));
             console->text_size = 0;
@@ -601,8 +611,8 @@ draw_console(
     #define DEBUG_SET_TIMEOUT(time) DEBUG_STATE.timeout = (time)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport) DEBUG_STATE.draw(imgui, proj, view, viewport)
     #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui) DEBUG_STATE.draw_watch_window(imgui)
-    #define CLOG(text) console_log(DEBUG_STATE.console, (text))
-    #define FLOG(text, ...) console_log(DEBUG_STATE.console, fmt_sv((text), __VA_ARGS__))
+    #define CLOG(text) console_log(DEBUG_STATE.console, (text), gfx::color::rgba::white, 0, 0, 1)
+    #define FLOG(text, ...) console_log(DEBUG_STATE.console, fmt_sv((text), __VA_ARGS__), gfx::color::rgba::white, 0, 0, 1)
 #else
     #define DEBUG_DIAGRAM(var) 
     #define DEBUG_DIAGRAM(var, time)

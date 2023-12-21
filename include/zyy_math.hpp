@@ -65,6 +65,11 @@ namespace math {
                 "B";
     }
 
+    constexpr auto clamp_length(auto v, f32 min = 0.0f, f32 max = 1.0f) {
+        const auto length = glm::length(v); 
+        return length > 0.0f ? glm::normalize(v)*glm::clamp(length, min, max) : v;
+    }
+
     constexpr quat quat_identity() {
         return quat{1,0,0,0};
     }

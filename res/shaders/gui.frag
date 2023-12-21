@@ -42,23 +42,24 @@ void main() {
     vec4 color = tex;
    
     if (is_texture) {
-        if (is_font != 0) { // is font
+        if (is_font > 0) { // is font
             color = color.rrrr;
             if (color.a < 0.15) {
                 discard;
             }
-            color.a = step(0.15, color.a);
+            // color.a = step(0.15, color.a);
         } else { // texture
             // color.rgb = aces_film(color.rgb);
             // color.rgb = vec3(voUV, 0.0);
             // color.a = 1.0;
-            color.a = step(0.005, color.a);
+            // color.a = step(0.005, color.a);
             // color.rgb = pow(color.rgb, vec3(1.0/2.2));
         }
     } 
 
     // color.rgb *= voColor.rgb;
-    color.rgb *= voColor.rgb * voColor.rgb;
+    // color *= voColor;// * voColor;
+    color *= voColor * voColor;
     
     fFragColor.rgb = color.rgb;
 

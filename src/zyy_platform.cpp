@@ -710,6 +710,8 @@ main(int argc, char* argv[]) {
     Platform.load_library = win32_load_library;
     Platform.load_module = win32_load_module;
     Platform.load_proc = win32_load_proc;
+    Platform.arguments = (const char**)argv;
+    Platform.argument_count = argc;
 
     game_memory_t game_memory{};
     game_memory.platform = Platform;
@@ -768,47 +770,47 @@ main(int argc, char* argv[]) {
         zyy_info("win32", "Physics Loaded");
     }
 
-#if USE_SDL
-    if (SDL_Init(SDL_INIT_AUDIO) < 0) {
-        zyy_info("sdl_mixer", "Couldn't initialize SDL: {}", SDL_GetError());
-        return 255;
-    }
+// #if USE_SDL
+//     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+//         zyy_info("sdl_mixer", "Couldn't initialize SDL: {}", SDL_GetError());
+//         return 255;
+//     }
 
-    if (Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, MIX_DEFAULT_CHANNELS, 4096) < 0) {
-        zyy_info("sdl_mixer", "Couldn't open audio: {}", SDL_GetError());
-        return 255;
-    }
+//     if (Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, MIX_DEFAULT_CHANNELS, 4096) < 0) {
+//         zyy_info("sdl_mixer", "Couldn't open audio: {}", SDL_GetError());
+//         return 255;
+//     }
     
-#endif
+// #endif
 
-    audio_cache_t audio_cache{};
-    closure_t& load_sound_closure = Platform.audio.load_sound;
-    load_sound_closure.data = &audio_cache;
-    load_sound_closure.func = reinterpret_cast<void(*)(void*)>(
-        +[](void* data, const char* path) -> u64 {
-            auto* cache = (audio_cache_t*)data;
+//     audio_cache_t audio_cache{};
+//     closure_t& load_sound_closure = Platform.audio.load_sound;
+//     load_sound_closure.data = &audio_cache;
+//     load_sound_closure.func = reinterpret_cast<void(*)(void*)>(
+//         +[](void* data, const char* path) -> u64 {
+//             auto* cache = (audio_cache_t*)data;
 
-#if USE_SDL
-            zyy_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
-            cache->sounds[cache->sound_count] = Mix_LoadWAV(path);
-            zyy_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
-#endif
+// #if USE_SDL
+//             zyy_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
+//             cache->sounds[cache->sound_count] = Mix_LoadWAV(path);
+//             zyy_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
+// #endif
 
-            return cache->sound_count++;
-    });
+//             return cache->sound_count++;
+//     });
     
-    closure_t& play_sound_closure = Platform.audio.play_sound;
-    play_sound_closure.data = &audio_cache;
-    play_sound_closure.func = reinterpret_cast<void(*)(void*)>(
-        +[](void* data, u64 id) -> void {
+//     closure_t& play_sound_closure = Platform.audio.play_sound;
+//     play_sound_closure.data = &audio_cache;
+//     play_sound_closure.func = reinterpret_cast<void(*)(void*)>(
+//         +[](void* data, u64 id) -> void {
 
-            auto* cache = (audio_cache_t*)data;
+//             auto* cache = (audio_cache_t*)data;
 
-#if USE_SDL
-            zyy_info("sdl_mixer::play_sound", "playing Sound: {}", id);
-            Mix_PlayChannel(-1, cache->sounds[id], 0);
-#endif
-    });
+// #if USE_SDL
+//             zyy_info("sdl_mixer::play_sound", "playing Sound: {}", id);
+//             Mix_PlayChannel(-1, cache->sounds[id], 0);
+// #endif
+//     });
 
     game_memory.platform = Platform;
 
@@ -867,6 +869,11 @@ main(int argc, char* argv[]) {
     while(game_memory.running && !glfwWindowShouldClose(window)) {
         if (check_buffer_overflow()) { 
             zyy_error("memory", "buffer overflow detected");
+        }
+        if (glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            glfwPollEvents();
+            continue;
         }
         utl::profile_t* p = 0;
         if (game_memory.input.pressed.keys[key_id::O]) {

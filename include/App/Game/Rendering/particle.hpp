@@ -8,11 +8,16 @@ DEFINE_TYPED_ID(particle_system_id);
 struct particle_t {
     v3f position{0.0f};
     f32 life_time{};
+
     quat orientation{};
-    v4f color{};
+    
+    v4f color{1.0f};
+    
     f32 scale{1.0f};
     v3f velocity{};
+    
     v3f angular_velocity{};
+    u32 sprite_index{0};
 };
 
 enum struct particle_emitter_type {
@@ -24,7 +29,7 @@ struct flat_particle_system_t {
 };
 
 struct particle_system_settings_t {
-    u64 VERSION{3};
+    u64 VERSION{4};
 
     particle_t template_particle;
 
@@ -99,13 +104,20 @@ utl::memory_blob_t::deserialize<particle_system_settings_t>(arena_t* arena) {
 
         zyy_info(__FUNCTION__, "Loading particle version: {}", settings.VERSION);
 
+        constexpr u64 v3_particle_size = 76;// sizeof(particle_t);
+
         if (settings.VERSION == 0) {
             constexpr u64 v0_size = 232;
             read_offset -= sizeof(u64);
             utl::copy(&settings, data+read_offset, v0_size);
             advance(v0_size);
         } else {
-            DESER(template_particle);
+            if (settings.VERSION <= 3) {
+                utl::copy(&settings.template_particle, data+read_offset, v3_particle_size);
+                advance(v3_particle_size);
+            } else {
+                DESER(template_particle);
+            }
             DESER(world_space);
             DESER(max_count);
             DESER(aabb);
@@ -137,7 +149,7 @@ utl::memory_blob_t::deserialize<particle_system_settings_t>(arena_t* arena) {
                     case color_variant_type::gradient:
                         // DESER(particle_color.gradient);
                         if (settings.VERSION == 2) {
-                            zyy_warn(__FUNCTION__, "Loaded degen gradient");
+                            assert(!"Loaded degen gradient");
                             advance(sizeof(gfx::color::gradient_t));
                         } else {
                             settings.particle_color.gradient = deserialize<gfx::color::gradient_t>(arena);
@@ -312,10 +324,14 @@ particle_system_update(
     system->spawn_timer -= dt;
     system->aabb = {};
 
-    while (system->spawn_timer <= 0.0f && system->live_count < system->max_count) {
+    while (system->spawn_timer <= 0.0f) {
         system->spawn_timer += system->spawn_rate;
 
-        particle_system_spawn(system, transform);
+        if (system->live_count < system->max_count) {
+            particle_system_spawn(system, transform);
+        } else {
+            break;
+        }
 
         // special case
         // to stop infinite loop when spawn_rate == 0.0f
@@ -412,8 +428,8 @@ particle_system_sort_view(
         }
         auto d0 = pp0 - camera_pos;
         auto d1 = pp1 - camera_pos;
-        return glm::dot(d0, camera_forward) < glm::dot(d1, camera_forward);
         return glm::dot(d0, camera_forward) > glm::dot(d1, camera_forward);
+        return glm::dot(d0, camera_forward) < glm::dot(d1, camera_forward);
     });
 }
 
@@ -457,39 +473,5 @@ particle_system_t::clone(
 
     return ps;
 }
-
-static void 
-particle_system_settings_save(
-    particle_system_settings_t& settings,
-    std::string_view path
-) {
-    zyy_info(__FUNCTION__, "Saving Particle System: {}", path);
-
-    std::ofstream file{path.data(), std::ios::binary};
-    file.write((const char*)&settings, sizeof particle_system_settings_t);
-}
-
-static void 
-particle_system_settings_load(
-    particle_system_t* system,
-    std::string_view path
-) {
-    assert(system);
-
-    zyy_info(__FUNCTION__, "Loading Particle System: {}", path);
-
-    std::ifstream file{path.data(), std::ios::binary};
-
-    file.seekg(0, std::ios::end);
-    const size_t size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    assert(size == sizeof particle_system_settings_t);
-
-    particle_system_settings_t& settings = *system;
-
-    file.read((char*)&settings, size);
-}
-
 
 #endif

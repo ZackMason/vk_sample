@@ -63,8 +63,6 @@ struct first_person_controller_t {
 
     math::transform_t transform{};
 
-    math::position_pid_t hand_controller{};
-
     constexpr inline static v3f hip_fire{axis::forward + axis::down * 0.9f};
     constexpr inline static v3f aim_fire{axis::forward + axis::down * 0.7f};
 
@@ -84,11 +82,19 @@ struct first_person_controller_t {
     f32 head_offset{0.0f};
     f32 walk_time{0.0f};
     f32 right_offset{0.0};
-    f32 step_time{0.5f};
+    f32 step_time{0.3f};
     f32 step_timer{step_time};
+
+    f32 air_time{0.0f};
 
     f32 jump_time{1.0f};
     f32 _jump_timer{jump_time};
+
+    b32 hands_stable() const {
+        const auto pd = hand;
+        const auto od = glm::angle(glm::inverse(hand_orientation));
+        return glm::length(hand) < 0.5f && od < 1.0f;
+    }
 
     void just_jumped(){
         _jump_timer = jump_time;
@@ -103,6 +109,15 @@ struct first_person_controller_t {
         hand_angular_velocity.z += 40.0f * utl::rng::random_s::randn();
         hand_velocity += axis::forward * 40.0f;
     }
+
+    void update(f32 dt, b32 in_air) {
+        if (in_air) {
+            air_time += dt;
+        } else {
+            air_time = 0.0f;
+        }
+    }
+
 
     // returns true if you should want to play a sound
     bool walk_and_bob(f32 dt, b32 walking, f32 walking_right) {

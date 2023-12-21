@@ -2,6 +2,10 @@
 #define APP_HPP
 
 #include <zyy_core.hpp>
+
+// #include "Game/Sound/wwise_sound.hpp"
+#include "Game/Sound/fmod_sound.hpp"
+
 #include "App/vk_state.hpp"
 #include "App/gfx_pipelines.hpp"
 
@@ -282,21 +286,16 @@ struct player_profile_t {
     buffer<minion_profile_t> minions = {};
 };
 
-struct settings_save_file_header_t {
-    u64 VERSION{0};
-    game_graphics_config_t graphics_config;
-    player_profile_t player_data;
-};
-
 template<>
 void
 utl::memory_blob_t::serialize<player_profile_t>(
     arena_t* arena, 
     const player_profile_t& save_data
 ) {
-    serialize(arena, save_data.VERSION);
+    serialize(arena, player_profile_t{}.VERSION);
     serialize(arena, save_data.name);
     serialize(arena, save_data.money);
+    serialize(arena, save_data.minions);
 }
 
 template<>
@@ -306,12 +305,20 @@ utl::memory_blob_t::deserialize<player_profile_t>(arena_t* arena) {
 
     save_data.VERSION = deserialize<u64>();
 
-    save_data.name = deserialize<string_buffer>();
+    save_data.name = deserialize<string_buffer>(arena);
 
     save_data.money = deserialize<u64>();
 
+    save_data.minions = deserialize<buffer<minion_profile_t>>(arena);
+
     return save_data;
 }
+
+struct settings_save_file_header_t {
+    u64 VERSION{0};
+    game_graphics_config_t graphics_config;
+    player_profile_t player_data;
+};
 
 template<>
 void
@@ -319,7 +326,7 @@ utl::memory_blob_t::serialize<settings_save_file_header_t>(
     arena_t* arena, 
     const settings_save_file_header_t& header
 ) {
-    serialize(arena, header.VERSION);
+    serialize(arena, settings_save_file_header_t{}.VERSION);
     serialize(arena, header.graphics_config);
     serialize(arena, header.player_data);
 }
@@ -337,7 +344,28 @@ utl::memory_blob_t::deserialize<settings_save_file_header_t>(arena_t* arena) {
     return header;
 }
 
+void create_new_profile(arena_t* arena, std::string_view name) {
+    utl::memory_blob_t blob{arena};
 
+    settings_save_file_header_t header{};
+
+    header.player_data.money = 0;
+    header.player_data.minions = {};
+    minion_profile_t minion = {};
+    minion.max_health = 100.0f;
+    minion.name.data = (char*)name.data();
+    minion.name.count = name.size();
+
+    header.player_data.minions.push(arena, minion);
+
+    header.player_data.name.data = (char*)name.data();
+    header.player_data.name.count = name.size();
+
+    blob.serialize(arena, header);
+
+    std::span<u8> header_bytes{(u8*)&header, sizeof header};
+    utl::write_binary_file(fmt_sv("profiles/{}.bin", name), header_bytes);
+}
 
 struct font_backend_t {
     gfx::vul::texture_2d_t* texture{nullptr};
@@ -381,8 +409,6 @@ struct game_state_t {
 
     // arenas
     arena_t&            main_arena;
-    arena_t             temp_arena;
-    arena_t             string_arena;
     arena_t             mesh_arena;
     arena_t             texture_arena;
 
@@ -405,7 +431,7 @@ struct game_state_t {
 
     // todo(zack) clean this up
     gfx::font_t default_font;
-    gfx::font_t large_font;
+    // gfx::font_t large_font;
     // gfx::vul::texture_2d_t* default_font_texture{nullptr};
     VkDescriptorSet ui_descriptor;
 
@@ -419,7 +445,7 @@ struct game_state_t {
         gfx::vul::index_buffer_t<6'000'000> indices[2];
         std::atomic<u64> frame{0};
 
-        arena_t  arena;
+        // arena_t  arena;
 
         gfx::gui::im::state_t imgui;
         explicit gui_state_t() : imgui {
@@ -441,6 +467,8 @@ struct game_state_t {
     struct debugging_t {
         bool show = false;
     } debug;
+
+    fmod_sound::sound_engine_t* sfx{0};
 
     zyy::world_t* game_world{0};
 

@@ -155,7 +155,11 @@ void bullet_on_hit(physics::rigidbody_t* self, physics::rigidbody_t* other, phys
 
         // @hardcoded particle position
         if (self_entity->first_child && self_entity->first_child->gfx.particle_system) {
+            // if (self_entity->first_child->gfx.particle_system->live_count <= 1) { // @hack for dead puff particle bug
+                // self_entity->first_child->queue_free();
+            // } else {
             self_entity->first_child->gfx.particle_system->spawn_timer = 1000.0f;
+            // }
         } else {
             assert(!"Tried to get bullet particles system but failed");
         }
@@ -210,7 +214,9 @@ zyy::entity_t* explosion_at_point(
 
     range_u64(i, 0, near->hit_count) {
         auto* rb = (physics::rigidbody_t*)near->hits[i].user_data;
+        assert_continue(rb);
         auto* n = (zyy::entity_t*)rb->user_data;
+        assert_continue(n);
 
         assert(rb&&n);
 

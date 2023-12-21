@@ -124,7 +124,8 @@ using b8 = u8;
 using b16 = u16;
 using b32 = u32;
 using b64 = u64;
-using umm = size_t;
+using umm = std::uintptr_t;
+using imm = std::ptrdiff_t;
 
 using f32 = float;
 using f64 = double;
@@ -405,7 +406,7 @@ struct fmt::formatter<glm::vec<3, T>>
 };
 
 struct arena_settings_t {
-    size_t alignment{0};
+    size_t alignment{16};
     size_t minimum_block_size{1024*1024}; // tune this
     u8     fixed{0};
 };
@@ -781,13 +782,14 @@ struct app_input_t {
 
     char keyboard_input() noexcept {
         const bool shift = keys[key_id::LEFT_SHIFT] || keys[key_id::RIGHT_SHIFT];
-        const char* num_lut=")!@#$%^&*(";
+
         range_u64(c, key_id::SPACE, key_id::GRAVE_ACCENT+1) {
             if (pressed.keys[c]) { 
                 pressed.keys[c] = 0;
+                if (pressed.keys[key_id::BACKSLASH] && shift) return '|';
                 if (shift) {
                     if (c >= key_id::NUM_0 && c <= key_id::NUM_9) {
-                        return num_lut[c-key_id::NUM_0];
+                        return ")!@#$%^&*("[c-key_id::NUM_0];
                     }
                     if (c == key_id::MINUS) {
                         return '_';
@@ -980,6 +982,9 @@ struct platform_api_t {
 
     using message_box_function = i32(*)(const char*);
     message_box_function message_box{0};
+
+    const char** arguments{0};
+    int argument_count{0};
 
     struct audio_closures_t {
         closure_t load_sound;
@@ -1251,9 +1256,7 @@ ccopy(char* dst, const char* src, umm size) {
     return dst;
 }
 
-
-
-}; // namespace utl
+} // namespace utl
 
 
 inline arena_t
@@ -1263,6 +1266,7 @@ arena_create(void* p, size_t bytes) noexcept {
     arena.size = bytes;
     arena.top = 0;
     arena.block_count = 0;
+    arena.settings.alignment = 0;
     arena.settings.fixed = 1;
     arena.settings.minimum_block_size = 0;
     arena.tags = 0;
@@ -1277,6 +1281,7 @@ arena_create(umm minimum_block_size = 0) noexcept {
     } else {
         arena.settings.minimum_block_size = 1024*1024;
     }
+    arena.settings.alignment = 16;
     return arena;
 }
 
@@ -1357,6 +1362,9 @@ push_bytes(arena_t* arena, size_t bytes) {
     }
 
     assert(arena->start);
+    if (arena->settings.alignment) {
+        arena->top = align_2n(arena->top, arena->settings.alignment);
+    }
 
     std::byte* start = arena->start + arena->top;
 
@@ -1680,6 +1688,7 @@ struct buffer
     }
 
     auto& operator[](u64 index) {
+        assert(index < count);
         return data[index];
     }
 
@@ -2369,6 +2378,28 @@ namespace packing {
         return result;
     }
 
+    u32 pack(u8 r, u8 g, u8 b, u8 a) {
+        u32 result = u64(a) | (u64(b)<<32);
+        return result;
+    }
+
+    const std::array<u8, 4> unpack_u32(u32 c) {
+        return {
+            (c >> 0 ) & 0xff,
+            (c >> 8 ) & 0xff,
+            (c >> 16) & 0xff,
+            (c >> 24) & 0xff
+        };
+    }
+
+    const u32 pack_u32(u8 r, u8 g, u8 b, u8 a) {
+        return 
+            (r << 0 ) |
+            (g << 8 ) |
+            (b << 16) |
+            (a << 24) ;
+    }
+
     u32 pack1212to24(u16 a, u16 b) {
         u32 result = u32(a) | (u32(b)<<12);
         return result & (0x00ffffff);
@@ -2526,6 +2557,7 @@ struct mesh_list_t {
 };
 
 enum struct blend_mode {
+    none,
     alpha_blend, 
     additive
 };
@@ -2533,6 +2565,7 @@ enum struct blend_mode {
 enum struct render_command_type {
     draw_mesh,
     clear_texture,
+    set_blend,
 };
 
 struct clear_texture_command_t {
@@ -2540,18 +2573,22 @@ struct clear_texture_command_t {
 };
 
 struct draw_mesh_command_t {
+    m44 transform;
+
     u64 mesh_id{0};
-    u64 material_id{0};
-    u64 albedo_id{0};
+    u32 material_id{0};
+    u32 albedo_id{~0ui32};
     u32 gfx_id{0};
     u64 gfx_count{0};
 
-    union {
-        m44  transform;
-        m44* instances;
-    };
-
+    u32 instance_offset{0};
     u32 instance_count{1};
+
+    b32 rtx_on{1};
+};
+
+struct set_blend_command_t {
+    blend_mode blend{blend_mode::alpha_blend};
 };
 
 struct render_command_t {
@@ -2559,16 +2596,24 @@ struct render_command_t {
 
     union {
         draw_mesh_command_t draw_mesh{};
+        set_blend_command_t blend_function;
         // clear_texture_command_t clear_texture;
     };
+
+    void set_blend(blend_mode mode) {
+        type = render_command_type::set_blend;
+        blend_function = {};
+        blend_function.blend = mode;
+    }
 };
 
 struct render_group_t {
-    blend_mode blend{blend_mode::alpha_blend};
-
-    render_command_t* commands{0};
-    u32               command_count{0};
-
+    buffer<render_command_t> commands{};
+    u64                      size{0};
+    
+    render_command_t& push_command() {
+        return commands[size++];
+    }
 };
 
 // there should only be one running at a time
@@ -2715,11 +2760,12 @@ using color3 = v3f;
 using color32 = u32;
 struct font_t;
 
-static constexpr u32 material_lit       = (u32)BIT(0);
-static constexpr u32 material_triplanar = (u32)BIT(1);
-static constexpr u32 material_billboard = (u32)BIT(2);
-static constexpr u32 material_wind      = (u32)BIT(3);
-static constexpr u32 material_water     = (u32)BIT(4);
+static constexpr u32 material_lit          = (u32)BIT(0);
+static constexpr u32 material_triplanar    = (u32)BIT(1);
+static constexpr u32 material_billboard    = (u32)BIT(2);
+static constexpr u32 material_wind         = (u32)BIT(3);
+static constexpr u32 material_water        = (u32)BIT(4);
+static constexpr u32 material_sprite_sheet = (u32)BIT(5);
 
 struct material_t {
     v4f albedo{};
@@ -2736,7 +2782,17 @@ struct material_t {
 
     f32 scale{1.0f};
     f32 reflectivity{0.0f};
-    u32 padding[2];
+    u32 sprite_info{0}; // 4 packed 8bits [index, dimx, dimy]
+    u32 pad;
+
+    void set_sprite_index(u8 index) {
+        auto [_index, dimx, dimy, _] = packing::unpack_u32(sprite_info);
+        set_sprite_info(index, dimx, dimy);
+    }
+
+    void set_sprite_info(u8 index, u8 dimx, u8 dimy) {
+        sprite_info = packing::pack_u32(index, dimx, dimy, 0);
+    }
 
     static constexpr material_t plastic(const v4f& color, f32 roughness = 0.8f, u32 albedo_id = 0, u32 normal_id = 0) {
         return material_t {
@@ -3031,7 +3087,14 @@ namespace color {
             }
         }
     };
-    
+
+    const std::array<u8, 4> unpack_color32(color32 c) {
+        return packing::unpack_u32(c);
+    }
+
+    const color32 pack_color32(u8 r, u8 g, u8 b, u8 a) {
+        return packing::pack_u32(r, g, b, a);
+    }
 
     constexpr color32 to_color32(const color4& c) {
         return 
@@ -5896,12 +5959,13 @@ namespace gui {
             imgui.panel->update_cursor_max(box.max + imgui.theme.padding);
 
             tmp_cursor = box.center() - font_get_size(imgui.ctx.font, fmt_sv("{:.2f}", *val)) * 0.5f;
-            string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tmp_cursor, imgui.theme.text_color);
-            draw_rect(&imgui.ctx, prc_box, imgui.active.id == sld_id ? imgui.theme.active_color : imgui.theme.fg_color);
-            draw_rect(&imgui.ctx, box, imgui.theme.bg_color);
-            box.max += v2f{1.0f};
-            box.min -= v2f{1.0f};
             draw_rect(&imgui.ctx, box, imgui.theme.fg_color);
+            box.pad(1.0f);
+            draw_rect(&imgui.ctx, box, imgui.theme.bg_color);
+            draw_rect(&imgui.ctx, prc_box, imgui.active.id == sld_id ? imgui.theme.active_color : imgui.theme.fg_color);
+            // box.max += v2f{1.0f};
+            // box.min -= v2f{1.0f};
+            string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tmp_cursor, imgui.theme.text_color);
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
 
@@ -6380,6 +6444,39 @@ namespace gui {
             imgui.theme.bg_color = gfx::color::rgba::light_blue;
 
             auto b = float_input(imgui, &value->z, txt_id_, toggle_state);
+
+            imgui.theme = theme;
+
+            return r && g && b;
+        }
+
+        inline bool
+        float4_input(
+            state_t& imgui, 
+            v4f* value,
+            sid_t txt_id_ = 0,
+            bool* toggle_state = 0         
+        ) {
+            auto theme = imgui.theme;
+
+            imgui.theme.bg_color = gfx::color::rgba::red;
+            same_line(imgui);
+
+            auto r = float_input(imgui, &value->x, txt_id_, toggle_state);
+
+            imgui.theme.bg_color = gfx::color::rgba::green;
+            same_line(imgui);
+
+            auto g = float_input(imgui, &value->y, txt_id_, toggle_state);
+
+            imgui.theme.bg_color = gfx::color::rgba::light_blue;
+            same_line(imgui);
+
+            auto b = float_input(imgui, &value->z, txt_id_, toggle_state);
+
+            imgui.theme.bg_color = gfx::color::rgba::purple;
+
+            auto a = float_input(imgui, &value->w, txt_id_, toggle_state);
 
             imgui.theme = theme;
 
@@ -6972,13 +7069,17 @@ struct font_t {
         char c{};
         math::rect2d_t screen{};
         math::rect2d_t texture{};
+        int   kern{0};
+        int   advance{0};
     };
     f32 size{12.0f};
-    u32 pixel_count{512>>1};
+    f32 draw_scale{};
+    u32 pixel_count{512};
 
     u8* ttf_buffer{0};
     u8* bitmap{0};
     stbtt_bakedchar cdata[96];
+    stbtt_fontinfo font_info = {};
     u32 id{0};
 
     void* user_data = 0;
@@ -6989,6 +7090,8 @@ struct font_t {
     }
 };
 
+// todo use stbtt_ScaleForPixelHeight
+
 inline void
 font_load(
     arena_t* arena,
@@ -6998,39 +7101,46 @@ font_load(
 ) 
 #ifdef STB_TRUETYPE_IMPLEMENTATION
 {
+    font->font_info = {};
     font->size = size;
 
     font->bitmap = (u8*)push_bytes(arena, font->pixel_count*font->pixel_count);
-    auto memory = begin_temporary_memory(arena);
+    // auto memory = begin_temporary_memory(arena);
     // size_t stack_mark = arena_get_mark(arena);
 
-        font->ttf_buffer = (u8*)push_bytes(memory.arena, 1<<20);
+        font->ttf_buffer = (u8*)push_bytes(arena, 1<<20);
+        // font->ttf_buffer = (u8*)push_bytes(memory.arena, 1<<20);
         
-        FILE* file;
+        FILE* file = 0;
         fopen_s(&file, path.data(), "rb");
 
         fread(font->ttf_buffer, 1, 1<<20, file);
+
+        auto succeed = stbtt_InitFont(&font->font_info, font->ttf_buffer, stbtt_GetFontOffsetForIndex(font->ttf_buffer,0));
+        assert(succeed);
+
         stbtt_BakeFontBitmap(font->ttf_buffer, 0, size, font->bitmap, font->pixel_count, font->pixel_count, 32, 96, font->cdata);
-                
+
+        font->draw_scale = stbtt_ScaleForPixelHeight(&font->font_info, size);
+
         fclose(file);
 
     // arena_set_mark(arena, stack_mark);
-    end_temporary_memory(memory);
+    // end_temporary_memory(memory);
 }
 #else 
 {}
 #endif
 
 inline font_t::glyph_t
-font_get_glyph(font_t* font, f32 x, f32 y, char c) 
+font_get_glyph(font_t* font, f32 x, f32 y, char c, char nc = 0) 
 #ifdef STB_TRUETYPE_IMPLEMENTATION
 {
-
     math::rect2d_t screen{};
     math::rect2d_t texture{};
     
     stbtt_aligned_quad q;
-    stbtt_GetBakedQuad(font->cdata, font->pixel_count, font->pixel_count, c - 32, &x,&y, &q, 1);
+    stbtt_GetBakedQuad(font->cdata, font->pixel_count, font->pixel_count, c - 32, &x, &y, &q, 1);
 
     texture.expand(v2f{q.s0, q.t0});
     texture.expand(v2f{q.s1, q.t1});
@@ -7038,11 +7148,16 @@ font_get_glyph(font_t* font, f32 x, f32 y, char c)
     screen.expand(v2f{q.x0, q.y0});
     screen.expand(v2f{q.x1, q.y1});
 
-    return font_t::glyph_t {
+    font_t::glyph_t glyph{
         c, 
         screen,
-        texture
+        texture,
+        nc? stbtt_GetCodepointKernAdvance(&font->font_info, c, nc) : 0
     };
+    int lsb;
+    stbtt_GetCodepointHMetrics(&font->font_info, c, &glyph.advance, &lsb);
+    
+    return glyph;
 }
 #else 
 {
@@ -7063,18 +7178,20 @@ font_get_size(
 
     cursor.y += font_get_glyph(font, cursor.x, cursor.y, ';').screen.size().y + 1;
 
-    for (const char c : text) {
-        if (c > 32 && c < 128) {
-            const auto glyph = font_get_glyph(font, cursor.x, cursor.y, c);
+    // for (const char c : text) {
+    range_u64(i, 0, text.size()) {
+        char c = text[i];
+        char nc = ((i + 1) < text.size()) ? text[i+1] : 0;
+        if (c == 0) break;
+        if (c >= 32 && c < 128) {
+            const auto glyph = font_get_glyph(font, cursor.x, cursor.y, c, nc);
 
-            cursor.x += glyph.screen.size().x + 1;
+            cursor.x += (f32)(glyph.kern + glyph.advance) * font->draw_scale;
 
             size = glm::max(size, cursor);
         } else if (c == '\n') {
             cursor.y += font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().y + 1;
             cursor.x = start_x;
-        } else if (c == ' ') {
-            cursor.x += font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1;
         } else if (c == '\t') {
             cursor.x += (font_get_glyph(font, cursor.x, cursor.y, '_').screen.size().x + 1) * 5;
         }
@@ -7098,14 +7215,17 @@ font_render(
     f32 start_x = cursor.x;
     cursor.y += font_get_glyph(font, cursor.x, cursor.y, ';').screen.size().y + 1;
 
-    for (const char c : text) {
+    // for (const char c : text) {
+    range_u64(i, 0, text.size()) {
+        char c = text[i];
+        char nc = ((i + 1) < text.size()) ? text[i+1] : 0;
         if (c == 0) break;
-        if (c > 32 && c < 128) {
-            const auto glyph = font_get_glyph(font, cursor.x, cursor.y, c);
+        if (c >= 32 && c < 128) { // this matches stb but is broken for me
+            const auto glyph = font_get_glyph(font, cursor.x, cursor.y, c, nc);
 
             const u32 v_start = safe_truncate_u64(vertices->count());
             gui::vertex_t* v = vertices->allocate(4);            
-            u32* i = indices->allocate(6);            
+            u32* tris = indices->allocate(6);            
 
             const v2f p0 = v2f{glyph.screen.min.x, glyph.screen.min.y} / screen_size;
             const v2f p1 = v2f{glyph.screen.min.x, glyph.screen.max.y} / screen_size;
@@ -7125,20 +7245,18 @@ font_render(
             v[2] = gui::vertex_t{ .pos = v3f(p2, depth), .tex = c2, .img = font_id|texture_bit, .col = text_color};
             v[3] = gui::vertex_t{ .pos = v3f(p3, depth), .tex = c3, .img = font_id|texture_bit, .col = text_color};
 
-            i[0] = v_start + 0;
-            i[1] = v_start + 2;
-            i[2] = v_start + 1;
+            tris[0] = v_start + 0;
+            tris[1] = v_start + 2;
+            tris[2] = v_start + 1;
 
-            i[3] = v_start + 1;
-            i[4] = v_start + 2;
-            i[5] = v_start + 3;
+            tris[3] = v_start + 1;
+            tris[4] = v_start + 2;
+            tris[5] = v_start + 3;
 
-            cursor.x += glyph.screen.size().x + 1;
+            cursor.x += (f32)(glyph.kern + glyph.advance) * font->draw_scale;
         } else if (c == '\n') {
             cursor.y += font_get_glyph(font, cursor.x, cursor.y, 'G').screen.size().y + 1;
             cursor.x = start_x;
-        } else if (c == ' ') {
-            cursor.x += font_get_glyph(font, cursor.x, cursor.y, 'G').screen.size().x + 1;
         } else if (c == '\t') {
             cursor.x += (font_get_glyph(font, cursor.x, cursor.y, 'G').screen.size().x + 1) * 4;
         }
@@ -7801,6 +7919,16 @@ struct memory_blob_t {
         }
     }
 
+    template <typename T>
+    void serialize(arena_t* arena, const buffer<T>& str) {
+        serialize(arena, str.count);
+
+        allocate(arena, str.count);
+        utl::copy(&data[serialize_offset], (std::byte*)str.data, str.count);
+
+        serialize_offset += str.count;
+    }
+
     template <>
     void serialize(arena_t* arena, const string_buffer& str) {
         serialize(arena, str.count);
@@ -7916,6 +8044,31 @@ struct memory_blob_t {
         return value;
     }
 
+    // template<typename T>
+    // buffer<T> deserialize() {
+    //     const size_t length = deserialize<u64>();
+    //     buffer<T> result = {};
+    //     if (length > 0) {
+    //         result.data = (char*)&data[read_offset];
+    //         result.count = length;
+    //     }
+    //     advance(length);
+    //     return result;
+    // }
+
+    // template<typename T>
+    // buffer<T> deserialize(arena_t* arena) {
+    //     const size_t length = deserialize<u64>();
+    //     buffer<T> result = {};
+    //     if (length > 0) {
+    //         tag_array(result.data, T, arena, length);
+    //         utl::copy(result.data, (char*)&data[read_offset], length);
+    //         result.count = length;
+    //     }
+    //     advance(length);
+    //     return result;
+    // }
+
     template<>
     string_buffer deserialize() {
         const size_t length = deserialize<u64>();
@@ -8021,7 +8174,6 @@ struct pack_file_t {
 inline pack_file_t* 
 load_pack_file(
     arena_t* arena,
-    arena_t* string_arena,
     std::string_view path
 ) {
     std::ifstream file{path.data(), std::ios::binary};
@@ -8064,7 +8216,7 @@ load_pack_file(
     for (size_t i = 0; i < packed_file->file_count; i++) {
         resource_table_entry_t* entry = packed_file->table + i;
         std::string file_name = loader.deserialize<std::string>();
-        entry->name.own(string_arena, file_name.c_str());
+        entry->name.own(arena, file_name.c_str());
         entry->file_type = loader.deserialize<u64>();
         entry->size = loader.deserialize<u64>();
     }
@@ -8444,6 +8596,23 @@ auto over_time(auto&& fn, f32 dt) {
 }
 
 };
+
+
+// template<>
+// buffer<auto>
+// utl::memory_blob_t::deserialize<buffer<auto>>(arena_t* arena) {
+//     buffer<auto> buffer{};
+
+//     buffer.count = deserialize<u64>();
+        
+//     if (buffer.count > 0) {
+//         buffer.push(arena, std::span{(char*)&data[read_offset], buffer.count});
+//     }
+//     advance(buffer.count);
+
+//     return buffer;
+// }
+
 
 template<>
 void utl::memory_blob_t::serialize<gfx::color::gradient_t>(arena_t* arena, const gfx::color::gradient_t& gradient) {

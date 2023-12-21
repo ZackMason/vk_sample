@@ -783,12 +783,17 @@ save_world_window(
 
     if (load) {
         // load_world_file_for_edit(ee, file);
-
-        for (auto* prefab = ee->prefabs.next;
-            prefab != &ee->prefabs;
-            node_next(prefab)
-        ) {
-            ee->remove_prefab(prefab);
+        {
+            ee->begin_event_group();
+            defer {
+                ee->end_event_group();
+            };
+            for (auto* prefab = ee->prefabs.next;
+                prefab != &ee->prefabs;
+                node_next(prefab)
+            ) {
+                ee->remove_prefab(prefab);
+            }
         }
 
         arena_t arena = {};
@@ -1166,9 +1171,8 @@ entity_editor_render(entity_editor_t* ee) {
     local_persist bool show_mesh_dialog = false;
     local_persist bool show_texture_dialog = false;
     local_persist bool show_animation_dialog = false;
+    local_persist bool show_sound_dialog;
     local_persist char* show_function_dialog;
-
-
     
     auto* game_state = ee->game_state;
     auto* rs = game_state->render_system;
@@ -1179,6 +1183,12 @@ entity_editor_render(entity_editor_t* ee) {
     
     if (input->pressed.keys[key_id::F1]) {
         show_animation_dialog ^= true;
+    }
+    if (input->pressed.keys[key_id::F2]) {
+        show_sound_dialog ^= true;
+    }
+    if (show_sound_dialog) {
+        show_sound_dialog = sound_browser(imgui, game_state);
     }
     if (show_animation_dialog) {
         show_animation_dialog = animation_browser(imgui, game_state, game_state->resource_file);
@@ -1230,19 +1240,20 @@ entity_editor_render(entity_editor_t* ee) {
         auto [open, want_to_close] = im::begin_panel(imgui, "Gradient Editor", &gradient_panel);
 
         local_persist f32 grad_scroll;
-        local_persist v2f grad_size {400.0f, 500.0f};
+        local_persist v2f grad_size {400.0f, 128.0f};
 
-        if (want_to_close) {
-            ee->gradient = 0;
-        } else if (open) {
+        if (open) {
             im::begin_scroll_rect(imgui, &grad_scroll, &grad_size);
             
-            im::gradient_edit(imgui, ee->gradient, &ee->arena, math::zero_to(grad_size), 356);
+            im::gradient_edit(imgui, ee->gradient, &ee->arena, math::zero_to(grad_size - v2f{16.0f}), 356);
             
             im::end_scroll_rect(imgui, &grad_scroll, &grad_size);
-            grad_size.x -= imgui.theme.padding;
+            // grad_size.x -= imgui.theme.padding;
 
             im::end_panel(imgui, &gradient_panel);
+        }
+        if (want_to_close) {
+            ee->gradient = 0;
         }
     }
 
@@ -1558,13 +1569,18 @@ entity_editor_render(entity_editor_t* ee) {
             
             #define selectable_float3_prop(text_, ...) \
                 im::same_line(imgui);\
-                if (im::text(imgui, #text_)) ee->selection = &particle.text_;\
+                if (im::text(imgui, #text_)) { ee->selection = &particle.text_; ee->selection_stack.clear(); }\
                 im::float3_input(imgui, &particle.text_, __VA_ARGS__)
 
             #define float3_prop(text_, ...) \
                 im::same_line(imgui);\
                 im::text(imgui, #text_); \
                 im::float3_input(imgui, &particle.text_, __VA_ARGS__)
+
+            #define color_prop(text_, ...) \
+                im::same_line(imgui);\
+                im::text(imgui, #text_); \
+                im::float4_input(imgui, &particle.text_, __VA_ARGS__)
             
             #define uint_prop(text_, ...) \
                 im::same_line(imgui);\
@@ -1576,6 +1592,7 @@ entity_editor_render(entity_editor_t* ee) {
             uint_prop(world_space);
 
             float_prop(template_particle.life_time);
+            color_prop(template_particle.color);
             float_prop(template_particle.scale);
             float3_prop(template_particle.velocity);
 
@@ -1636,6 +1653,7 @@ entity_editor_render(entity_editor_t* ee) {
             
             #undef float_prop
             #undef float3_prop
+            #undef color_prop
             #undef selectable_float3_prop
             #undef uint_prop
 
@@ -1738,19 +1756,35 @@ entity_editor_render(entity_editor_t* ee) {
         auto diff = utl::memdif((const u8*)&prefab_start, (const u8*)ee->entity, sizeof(prefab_start));
         if (diff != 0) {
             std::swap(prefab_start, *ee->entity);
-            if (diff <= 8) {
-                // CLOG("Optimized");
-                u8* r = (u8*)&prefab_start;
-                u8* w = (u8*)ee->entity;
-                for (u64 i = 0; i < sizeof(zyy::prefab_t); i++) {
-                    if (*w != *r) {
-                        ee->edit_bytes(w, *(u64*)r);
-                        break;
+
+            auto smart_edit = [&](auto* e) {
+                auto d = utl::memdif((const u8*)&prefab_start, (const u8*)e, sizeof(prefab_start));
+                if (d <= 8) {
+                    // CLOG("Optimized");
+                    u8* r = (u8*)&prefab_start;
+                    u8* w = (u8*)e;
+                    for (u64 i = 0; i < sizeof(zyy::prefab_t); i++) {
+                        if (*w != *r) {
+                            ee->edit_bytes(w, *(u64*)r);
+                            break;
+                        }
+                        w++; r++;
                     }
-                    w++; r++;
+                } else {
+                    ee->edit_prefab(e, prefab_start);
                 }
-            } else {
-                ee->edit_prefab(ee->entity, prefab_start);
+            };
+
+            ee->begin_event_group();
+            defer {
+                ee->end_event_group();
+            };
+
+            smart_edit(ee->entity);
+            for (const auto& selection: ee->selection_stack.view()) {
+                if (selection.prefab) {
+                    smart_edit(&selection.prefab->prefab);
+                }
             }
         }
 
@@ -1763,6 +1797,7 @@ entity_editor_render(entity_editor_t* ee) {
 
             ee->entity = &ee->creating_entity;
             *ee->entity = {};
+            ee->selection_stack.clear();
         }
 
         im::text(imgui, "============================");
@@ -1835,9 +1870,11 @@ entity_editor_render(entity_editor_t* ee) {
         im::text(imgui, "======== Light Probe =======");
         if (im::text(imgui, "Min")) {
             ee->selection = &ee->light_probe_settings.aabb.min;
+            ee->selection_stack.clear();
         }
         if (im::text(imgui, "Max")) {
             ee->selection = &ee->light_probe_settings.aabb.max;
+            ee->selection_stack.clear();
         }
 
         im::same_line(imgui);
@@ -1957,6 +1994,7 @@ entity_editor_render(entity_editor_t* ee) {
     // entity_window_size = {};
 
     if (im::begin_panel(imgui, "Entities", &entity_window_pos, &entity_window_size, &show_entity_list)) {
+        entity_window_pos = imgui.ctx.screen_rect().max - entity_window_size;
         auto theme = imgui.theme;
 
         im::begin_drag(imgui);
@@ -2120,13 +2158,18 @@ entity_editor_update(entity_editor_t* ee) {
                 if (entity.gfx.albedo_texture.empty() == false) {
                     auto aid = (u32)rs->texture_cache.get_id(entity.gfx.albedo_texture.view());
                     if (aid == 0) {
-                        tag_array(auto* texture, char, &ee->game_state->string_arena, entity.gfx.albedo_texture.size()+1);
+                        tag_array(auto* texture, char, &ee->game_state->texture_arena, entity.gfx.albedo_texture.size()+1);
                         utl::copy(texture, entity.gfx.albedo_texture.buffer, entity.gfx.albedo_texture.size());
                         texture[entity.gfx.albedo_texture.size()] = '\0';
                         aid = (u32)rs->texture_cache.load(&rs->arena, *rs->vk_gfx, texture);
                     }
                     albedo_id = aid;
                 }
+
+                auto aabb = rendering::get_mesh_aabb(rs, entity.gfx.mesh_name.view());
+
+                auto world_aabb = math::transform_t{transform}.xform_aabb(aabb);
+                DEBUG_DIAGRAM(world_aabb);
 
                 rendering::submit_job(
                     rs, 
@@ -2181,7 +2224,9 @@ entity_editor_update(entity_editor_t* ee) {
                 if (p->dynamic & 2) {
                     instances = instances + p->instance_count;
                 }
-                particle_system_update(p->particle_system, p->transform.to_matrix(), dt);
+                auto transform = p->transform.to_matrix();
+                particle_system_update(p->particle_system, transform, dt);
+                particle_system_sort_view(p->particle_system, transform, ee->camera.position, ee->camera.forward());
                 particle_system_build_matrices(p->particle_system, p->transform.to_matrix(), p->instances, p->instance_count);
                 particle_system_build_colors(p->particle_system, p->instance_colors, p->instance_count);
             }

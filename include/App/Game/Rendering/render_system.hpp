@@ -1282,7 +1282,8 @@ public:
         u64 gfx_count,
         u32 instance_count = 1,
         u32 instance_offset = 0,
-        u32 albedo_override = std::numeric_limits<u32>::max()
+        u32 albedo_override = std::numeric_limits<u32>::max(),
+        b32 rtx_on = 1
     ) {
         if (instance_count == 0) {
             return;
@@ -1303,18 +1304,19 @@ public:
 
         auto* meshes = &rs->mesh_cache.get(mesh_id);
         for (size_t i = 0; i < meshes->count; i++) {
-            // if (instance_count == 1)
-            for (size_t j = 0; j < instance_count; j++) { // @hardcoded limit for instancing
-                rs->get_frame_data().rt_compute_pass.add_to_tlas(
-                    *rs->vk_gfx,
-                    *rs->rt_cache,
-                    gfx_id + (u32)i,
-                    meshes->meshes[i].blas,
-                    // transform,
-                    instance_count == 1 ? transform : instance_buffer[instance_offset + j],
-                    instance_count == 1 ? 0 : instance_offset,
-                    (u32)j
-                );
+            if (rtx_on) {
+                for (size_t j = 0; j < instance_count; j++) { 
+                    rs->get_frame_data().rt_compute_pass.add_to_tlas(
+                        *rs->vk_gfx,
+                        *rs->rt_cache,
+                        gfx_id + (u32)i,
+                        meshes->meshes[i].blas,
+                        // transform,
+                        instance_count == 1 ? transform : instance_buffer[instance_offset + j],
+                        instance_count == 1 ? 0 : instance_offset,
+                        (u32)j
+                    );
+                }
             }
 
             u32 albedo_id = (albedo_override != std::numeric_limits<u32>::max()) ?
@@ -1343,6 +1345,36 @@ public:
         gpu_job->padding[2] = instance_offset; // instance offset
 
         rs->total_instance_count += instance_count != 1 ? instance_count + instance_offset : 0;
+    }
+
+    void 
+    end_render_group(
+        system_t* rs,
+        gfx::render_group_t render_group
+    ) {
+        range_u64(i, 0, render_group.size) {
+            auto& command = render_group.commands[i];
+            switch(command.type) {
+                case gfx::render_command_type::set_blend: {
+                    // todo
+                } break;
+                case gfx::render_command_type::draw_mesh: {
+                    auto [t, mesh, mat, alb, gfx, gfc, io, ic, rtx] = command.draw_mesh;
+                    submit_job(rs, 
+                        mesh,
+                        mat,
+                        t,
+                        gfx,
+                        gfc,
+                        ic,
+                        io,
+                        alb,
+                        rtx
+                    );
+                } break;
+                case_invalid_default;
+            }
+        }
     }
 
     inline void 
@@ -1571,6 +1603,17 @@ public:
         return get_mesh(rs, name).aabb;
     }
 
+    gfx::render_group_t
+    begin_render_group(
+        system_t* rs,
+        u64 reserve
+    ) {
+        gfx::render_group_t group = {};
+
+        group.commands.reserve(&rs->frame_arena, reserve);
+
+        return group;
+    }
 
     inline u32
     create_material(

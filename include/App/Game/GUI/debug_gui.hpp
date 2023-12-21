@@ -2,34 +2,6 @@
 
 #include "dialog_window.hpp"
 
-u32
-load_save_particle_dialog(
-    gfx::gui::im::state_t& imgui,
-    particle_system_t* system,
-    u32 load
-) {
-    local_persist dialog_window_t dialog_box{};
-    char file[512]{};
-    utl::memzero(file, array_count(file));
-
-    dialog_box
-        .set_title(load?"Load Particle System":"Save Particle System")
-        .set_description("Enter filename")
-        .set_position(v2f{400.0f,300.0f})
-        .draw(imgui)
-        .into(file);
-
-    if (!file[0]) {
-        return false;
-    }
-
-    if (load) {
-        particle_system_settings_load(system, file);
-    } else {
-        particle_system_settings_save(*system, file);
-    }
-    return true;
-}
 
 global_variable f32 BEHAVIOR_RECT_PAD_SIZE = 4.0f;
 void draw_behavior(
@@ -543,6 +515,44 @@ animation_browser(
 }
 
 
+static bool
+sound_browser(
+    gfx::gui::im::state_t& imgui,
+    game_state_t* game_state
+) {
+    using namespace gfx::gui;
+    local_persist dialog_window_t dialog_box{.position = v2f{500.0f, 300.0f}};;
+
+    auto draw_sounds = [&]{
+        local_persist v2f rect{0.0f, 256.0f};
+        local_persist f32 scroll;
+
+        im::begin_scroll_rect(imgui, &scroll, &rect);
+        defer {
+            im::end_scroll_rect(imgui, &scroll, &rect);
+        };
+
+        #define sound_label(name) if (im::text(imgui, #name)) game_state->sfx->emit_event(sound_event::name)
+
+            sound_label(footstep_dirt);
+            sound_label(jump_dirt);
+            sound_label(arcane_bolt);
+
+        #undef sound_label
+    };
+    
+    dialog_box
+        .set_title("Play a Sound")
+        .draw(imgui, draw_sounds);
+        
+    if (dialog_box.done == 2) {
+        return false;
+    }
+    
+    return true;
+}
+
+
 void
 watch_game_state(game_state_t* game_state) {
     auto* rs = game_state->render_system;
@@ -603,7 +613,7 @@ set_ui_textures(game_state_t* game_state) {
     ui_textures[3] = &rs->light_probes.visibility_texture;
     for(u32 i = 0; i < array_count(game_state->gui.ctx.dyn_font); i++) { 
         ui_textures[4+i] = game_state->gui.ctx.dyn_font[i]->get<font_backend_t>()->texture; 
-        game_state->gui.ctx.dyn_font[i]->id = i;
+        game_state->gui.ctx.dyn_font[i]->id = 4+i;
     }
 
     for (
@@ -923,6 +933,47 @@ draw_entity_gui(auto* game_state, auto& imgui) {
     return false;
 }
 
+global_variable f32 gs_fps;
+
+void draw_release_info(auto* game_state) {
+    std::string_view version = "0.0.1"sv;
+#if NDEBUG
+    auto build_type ="RELEASE"sv;
+#else 
+    auto build_type ="DEBUG"sv;
+#endif
+    local_persist f32 last_fps = game_state->input().dt;
+    local_persist f32 lag_timer;
+    auto fps_delta = 1000.0f * std::fabsf(game_state->input().dt-last_fps);
+
+    if (fps_delta > 5.0f) {
+        lag_timer += 1.0f;
+    }
+
+    last_fps = game_state->input().dt;
+
+    lag_timer -= game_state->input().dt;
+    lag_timer = std::max(-0.01f, lag_timer);
+
+    auto release_info = fmt_str("{:.2f}ms|{}|{}|{}", game_state->input().dt * 1000.0f, i32(lag_timer/1.0f) + 1, build_type, version);
+
+    auto& imgui = game_state->gui.imgui;
+    imgui.begin_free_drawing();
+
+        auto* font = game_state->gui.ctx.dyn_font[31];
+
+        auto text_color = gfx::color::to_color32(v4f{1.0f, 1.0f, 1.0f, 0.5f});
+    
+        gfx::gui::string_render(
+            &game_state->gui.ctx, 
+            string_t{}.view(release_info),
+            (game_state->gui.ctx.screen_size - gfx::font_get_size(font, release_info)) * math::width2, 
+            text_color,
+            font
+        );
+    imgui.end_free_drawing();
+}
+
 void begin_gui(auto* game_state) {
     using namespace gfx::gui;
 
@@ -933,6 +984,8 @@ void begin_gui(auto* game_state) {
         &game_state->gui.vertices[(frame&1)].pool, 
         &game_state->gui.indices[(frame&1)].pool);
     im::clear(game_state->gui.imgui);
+
+    draw_release_info(game_state);
 }
 
 void 
@@ -955,8 +1008,8 @@ draw_gui(game_memory_t* game_memory) {
 
     arena_t* display_arenas[] = {
         &game_state->main_arena,
-        &game_state->temp_arena,
-        &game_state->string_arena,
+        // &game_state->temp_arena,
+        // &game_state->string_arena,
         &game_state->mesh_arena,
         &game_state->texture_arena,
 #ifdef DEBUG_STATE
@@ -984,8 +1037,8 @@ draw_gui(game_memory_t* game_memory) {
 
     const char* display_arena_names[] = {
         "- Main Arena",
-        "- Temp Arena",
-        "- String Arena",
+        // "- Temp Arena",
+        // "- String Arena",
         "- Mesh Arena",
         "- Texture Arena",
 #ifdef DEBUG_STATE
@@ -1106,16 +1159,27 @@ draw_gui(game_memory_t* game_memory) {
         }
 #endif
 
-        local_persist b32 load_system{0};
-        local_persist particle_system_t* saving_system{0};
         local_persist bool show_probes = false;
 
-        if (saving_system) {
-            if (load_save_particle_dialog(imgui, saving_system, load_system)) {
-                saving_system = 0;
+        local_persist f32 rdt_accum{0};
+        local_persist f32 dt_accum{0};
+        local_persist f32 dt_count{0};
+        local_persist f32 rdt_count{0};
+        {
+            if (dt_count > 1000.0f) {
+                dt_count=dt_accum=0.0f;
             }
-        }
+            dt_accum += game_memory->input.dt;
+            dt_count += 1.0f;
 
+            if (rdt_count > 1000.0f) {
+                rdt_count=rdt_accum=0.0f;
+            }
+            rdt_accum += game_memory->input.render_dt;
+            rdt_count += 1.0f;
+            gs_fps = (dt_accum/dt_count) * 1000.0f;
+            // im::text(imgui, fmt_sv("Graphics FPS: {:.2f} - {:.2f} ms", 1.0f / (rdt_accum/rdt_count), (rdt_accum/rdt_count) * 1000.0f));
+        }
         
         local_persist bool show_entities = false;
         local_persist v2f main_pos = {};
@@ -1137,25 +1201,7 @@ draw_gui(game_memory_t* game_memory) {
             local_persist bool show_colors= false;
             local_persist bool show_files[0xff];
             
-            {
-                local_persist f32 dt_accum{0};
-                local_persist f32 dt_count{0};
-                if (dt_count > 1000.0f) {
-                    dt_count=dt_accum=0.0f;
-                }
-                dt_accum += game_memory->input.dt;
-                dt_count += 1.0f;
-
-                local_persist f32 rdt_accum{0};
-                local_persist f32 rdt_count{0};
-                if (rdt_count > 1000.0f) {
-                    rdt_count=rdt_accum=0.0f;
-                }
-                rdt_accum += game_memory->input.render_dt;
-                rdt_count += 1.0f;
-                im::text(imgui, fmt_sv("{:.2f} - {:.2f} ms", 1.0f / (dt_accum/dt_count), (dt_accum/dt_count) * 1000.0f));
-                // im::text(imgui, fmt_sv("Graphics FPS: {:.2f} - {:.2f} ms", 1.0f / (rdt_accum/rdt_count), (rdt_accum/rdt_count) * 1000.0f));
-            }
+            im::text(imgui, fmt_sv("{:.2f} - {:.2f} ms", 1.0f / (dt_accum/dt_count), gs_fps));
 
             local_persist u64 open_tab = 0;
 

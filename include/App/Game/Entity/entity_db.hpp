@@ -223,7 +223,7 @@ bullet_hole {
 
 DB_ENTRY
 bullet_01 {
-    .type = entity_type::bad,
+    .type = entity_type::environment,
     .type_name = "bullet_01",
     .gfx = {
         .mesh_name = "res/models/bullet_01.gltf",
@@ -244,7 +244,7 @@ bullet_01 {
 
 DB_ENTRY
 plasma_bullet {
-    .type = entity_type::bad,
+    .type = entity_type::environment,
     .type_name = "plasma_bullet",
     .gfx = {
         .mesh_name = "res/models/particles/particle_03.gltf",
@@ -266,7 +266,7 @@ plasma_bullet {
 
 DB_ENTRY
 rocket_bullet {
-    .type = entity_type::bad,
+    .type = entity_type::environment,
     .type_name = "rocket_bullet",
     .gfx = {
         .mesh_name = "res/models/guns/rocket_01.gltf",

@@ -33,8 +33,16 @@ struct Material {
 
     float scale;
     float reflectivity;
-    uint padding[2];
+    uint sprite_info; // 4 packed 8bits [index, dimx, dimy]
+    uint pad;
+    // uint padding[2];
 };
+
+void get_sprite_info(out uint index, out uint dimx, out uint dimy) {
+    index = (sprite_info >> 0) & 0xff;
+    dimx = (sprite_info >> 8) & 0xff;
+    dimy = (sprite_info >> 16) & 0xff;
+}
 
 vec4 texture_triplanar(sampler2D tex, vec3 p, vec3 n)
 {

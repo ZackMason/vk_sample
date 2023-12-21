@@ -113,6 +113,7 @@ namespace rendering::lighting {
     constexpr u32 PROBE_MAX_COUNT = 10'000;
     constexpr u32 PROBE_IRRADIANCE_DIM = 8;
     constexpr u32 PROBE_VISIBILITY_DIM = 16;
+    // constexpr u32 PROBE_VISIBILITY_DIM = 24;
     constexpr u32 PROBE_PADDING = 1;
     constexpr u32 PROBE_IRRADIANCE_TOTAL = PROBE_IRRADIANCE_DIM + 2 * PROBE_PADDING;
     constexpr u32 PROBE_VISIBILITY_TOTAL = PROBE_VISIBILITY_DIM + 2 * PROBE_PADDING;
@@ -142,11 +143,7 @@ namespace rendering::lighting {
         
         const u32 visibility_width = probe_box->settings.dim.x * probe_box->settings.dim.y * PROBE_VISIBILITY_TOTAL;
         const u32 visibility_height = probe_box->settings.dim.z * PROBE_VISIBILITY_TOTAL;
-        // const u32 irradiance_width = PROBE_MAX_COUNT_SQRT * PROBE_IRRADIANCE_TOTAL;
-        // const u32 irradiance_height = PROBE_MAX_COUNT_SQRT * PROBE_IRRADIANCE_TOTAL;
-        // const u32 visibility_width = PROBE_MAX_COUNT_SQRT * PROBE_VISIBILITY_TOTAL;
-        // const u32 visibility_height = PROBE_MAX_COUNT_SQRT * PROBE_VISIBILITY_TOTAL;
-        
+
         gfx.create_texture(&probe_box->irradiance_texture, irradiance_width, irradiance_height, 4, 0, 0, 2*4);
         gfx.create_texture(&probe_box->visibility_texture, visibility_width, visibility_height, 4, 0, 0, 2*4);
         gfx.load_texture_sampler(&probe_box->irradiance_texture, true);

@@ -20,6 +20,7 @@ struct blackboard_t {
     utl::hash_trie_t<key_type, i64>* ints=0;
 
     v3f move = {};
+    v3f aim = {};
     f32 time{0.0f};
 
     b32& get_bool(key_type key) {
@@ -644,6 +645,9 @@ struct skull_brain_t {
 struct person_brain_t {
     f32 fear{0.2550f};    
     f32 curiosity{};
+
+    f32 want_to_fire{0.0f};
+
     bt::behavior_tree_t tree;
 };
 
@@ -691,6 +695,27 @@ struct breakpoint_t : public bt::behavior_t {
     }
 };
 
+struct attack_t : public bt::behavior_t {
+    std::string_view name;
+
+    attack_t(std::string_view t = "target") {
+        name = t;
+    }
+
+    virtual bt::behavior_status on_update(blackboard_t* blkbrd) override {
+        auto* target = utl::hash_get(&blkbrd->points, name, blkbrd->arena);
+        auto* self = utl::hash_get(&blkbrd->points, "self"sv, blkbrd->arena);
+        
+        if (target && self) {
+            v3f delta = *target - *self;
+            blkbrd->aim = delta;
+
+            return bt::behavior_status::SUCCESS;
+        }        
+        return bt::behavior_status::FAILURE;
+    }
+};
+
 struct move_toward_t : public bt::behavior_t {
     std::string_view text;
 
@@ -705,8 +730,22 @@ struct move_toward_t : public bt::behavior_t {
         auto* self = utl::hash_get(&blkbrd->points, "self"sv, blkbrd->arena);
         
         if (target && self) {
+            DEBUG_DIAGRAM(*target);
+            DEBUG_DIAGRAM(*self);
+
             v3f delta = *target - *self;
-            blkbrd->move = delta;
+            math::ray_t move_ray;
+            move_ray.origin = *self;
+            move_ray.direction = delta;
+            DEBUG_DIAGRAM(move_ray);
+
+            auto distance = glm::length(delta);
+            if (distance > 2.0f) {
+                blkbrd->move = delta;
+            } else {
+                blkbrd->move = -math::clamp_length(delta, 2.0f, 6.0f);
+            }
+            // DEBUG_DIAGRAM(fmt_sv("Distance: {}\nMove: {}", distance, blkbrd->move));
 
             return bt::behavior_status::SUCCESS;
         }        

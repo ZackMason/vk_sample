@@ -574,11 +574,13 @@ physx_sphere_overlap_world(const api_t* api, arena_t* arena, v3f o, f32 radius, 
     bool status = ps->world->scene->overlap(sphere, pos, hit, filter);
 
     if (status) {
-        auto* buffer = push_struct<overlap_hitbuffer_t>(arena);
+        tag_struct(auto* buffer, overlap_hitbuffer_t, arena);
+        tag_array(buffer->hits, overlap_hit_t, arena, hit.getNbTouches());
+        
         range_u32(i, 0, hit.getNbTouches()) {
-            auto* r = push_struct<overlap_hit_t>(arena);
+            auto* r = buffer->hits + i;
             r->user_data = hit.getTouch(i).actor->userData;
-            if (buffer->hits==nullptr) buffer->hits = r;
+            
             buffer->hit_count++;
         }
         return buffer;

@@ -29,6 +29,7 @@ void entity_blackboard_common(zyy::entity_t* entity) {
 
 BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto* input = &world->game_state->input();
+    auto* audio = world->game_state->sfx;
     auto& imgui = world->game_state->gui.imgui;
     auto pc = input->gamepads[0].is_connected ? gamepad_controller(input) : keyboard_controller(input);
     auto* physics = world->physics;
@@ -36,12 +37,19 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto* rigidbody = player->physics.rigidbody;
     const bool is_on_ground = rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
     const bool is_on_wall = rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
+    const bool is_in_air = !is_on_ground && !is_on_wall;
     const bool ignore_mouse = gfx::gui::im::want_mouse_capture(imgui) || gs_debug_camera_active;
     const bool ignore_keyboard = gfx::gui::im::want_mouse_capture(imgui) || gs_debug_camera_active;
 
     auto& cc = player->camera_controller;
 
-    if (pc.swap) {
+    if (!is_in_air && cc.air_time > 0.2f) {
+        world->game_state->sfx->emit_event(sound_event::land_dirt);
+    } 
+
+    cc.update(dt, is_in_air);
+
+    if (pc.swap && cc.hands_stable()) {
         if (player->primary_weapon.entity) {
             player->primary_weapon.entity->transform.origin.y -= 10000.0f;
         }
@@ -50,13 +58,15 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
             player->secondary_weapon.entity
         );
 
-        cc.emote1();
+        if (player->primary_weapon.entity) {
+            cc.emote1();
+        }
     }
 
-    if (pc.inv1) { std::swap(player->inventory.items.data[0].entity, player->primary_weapon.entity); cc.emote1(); }
-    if (pc.inv2) { std::swap(player->inventory.items.data[1].entity, player->primary_weapon.entity); cc.emote1(); }
-    if (pc.inv3) { std::swap(player->inventory.items.data[2].entity, player->primary_weapon.entity); cc.emote1(); }
-    if (pc.inv4) { std::swap(player->inventory.items.data[3].entity, player->primary_weapon.entity); cc.emote1(); }
+    if (pc.inv1 && cc.hands_stable()) { std::swap(player->inventory.items.data[0].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); }
+    if (pc.inv2 && cc.hands_stable()) { std::swap(player->inventory.items.data[1].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); }
+    if (pc.inv3 && cc.hands_stable()) { std::swap(player->inventory.items.data[2].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); }
+    if (pc.inv4 && cc.hands_stable()) { std::swap(player->inventory.items.data[3].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); }
     
 
     if (pc.iron_sight) {
@@ -146,6 +156,8 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     }
 
     if (pc.jump && cc.can_jump() && (is_on_ground || is_on_wall)) {
+        audio->emit_event(sound_event::jump_dirt);
+
         cc.just_jumped();
         rigidbody->velocity.y = 0.3f;// 50.0f * dt;
         cc.hand_velocity += axis::up;
@@ -160,29 +172,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     cc.translate(v3f{0.0f});
 
     cc.hand_velocity += 55.0f * axis::right * cc.right_offset * dt;
-
-    auto& hand_pid_x = player->camera_controller.hand_controller.x;
-    auto& hand_pid_y = player->camera_controller.hand_controller.y;
-    auto& hand_pid_z = player->camera_controller.hand_controller.z;
-    DEBUG_WATCH(&hand_pid_x.proportional_gain);
-    DEBUG_WATCH(&hand_pid_y.proportional_gain);
-    DEBUG_WATCH(&hand_pid_z.proportional_gain);
-    DEBUG_WATCH(&hand_pid_x.derivative_gain);
-    DEBUG_WATCH(&hand_pid_x.derivative_gain);
-    DEBUG_WATCH(&hand_pid_y.derivative_gain);
-    DEBUG_WATCH(&hand_pid_y.integral_gain);
-    DEBUG_WATCH(&hand_pid_z.integral_gain);
-    DEBUG_WATCH(&hand_pid_z.integral_gain);
-
-    // if(player->primary_weapon.entity) {
-    //     auto fforward = -player->primary_weapon.entity->transform.basis[2];
-    //     player->primary_weapon.entity->transform.origin += 
-    //         player->camera_controller.hand_controller.compute(dt,
-    //             player->primary_weapon.entity->transform.origin,
-    //             player->global_transform().origin +
-    //             forward + axis::up * 0.3f);
-    //     player->camera_controller.last_position = player->primary_weapon.entity->transform.origin;
-    // }
+    cc.hand_angular_velocity.z -= 155.0f * cc.right_offset * dt;
 
     const auto hand_return_force = -cc.hand * 20.0f;
     cc.hand_velocity += hand_return_force * dt;
@@ -198,6 +188,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     cc.hand_angular_velocity = tween::damp(cc.hand_angular_velocity, v3f{0.0f}, 5.0f, dt);
 
     if (stepped) {
+        audio->emit_event(sound_event::footstep_dirt);
         // Platform.audio.play_sound(0x1);
         cc.hand_velocity += 1.0f * axis::up;
         cc.hand_velocity += 0.3f * axis::right * utl::rng::random_s::randn();
@@ -234,6 +225,9 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         auto weapon_forward = -weapon_entity->global_transform().basis[2];
 
         range_u64(bullet, 0, fired) {
+            auto sound = audio->emit_event(sound_event::arcane_bolt);
+            // sound->setParameterByName("PitchVariance", utl::rng::random_s::randf() * 3.0f);
+
             auto ro = weapon_entity->global_transform().origin + weapon_forward * 1.7f;
             auto r_angle = utl::rng::random_s::randf() * 1000.0f;
             auto r_radius = utl::rng::random_s::randf() * bullets[bullet].spread;

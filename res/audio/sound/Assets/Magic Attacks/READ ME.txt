@@ -1,0 +1,64 @@
+
+
+
+
+
+
+HOW TO USE THESE FILES
+
+Contained within this library are over 90 separate tracks designed to be magical attacks. With some creativity, the individual layers of each sound can be used for other things as well.
+
+
+
+
+
+NAMING CONVENTIONS
+
+The files are named by “Spell type_Effect_Timing” or in some cases “Spell type_Timing.” As an example: Slime_Splat_Impact3, would be the 3rd copy of the splat portion of the slime impact sound. Any files with an “F#” is the full version of that sound effect that I have designed as: Slime_AttackF2.
+
+
+
+
+
+FULL EFFECTS AND BUILDING BLOCKS
+
+In addition to the full sound effects for each of the spells, I have included each layer of the effects so that you may use these building blocks to put together your own effects, or make changes to my designs as you see fit.
+
+
+
+
+
+USE IN INTERACTIVE MEDIA
+
+I have included 3 varieties of each sound (with some exceptions) to aid in creating variety when it comes to interactive media such as video games. Using the full effects as is, each time a spell attack is triggered, there are 3 attack sounds to choose from. Another way to add variety would be to separate each of the layers, and randomly generate which layer is playing, thus having each layer played in a different order in a different combination.
+
+
+
+
+
+
+
+
+SOUND FILE DESCRIPTIONS
+
+Here I will quickly describe what each of the full effect files contains so that you may take apart and put back together these files as you see fit.
+
+Arcane_Attack- These 3 attack files are made up of the Arcane_Noise_Attack file as well as variations of the Arcane_Breath_Buildup, Arcane_Chimes_Buildup and Arcane_Scrape_Buildup sounds.
+
+Arcane_Buildup- Same as above but instead of Arcane_Noise_Attack it uses Arcane_Noise_Buildup.
+
+Arcane_Impact- These 3 impact sounds consist of Arcane_Shine_Impact, Arcane_Sizzle_Impact, and Arcane_Slap_Impact.
+
+Fire_Attack- 3 files that consist of Fire_Crackle_Attack and Fire_Roar_Attack.
+
+Fire_Impact- 3 files that consist of Fire_Crackle_Impact and Fire_Roar_Impact.
+
+Ice_Attack- These are singular files that don't contain any other layers.
+
+Ice_Buildup- There are 6 complete versions of this file. 3 of these files are straight while the other 3  pitch bend upwards for some added options and variety. All of these files contain Ice_Crackle_Buildup and Ice_Noise_Buildup.
+
+Ice_Impact- These 3 files contain Ice_GlassBreak_Impact, Ice_Squeeze, and Ice_Wind_Impact.
+
+Slime_Attack- 3 files containing Slime_HighWobble_Attack, Slime_LowWobble_Attack, Slime_MidWobble_Attack, 
+
+Slime_Impact- 3 files containing Slime_HighWobble_Impact, Slime_LowWobble_Impact, Slime_Sizzle_Impact, and Slime_Splat_Impact

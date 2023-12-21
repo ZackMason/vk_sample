@@ -3,6 +3,7 @@
 
 #include "App/vk_state.hpp"
 
+#define STBI_ASSERT(x) assert(x)
 #include <vendor/stb/stb_image.h>
 
 #include <fstream>

@@ -42,3 +42,7 @@ libs.ninja
 .ninja_deps
 *.pdb
 *.replay
+
+res/audio/sound/.*/
+res/audio/sound/Metadata/
+profiles/
