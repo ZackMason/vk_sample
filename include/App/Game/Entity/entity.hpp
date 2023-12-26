@@ -50,6 +50,8 @@ struct entity_t {
 
     inventory_t inventory = {};
 
+    fmod_sound::sound_instance_t* attached_sound = nullptr;
+
     void dirty_transform() {
         flags |= EntityFlags_DirtyTransform;
         

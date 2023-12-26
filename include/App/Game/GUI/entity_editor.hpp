@@ -118,7 +118,7 @@ struct instanced_prefab_t {
     u32 instance_offset = 0;
     m44* instances = 0;
     rendering::instance_extra_data_t* instance_colors = 0;
-    u32 dynamic = 0;
+    u32 dynamic = 0; // 1bit is_dynamic 2bit double buffered
 
     std::pair<m44*, rendering::instance_extra_data_t*> dynamic_instances() {
         if (dynamic & 2) {
@@ -472,6 +472,18 @@ struct entity_editor_t {
 
     instanced_prefab_t* copy_prefab(instanced_prefab_t* what) {
         auto* prefab = instance_prefab(what->prefab, what->transform);
+
+        if (prefab->prefab.emitter) {
+            if (prefab->prefab.emitter->particle_color._type == gfx::color::color_variant_type::gradient) {
+                prefab->prefab.emitter->particle_color.gradient.count = 0;
+                prefab->prefab.emitter->particle_color.gradient.add(
+                    &arena,
+                    what->prefab.emitter->particle_color.gradient.colors,
+                    what->prefab.emitter->particle_color.gradient.positions,
+                    what->prefab.emitter->particle_color.gradient.count
+                );
+            }
+        }
         
         selection = prefab;
         entity = &prefab->prefab;
@@ -750,7 +762,7 @@ save_world_window(
             im::end_scroll_rect(imgui, &scroll, &rect);
         };
         
-        for (const auto& entry : std::filesystem::recursive_directory_iterator("./")) {
+        for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/worlds/")) {
             auto filename = entry.path().string();
             if (entry.is_directory()) {
                 continue;
@@ -1589,7 +1601,7 @@ entity_editor_render(entity_editor_t* ee) {
 
 
             uint_prop(max_count);
-            uint_prop(world_space);
+            uint_prop(flags);
 
             float_prop(template_particle.life_time);
             color_prop(template_particle.color);
@@ -2079,7 +2091,7 @@ entity_editor_render(entity_editor_t* ee) {
         if (ee->selection.mode == selection_mode::scale) {
             auto [released, _start] = im::gizmo_scale(imgui, ee->selection, ee->selection, rs->projection * rs->view, ee->snapping);
             if (released) {
-                if (shift_held && ee->selection.prefab) {
+                if (want_to_copy && ee->selection.prefab) {
                     auto* dragged = ee->selection.prefab;
                     auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
                     dragged->transform.basis = imgui.gizmo_basis_start;
@@ -2090,7 +2102,7 @@ entity_editor_render(entity_editor_t* ee) {
         } else if (ee->selection.mode == selection_mode::rotation) {
             auto [released, _start] = im::gizmo_rotate(imgui, ee->selection, ee->selection, rs->projection * rs->view, ee->snapping);
             if (released) {
-                if (shift_held && ee->selection.prefab) {
+                if (want_to_copy && ee->selection.prefab) {
                     auto* dragged = ee->selection.prefab;
                     auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
                     dragged->transform.basis = imgui.gizmo_basis_start;
@@ -2102,7 +2114,7 @@ entity_editor_render(entity_editor_t* ee) {
             auto space = ee->mode ? im::gizmo_mode::global : im::gizmo_mode::local;
             auto [released, start] = im::gizmo(imgui, ee->selection, rs->projection * rs->view, ee->snapping, ee->selection.basis?*ee->selection.basis:m33{1.0f}, space);
             if (released) {
-                if (shift_held && ee->selection.prefab) {
+                if (want_to_copy && ee->selection.prefab) {
                     auto* dragged = ee->selection.prefab;
                     auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
                     dragged->transform.origin = start;
@@ -2226,15 +2238,18 @@ entity_editor_update(entity_editor_t* ee) {
                 p->prefab.emitter->max_count = std::min(p->prefab.emitter->max_count, p->instance_count);
                 *(particle_system_settings_t*)p->particle_system = *p->prefab.emitter;
 
-                auto* instances = p->instances;
-                if (p->dynamic & 2) {
-                    instances = instances + p->instance_count;
-                }
+                // auto* instances = p->instances;
+                // auto* color_instances = p->instance_colors;
+                auto [instance, color_instances] = p->dynamic_instances();
+                // if (p->dynamic & 2) {
+                //     instances = instances + p->instance_count;
+                //     color_instances = color_instances + p->instance_count;
+                // }
                 auto transform = p->transform.to_matrix();
                 particle_system_update(p->particle_system, transform, dt);
-                particle_system_sort_view(p->particle_system, transform, ee->camera.position, ee->camera.forward());
-                particle_system_build_matrices(p->particle_system, p->transform.to_matrix(), p->instances, p->instance_count);
-                particle_system_build_colors(p->particle_system, p->instance_colors, p->instance_count);
+                // particle_system_sort_view(p->particle_system, transform, ee->camera.position, -ee->camera.forward());
+                particle_system_build_matrices(p->particle_system, p->transform.to_matrix(), instance, p->instance_count);
+                particle_system_build_colors(p->particle_system, color_instances, p->instance_count);
             }
         }
         draw(p->prefab, p->transform.to_matrix(), p->gfx_id, p->gfx_entity_count, p);
@@ -2256,7 +2271,6 @@ entity_editor_update(entity_editor_t* ee) {
             1,
             0
         );
-
     }
 
 

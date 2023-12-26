@@ -81,7 +81,7 @@ void main()
     vec4 instance_color = vec4(1.0);
 
     if (instance.instance_id != 0xffffffff) {
-        instance_color = uInstanceDataExt.data[nonuniformEXT(instance.instance_id)].color;
+        instance_color.rgb = uInstanceDataExt.data[(instance.instance_id)].color.rgb;
     }
     
     uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;
@@ -134,7 +134,7 @@ void main()
 
 
     if (shadowed) {
-        shadow = 0.0001530000113;
+        shadow = 0.000000530000113;
     }
     
     data.distance = 0.0;
@@ -143,8 +143,15 @@ void main()
     Surface start_surface;
     start_surface.normal = wn;
     start_surface.point = wp;
+    start_surface.view = direction;
+
+    start_surface.base_color = vec4(1);
+    start_surface.alpha = (albedo.a * material.albedo.a);
     start_surface.albedo = (albedo.rgb * material.albedo.rgb);
-    start_surface.emissive = material.emission * material.albedo.rgb;
+    start_surface.emissive = material.emission * albedo.rgb * material.albedo.rgb;
+    start_surface.metallic = material.metallic;
+    start_surface.roughness = material.roughness;
+    start_surface.occlusion = 1.0;
 
     // DirectionalLight sun = uEnvironment.sun;
     // sun.color.rgb = sqrt(sqrt(max(vec3(0.0), sky_color(direction.xyz, sun.direction.xyz))));

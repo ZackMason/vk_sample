@@ -181,13 +181,14 @@ vec3 paletize(vec3 rgb, float n) {
     return floor(rgb*(n-1.0)+0.5)/(n-1);
 }
 
-
 void
 main( )
 {
 	TotalLight light_solution = InitLightSolution();
 
 	vec3 rgb = vec3(0.0);
+	vec4 base_color = vDrawColor;
+
 	Material material = uMaterialBuffer.materials[vMatId];
 
 	uint lit_material = material.flags & MATERIAL_LIT;
@@ -195,7 +196,7 @@ main( )
 	float reflectivity = material.reflectivity;
 
 	uint triplanar_material = material.flags & MATERIAL_TRIPLANAR;
-
+	bool additive_emission = (material.flags & MATERIAL_EMISSIVE_ADDITIVE) > 0;
 	int mode = Sporadic.uMode;
 
 	mode = mode == 1 && vAlbedoId == (0xffffffff % 4096) ? 0 : mode;
@@ -203,7 +204,7 @@ main( )
 	switch(mode)
 	{
 		case 0:
-			rgb = material.albedo.rgb;
+			base_color *= material.albedo;
 			break;
 
 		case 1:
@@ -211,12 +212,12 @@ main( )
 			vec4 albedo = (triplanar_material > 0) ? 
 				texture_triplanar(uSampler[vAlbedoId], vWorldPos * 0.5, vN).rgba :
 				texture( uSampler[vAlbedoId], vTexCoord ).rgba;
-			rgb = albedo.rgb * material.albedo.rgb;
-			alpha = albedo.a * material.albedo.a;
+			base_color *= albedo * material.albedo;
+			// alpha = albedo.a * material.albedo.a;
 			break;
 
 		case 2:
-			rgb = material.albedo.rgb;
+			base_color *= material.albedo;
 			// rgb = PushConstants.uCol.rgb;
 			
 			// rgb = ObjectConstants.albedo.rgb;
@@ -235,7 +236,7 @@ main( )
 		// light_solution.indirect.diffuse = vec3(0.2, 0.23, 0.4) ;
 		vec2 water_uv = vTexCoord * 10.0;
 		if (triplanar_material > 0) {
-			water_uv = vWorldPos.xz / 4.0f;
+			water_uv = vWorldPos.xz * 2.0f;
 		}
 
 		float water_dist = saturate(depth/25.0f);
@@ -244,23 +245,21 @@ main( )
 		// water_noise = mix(water_noise, 1.0, saturate(depth/25.0f));
 		// water_noise = smoothstep(0.2, 0.25, water_noise);
 
-		rgb = mix(material.albedo.rgb * 1.4, material.albedo.rgb * 1.6, water_noise);
+		base_color.rgb = mix(material.albedo.rgb * 1.4, material.albedo.rgb * 1.6, water_noise);
+		alpha = 1.0;
 		// rgb = mix(material.albedo.rgb * 1.4, material.albedo.rgb * 1.6, water_noise * (1.0 - water_dist));
 		// float steps = 24.0;
 		// rgb = paletize(rgb, steps);
 	}
 
+
 	vec3 V = normalize(vCameraPos.xyz - vWorldPos);
 	
-	vec3 albedo = sqr(rgb) * sqr(vDrawColor.rgb);
-	// vec3 albedo = mix(rgb, sqr(vDrawColor.rgb), 0.5);
-
-	// alpha *= vDrawColor.a;
+	vec3 albedo = base_color.rgb;
+	alpha = base_color.a;
 	
-	if (alpha < 0.15) { discard; }
-	// albedo = pow(albedo, vec3(1.0/2.2));
-
-
+	// if (alpha < 0.15) { discard; }
+	
 	float metallic = material.metallic;
 	float roughness = material.roughness;
 
@@ -293,19 +292,25 @@ main( )
 	float ev100 = exposure_settings(aperture, shutter_speed, sensitivity);
 	float expo = exposure(ev100);
 
-
 	Surface surface;
 	surface.point = vWorldPos;
 	surface.normal = N;
+	surface.view = V;
+
+	surface.f0 = F0;
+	surface.base_color = vec4(1);
+	surface.alpha = alpha;
 	surface.albedo = (albedo.rgb);
 	surface.roughness = roughness;
-	surface.emissive = surface.albedo * material.emission;
+	surface.metallic = metallic;
+	surface.emissive = sqr(surface.albedo) * step(0.5, material.emission) * 100.0;
+	surface.occlusion = 1.0;
 
 	// light_solution.direct.diffuse += max(0.0, NoL);
-	
 
-	if (lit_material > 0) {
-		
+	rgb = vec3(0.0);
+	if (lit_material > 0) 
+	{
 		if ((Sporadic.uLightInfo & 1) == 1) {
 			light_solution.indirect.diffuse += light_probe_irradiance(vWorldPos, V, N, probe_settings) * 1.0;
 		} else {
@@ -314,17 +319,18 @@ main( )
 			light_solution.direct.diffuse = surface.albedo * max(nol, uEnvironment.ambient_strength) + uEnvironment.ambient_color.rgb;
 		}
 
-		rgb = vec3(0.0);
 		apply_light(surface, light_solution, rgb);
 		// rgb *= expo;
 	} else {
-		rgb = sqr(surface.albedo) * (material.emission*40.0);// * pow(2, ev100 + material.emission - 3.0) * expo;
+		apply_light(surface, light_solution, rgb);
+		// rgb = (surface.albedo) * (material.emission*40.0);// * pow(2, ev100 + material.emission - 3.0) * expo;
+		// alpha = base_color.a;
 		// rgb = sqr(surface.emissive) * 10.0;
-
 		// rgb = material.albedo * material.emission * 1.0;
 		// rgb = sqr(rgb);
 	}
 	
+	// if (false)
 	{
 		vec3 reflected_view = reflect(-V, N);
 
@@ -333,10 +339,9 @@ main( )
 
 	if (water_material != 0) {
 		float steps = 24.0;
-		// rgb = paletize(rgb, steps);
+		rgb = paletize(rgb, steps);
 	}
 
-    
 	rgb = apply_environment(rgb, depth, vCameraPos.xyz, V, uEnvironment);
 	
 	// rgb = V;
@@ -345,9 +350,14 @@ main( )
  
 	// rgb = env;	
 
-	// rgb = env / 2.0f;	
 
-	// fFragColor = vec4( rgb, alpha * alpha * alpha);
+
+	// rgb = env / 2.0f;	
+		
+	// alpha = 1.0;// saturate(alpha);
+	alpha = saturate(alpha);
+
+	fFragColor = vec4( rgb, alpha * alpha);
 	fFragColor = vec4( rgb, (alpha));
 }
 

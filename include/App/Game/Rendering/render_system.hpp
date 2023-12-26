@@ -1027,7 +1027,7 @@ public:
         rs->postprocess_params.data[0] = 0.0f; // tonemap
         rs->postprocess_params.data[1] = 1.0f; // exposure
         rs->postprocess_params.data[2] = 1.0f; //contrast
-        rs->postprocess_params.data[3] = 1.0f; // gamma
+        rs->postprocess_params.data[3] = 2.2f; // gamma
         // rs->postprocess_params.data[4] = 24.0f; // number of colors
         rs->postprocess_params.data[4] = 0.0f; // number of colors
         rs->postprocess_params.data[5] = 0.0f; // pixelate
@@ -1315,8 +1315,8 @@ public:
         for (size_t i = 0; i < meshes->count; i++) {
             if (rtx_on) {
                 for (u32 j = 0; j < instance_count; j++) { 
-                    // auto instance = push_instance(rs, gfx_id + (u32)i, instance_count > 1 ? instance_offset + j : 0xffff'ffff);
-                    auto instance = push_instance(rs, gfx_id + (u32)i, instance_offset + j);
+                    auto instance = push_instance(rs, gfx_id + (u32)i, instance_count > 1 ? instance_offset + j : 0xffff'ffff);
+                    // auto instance = push_instance(rs, gfx_id + (u32)i, instance_offset + j);
                     rs->get_frame_data().rt_compute_pass.add_to_tlas(
                         *rs->vk_gfx,
                         *rs->rt_cache,

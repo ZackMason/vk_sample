@@ -20,12 +20,6 @@ global_variable program_context_t global_context{};
 
 global_variable f32 bloom_filter_radius = 0.0025f;
 
-#undef assert
-#define assert(expr) do { if (!(expr)) { zyy_warn(__FUNCTION__, "{}", #expr); DEBUG_STATE.alert(fmt_sv("Assertion Failed: {}:{} - {}", ::utl::trim_filename(__FILE__), __LINE__, #expr)); } } while(0)
-#define assert_false(expr) do { assert((expr)); if(!(expr)) return false; } while (0)
-#define assert_true(expr) do { assert((expr)); if(!(expr)) return true; } while (0)
-#define assert_continue(expr) if(!(expr)) { assert(!#expr); continue; }
-
 
 // #undef zyy_warn
 // #undef zyy_info

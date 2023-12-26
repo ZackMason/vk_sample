@@ -35,10 +35,19 @@ namespace zyy::wep {
         return ps;
     }
 
+    // export_fn(zyy::entity_t*) knife_attack(
+    //     zyy::world_t* world,
+    //     const zyy::prefab_t& _prefab,
+    //     bullet_t bullet
+    // ) {
+
+    //     return 0;
+    // }
+
     export_fn(zyy::entity_t*) sword_attack(
         zyy::world_t* world,
         const zyy::prefab_t& _prefab,
-        bullet_t bullet        
+        bullet_t bullet
     ) {
         const zyy::prefab_t prefab{
             .type_name = "sword_attack",
@@ -92,6 +101,8 @@ namespace zyy::wep {
 
         bullet_entity->coroutine->start();
         bullet_entity->add_child(spawn_puff(world, bullet.ray.origin, 10));
+
+        bullet_entity->attached_sound = world->game_state->sfx->emit_event(sound_event::arcane_bolt, bullet.ray.at(0.5f));
 
         return bullet_entity;
     }

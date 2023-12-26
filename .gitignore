@@ -44,5 +44,6 @@ libs.ninja
 *.replay
 
 res/audio/sound/.*/
+res/audio/sound/Assets/
 res/audio/sound/Metadata/
 profiles/

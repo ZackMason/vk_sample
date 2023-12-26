@@ -11,7 +11,20 @@ namespace zyy::item {
 };
 
 namespace zyy::wep {
-  
+    enum WeaponType {
+        WeaponType_Sword,
+        WeaponType_Wand,
+
+        WeaponType_Rifle,
+        WeaponType_Shotgun,
+        WeaponType_RPG,
+    };
+
+    enum ProjectileType {
+        ProjectileType_MagicOrb,
+        ProjectileType_Bullet,
+        ProjectileType_Rocket,
+    };
 
     struct ammo_mag_t {
         u32 current{};
@@ -23,7 +36,6 @@ namespace zyy::wep {
         f32 pen{};
         f32 spread{};
     };
-
 
     struct weapon_action_t {
         f32 fire_time{};

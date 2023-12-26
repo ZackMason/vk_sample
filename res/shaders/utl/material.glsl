@@ -11,11 +11,13 @@ struct IndirectIndexedDraw {
     uint     object_id;
 };
 
-#define MATERIAL_LIT       1
-#define MATERIAL_TRIPLANAR 2
-#define MATERIAL_BILLBOARD 4
-#define MATERIAL_WIND      8
-#define MATERIAL_WATER    16
+#define MATERIAL_LIT               1
+#define MATERIAL_TRIPLANAR         2
+#define MATERIAL_BILLBOARD         4
+#define MATERIAL_WIND              8
+#define MATERIAL_WATER             16
+#define MATERIAL_EMISSIVE_ADDITIVE 32
+#define MATERIAL_PARTICLE          64
 
 struct Material {
 	vec4 albedo;

@@ -28,12 +28,23 @@ struct flat_particle_system_t {
     particle_t particles[1024];
 };
 
+enum ParticleSettingsFlags : u32 {
+    ParticleSettingsFlags_None = 0,
+    ParticleSettingsFlags_WorldSpace    = 1 << 0,
+    ParticleSettingsFlags_SampleOnSpawn = 1 << 1,
+    ParticleSettingsFlags_AdditiveBlend = 1 << 2,
+};
+
 struct particle_system_settings_t {
     u64 VERSION{4};
 
     particle_t template_particle;
 
-    b32 world_space{0};
+    u32 flags{0}; // sneak added @Version 4
+    // u32 world_space{0}; // sneak @Version 4
+    b32 is_world_space() const {
+        return (flags & ParticleSettingsFlags_WorldSpace) > 0;
+    }
 
     u32 max_count{1024};
 
@@ -63,7 +74,7 @@ template<>
 void utl::memory_blob_t::serialize<particle_system_settings_t>(arena_t* arena, const particle_system_settings_t& settings) {
     serialize(arena, particle_system_settings_t{}.VERSION);
     serialize(arena, settings.template_particle);
-    serialize(arena, settings.world_space);
+    serialize(arena, settings.flags);
     serialize(arena, settings.max_count);
     serialize(arena, settings.aabb);
     serialize(arena, settings.acceleration);
@@ -115,10 +126,11 @@ utl::memory_blob_t::deserialize<particle_system_settings_t>(arena_t* arena) {
             if (settings.VERSION <= 3) {
                 utl::copy(&settings.template_particle, data+read_offset, v3_particle_size);
                 advance(v3_particle_size);
+                settings.template_particle.color.a = 1.0f;
             } else {
                 DESER(template_particle);
             }
-            DESER(world_space);
+            DESER(flags);
             DESER(max_count);
             DESER(aabb);
             DESER(acceleration);
@@ -272,7 +284,7 @@ particle_system_spawn(
     particle_system_t* system,
     const m44& transform
 ) {
-    const b32 world_space = system->world_space;
+    const b32 world_space = system->is_world_space();
     // const m44 world_inv = glm::inverse(transform);
 
     auto* particle = system->particles.data + system->live_count++;
@@ -392,7 +404,7 @@ particle_system_build_matrices(
 ) {
     assert(system->live_count <= matrix_count);
 
-    const b32 world_space = system->world_space;
+    const b32 world_space = system->is_world_space();
 
     range_u32(i, 0, system->live_count) {
         auto* particle = system->particles.data + i;
@@ -415,7 +427,7 @@ particle_system_sort_view(
     const m44& transform,
     v3f camera_pos, v3f camera_forward
 ) {
-    const b32 world_space = system->world_space;
+    const b32 world_space = system->is_world_space();
 
     std::span<particle_t> view{system->particles.data, system->live_count};
 

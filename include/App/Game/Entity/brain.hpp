@@ -308,9 +308,13 @@ struct condition_t : public behavior_t {
     std::string_view name;
     virtual behavior_status on_update(blackboard_t* blkbrd) override {
         auto* var = utl::hash_get(&blkbrd->bools, name);
-        assert(var);
-        if (var && *var) {
-            return behavior_status::SUCCESS;
+        if (var) {
+            if (*var) {
+                return behavior_status::SUCCESS;
+            }
+        } else {
+            assert(var);
+            FLOG("Variable: {} is not in the blackboard", name);
         }
         return behavior_status::FAILURE;
     }
@@ -816,6 +820,7 @@ person_init(arena_t* arena, brain_t* brain) {
         .end();
 
     brain->person.tree = builder.tree;
+    brain->person.tree.blackboard = &brain->blackboard;
 }
 
 static void

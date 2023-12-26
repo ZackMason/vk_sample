@@ -34,22 +34,27 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto pc = input->gamepads[0].is_connected ? gamepad_controller(input) : keyboard_controller(input);
     auto* physics = world->physics;
     auto* player = entity;
+    auto world_position = entity->global_transform().origin;
     auto* rigidbody = player->physics.rigidbody;
     const bool is_on_ground = rigidbody->flags & physics::rigidbody_flags::IS_ON_GROUND;
     const bool is_on_wall = rigidbody->flags & physics::rigidbody_flags::IS_ON_WALL;
     const bool is_in_air = !is_on_ground && !is_on_wall;
+    // todo seperate
     const bool ignore_mouse = gfx::gui::im::want_mouse_capture(imgui) || gs_debug_camera_active;
     const bool ignore_keyboard = gfx::gui::im::want_mouse_capture(imgui) || gs_debug_camera_active;
+    const bool do_input = !ignore_mouse && !ignore_keyboard;
 
     auto& cc = player->camera_controller;
 
     if (!is_in_air && cc.air_time > 0.2f) {
-        world->game_state->sfx->emit_event(sound_event::land_dirt);
+        world->game_state->sfx->emit_event(sound_event::land_dirt, world_position);
     } 
 
     cc.update(dt, is_in_air);
 
-    if (pc.swap && cc.hands_stable()) {
+    if (do_input && pc.swap && cc.hands_stable()) {
+        world->game_state->sfx->emit_event(sound_event::swap_weapon, world_position);
+
         if (player->primary_weapon.entity) {
             player->primary_weapon.entity->transform.origin.y -= 10000.0f;
         }
@@ -63,13 +68,14 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         }
     }
 
-    if (pc.inv1 && cc.hands_stable()) { std::swap(player->inventory.items.data[0].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); }
-    if (pc.inv2 && cc.hands_stable()) { std::swap(player->inventory.items.data[1].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); }
-    if (pc.inv3 && cc.hands_stable()) { std::swap(player->inventory.items.data[2].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); }
-    if (pc.inv4 && cc.hands_stable()) { std::swap(player->inventory.items.data[3].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); }
-    
+    if (do_input) {
+        if (pc.inv1 && cc.hands_stable()) { std::swap(player->inventory.items.data[0].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); world->game_state->sfx->emit_event(sound_event::swap_weapon, world_position); }
+        if (pc.inv2 && cc.hands_stable()) { std::swap(player->inventory.items.data[1].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); world->game_state->sfx->emit_event(sound_event::swap_weapon, world_position); }
+        if (pc.inv3 && cc.hands_stable()) { std::swap(player->inventory.items.data[2].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); world->game_state->sfx->emit_event(sound_event::swap_weapon, world_position); }
+        if (pc.inv4 && cc.hands_stable()) { std::swap(player->inventory.items.data[3].entity, player->primary_weapon.entity); if (player->primary_weapon.entity) cc.emote1(); world->game_state->sfx->emit_event(sound_event::swap_weapon, world_position); }
+    }
 
-    if (pc.iron_sight) {
+    if (do_input && pc.iron_sight) {
         cc.hand_offset = cc.aim_fire;
     } else {
         cc.hand_offset = cc.hip_fire;
@@ -113,11 +119,11 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         wishdir = glm::normalize(wishdir);
     }
 
-    local_persist f32 max_ground_speed = 3.60f; DEBUG_WATCH(&max_ground_speed)->max_f32 = 10.0f;
-    local_persist f32 max_air_speed = 0.3f; DEBUG_WATCH(&max_air_speed)->max_f32 = 4.0f;
-    local_persist f32 ground_accel = 2.2f; DEBUG_WATCH(&ground_accel)->max_f32 = 6.0f; // source engine 5.6 default
-    local_persist f32 air_accel = 0.5f; DEBUG_WATCH(&air_accel)->max_f32 = 3.0f;
-    local_persist f32 friction = 9.1f; DEBUG_WATCH(&friction)->max_f32 = 10.0f;
+    local_persist f32 max_ground_speed = 3.60f; DEBUG_WATCH(&max_ground_speed); //->max_f32 = 10.0f;
+    local_persist f32 max_air_speed = 0.3f; DEBUG_WATCH(&max_air_speed); //->max_f32 = 4.0f;
+    local_persist f32 ground_accel = 2.2f; DEBUG_WATCH(&ground_accel); //->max_f32 = 6.0f; // source engine 5.6 default
+    local_persist f32 air_accel = 0.5f; DEBUG_WATCH(&air_accel); //->max_f32 = 3.0f;
+    local_persist f32 friction = 9.1f; DEBUG_WATCH(&friction); // ->max_f32 = 10.0f;
     local_persist f32 gravity_strength = 1.0f; DEBUG_WATCH(&gravity_strength);
     f32 max_speed = is_on_ground ? max_ground_speed : max_air_speed;
     f32 accel = is_on_ground ? ground_accel : air_accel;
@@ -151,12 +157,13 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
 
     rigidbody->angular_velocity = v3f{0.0f};
 
-    if (pc.emote) {
+    if (do_input && pc.emote) {
         cc.emote1();
+        world->game_state->sfx->emit_event(sound_event::swap_weapon, world_position);
     }
 
-    if (pc.jump && cc.can_jump() && (is_on_ground || is_on_wall)) {
-        audio->emit_event(sound_event::jump_dirt);
+    if (do_input && pc.jump && cc.can_jump() && (is_on_ground || is_on_wall)) {
+        audio->emit_event(sound_event::jump_dirt, world_position);
 
         cc.just_jumped();
         rigidbody->velocity.y = 0.3f;// 50.0f * dt;
@@ -188,7 +195,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     cc.hand_angular_velocity = tween::damp(cc.hand_angular_velocity, v3f{0.0f}, 5.0f, dt);
 
     if (stepped) {
-        audio->emit_event(sound_event::footstep_dirt);
+        audio->emit_event(sound_event::footstep_dirt, world_position);
         // Platform.audio.play_sound(0x1);
         cc.hand_velocity += 1.0f * axis::up;
         cc.hand_velocity += 0.3f * axis::right * utl::rng::random_s::randn();
@@ -225,9 +232,6 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         auto weapon_forward = -weapon_entity->global_transform().basis[2];
 
         range_u64(bullet, 0, fired) {
-            auto sound = audio->emit_event(sound_event::arcane_bolt);
-            // sound->setParameterByName("PitchVariance", utl::rng::random_s::randf() * 3.0f);
-
             auto ro = weapon_entity->global_transform().origin + weapon_forward * 1.7f;
             auto r_angle = utl::rng::random_s::randf() * 1000.0f;
             auto r_radius = utl::rng::random_s::randf() * bullets[bullet].spread;
@@ -402,7 +406,7 @@ BRAIN_BEHAVIOR_FUNCTION(person_behavior) {
         }
     }
 
-    brain->person.tree.tick(dt, &blkbrd);
+    // brain->person.tree.tick(dt, &blkbrd);
 
     v3f move = blkbrd.move;
 
@@ -416,11 +420,11 @@ BRAIN_BEHAVIOR_FUNCTION(person_behavior) {
         wishdir = glm::normalize(wishdir);
     }
 
-    local_persist f32 max_ground_speed = 3.60f; DEBUG_WATCH(&max_ground_speed)->max_f32 = 10.0f;
-    local_persist f32 max_air_speed = 0.3f; DEBUG_WATCH(&max_air_speed)->max_f32 = 4.0f;
-    local_persist f32 ground_accel = 2.2f; DEBUG_WATCH(&ground_accel)->max_f32 = 6.0f; // source engine 5.6 default
-    local_persist f32 air_accel = 0.5f; DEBUG_WATCH(&air_accel)->max_f32 = 3.0f;
-    local_persist f32 friction = 9.1f; DEBUG_WATCH(&friction)->max_f32 = 10.0f;
+    local_persist f32 max_ground_speed = 3.60f; DEBUG_WATCH(&max_ground_speed); //->max_f32 = 10.0f;
+    local_persist f32 max_air_speed = 0.3f; DEBUG_WATCH(&max_air_speed); //->max_f32 = 4.0f;
+    local_persist f32 ground_accel = 2.2f; DEBUG_WATCH(&ground_accel); //->max_f32 = 6.0f; // source engine 5.6 default
+    local_persist f32 air_accel = 0.5f; DEBUG_WATCH(&air_accel); //->max_f32 = 3.0f;
+    local_persist f32 friction = 9.1f; DEBUG_WATCH(&friction); //->max_f32 = 10.0f;
     local_persist f32 gravity_strength = 1.0f; DEBUG_WATCH(&gravity_strength);
     f32 max_speed = is_on_ground ? max_ground_speed : max_air_speed;
     f32 accel = is_on_ground ? ground_accel : air_accel;
@@ -477,8 +481,8 @@ BRAIN_BEHAVIOR_FUNCTION(skull_behavior) {
             to_target.y = 5.0f;
         }
 
-        local_persist f32 skull_air_accel = 5.0f; DEBUG_WATCH(&skull_air_accel)->max_f32 = 10.0f;
-        local_persist f32 skull_max_air_speed = 5.0f; DEBUG_WATCH(&skull_max_air_speed)->max_f32 = 10.0f;
+        local_persist f32 skull_air_accel = 5.0f; DEBUG_WATCH(&skull_air_accel);//->max_f32 = 10.0f;
+        local_persist f32 skull_max_air_speed = 5.0f; DEBUG_WATCH(&skull_max_air_speed);//->max_f32 = 10.0f;
 
         v3f target_vel = quake_air_move(glm::normalize(to_target), vel, 0.0f, skull_air_accel, skull_max_air_speed, dt);
         

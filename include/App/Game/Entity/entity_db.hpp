@@ -327,7 +327,7 @@ orb {
             .scale = 1.0f,
             .velocity = axis::up * 5.0f,
         },
-        .world_space = 1,
+        .flags = 1,
         .max_count = 64,
         .velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f)),
         .angular_velocity_random = math::rect3d_t(v3f(-4.0f), v3f(4.0f)),

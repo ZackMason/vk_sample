@@ -138,9 +138,16 @@ void main() {
     }
 
     vec3 color = textureLod(uColor, uv, 0).rgb;
+    // color = pow(color, vec3(uGamma));
+    // bloom = pow(bloom, vec3(uGamma));
 
-    color = mix(color, (bloom), 0.01);
+    // vec3 w0 = vec3(242,224,63) / 255.0;
+    // vec3 w1 = vec3(226,65,37) / 255.0;
+    // vec3 c0 = vec3(162,250,163) / 255.0;
+    // vec3 c1 = vec3(87,31,78) / 255.0;
+    // color = white_balance(color, w0, w1, c0, c1,  0.05);
 
+    color = mix(color, (bloom), 0.05);
 
     if (uNumberOfColors != 0) {
         color = paletize(color, uNumberOfColors);
@@ -154,9 +161,11 @@ void main() {
     // color = sqrt(color);
     // color = sqr(color);
 
-    color = pow(color, vec3(1.0/uGamma));
-
+    // color = pow(color, vec3(1.0/uGamma));
     // color = bloom;
+
+
+
     fFragColor.rgb = color.rgb;
     fFragColor.a = 1.0;
 }

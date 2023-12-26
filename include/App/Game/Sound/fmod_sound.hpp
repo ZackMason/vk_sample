@@ -12,6 +12,9 @@ namespace sound_event {
         land_dirt,
 
         arcane_bolt,
+        explosion,
+
+        swap_weapon,
 
         SIZE
     };
@@ -24,6 +27,8 @@ namespace fmod_sound {
     // #define assert_success(exp) (exp)
     #define assert_success(exp) assert((exp) == 0)
 
+    using sound_instance_t = FMOD::Studio::EventInstance;
+
     struct sound_engine_t {
         struct {
             FMOD::System*         core_system = 0;
@@ -34,7 +39,7 @@ namespace fmod_sound {
 
         } fmod = {};
 
-        auto* emit_event(u64 e) {
+        auto* emit_event(u64 e, std::optional<v3f> pos = std::nullopt) {
             FMOD::Studio::EventInstance* instance = 0;
             assert(fmod.events[e]);
             assert_success(fmod.events[e]->createInstance(&instance));
@@ -42,7 +47,32 @@ namespace fmod_sound {
             assert_success(instance->start());
             assert_success(instance->release());
 
+            if (pos) {
+                set_instance_position(instance, *pos);
+            }
+
             return instance;
+        }
+
+        void set_instance_position(auto* instance, v3f pos) {
+            FMOD_3D_ATTRIBUTES attributes = { { 0 } };
+            attributes.forward.z = 1.0f;
+            attributes.up.y = 1.0f;
+
+            attributes.position.x = pos.x;
+            attributes.position.y = pos.y;
+            attributes.position.z = pos.z;
+            assert_success(instance->set3DAttributes(&attributes));
+        }
+
+        void set_listener(v3f p) {
+            FMOD_3D_ATTRIBUTES attributes = { { 0 } };
+            attributes.forward.z = 1.0f;
+            attributes.up.y = 1.0f;
+            attributes.position.x = p.x;
+            attributes.position.y = p.y;
+            attributes.position.z = p.z;
+            assert_success(fmod.system->setListenerAttributes(0, &attributes) );
         }
 
         utl::hash_trie_t<std::string_view, FMOD::Sound*>* sounds = 0;
@@ -89,6 +119,8 @@ namespace fmod_sound {
         assert_success( system->getCoreSystem(&engine->fmod.core_system) );
         // assert_success( engine->fmod.core_system->setSoftwareFormat(0, FMOD_SPEAKERMODE_5POINT1, 0) );
 
+        system->setNumListeners(1);
+
         assert_success( system->initialize(1024, FMOD_STUDIO_INIT_NORMAL, FMOD_INIT_NORMAL, 0) );
         
         FMOD::Studio::Bank* masterBank = NULL;
@@ -101,12 +133,19 @@ namespace fmod_sound {
         assert_success( system->loadBankFile(fmod_studio_path("SFX.bank"), FMOD_STUDIO_LOAD_BANK_NORMAL, &sfxBank) );
         sfxBank->loadSampleData();
 
-        assert_success( system->getEvent("event:/Footstep", &engine->fmod.events[sound_event::footstep_dirt]) );
-        engine->fmod.events[sound_event::footstep_dirt]->loadSampleData();
+        // assert_success( system->getEvent("event:/Footstep", &engine->fmod.events[sound_event::footstep_dirt]) );
+        // engine->fmod.events[sound_event::footstep_dirt]->loadSampleData();
 
-        assert_success( system->getEvent("event:/Jump", &engine->fmod.events[sound_event::jump_dirt]) );
-        assert_success( system->getEvent("event:/LandDirt", &engine->fmod.events[sound_event::land_dirt]) );
-        assert_success( system->getEvent("event:/ArcaneBolt", &engine->fmod.events[sound_event::arcane_bolt]) );
+        #define load_sound(key, value) assert_success( system->getEvent("event:/" ## value, &engine->fmod.events[key]) )
+        
+        load_sound(sound_event::footstep_dirt, "Footstep");
+        load_sound(sound_event::jump_dirt, "Jump");
+        load_sound(sound_event::land_dirt, "LandDirt");
+        load_sound(sound_event::arcane_bolt, "ArcaneBolt");
+        load_sound(sound_event::explosion, "Explosion");
+        load_sound(sound_event::swap_weapon, "SwapWeapon");
+
+        #undef load_sound
 
 
         // auto* master_channel_group = utl::hash_get(&engine->fmod.channels, "Master"sv, arena, 0);

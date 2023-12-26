@@ -1,11 +1,21 @@
 struct Surface {
     vec3 point;
-    vec3 albedo;
     vec3 normal;
+    vec3 view;
+
+    vec3 f0;
+    vec4 base_color;
+    vec3 albedo;
+    float alpha;
     vec3 emissive;
     float occlusion;
     float roughness;
+    float metallic;
+
+    uint material_flags;
 };
+
+
 
 struct Lighting {
     vec3 diffuse;
@@ -54,15 +64,14 @@ struct Environment {
     float contrast;
     uint light_count;
     vec4 more_padding;
-    
 };
 
 void apply_light(in Surface surface, in TotalLight light, inout vec3 color) {
-    vec3 diffuse = light.direct.diffuse / 3.14159 + light.indirect.diffuse;
-    vec3 specular = light.direct.specular + light.indirect.specular;
+    vec3 diffuse = light.direct.diffuse / 3.14159 + light.indirect.diffuse * surface.occlusion;
+    vec3 specular = light.direct.specular + light.indirect.specular * surface.occlusion;
     color += surface.albedo * diffuse;
     color += specular;
-    color += surface.emissive;
+    color += (surface.emissive);
     color = max(vec3(0.0), color);
 }
 

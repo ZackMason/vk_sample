@@ -206,6 +206,8 @@ zyy::entity_t* explosion_at_point(
 ) {
     auto memory = begin_temporary_memory(&world->arena);
 
+    world->game_state->sfx->emit_event(sound_event::explosion, pos);
+
     auto* near = world->physics->sphere_overlap_world(
         memory.arena,
         pos,

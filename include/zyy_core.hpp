@@ -772,6 +772,10 @@ struct app_input_t {
         u8 buttons[12];
         f32 pos[2];
 
+        v2f pos2() const noexcept {
+            return v2f{pos[0], pos[1]};
+        }
+
         // preserved, everything above here is reset every frame    
         f32 delta[2];
         v2f scroll={};
@@ -964,6 +968,7 @@ struct platform_api_t {
     using allocate_memory_function = void*(*)(umm);
     using free_memory_function = void(*)(void*);
 
+    using unload_library_function = void(*)(void*);
     using load_library_function = void*(*)(const char*);
     using load_module_function = void*(*)();
     using load_proc_function = void*(*)(void*, const char*);
@@ -971,6 +976,7 @@ struct platform_api_t {
     allocate_memory_function allocate;
     free_memory_function free;
 
+    unload_library_function unload_library;
     load_library_function load_library;
     load_module_function load_module;
     load_proc_function load_proc;
@@ -1610,22 +1616,26 @@ struct buffer
     u64 count = 0;
 
     T* reallocate(arena_t* arena, u64 new_count) {
+        // puts("realloc");
         tag_array(T* new_data, T, arena, new_count);
         return new_data;
     }
 
     T* reallocate(utl::allocator_t* allocator, u64 size) {
+        // puts("realloc");
         auto* new_data = (T*)allocator->allocate(sizeof(T)*size);
         return new_data;
     }
 
     void reserve(utl::allocator_t* allocator, u64 size) {
+        // puts("reserve");
         if (data) allocator->free(data);
         data = allocator->allocate(size*sizeof(T));
         count = size;
     }
 
     void reserve(arena_t* arena, u64 size) {
+        // puts("reserve");
         data = reallocate(arena, size);
         count = size;
     }
@@ -3029,6 +3039,14 @@ namespace color {
             return result;
         }
 
+        void remove(u32 i) {
+            if (i < count) {
+                std::swap(colors[i], colors[count-1]);
+                std::swap(positions[i], positions[count-1]);
+                count--;
+            }
+        }
+
         v4f sample(f32 t) {
             if (count == 0) return v4f{1.0f, 0.0f, 1.0f, 1.0f};
 
@@ -3041,6 +3059,7 @@ namespace color {
                     auto lt = (t - positions[i-1]) / (positions[i] - positions[i-1]);
                         // return glm::mix(math::sqr(colors[i-1]), math::sqr(colors[i]), glm::clamp(lt, 0.0f, 1.0f));
                     return glm::sqrt(glm::mix(math::sqr(colors[i-1]), math::sqr(colors[i]), glm::clamp(lt, 0.0f, 1.0f)));
+                    return glm::mix((colors[i-1]), (colors[i]), glm::clamp(lt, 0.0f, 1.0f));
                 }
             }
             
@@ -3052,21 +3071,25 @@ namespace color {
         }
 
         void add(arena_t* arena, v4f color, f32 position) {
-            tag_array(auto* new_colors, v4f, arena, count+1);
-            tag_array(auto* new_positions, f32, arena, count+1);
+            add(arena, &color, &position, 1);
+        }
+
+        void add(arena_t* arena, v4f* cs, f32* ps, u32 size) {
+            tag_array(auto* new_colors, v4f, arena, count+size);
+            tag_array(auto* new_positions, f32, arena, count+size);
 
             if (count > 0) {
                 utl::copy(new_colors, colors, sizeof(v4f) * count);
                 utl::copy(new_positions, positions, sizeof(f32) * count);
             }
 
-            new_colors[count] = color;
-            new_positions[count] = position;
-
+            utl::copy(new_colors + count, cs, sizeof(v4f) * size);
+            utl::copy(new_positions + count, ps, sizeof(f32) * size);
+            
             colors = new_colors;
             positions = new_positions;
 
-            count++;
+            count += size;
         }
 
         void sort() {
@@ -3129,6 +3152,11 @@ namespace color {
 
     constexpr color32 modulate(color32 c, v3f v) {
         return to_color32(to_color3(c)*v);
+    }
+
+    constexpr color32 gamma(color32 c) {
+        auto v = to_color3(c);
+        return to_color32(v*v);
     }
 
     constexpr color32 flatten_color(color32 c) {
@@ -3218,11 +3246,11 @@ namespace color {
         static constexpr auto gray = "#808080ff"_rgba;
         static constexpr auto light_gray  = "#d3d3d3ff"_rgba;
         static constexpr auto white = "#ffffffff"_rgba;
-        static constexpr auto cream = "#fafafaff"_rgba;
+        static constexpr auto cream = gamma("#fafafaff"_rgba);
         static constexpr auto red   = "#ff0000ff"_rgba;
         static constexpr auto reddish = "#fa2222ff"_rgba;
         static constexpr auto green = "#00ff00ff"_rgba;
-        static constexpr auto dark_red = "#282021ff"_rgba;
+        static constexpr auto dark_red = gamma("#282021ff"_rgba);
         static constexpr auto light_green = "#587068ff"_rgba;
         static constexpr auto dark_green = "#282921ff"_rgba;
         static constexpr auto blue  = "#0000ffff"_rgba;
@@ -3955,6 +3983,7 @@ namespace gui {
         }
     }
 
+    // [min, {min.x, max.y}, {max.x, min.y}, max]
     inline void
     draw_rect(
         ctx_t* ctx,
@@ -4214,6 +4243,7 @@ namespace gui {
                 }
             }
 
+            // you must end drawing before calling this
             void scissor(math::rect2d_t rect, draw_command_t* head = 0, b32 push_stack = 1) {
                 if (!head) head = &commands;
                 if (scissor_stack.empty() == false) {
@@ -4380,7 +4410,6 @@ namespace gui {
 
             imgui.scissor_stack.clear();
             imgui.end_scissor();
-            
         }
 
         inline void
@@ -4409,6 +4438,7 @@ namespace gui {
             imgui.panel->draw_cursor = p + imgui.theme.padding;
         }
 
+        // bug with scissor rect overflow
         void begin_scroll_rect(
             state_t& imgui,
             f32* scroll,
@@ -5598,15 +5628,16 @@ namespace gui {
         color_edit(
             state_t& imgui,
             color32* color,
-            v2f size = v2f{64.0f}
+            v2f size = v2f{128.0f}
         ) {
             const u64 clr_id = imgui.verify_id((u64)color);
+
             v3f color_hsv = glm::hsvColor(color::to_color3(*color));
             
             v2f tmp_cursor = imgui.panel->draw_cursor;
             // tmp_cursor.x += imgui.theme.padding;
 
-            const f32 hue_slider_pxl = 0.1f * size.x;
+            const f32 slider_pxl = 0.1f * size.x;
             const f32 value_circle_radius = 0.025f * size.x;
 
             math::rect2d_t r;
@@ -5620,12 +5651,33 @@ namespace gui {
             r.pad(imgui.theme.border_thickness + imgui.theme.border_radius); // pad again for border
 
             math::rect2d_t hue_box;
-            std::tie(hue_box, r) = math::cut_right(r, hue_slider_pxl);
-            auto [divider, box] = math::cut_right(r, imgui.theme.padding);
-            // box.pad(imgui.theme.padding);
+            math::rect2d_t value_box;
+            math::rect2d_t saturation_box;
+            math::rect2d_t tr = r;
+            std::tie(saturation_box, r) = math::cut_bottom(r, slider_pxl);
+            std::tie(value_box, r)      = math::cut_bottom(r, slider_pxl);
+            std::tie(hue_box, r)        = math::cut_right(r, slider_pxl);
+
+            hue_box.max.y -= imgui.theme.padding;
+
+            // value_box.max.x -= imgui.theme.padding;
+            // saturation_box.max.x -= imgui.theme.padding;
+
+            // saturation_box = value_box;
+            // r.min = r.max - v2f{r.size().y};
+            r.max = r.min + v2f{r.size().y};
+            hue_box.add(math::width2 * -(hue_box.min.x - r.max.x - imgui.theme.padding));
+
+            saturation_box.add(math::height2 * (imgui.theme.padding));
+            // saturation_box.add(math::height2 * (value_box.size().y + imgui.theme.padding));
+            // value_box.max.x =  
+            // auto [divider, box] = math::cut_right(r, imgui.theme.padding);
+            auto box = r;
+            box.pad(imgui.theme.padding);
             // hue_box.pad(imgui.theme.padding);
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
+            const auto mouse = v2f{x,y};
             const auto selection_color = color::rgba::white;
 
             color32 rect_colors[4]= {
@@ -5634,25 +5686,66 @@ namespace gui {
                 color::to_color32(glm::rgbColor(v3f{color_hsv.x, 1.0f, 1.0f})),
                 color::rgba::black,
             };
+            const size_t res = 8;
+            range_u64(xx, 0, res) {
+                f32 xps = f32(xx)/f32(res);
+                f32 xpe = f32(xx+1)/f32(res);
+                range_u64(yy, 0, res) {
+                    f32 yps = f32(yy)/f32(res);
+                    f32 ype = f32(yy+1)/f32(res);
+
+                    math::rect2d_t seg;
+                    seg.expand(box.sample(v2f{xps, yps}));
+                    seg.expand(box.sample(v2f{xpe, ype}));
+                
+                    // [min, {min.x, max.y}, {max.x, min.y}, max]
+                    color32 seg_colors[4]= {                        
+                        // left
+                        color::to_color32(glm::rgbColor(v3f{color_hsv.x, xps, 1.0f - yps})), // top
+                        color::to_color32(glm::rgbColor(v3f{color_hsv.x, xps, 1.0f - ype})), // bottom
+                        // right
+                        color::to_color32(glm::rgbColor(v3f{color_hsv.x, xpe, 1.0f - yps})), // top 
+                        color::to_color32(glm::rgbColor(v3f{color_hsv.x, xpe, 1.0f - ype})), // bottom
+                    };
+
+                    draw_rect(&imgui.ctx, seg, std::span{seg_colors});
+                }
+            }
+
+            // draw_rect(&imgui.ctx, box, std::span{rect_colors});
+            // draw_rect(&imgui.ctx, box, std::span{rect_colors});
 
             f32 bx = color_hsv.y * box.size().x;
             f32 by = (1.0f-color_hsv.z) * box.size().y;
 
-            draw_rect(&imgui.ctx, box, std::span{rect_colors});
-
             draw_circle(&imgui.ctx, box.min + v2f{bx,by}, value_circle_radius + imgui.theme.border_thickness, color::rgba::black);
             draw_circle(&imgui.ctx, box.min + v2f{bx,by}, value_circle_radius, selection_color);
 
-            const size_t res = 4;
             range_u64(i, 0, res) {
                 math::rect2d_t hue_seg;
-                hue_seg.expand(hue_box.sample(v2f{0.0f, f32(i)/f32(res)}));
-                hue_seg.expand(hue_box.sample(v2f{1.0f, f32(i+1)/f32(res)}));
+                math::rect2d_t val_seg;
+                math::rect2d_t sat_seg;
                 
-                const f32 start_angle = f32(i) * (360.0f / f32(res));
-                const f32 next_angle = f32(i+1) * (360.0f / f32(res));
+                const f32 start_prc = f32(i) / f32(res);
+                const f32 end_prc = f32(i+1) / f32(res);
+
+
+                hue_seg.expand(hue_box.sample(math::height2 * start_prc));
+                hue_seg.expand(hue_box.sample(v2f{1.0f, end_prc}));
+
+                val_seg.expand(value_box.sample(math::width2 * start_prc));
+                val_seg.expand(value_box.sample(v2f{end_prc, 1.0f}));
+                sat_seg.expand(saturation_box.sample(math::width2 * start_prc));
+                sat_seg.expand(saturation_box.sample(v2f{end_prc, 1.0f}));
+                
+                const f32 start_angle = start_prc * 360.0f;
+                const f32 next_angle = end_prc * 360.0f;
                 const v3f start_color = glm::rgbColor(v3f{start_angle, 1.0f, 1.0f});
                 const v3f next_color = glm::rgbColor(v3f{next_angle, 1.0f, 1.0f});
+                const v3f start_value = glm::rgbColor(v3f{color_hsv.x, 1.0f, start_prc});
+                const v3f next_value = glm::rgbColor(v3f{color_hsv.x, 1.0f, end_prc});
+                const v3f start_sat = glm::rgbColor(v3f{color_hsv.x, start_prc, 1.0f});
+                const v3f next_sat = glm::rgbColor(v3f{color_hsv.x, end_prc, 1.0f});
 
                 color32 hue_colors[4]= {
                     color::to_color32(start_color),
@@ -5660,19 +5753,48 @@ namespace gui {
                     color::to_color32(start_color),
                     color::to_color32(next_color),
                 };
+                color32 value_colors[4]= {
+                    color::to_color32(start_value),
+                    color::to_color32(start_value),
+                    color::to_color32(next_value),
+                    color::to_color32(next_value),
+                };
+                color32 saturation_colors[4]= {
+                    color::to_color32(start_sat),
+                    color::to_color32(start_sat),
+                    color::to_color32(next_sat),
+                    color::to_color32(next_sat),
+                };
                 
                 draw_rect(&imgui.ctx, hue_seg, std::span{hue_colors});
+                draw_rect(&imgui.ctx, val_seg, std::span{value_colors});
+                draw_rect(&imgui.ctx, sat_seg, std::span{saturation_colors});
             }
 
             f32 tx = hue_box.max.x + 2.0f;
             f32 ty = hue_box.min.y + (color_hsv.x/360.0f)*hue_box.size().y;
+
+            f32 sx = saturation_box.min.x + (color_hsv.y*saturation_box.size().x);
+            f32 sy = saturation_box.max.y + 2.0f;
+
+            f32 vx = value_box.min.x + (color_hsv.z*value_box.size().x);
+            f32 vy = value_box.max.y + 2.0f;
+
             draw_circle(&imgui.ctx, v2f{tx,ty}, 7.0f, color::rgba::black, 3, 1.0f, 0.5f);
             draw_circle(&imgui.ctx, v2f{tx,ty}, 5.0f, color::rgba::white, 3, 1.0f, 0.5f);
+
+            draw_circle(&imgui.ctx, v2f{sx,sy}, 7.0f, color::rgba::black, 3, 1.0f, 0.75f);
+            draw_circle(&imgui.ctx, v2f{sx,sy}, 5.0f, color::rgba::white, 3, 1.0f, 0.75f);
+
+            draw_circle(&imgui.ctx, v2f{vx,vy}, 7.0f, color::rgba::black, 3, 1.0f, 0.75f);
+            draw_circle(&imgui.ctx, v2f{vx,vy}, 5.0f, color::rgba::white, 3, 1.0f, 0.75f);
 
 
             const f32 col_s = glm::max(x - box.min.x, 0.0f) / box.size().x;
             const f32 col_v = glm::max(y - box.min.y, 0.0f) / box.size().y;
             const f32 hue_prc = glm::max(y - hue_box.min.y, 0.0f) / hue_box.size().y;
+            const f32 value_prc = glm::max(x - value_box.min.x, 0.0f) / value_box.size().x;
+            const f32 saturation_prc = glm::max(x - saturation_box.min.x, 0.0f) / saturation_box.size().x;
 
             if (imgui.active.id == clr_id) {
                 if (imgui.hot.id == clr_id) {
@@ -5680,6 +5802,12 @@ namespace gui {
                         *color = color::to_color32(glm::rgbColor(v3f{color_hsv.x, col_s, 1.0f-col_v}));
                     } else if (hue_box.contains(v2f{x,y})) {
                         *color = color::to_color32(glm::rgbColor(v3f{hue_prc*360.0f, color_hsv.y, color_hsv.z}));
+                    } else if (saturation_box.contains(v2f{x,y})) {
+                        // draw_rect(&imgui.ctx, saturation_box, selection_color);
+                        // puts("sat");
+                        *color = color::to_color32(glm::rgbColor(v3f{color_hsv.x, saturation_prc, color_hsv.z}));
+                    } else if (value_box.contains(v2f{x,y})) {
+                        *color = color::to_color32(glm::rgbColor(v3f{color_hsv.x, color_hsv.y, value_prc}));
                     }
                 }
                 if (!imgui.ctx.input->mouse.buttons[0]) {
@@ -5691,13 +5819,14 @@ namespace gui {
                 }
             }
 
-            if (box.contains(v2f{x,y}) || hue_box.contains(v2f{x,y})) {
+            if (tr.contains(mouse) || saturation_box.contains(mouse)) {
                 imgui.hot = clr_id;
             } else if (imgui.hot.id == clr_id) {
                 imgui.hot.id = 0;
             }
 
-            imgui.panel->draw_cursor.y += box.size().y + imgui.theme.padding * 2.0f;
+            imgui.panel->draw_cursor.y = saturation_box.max.y + imgui.theme.padding * 2.0f;
+            imgui.panel->expand(imgui.panel->draw_cursor);
         }
 
         inline void
@@ -6870,7 +6999,7 @@ namespace gui {
             v4f* color,
             math::rect2d_t rect
         ) {
-            local_persist bool color_mode = false;
+            local_persist bool color_mode = true;
             
             if (text(imgui, color_mode ? "Box" : "Wheel")) {
                 color_mode = !color_mode;
@@ -6975,6 +7104,7 @@ namespace gui {
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
             const b32 shift_held = imgui.ctx.input->keys[key_id::LEFT_SHIFT] || imgui.ctx.input->keys[key_id::RIGHT_SHIFT];
+            const b32 delete_held = imgui.ctx.input->keys[key_id::X];
             const v2f mouse{x,y};
             if (imgui.active.id == grd_id) {
                 f32 t = (mouse - gradient_box.min).x / gradient_box.size().x;
@@ -6983,10 +7113,14 @@ namespace gui {
                     auto nearest_sample_distance = gradient->nearest_distance(t);
                     const f32 sample_click_threshold = 0.02f;
                     const b32 clicked_sample = nearest_sample_distance < sample_click_threshold;
-                    if (imgui.selected_index > gradient->count) {
-                        if (clicked_sample) {
-                            imgui.selected_index = gradient->closest(t);
+                    if (clicked_sample) {
+                        imgui.selected_index = gradient->closest(t);
+                        if (delete_held) {
+                            gradient->remove(imgui.selected_index);
+                            imgui.selected_index = gradient->count + 1;
                         }
+                    }
+                    if (imgui.selected_index > gradient->count) {
                     } else {
                         gradient->positions[imgui.selected_index] = t;
                         gradient->sort();
@@ -7003,17 +7137,19 @@ namespace gui {
                     }
                 }
                 if (!imgui.ctx.input->mouse.buttons[0]) {
-                    imgui.selected_index = gradient->count + 1;
+                    // imgui.selected_index = gradient->count + 1;
                     imgui.hot = imgui.active = 0;                        
                 }
             } else if (imgui.hot.id == grd_id) {
                 if (imgui.ctx.input->mouse.buttons[0]) {
                     imgui.active = grd_id;
+                } else {
+                    imgui.active = 0;
                 }
             }
             
             if (rect.contains( v2f{x,y} )) {
-                if (imgui.active.id == 0) {
+                if (imgui.hot.id == 0) {
                     imgui.hot = grd_id;
                 }
             } else if (imgui.hot.id == grd_id) {
@@ -7023,9 +7159,19 @@ namespace gui {
             auto [controls_left, controls_right] = math::cut_left(controls, controls.size().x * 0.5f);
             imgui.panel->draw_cursor = controls_left.min + imgui.theme.padding;
 
+            if (imgui.selected_index < gradient->count) {
+                im::same_line(imgui);
+            }
+
             if (im::text(imgui, "Add Color")) {
                 gradient->add(arena, v4f{utl::rng::random_s::randv(), 1.0f}, utl::rng::random_s::randf());
                 gradient->sort();
+            }
+
+            if (imgui.selected_index < gradient->count) {
+                if (im::text(imgui, "Randomize")) {
+                    gradient->colors[imgui.selected_index] = v4f{utl::rng::random_s::randv(), 1.0f};
+                }
             }
 
             if (imgui.selected_index < gradient->count) {
@@ -7691,11 +7837,19 @@ struct mod_loader_t {
     void* library{0};
 
     explicit mod_loader_t() {
+        load_module();
+    }
+
+    void load_module() {
         library = Platform.load_module();
     }
 
     void load_library(const char* name) {
         library = Platform.load_library(name);
+    }
+
+    void unload_library() {
+        Platform.unload_library(library);
     }
 
     template <typename FunctionType>

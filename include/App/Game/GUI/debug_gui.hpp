@@ -557,7 +557,7 @@ void
 watch_game_state(game_state_t* game_state) {
     auto* rs = game_state->render_system;
     auto* time_scale = &game_state->time_scale;
-    DEBUG_WATCH(time_scale)->max_f32 = 2.0f;
+    DEBUG_WATCH(time_scale);//->max_f32 = 2.0f;
     
     auto* gfx = &game_state->graphics_config;
     DEBUG_WATCH(&gfx->ddgi);
@@ -568,9 +568,9 @@ watch_game_state(game_state_t* game_state) {
 
     DEBUG_WATCH(&game_state->gui.imgui.theme.shadow_distance);
 
-    DEBUG_WATCH(&gs_rtx_on)->max_u32 = 2;
+    DEBUG_WATCH(&gs_rtx_on);//->max_u32 = 2;
     auto* rtx_super_sample = &game_state->render_system->rt_cache->constants.super_sample;
-    DEBUG_WATCH(rtx_super_sample)->max_u32 = 2;
+    DEBUG_WATCH(rtx_super_sample);//->max_u32 = 2;
 
     auto* pp_tonemap = &rs->postprocess_params.data[0];
     auto* pp_exposure = &rs->postprocess_params.data[1];
@@ -578,23 +578,23 @@ watch_game_state(game_state_t* game_state) {
     auto* pp_gamma = &rs->postprocess_params.data[3];
     auto* pp_number_of_colors = &rs->postprocess_params.data[4];
     auto* pp_pixelation = &rs->postprocess_params.data[5];
-    DEBUG_WATCH(pp_tonemap)->max_f32 = 3.0f;
-    DEBUG_WATCH(pp_exposure)->max_f32 = 2.0f;
+    DEBUG_WATCH(pp_tonemap);//->max_f32 = 3.0f;
+    DEBUG_WATCH(pp_exposure);//->max_f32 = 2.0f;
     DEBUG_WATCH(pp_contrast);
-    DEBUG_WATCH(pp_gamma)->max_f32 = 2.5f;
-    DEBUG_WATCH(pp_number_of_colors)->max_f32 = 256.0f;
-    DEBUG_WATCH(pp_pixelation)->max_f32 = 2048.0f;
+    DEBUG_WATCH(pp_gamma);//->max_f32 = 2.5f;
+    DEBUG_WATCH(pp_number_of_colors);//->max_f32 = 256.0f;
+    DEBUG_WATCH(pp_pixelation);//->max_f32 = 2048.0f;
 
     auto& light_probe_settings = rs->light_probe_settings_buffer.pool[0];
     auto* probe_hysteresis = &light_probe_settings.hysteresis;
     auto* probe_gi_boost = &light_probe_settings.boost;
     auto* probe_depth_sharpness = &light_probe_settings.depth_sharpness;
 
-    DEBUG_WATCH(probe_hysteresis)->max_f32 = 0.1f;
-    DEBUG_WATCH(probe_gi_boost)->max_f32 = 2.0f;
-    DEBUG_WATCH(probe_depth_sharpness)->max_f32 = 100.0f;
+    DEBUG_WATCH(probe_hysteresis);//->max_f32 = 0.1f;
+    DEBUG_WATCH(probe_gi_boost);//->max_f32 = 2.0f;
+    DEBUG_WATCH(probe_depth_sharpness);//->max_f32 = 100.0f;
 
-    DEBUG_WATCH(&bloom_filter_radius)->max_f32 = 0.01f;
+    DEBUG_WATCH(&bloom_filter_radius);//->max_f32 = 0.01f;
 }
 
 void 
@@ -680,7 +680,7 @@ void draw_worlds(auto* game_state, auto& imgui) {
                 WORLD_GUI(crash_test);
             #undef WORLD_GUI
 
-            for (const auto& entry : std::filesystem::recursive_directory_iterator("./")) {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/worlds/")) {
                 auto filename = entry.path().string();
                 if (entry.is_directory()) {
                     continue;
@@ -985,6 +985,8 @@ void begin_gui(auto* game_state) {
         &game_state->gui.indices[(frame&1)].pool);
     im::clear(game_state->gui.imgui);
 
+    // arena_clear(&game_state->gui.imgui.frame_arena);
+
     draw_release_info(game_state);
 }
 
@@ -1008,6 +1010,8 @@ draw_gui(game_memory_t* game_memory) {
 
     arena_t* display_arenas[] = {
         &game_state->main_arena,
+        &game_state->gui.imgui.perm_arena,
+        &game_state->gui.imgui.frame_arena,
         // &game_state->temp_arena,
         // &game_state->string_arena,
         &game_state->mesh_arena,
@@ -1038,6 +1042,8 @@ draw_gui(game_memory_t* game_memory) {
 
     const char* display_arena_names[] = {
         "- Main Arena",
+        "- Imgui Perm Arena",
+        "- Imgui Temp Arena",
         // "- Temp Arena",
         // "- String Arena",
         "- Mesh Arena",
@@ -1153,13 +1159,6 @@ draw_gui(game_memory_t* game_memory) {
 
         const m44 vp = 
             game_state->render_system->vp;
-
-#ifdef DEBUG_STATE
-        if (gs_show_console) {
-            local_persist v2f pos = v2f{400.0, 0.0f};
-            draw_console(imgui, DEBUG_STATE.console, &pos);
-        }
-#endif
 
         local_persist bool show_probes = false;
 
@@ -1559,20 +1558,28 @@ draw_gui(game_memory_t* game_memory) {
                             auto* mat = game_state->render_system->materials[i];
                             if (im::text(imgui, fmt_sv("- Name: {}", std::string_view{mat->name}), show_mat_id + i)) {
                                 gfx::color32 color = gfx::color::to_color32(mat->albedo);
-                                im::color_edit(imgui, &color);
+                                im::color_edit(imgui, &color, v2f{mat_rect.x*0.5f});
+
                                 mat->albedo = gfx::color::to_color4(color);
 
+                                im::same_line(imgui);
+                                im::text(imgui, "Alpha: ");
+                                im::float_slider(imgui, &mat->albedo.a);
+                                
                                 std::string_view flag_names[]={
                                     "Lit",
                                     "Triplanar",
                                     "Billboard",
                                     "Wind",
-                                    "Water"
+                                    "Water",
+                                    "Emission Additive",
+                                    "Particle"
                                 };
 
                                 u64 flags = mat->flags;
                                 im::bitflag(imgui, std::span{flag_names}, &flags);
                                 mat->flags = safe_truncate_u64(flags);
+
 
                                 im::same_line(imgui);
                                 im::text(imgui, "Ambient: ");
@@ -1775,13 +1782,7 @@ draw_gui(game_memory_t* game_memory) {
 
         // const math::rect2d_t screen{v2f{0.0f}, imgui.ctx.screen_size};
         // im::image(imgui, 2, math::rect2d_t{v2f{imgui.ctx.screen_size.x - 400, 0.0f}, v2f{imgui.ctx.screen_size.x, 400.0f}});
-        
-#ifdef DEBUG_STATE 
-        DEBUG_STATE_DRAW(imgui, render_system->projection, render_system->view, render_system->viewport());
-        if (gs_show_watcher) {
-            DEBUG_STATE_DRAW_WATCH_WINDOW(imgui);
-        }
-#endif
+
     }
 
 }

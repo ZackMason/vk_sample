@@ -283,6 +283,10 @@ FILETIME win32_last_write_time(const char* path) {
 	return time;
 }
 
+void
+win32_unload_library(void* dll) {
+    FreeLibrary((HMODULE)dll);
+}
 void*
 win32_load_library(const char* file) {
     return LoadLibraryA(file);
@@ -571,7 +575,12 @@ load_dlls(app_dll_t* app_dlls) {
 
 #if _WIN32
     CopyFile(".\\build\\zyy_build.dll", ".\\build\\code.dll", 0);
-    app_dlls->dll = LoadLibrary(".\\build\\code.dll");
+    auto* dll = LoadLibraryA(".\\build\\code.dll");
+    if (!dll) {
+        DWORD err = GetLastError( );
+        zyy_warn(__FUNCTION__, "LoadLibrary Failed to load dll: {}", err);
+    }
+    app_dlls->dll = dll;
 #else
 
 #error "platform not imlemented"
@@ -587,6 +596,8 @@ void
 update_dlls(app_dll_t* app_dlls, game_memory_t* game_memory) {
     // bool need_reload = !std::filesystem::exists("./build/lock.tmp");
     // if (1) 
+    WIN32_FILE_ATTRIBUTE_DATA unused;
+	if ( !GetFileAttributesEx( "./build/lock.tmp", GetFileExInfoStandard, &unused ) )
     {
         utl::profile_t p{"dll reload time"};
         zyy_warn("win32", "Game DLL Reload Detected");
@@ -691,7 +702,7 @@ i32 message_box_proc(const char* text) {
 int 
 main(int argc, char* argv[]) {
     _set_error_mode(_OUT_TO_MSGBOX);
-    SetUnhandledExceptionFilter(exception_filter);
+    // SetUnhandledExceptionFilter(exception_filter);
 
     dlist_init(&allocated_blocks);
     dlist_init(&freed_blocks);
@@ -707,6 +718,7 @@ main(int argc, char* argv[]) {
     Platform.allocate = win32_alloc;
     Platform.free = win32_free;
     Platform.message_box = message_box_proc;
+    Platform.unload_library = win32_unload_library;
     Platform.load_library = win32_load_library;
     Platform.load_module = win32_load_module;
     Platform.load_proc = win32_load_proc;
@@ -872,7 +884,7 @@ main(int argc, char* argv[]) {
         }
         if (glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(250));
-            glfwPollEvents();
+            // glfwPollEvents();
             continue;
         }
         utl::profile_t* p = 0;
@@ -944,33 +956,33 @@ main(int argc, char* argv[]) {
         last_time = glfwGetTime();
         update_input(&game_memory, window);
         if (app_dlls.on_update) {
-            try {
+            // try {
                 app_dlls.on_update(&game_memory);
 
-            } catch (access_violation_exception& e) {
-                zyy_error("exception", "{}", e.what());
-                auto pressed = MessageBox(0, e.what(), 0, MB_ABORTRETRYIGNORE);
-                if (pressed == IDRETRY) {
-#ifdef MULTITHREAD_ENGINE
-                    rendering_lock.lock();
-#endif 
-                    // utl::copy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
-                    // *game_memory.physics = *restore_point.physics;
-                    // physics_arena.top = restore_physics_arena.top;
+//             } catch (access_violation_exception& e) {
+//                 zyy_error("exception", "{}", e.what());
+//                 auto pressed = MessageBox(0, e.what(), 0, MB_ABORTRETRYIGNORE);
+//                 if (pressed == IDRETRY) {
+// #ifdef MULTITHREAD_ENGINE
+//                     rendering_lock.lock();
+// #endif 
+//                     // utl::copy(physics_arena.start, restore_physics_arena.start, restore_physics_arena.top);
+//                     // *game_memory.physics = *restore_point.physics;
+//                     // physics_arena.top = restore_physics_arena.top;
 
-                    // utl::copy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
-                    // game_memory.arena.top = restore_point.arena.top;
-                    // utl::copy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
-#ifdef MULTITHREAD_ENGINE
-                    rendering_lock.unlock();
-#endif 
-                } else {
-                    std::terminate();
-                }
-            } catch (std::exception & e) {
-                zyy_error("exception", "{}", e.what());
-                std::terminate();
-            }
+//                     // utl::copy(game_memory.arena.start, restore_point.arena.start, restore_point.arena.top);
+//                     // game_memory.arena.top = restore_point.arena.top;
+//                     // utl::copy(&game_memory.input, &restore_point.input, sizeof(app_input_t));
+// #ifdef MULTITHREAD_ENGINE
+//                     rendering_lock.unlock();
+// #endif 
+//                 } else {
+//                     std::terminate();
+//                 }
+            // } catch (std::exception & e) {
+            //     zyy_error("exception", "{}", e.what());
+            //     std::terminate();
+            // }
         }
 #ifndef MULTITHREAD_ENGINE
         if (app_dlls.on_render) {

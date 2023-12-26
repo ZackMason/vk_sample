@@ -28,7 +28,7 @@ global_variable f32 gs_reload_time = 0.0f;
 global_variable f32 gs_jump_save_time = 0.0f;
 global_variable f32 gs_jump_load_time = 0.0f;
 
-global_variable b32 gs_show_console=false;
+global_variable b32 gs_show_console=0;
 global_variable b32 gs_show_watcher=false;
 
 global_variable zyy::cam::first_person_controller_t gs_debug_camera;
@@ -170,6 +170,7 @@ void draw_game_ui_second(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
     action_tab.min.y += action_bar.size().y * 0.38f;
     action_tab.add(v2f{0.0f, -action_bar.size().y});
 
+//jhere
     gfx::gui::draw_rect(&imgui.ctx, action_bar, game_theme.action_bar_color);
     gfx::gui::draw_rect(&imgui.ctx, action_tab, game_theme.action_bar_color);
 
@@ -257,6 +258,7 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     if (player == nullptr) {
         return ui;
     }
+    auto capture = gfx::gui::im::want_mouse_capture(world->game_state->gui.imgui);
 
     ui.screen = math::rect2d_t{v2f{0.0f}, world->render_system()->screen_size()};
 
@@ -271,7 +273,7 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
 
     ui.health = player->stats.character.health;
 
-    if (world->game_state->input().pressed.keys['T']) {
+    if (!capture && world->game_state->input().pressed.keys['T']) {
         ui.inventory_open ^= true;
     }
     
@@ -928,14 +930,15 @@ app_on_init(game_memory_t* game_memory) {
     // game_state->gui.arena = arena_create(megabytes(1));
 
     // assets::sounds::load();
+#ifdef DEBUG_STATE
     tag_struct(game_state->debug_state, debug_state_t, main_arena, game_memory->input.time);
     game_state->debug_state->arena = arena_create();
     game_state->debug_state->watch_arena = arena_create(megabytes(4));
 
     gs_debug_state = game_state->debug_state;    
 
-    using namespace std::string_view_literals;
-#ifdef ZYY_INTERNAL
+// #if 0
+// #ifdef ZYY_INTERNAL 
     tag_struct(gs_debug_state->console, debug_console_t, main_arena);
     auto* console = gs_debug_state->console;
     console->user_data = game_state;
@@ -1083,6 +1086,7 @@ app_on_init(game_memory_t* game_memory) {
 #endif
     auto& mod_loader = game_state->modding.loader;
     mod_loader.load_library(".\\build\\code.dll");
+    // mod_loader.load_library(".\\build\\code.dll");
     
 
     game_state->resource_file = utl::res::load_pack_file(&game_state->mesh_arena, "./res/res.pack");
@@ -1205,9 +1209,11 @@ app_on_deinit(game_memory_t* game_memory) {
 
 export_fn(void) 
 app_on_unload(game_memory_t* game_memory) {
+    zyy_warn(__FUNCTION__, "Reloading Game...");
     game_state_t* game_state = get_game_state(game_memory);
     
-    game_state->render_system->ticket.lock();
+    game_state->modding.loader.unload_library();
+    // game_state->render_system->ticket.lock();
 }
 
 export_fn(void)
@@ -1217,10 +1223,14 @@ app_on_reload(game_memory_t* game_memory) {
     gs_debug_state = game_state->debug_state;
     gs_reload_time = 1.0f;
     gs_debug_camera.camera = &game_state->game_world->camera;
-    game_state->render_system->ticket.unlock();
+
+    game_state->modding.loader.load_library(".\\build\\code.dll");
+    // game_state->modding.loader.load_module();
+    // game_state->render_system->ticket.unlock();
+    zyy_warn(__FUNCTION__, "Reload Complete");
 }
 
-void 
+b32 
 app_on_input(game_state_t* game_state, app_input_t* input) {
     if (input->pressed.keys[key_id::F10]) {
         gs_jump_load_time = 1.0f;
@@ -1241,7 +1251,7 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
         }
     }
     if (input->pressed.keys[key_id::F2]) {
-        if (auto b = gs_show_console = !gs_show_console) {
+        if (auto b = gs_show_console = ((gs_show_console + 1) % 3)) {
             game_state->gui.imgui.active = "console_text_box"_sid;
         } else {
             game_state->gui.imgui.hot = 
@@ -1261,6 +1271,7 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
         game_state->game_world = zyy::world_init(game_state, game_state->game_memory->physics);
 
         gs_debug_camera.camera = &game_state->game_world->camera;
+        return 1;
     }
 
     if (input->gamepads[0].is_connected) {
@@ -1287,6 +1298,8 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
         game_state->time_scale *= 2.0f;
         game_state->time_text_anim = 1.0f;
     }
+
+    return 0;
 }
 
 void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
@@ -1379,7 +1392,9 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             }
         }
     }
-    app_on_input(game_state, input);
+    if (app_on_input(game_state, input)) {
+        return;
+    }
 
     zyy::world_kill_free_queue(world);
 
@@ -1449,6 +1464,13 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         // //         //  0.5f * (right + axis::up);
         // }
     // }
+
+    
+    {
+        const auto r = game_state->sfx->fmod.system->update();
+        assert(r == 0);
+    }
+    
 
     std::lock_guard lock{game_state->render_system->ticket};
     {
@@ -1521,29 +1543,35 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         }
 
         b32 is_particle = 0;
+        b32 is_additive = 0;
+        auto instance_count = e->gfx.instance_count();
+        auto instance_offset = e->gfx.instance_offset();
 
         if (e->gfx.particle_system) {
             is_particle = 1;
+            if (e->gfx.particle_system->flags & ParticleSettingsFlags_AdditiveBlend) {
+                is_additive = 1;
+            }
             auto* ps = e->gfx.particle_system;
             auto transform = e->global_transform();
             // arena_sweep_keep(&world->particle_arena, (std::byte*)(ps->particles + ps->max_count));
             if (dt != 0.0f) {
                 particle_system_update(e->gfx.particle_system, transform, dt);
             }
-            particle_system_sort_view(
+            // particle_system_sort_view(
+            //     e->gfx.particle_system, 
+            //     transform,
+            //     camera_position, camera_forward
+            // );
+            particle_system_build_colors(
                 e->gfx.particle_system, 
-                transform,
-                camera_position, camera_forward
+                e->gfx.dynamic_color_instance_buffer, 
+                e->gfx._instance_count
             );
             particle_system_build_matrices(
                 e->gfx.particle_system, 
                 transform,
                 e->gfx.dynamic_instance_buffer, 
-                e->gfx._instance_count
-            );
-            particle_system_build_colors(
-                e->gfx.particle_system, 
-                e->gfx.dynamic_color_instance_buffer, 
                 e->gfx._instance_count
             );
             range_u32(gi, 0, e->gfx.gfx_entity_count) {
@@ -1555,14 +1583,14 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         // v4f bounds{e->aabb.center(), glm::max(glm::max(size.x, size.y), size.z) };
 
         // if (e->type == zyy::entity_type::player) continue;
-        auto instance_count = e->gfx.instance_count();
 
         if (instance_count == 0) continue;
 
         // auto albedo_id = std::numeric_limits<u32>::max();
 
         // Todo(Zack): Add gfx setting for blending
-        auto& draw_command = forward_blend.push_command();
+        
+        auto& draw_command = is_additive ? forward_additive.push_command() : forward_blend.push_command();
         draw_command.type = gfx::render_command_type::draw_mesh;
         auto& draw_mesh = draw_command.draw_mesh;
             draw_mesh.mesh_id = e->gfx.mesh_id;
@@ -1571,7 +1599,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             draw_mesh.gfx_id = e->gfx.gfx_id;
             draw_mesh.gfx_count = e->gfx.gfx_entity_count;
             draw_mesh.instance_count = instance_count;
-            draw_mesh.instance_offset = e->gfx.instance_offset();
+            draw_mesh.instance_offset = instance_offset;
             draw_mesh.albedo_id = e->gfx.albedo_id;
 
         // rendering::submit_job(
@@ -1587,7 +1615,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         // );
     }
 
-    local_persist u32 show_light_probes = 1;
+    local_persist u32 show_light_probes;
     DEBUG_WATCH(&show_light_probes);
 
     if (show_light_probes) {
@@ -1645,6 +1673,40 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         draw_gui(game_state->game_memory);
         draw_game_gui(game_state->game_memory);
         draw_worlds(game_state, game_state->gui.imgui);
+                
+#ifdef DEBUG_STATE
+        auto& imgui = game_state->gui.imgui;
+        DEBUG_STATE_DRAW(imgui, rs->projection, rs->view, rs->viewport());
+        if (gs_show_watcher) {
+            DEBUG_STATE_DRAW_WATCH_WINDOW(imgui);
+        }
+
+        if (gs_show_console == 1) {
+            if (DEBUG_STATE.console->open_percent < 0.33f) {
+                DEBUG_STATE.console->open_percent += imgui.ctx.input->dt;
+            } else {
+                DEBUG_STATE.console->open_percent = .33f;
+            }
+        } else if (gs_show_console == 2) {
+            if (DEBUG_STATE.console->open_percent < 1.0f) {
+                DEBUG_STATE.console->open_percent += imgui.ctx.input->dt;
+            } else {
+                DEBUG_STATE.console->open_percent = 1.0f;
+            }
+        } else {
+            if (DEBUG_STATE.console->open_percent > 0.0f) {
+                DEBUG_STATE.console->open_percent -= imgui.ctx.input->dt;
+            } else {
+                DEBUG_STATE.console->open_percent = 0.0f;
+            }
+        }
+        if (DEBUG_STATE.console->open_percent > 0.0f) {
+            local_persist v2f cpos = v2f{400.0, 0.0f};
+            draw_console(imgui, DEBUG_STATE.console, &cpos);
+        }
+#endif
+
+
     }
 
 
@@ -2247,18 +2309,13 @@ app_on_update(game_memory_t* game_memory) {
             break;
     }
 
-    {
-        const auto r = game_state->sfx->fmod.system->update();
-        assert(r == 0);
-    }
-    
     game_on_render(game_memory, image_index);
     game_state->render_system->frame_count++;
     game_state->render_system->frame_count = game_state->render_system->frame_count % 2;
 
 #ifdef DEBUG_STATE
-        if (gs_debug_state) {
-            DEBUG_STATE.begin_frame();
-        }
+    if (gs_debug_state) {
+        DEBUG_STATE.begin_frame();
+    }
 #endif
 }

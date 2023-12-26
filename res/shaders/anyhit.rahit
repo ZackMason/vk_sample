@@ -52,10 +52,10 @@ void main()
     vec2 uv = (v0.t * bary.x + v1.t * bary.y + v2.t * bary.z);
     vec4 albedo = texture(uTextureCache[nonuniformEXT(entity.albedo%4096)], uv);
 
-    if (instance.instance_id != 0xffffffff) {
-        albedo *= uInstanceDataExt.data[nonuniformEXT(instance.instance_id)].color;
+    // if (instance.instance_id != 0xffffffff) {
+        // albedo.rgb *= uInstanceDataExt.data[nonuniformEXT(instance.instance_id)].color.rgb;
         // albedo.a = 0.0;
-    }
+    // }
     // albedo = vec4(0);
 
     if (albedo.a < 0.2) {

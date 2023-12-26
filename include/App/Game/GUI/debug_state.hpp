@@ -179,6 +179,25 @@ struct debug_state_t {
                 free_watch = watcher;
             }
         }
+        debug_variable_t* last = 0;
+        for(auto* var = variables; var;) {
+            if (time - var->time_stamp > timeout) {
+                if (last) {
+                    last->next = var->next;
+                    node_push(var, first_free);
+                    var = last->next;
+                    continue;
+                } else {
+                    node_next(variables);
+                    auto* ll = var->next;
+                    node_push(var, first_free);
+                    var = ll;
+                    continue;
+                }
+            }
+            last = var;
+            node_next(var);
+        }
         watcher = nullptr;
         // arena_clear(&watch_arena);
     }
@@ -277,23 +296,22 @@ struct debug_state_t {
         using namespace gfx::gui;
         debug_variable_t* last = nullptr;
         debug_variable_t* curr = variables;
-        while (curr && time - curr->time_stamp > timeout) {
-            auto* next = curr->next;
-            node_next(variables);
-            node_push(curr, first_free);
-            curr = next;
-        }
-        while (curr) {
-            if (time - curr->time_stamp > timeout) {
-                last->next = curr->next;
-                node_push(curr, first_free);
-                curr = last->next;
-
-            } else {
-                last = curr;
-                node_next(curr);
-            }
-        }
+        // while (curr && time - curr->time_stamp > timeout) {
+        //     auto* next = curr->next;
+        //     node_next(variables);
+        //     node_push(curr, first_free);
+        //     curr = next;
+        // }
+        // while (curr) {
+        //     if (time - curr->time_stamp > timeout) {
+        //         last->next = curr->next;
+        //         node_push(curr, first_free);
+        //         curr = last->next;
+        //     } else {
+        //         last = curr;
+        //         node_next(curr);
+        //     }
+        // }
 
         imgui.begin_free_drawing();
         defer {
@@ -358,10 +376,13 @@ struct debug_state_t {
     template <typename T>
     debug_variable_t* add_variable(T val, std::string_view name) {
         std::lock_guard lock{ticket};
-        auto* var = first_free ? first_free : push_struct<debug_variable_t>(&arena);
+        // auto* var = first_free ? first_free : push_struct<debug_variable_t>(&arena);
+        auto* var = first_free;
         if (first_free) { 
             node_next(first_free); 
             new (var) debug_variable_t;
+        } else {
+            tag_struct(var, debug_variable_t, &arena);
         }
         var->name = name;
         // if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_variable_type::ENTITY; }
@@ -465,6 +486,7 @@ struct debug_console_t {
     size_t message_top = 0;
 
     // i32 scroll{0};
+    f32 open_percent = 0.0f;
 
     const message_t& top_message() const {
         return messages[message_top];
@@ -499,6 +521,7 @@ struct debug_console_t {
 
     char    text_buffer[1024]{};
     size_t  text_size{0};
+    size_t  text_position{0};
 };
 
 inline static void 
@@ -565,7 +588,158 @@ draw_console(
     v2f* pos
 ) {
     using namespace gfx::gui;
-    using namespace std::string_view_literals;
+    auto* c = &imgui.ctx;
+
+    imgui.begin_free_drawing();
+    auto* save_font = c->font;
+    c->font = c->dyn_font[24];
+    defer {
+        // imgui.end_free_drawing();
+        c->font = save_font;
+    };
+
+    imgui.hot =
+    imgui.active = "DEBUG_console"_sid;
+
+
+    f32 open_prc = console->open_percent;
+    auto mouse = imgui.ctx.input->mouse.pos2();
+    auto clicked = imgui.ctx.input->mouse.buttons[0];
+    auto entered = imgui.ctx.input->pressed.keys[key_id::ENTER];
+    auto deleted = imgui.ctx.input->pressed.keys[key_id::BACKSPACE];
+    auto ctrl = imgui.ctx.input->keys[key_id::LEFT_CONTROL];
+    auto left = imgui.ctx.input->pressed.keys[key_id::LEFT];
+    auto right = imgui.ctx.input->pressed.keys[key_id::RIGHT];
+
+    const auto test_font_size = gfx::font_get_size(imgui.ctx.font, "Hello World!");
+
+    auto text_box_color = gfx::color::rgba::dark_red;
+
+    auto r = imgui.ctx.screen_rect();
+    math::rect2d_t text_box;
+    math::rect2d_t _t;
+
+    r.add(-math::height2 * r.size().y * (1.0f-open_prc));
+
+    draw_rect(c, r, imgui.theme.bg_color);
+
+
+    {
+        auto text_color = gfx::color::rgba::cream;
+
+        std::tie(text_box, r) = math::cut_bottom(r, test_font_size.y);
+        std::tie(_t, r) = math::cut_left(r, 8.0f);
+        
+        draw_rect(c, text_box, text_box_color);
+
+        string_render(c, console->text_buffer, text_box.min, text_color);
+
+        auto pos_size = gfx::font_get_size(c->font, std::string_view{console->text_buffer, console->text_position});
+        auto [before_cursor, after_cursor] = math::cut_left(text_box, pos_size.x);
+
+        math::rect2d_t cursor;
+        cursor.min = math::top_right(before_cursor);
+        cursor.max = before_cursor.max;
+        cursor.min.x -= 3.0f;
+        draw_rect(c, cursor, gfx::color::rgba::yellow);
+    
+        auto key = c->input->keyboard_input();
+        if (left) { 
+            if (console->text_position) {
+                console->text_position--;
+            }
+        } else if (right) {
+            if (console->text_position < console->text_size) {
+                console->text_position++;
+            }
+        }
+        if (key > 0) {
+            if (console->text_size + 1 < array_count(console->text_buffer)) {
+                if (console->text_position == console->text_size) {
+                    console->text_buffer[console->text_position++] = key;
+                } else {
+                    utl::copy(console->text_buffer + console->text_position + 1, console->text_buffer + console->text_position, console->text_size - console->text_position - 1);
+                    console->text_buffer[console->text_position++] = key;
+                }
+                console->text_size++;
+            }
+        }
+        if (entered) {
+            console_log(console, console->text_buffer, gfx::color::rgba::white, 0, 0, 1);
+            
+            utl::memzero(console->text_buffer, array_count(console->text_buffer));
+
+            console->text_position = 
+            console->text_size = 0;
+        }
+        if (deleted) {
+            if (ctrl) {
+                utl::memzero(console->text_buffer, console->text_position+1);
+
+                utl::copy(console->text_buffer, console->text_buffer + console->text_position, console->text_size - console->text_position);
+
+                console->text_size -= console->text_position;
+                console->text_position = 0;
+            } else if (console->text_position > 0) {
+                if (console->text_position == console->text_size) {
+                    console->text_position -= 1;
+                    console->text_buffer[console->text_position] = 0;
+                } else {
+                    console->text_position -= 1;
+                    utl::copy(console->text_buffer + console->text_position, console->text_buffer + console->text_position + 1, console->text_size - console->text_position + 1);
+                }
+                console->text_size -= 1;
+            }
+        }
+    }
+
+    r = c->screen_rect().clip(r);
+
+    local_persist f32 scroll;
+    local_persist f32 scroll_v;
+
+    scroll_v += c->input->mouse.scroll.y * 3.0f;
+    scroll   += scroll_v * c->input->dt;
+    scroll_v = tween::damp(scroll_v, 0.0f, 0.95f, c->input->dt);
+
+    imgui.end_free_drawing();
+    imgui.scissor(r);
+    imgui.begin_free_drawing();
+
+    r.add(math::height2 * scroll);
+
+    defer {
+        imgui.end_free_drawing();
+        imgui.end_scissor();
+    };
+
+    // for (u64 i = 10; i <= 10; i--) {
+    for (u64 i = 0; i < array_count(console->messages); i++) {
+        u64 index = (console->message_top - 1 - i) % array_count(console->messages);
+        auto* message = console->messages + index;
+        if (message->text[0]==0) {
+            continue;
+        }
+        auto text_color = message->color;
+
+        std::tie(text_box, r) = math::cut_bottom(r, test_font_size.y);
+        // std::tie(text_box, r) = math::cut_top(r, test_font_size.y);
+        string_render(c, message->text, text_box.min, text_color);
+
+        if (text_box.contains(mouse) && clicked) {
+            message->command.command(message->command.data);
+        }
+    }
+}
+
+inline void
+draw_console2(
+    gfx::gui::im::state_t& imgui, 
+    debug_console_t* console,
+    v2f* pos
+) {
+    using namespace gfx::gui;
+    
 
     const auto theme = imgui.theme;
     imgui.theme.border_radius = 1.0f;
@@ -611,17 +785,36 @@ draw_console(
     #define DEBUG_SET_TIMEOUT(time) DEBUG_STATE.timeout = (time)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport) DEBUG_STATE.draw(imgui, proj, view, viewport)
     #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui) DEBUG_STATE.draw_watch_window(imgui)
+    #define DEBUG_ALERT(msg) DEBUG_STATE.alert(msg)
     #define CLOG(text) console_log(DEBUG_STATE.console, (text), gfx::color::rgba::white, 0, 0, 1)
     #define FLOG(text, ...) console_log(DEBUG_STATE.console, fmt_sv((text), __VA_ARGS__), gfx::color::rgba::white, 0, 0, 1)
+    
+    #define aslert(expr) do { if (!(expr)) { zyy_warn(__FUNCTION__, "{}", #expr); DEBUG_STATE.alert(fmt_sv("Assertion Failed: {}:{} - {}", ::utl::trim_filename(__FILE__), __LINE__, #expr)); } } while(0)
+    #undef assert
+    #define assert(expr) aslert(expr)
+
+    #define assert_false(expr) do { assert((expr)); if(!(expr)) return false; } while (0)
+    #define assert_true(expr) do { assert((expr)); if(!(expr)) return true; } while (0)
+    #define assert_continue(expr) if(!(expr)) { assert(!#expr); continue; }
+
 #else
+    // #define DEBUG_STATE 
+    #define DEBUG_WATCH(var) 
     #define DEBUG_DIAGRAM(var) 
-    #define DEBUG_DIAGRAM(var, time)
+    #define DEBUG_DIAGRAM_(var, time) 
     #define DEBUG_SET_FOCUS(point) 
+    #define DEBUG_SET_FOCUS_DISTANCE(distance)
     #define DEBUG_SET_TIMEOUT(timeout)
     #define DEBUG_STATE_DRAW(imgui, proj, view, viewport)
     #define DEBUG_STATE_DRAW_WATCH_WINDOW(imgui)
+    #define DEBUG_ALERT(msg)
     #define CLOG(text) 
     #define FLOG(text, ...)
+
+
+    #define assert_false(expr) do { assert((expr)); if(!(expr)) return false; } while (0)
+    #define assert_true(expr) do { assert((expr)); if(!(expr)) return true; } while (0)
+    #define assert_continue(expr) if(!(expr)) { assert(!#expr); continue; }
 #endif
 
 debug_state_t* gs_debug_state;

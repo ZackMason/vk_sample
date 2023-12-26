@@ -1860,7 +1860,7 @@ state_t::load_font_sampler(
         image_info.mipLevels = 1;
         image_info.arrayLayers = 1;
 
-        image_info.format = VK_FORMAT_R8G8B8A8_SRGB;
+        image_info.format = VK_FORMAT_R8G8B8A8_UNORM;
         image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
         image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
@@ -1897,7 +1897,7 @@ state_t::load_font_sampler(
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = texture->image;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+        viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
         viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = 1;

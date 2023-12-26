@@ -59,7 +59,7 @@ void main() {
 
     // color.rgb *= voColor.rgb;
     // color *= voColor;// * voColor;
-    color *= voColor * voColor;
+    color *= voColor;
     
     fFragColor.rgb = color.rgb;
 

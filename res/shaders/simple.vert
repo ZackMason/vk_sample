@@ -107,6 +107,7 @@ main() {
 
 	if (draw.instance_count > 1) {
 		M = uInstanceData.instances[gl_InstanceIndex + instance_offset].model;
+		// vDrawColor.rgb = uInstanceDataExt.data[gl_InstanceIndex + instance_offset].color.rgb;
 		vDrawColor = uInstanceDataExt.data[gl_InstanceIndex + instance_offset].color;
 
 		vec3 world_pos = (M * vec4(vertex, 1.0)).xyz;

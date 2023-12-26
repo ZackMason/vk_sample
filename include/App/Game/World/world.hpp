@@ -481,7 +481,7 @@ namespace zyy {
             world_new_brain(world, entity, def.brain_type);
 
             if (entity->physics.rigidbody == nullptr) {
-                DEBUG_STATE.alert(fmt_sv("AI Entity: {} has no rigidbody", def.type_name.view()));
+                DEBUG_ALERT(fmt_sv("AI Entity: {} has no rigidbody", def.type_name.view()));
             } else {
                 if (def.brain_type == brain_type::player) {
                     entity->physics.rigidbody->set_layer(physics_layers::player);
@@ -690,6 +690,24 @@ namespace zyy {
         arena_clear(&world->frame_arena.get());
         world->events = 0;
         std::fill(world->render_groups.begin(), world->render_groups.end(), gfx::render_group_t{});
+
+        for (size_t i{0}; i < world->entity_capacity; i++) {
+            auto* e = world->entities + i;
+            if (e->is_alive() == false) {
+                continue;
+            }
+        
+            if (e->type == entity_type::player) {
+                world->game_state->sfx->set_listener(e->global_transform().origin);
+            }
+            if (e->attached_sound) {
+                if (e->attached_sound->isValid() == false) {
+                    e->attached_sound = nullptr;
+                } else {
+                    world->game_state->sfx->set_instance_position(e->attached_sound, e->global_transform().origin);
+                }
+            }
+        }
     }
 
     static void
@@ -709,8 +727,11 @@ namespace zyy {
     world_update_kinematic_physics(world_t* world) {
         TIMED_FUNCTION;
         // const auto* input = &world->game_state->game_memory->input;
-        for (size_t i{0}; i < world->entity_count; i++) {
+        for (size_t i{0}; i < world->entity_capacity; i++) {
             auto* e = world->entities + i;
+            if (e->is_alive() == false) {
+                continue;
+            }
             if (e->physics.flags & zyy::PhysicsEntityFlags_Dying) {
                 e->physics.flags = 0;
                 world->physics->remove_rigidbody(world->physics, e->physics.rigidbody);

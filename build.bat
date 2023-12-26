@@ -21,10 +21,15 @@ if exist C:\Users\crazy (
     set PhysXSDK=C:\Users\crazy\Documents\GitHub\PhysX\physx
     set PhysXInclude=/I %PhysXSDK%\include
 )
-Set PhysXCompiler=%PhysXSDK%\bin\win.x86_64.vc143.md
+
+set PhysXCompiler=%PhysXSDK%\bin\win.x86_64.vc143.md
 rem use physx checked or debug for development
 set PhysXOpt=release
 set PhysXLinkLibs=PhysX_64.lib PhysXCommon_64.lib PhysXCooking_64.lib PhysXFoundation_64.lib PhysXExtensions_static_64.lib PhysXCharacterKinematic_static_64.lib PhysXPvdSDK_static_64.lib PhysXVehicle_static_64.lib
+
+set FMOD_SDK=Z:\fmod
+set FMODInclude=/I %FMOD_SDK%\api\core\inc /I %FMOD_SDK%\api\studio\inc 
+set FMODLink=/LIBPATH:%FMOD_SDK%\api\core\lib\x64 fmod_vc.lib /LIBPATH:%FMOD_SDK%\api\studio\lib\x64 fmodstudio_vc.lib
 
 if "%OptLevel%"=="slow" (
     set OptimizationFlags=/UNDEBUG /DEBUG:full /Zi /O0 /fp:fast /arch:AVX2
@@ -32,7 +37,7 @@ if "%OptLevel%"=="slow" (
     set OptimizationFlags=/DNDEBUG /O2 /fp:fast /arch:AVX2
 )
 
-set IncludeFlags=/I ..\include /I ..\include\vendor /I..\include\vendor\SDL /I %VULKAN_SDK%/include 
+set IncludeFlags=/I ..\include /I ..\include\vendor /I..\include\vendor\SDL /I %VULKAN_SDK%/include
 set CompilerFlags=-nologo -FC -WX -W4 -wd4127 -wd4100 -wd4201 -wd4505 -wd4702 -wd4701 -wd4189 -MD -EHa /std:c++20
 set SDLLinkFlags=SDL2.lib SDL2_mixer.lib SDL2main.lib
 set LinkFlags=-incremental:no -opt:ref user32.lib gdi32.lib shell32.lib /LIBPATH:%VULKAN_SDK%/lib /LIBPATH:..\lib\debug vulkan-1.lib
@@ -43,7 +48,7 @@ xcopy %PhysXCompiler%\%PhysXOpt%\*.dll . /yq
 if "%~2"=="game" (
     del *.pdb > NUL 2> NUL
     echo Build Lock > lock.tmp
-    cl %OptimizationFlags% -DZYY_INTERNAL=1 %IncludeFlags% /I ..\src %CompilerFlags% ..\src\zyy_build.cpp -LD /link -PDB:game_%random%.pdb %LinkFlags%
+    cl %OptimizationFlags% -DZYY_INTERNAL=1 %IncludeFlags% %FMODInclude% /I ..\src %CompilerFlags% ..\src\zyy_build.cpp -LD /link -PDB:game_%random%.pdb %LinkFlags% %FMODLink%
     del lock.tmp
 )
 

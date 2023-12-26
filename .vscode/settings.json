@@ -109,6 +109,7 @@
     },
     "cmake.configureOnOpen": false,
     "cSpell.words": [
+      "aslert",
       "blkbrd_tab",
       "bools",
       "dlist",
