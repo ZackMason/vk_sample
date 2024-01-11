@@ -65,9 +65,11 @@ namespace fmod_sound {
             assert_success(instance->set3DAttributes(&attributes));
         }
 
-        void set_listener(v3f p) {
+        void set_listener(v3f p, v3f forward) {
             FMOD_3D_ATTRIBUTES attributes = { { 0 } };
-            attributes.forward.z = 1.0f;
+            attributes.forward.x = forward.x;
+            attributes.forward.y = forward.y;
+            attributes.forward.z = forward.z;
             attributes.up.y = 1.0f;
             attributes.position.x = p.x;
             attributes.position.y = p.y;
@@ -106,6 +108,7 @@ namespace fmod_sound {
         //     assert(!"Failed to Init FMOD");
         //     return 0;
         // }
+
 
         auto memory = begin_temporary_memory(arena);
         tag_struct(auto* engine, sound_engine_t, memory.arena);

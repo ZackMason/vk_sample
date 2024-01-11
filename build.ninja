@@ -44,7 +44,7 @@ rule compile_cpp
 
 rule link_dll
     deps = msvc
-    command = cl /showIncludes $opt_flags $in -LD /link $link_flags -PDB:build\game_$random.pdb  /OUT:$out
+    command = cl /showIncludes $opt_flags $in -LD /link $link_flags /OUT:$out
     description = Linking DLL $out
 
 rule link_exe
@@ -80,13 +80,19 @@ build build\zyy_physics.obj: compile_cpp src\zyy_physics.cpp
   include_flags = /I include /I include\vendor $PhysXInclude
   link_flags = $lflags /LIBPATH:$PhysXCompiler\$PhysXOpt $PhysXLinkLibs
   
+build build\vendor_build.obj: compile_cpp src\vendor\vendor_build.cpp
+  outputs = $out
+  opt_flags = $OptimizationFlags
+  include_flags = /I src\vendor /I include\vendor\Detour /I include\vendor\Recast 
+  link_flags = $lflags
+
 build build\zyy_build.obj: compile_cpp src\zyy_build.cpp
   outputs = $out
   opt_flags = $OptimizationFlags -DZYY_INTERNAL=1
   include_flags = /I include /I include\vendor /I $VULKAN_SDK\include $FMODInclude
   link_flags = $lflags
   
-build build\zyy_build.dll: link_dll build\zyy_build.obj 
+build build\zyy_build.dll: link_dll build\zyy_build.obj build\vendor_build.obj
   outputs = $out
   opt_flags = $OptimizationFlags -DZYY_INTERNAL=1
   link_flags = $lflags /LIBPATH:$VULKAN_SDK\lib /LIBPATH:lib\debug vulkan-1.lib $FMODLink
@@ -97,7 +103,6 @@ build build\zyy_physics.dll: link_dll build\zyy_physics.obj
   opt_flags = /DNDEBUG /O2 /fp:fast /arch:AVX2 -DZYY_LINK_PHYSICS_API_PHYSX=1 -DZYY_INTERNAL=1
   link_flags = $lflags /LIBPATH:lib\debug /LIBPATH:$PhysXCompiler/$PhysXOpt $PhysXLinkLibs
   random = $out.rnd
-  
 
 build build\game.exe: link_exe build\zyy_platform.obj
   outputs = $out
@@ -113,7 +118,6 @@ build build\tests.exe: link_exe build\tests.obj
     outputs = $out
     link_flags = $lflags /LIBPATH:lib\debug $sdl_lflags
     
-
 
 default build\game.exe 
 #default build\tests.exe

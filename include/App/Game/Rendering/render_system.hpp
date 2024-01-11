@@ -66,7 +66,7 @@ namespace rendering {
         struct link_t {
             std::string_view name; // this is unsafe, need to allocate
             u64 hash{0};
-            gfx::vul::texture_2d_t texture;        
+            gfx::vul::texture_2d_t texture; 
 
             // hash will probably never be 1, should probably check this
             void kill() {
@@ -116,16 +116,22 @@ namespace rendering {
             gfx::vul::state_t vk_gfx,
             const char* filename
         ) {
-            auto memory = begin_temporary_memory(arena);
+            // auto memory = begin_temporary_memory(arena);
             gfx::vul::texture_2d_t texture{};
             if (utl::has_extension(filename, "png")) {
                 // assert(0); // need to remove extension
                 // vk_gfx.load_texture_sampler(&texture, filename, &arena);
-                vk_gfx.load_texture_sampler(&texture, fmt_sv("res/textures/{}", filename), memory.arena);
+                string_buffer name = {};
+                name.push(arena, fmt_sv("res/textures/{}", filename));
+                
+                vk_gfx.load_texture_sampler(&texture, name.sv(), arena);
             } else {
-                vk_gfx.load_texture_sampler(&texture, fmt_sv("res/textures/{}", filename), memory.arena);
+                string_buffer name = {};
+                name.push(arena, fmt_sv("res/textures/{}", filename));
+
+                vk_gfx.load_texture_sampler(&texture, name.sv(), arena);
             }
-            end_temporary_memory(memory);
+            // end_temporary_memory(memory);
             return add(
                 texture, 
                 filename
@@ -862,6 +868,8 @@ public:
         u64            frame_count{0};
         frame_data_t   frames[frame_overlap];
 
+        u64            static_mesh_batch_count{0};
+
         gfx::vul::descriptor_allocator_t* permanent_descriptor_allocator{nullptr};
         gfx::vul::descriptor_layout_cache_t* descriptor_layout_cache{nullptr};
 
@@ -1363,13 +1371,39 @@ public:
         system_t* rs,
         gfx::render_group_t render_group
     ) {
+        auto& ext = rs->vk_gfx->ext;
+
+        u64 batch = 0;
+        u64 batch_count = 0;
+        u64 batch_offset = rs->static_mesh_batch_count;
+
+        render_group.draw_batches = {};
+        render_group.draw_batches.reserve(&rs->frame_arena, 4);
+
         range_u64(i, 0, render_group.size) {
             auto& command = render_group.commands[i];
             switch(command.type) {
                 case gfx::render_command_type::set_blend: {
-                    // todo
+                    // gfx::batched_draw_t draw = {};
+                    // draw.offset = rs->static_mesh_batch_count;
+                    // draw.count = batch_count;
+                    // draw_count = 0;
+                    // if (batch < render_group.draw_batches.count) {
+                    //     render_group.draw_batches[batch++];
+                    // } else {
+                    //     render_group.draw_batches.push(&rs->frame_arena, batch);
+                    // }
+                    // VkColorBlendEquationEXT blend_fn[1];
+                    // if (command.blend_function.blend == gfx::blend_mode::additive) {
+                    //     blend_fn[0] = gfx::vul::utl::additive_blending();
+                    //     ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
+                    // } else if (command.blend_function.blend == gfx::blend_mode::alpha_blend) {
+                    //     blend_fn[0] = gfx::vul::utl::alpha_blending();
+                    //     ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
+                    // }
                 } break;
                 case gfx::render_command_type::draw_mesh: {
+                    batch_count += 1;
                     auto [t, mesh, mat, alb, gfx, gfc, io, ic, rtx] = command.draw_mesh;
                     submit_job(rs, 
                         mesh,

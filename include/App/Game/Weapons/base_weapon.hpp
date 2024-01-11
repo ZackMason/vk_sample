@@ -44,6 +44,7 @@ namespace zyy::wep {
     };
 
     struct base_weapon_t {
+        u64 VERSION{0};
         f32 fire_rate{};
         f32 load_speed{};
         f32 chamber_speed{};
@@ -54,10 +55,10 @@ namespace zyy::wep {
 
         weapon_stats_t stats{};
         ammo_mag_t mag{};
-        weapon_action_t action{};
+        weapon_action_t action{}; // @NoSerialize
 
-        item::effect_t* effects{};
-        spawn_bullet_function bullet_fn{spawn_bullet};
+        item::effect_t* effects{}; // @NoSerialize
+        spawn_bullet_function bullet_fn{spawn_bullet}; // @NoSerialize
 
         struct sound_effects_t {
             u64 reload{0x2};
@@ -255,5 +256,50 @@ namespace zyy::wep {
         };
         return shotgun;
     }
+}
 
-};
+template<>
+zyy::wep::base_weapon_t utl::memory_blob_t::deserialize<zyy::wep::base_weapon_t>() {
+    zyy::wep::base_weapon_t weapon{};
+
+    #define DESER(x) x = deserialize<decltype(x)>();
+    
+    DESER(weapon.VERSION);
+    DESER(weapon.fire_rate);
+    DESER(weapon.load_speed);
+    DESER(weapon.chamber_speed);
+    DESER(weapon.chamber_count);
+    DESER(weapon.chamber_max);
+    DESER(weapon.chamber_mult);
+    DESER(weapon.stats.damage);
+    DESER(weapon.stats.pen);
+    DESER(weapon.stats.spread);
+    DESER(weapon.mag.current);
+    DESER(weapon.mag.max);
+    DESER(weapon.sound_effects.reload);
+    DESER(weapon.sound_effects.fire);
+    
+    #undef DESER
+    
+    return weapon;
+}
+
+template<>
+void utl::memory_blob_t::serialize<zyy::wep::base_weapon_t>(arena_t* arena, const zyy::wep::base_weapon_t& weapon) {
+    serialize(arena, zyy::wep::base_weapon_t{}.VERSION);
+    
+    serialize(arena, weapon.fire_rate);
+    serialize(arena, weapon.load_speed);
+    serialize(arena, weapon.chamber_speed);
+    serialize(arena, weapon.chamber_count);
+    serialize(arena, weapon.chamber_max);
+    serialize(arena, weapon.chamber_mult);
+    serialize(arena, weapon.stats.damage);
+    serialize(arena, weapon.stats.pen);
+    serialize(arena, weapon.stats.spread);
+    serialize(arena, weapon.mag.current);
+    serialize(arena, weapon.mag.max);
+    // serialize(arena, weapon.action);
+    serialize(arena, weapon.sound_effects.reload);
+    serialize(arena, weapon.sound_effects.fire);
+}

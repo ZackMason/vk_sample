@@ -17,6 +17,8 @@
 // #include "commdlg.h"
 
 // #define MULTITHREAD_ENGINE
+#define ENABLE_MEMORY_LOOP
+
 platform_api_t Platform;
 
 struct access_violation_exception : public std::exception {
@@ -120,22 +122,30 @@ HANDLE win32_end_loop_file(std::string_view file_name, HANDLE file) {
 void win32_save_blocks_to_file(HANDLE file, win32_memory_block_t* head) {
     bool result;
     DWORD bytes_written;
+    DWORD total_bytes = 0;
+    OVERLAPPED overlapped = {}; // ms says dont reuse, lets see what happens
+    overlapped.OffsetHigh = overlapped.Offset = 0xffffffff;
+
     for (auto* block = head->next;
         block != head;
         node_next(block)
     ) {
+
         assert(block->size < std::numeric_limits<DWORD>::max());
         win32_saved_block_t saved = {};
         void* base = get_base_pointer(block);
         assert(base);
         saved.base = (u64)base;
         saved.size = block->size;
-        result = WriteFile(file, &saved, sizeof(saved), &bytes_written, 0);
-        result = WriteFile(file, base, (DWORD)block->size, &bytes_written, 0);
+        result = WriteFile(file, &saved, sizeof(saved), &bytes_written, &overlapped);
         assert(result);
+        result = WriteFile(file, base, (DWORD)block->size, &bytes_written, &overlapped);
+        assert(result);
+
     }
+
     win32_saved_block_t terminator = {}; // I'll be (the) back
-    result = WriteFile(file, &terminator, sizeof(terminator), &bytes_written, 0);
+    result = WriteFile(file, &terminator, sizeof(terminator), &bytes_written, &overlapped);
     assert(result);
 }
 
@@ -155,7 +165,7 @@ void win32_read_blocks_from_file(HANDLE file, win32_memory_block_t* head) {
             bytes_loaded += saved.size;
 
             void* base = (void*)saved.base;
-            zyy_info(__FUNCTION__, "Loading block: {} - {}Mb", base, saved.size/megabytes(1));
+            // zyy_info(__FUNCTION__, "Loading block: {} - {}Mb", base, saved.size/megabytes(1));
             auto* block = get_block_pointer(base);
             dlist_insert_as_last(head, block);
             result = ReadFile(file, base, (u32)saved.size, &bytes_read, 0);
@@ -170,7 +180,7 @@ void win32_read_blocks_from_file(HANDLE file, win32_memory_block_t* head) {
 }
 
 void win32_load_loop_file(HANDLE file) {
-    free_all_used_blocks();
+    //free_all_used_blocks();
     win32_read_blocks_from_file(file, &allocated_blocks);
 }
 
@@ -187,7 +197,8 @@ void win32_free(void* ptr) {
         dlist_remove(free_block);
     }
 
-#if ZYY_INTERNAL
+#ifdef ENABLE_MEMORY_LOOP
+// #if ZYY_INTERNAL
     {
         auto* head = &freed_blocks;
         std::lock_guard lock{free_ticket};
@@ -201,7 +212,8 @@ void win32_free(void* ptr) {
 }
 
 void* win32_alloc(size_t size) {
-#if 1
+#ifdef ENABLE_MEMORY_LOOP
+
     {
         // Note
         // theres a problem in that in the game layer 
@@ -244,7 +256,7 @@ void* win32_alloc(size_t size) {
         dlist_insert_as_last(head, block);
     }
 
-    return block+1;
+    // return block+1;
     
     return (u8*)memory + sizeof(win32_memory_block_t);
 }
@@ -729,7 +741,7 @@ main(int argc, char* argv[]) {
     game_memory.platform = Platform;
 
     // constexpr size_t application_memory_size = gigabytes(2);
-    game_memory.arena = arena_create(megabytes(256));
+    game_memory.arena = arena_create(megabytes(8));
 
     // game_memory_t restore_point;
     // restore_point.arena.start = 0;
@@ -895,6 +907,7 @@ main(int argc, char* argv[]) {
         }
 
         
+#ifdef ENABLE_MEMORY_LOOP
         if (game_memory.input.pressed.keys[key_id::F9]) {
 #ifdef MULTITHREAD_ENGINE
             rendering_lock.lock();
@@ -909,6 +922,9 @@ main(int argc, char* argv[]) {
             rendering_lock.unlock();
 #endif 
         }
+#endif 
+
+#ifdef ENABLE_MEMORY_LOOP
         if (game_memory.input.pressed.keys[key_id::F10]) {
 #ifdef MULTITHREAD_ENGINE
             rendering_lock.lock();
@@ -927,6 +943,7 @@ main(int argc, char* argv[]) {
             rendering_lock.unlock();
 #endif 
         }
+#endif 
         if (game_memory.input.pressed.keys[key_id::P]) {
             p = new utl::profile_t{"win32::loop"};
         }

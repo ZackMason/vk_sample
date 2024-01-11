@@ -122,6 +122,7 @@ utl::memory_blob_t::deserialize<particle_system_settings_t>(arena_t* arena) {
             read_offset -= sizeof(u64);
             utl::copy(&settings, data+read_offset, v0_size);
             advance(v0_size);
+            assert(!"I dont think this should run");
         } else {
             if (settings.VERSION <= 3) {
                 utl::copy(&settings.template_particle, data+read_offset, v3_particle_size);

@@ -357,8 +357,8 @@ main( )
 	// alpha = 1.0;// saturate(alpha);
 	alpha = saturate(alpha);
 
-	fFragColor = vec4( rgb, alpha * alpha);
 	fFragColor = vec4( rgb, (alpha));
+	fFragColor = vec4( rgb, alpha * alpha);
 }
 
 

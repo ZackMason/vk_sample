@@ -102,10 +102,293 @@ namespace ui_styles { enum : u32 {
     first, second,
 };}
 
+struct floating_widget_t {
+    math::rect2d_t aabb = {};
+    u64            id = 0;
+
+    void*              data = 0;
+    floating_widget_t* next = 0;
+
+    f32                selection_alpha = 0.0f;
+};
+
+u64 query_widgets(
+    floating_widget_t* from,
+    math::rect2d_t     from_collider,
+    std::span<floating_widget_t*> all_widgets,
+    std::span<floating_widget_t*> results
+) {
+    u64 proximity_count = 0;
+
+    for (const auto& widget: all_widgets) {
+        if (widget->id == from->id) { continue; }
+        if (proximity_count >= results.size()) { break; }
+
+        if (widget->aabb.intersect(from_collider)) {
+            results[proximity_count++] = widget;
+        }
+    }
+
+    return proximity_count;
+}
+
+struct inventory_theme_t {
+    v4f panel_color = gfx::color::v4::darker_purple;
+    v4f bg_color    = gfx::color::v4::dark_purple;
+    v4f text_color  = gfx::color::v4::dark_red;
+
+    f32 vertical_spacing = 12.0f;
+    f32 border_thickness = 4.0f;
+
+    u32 title_font        = 30;
+    u32 button_font       = 20;
+    u32 controls_font     = 20;
+    u32 description_font  = 12;
+
+    f32 button_width     = 128.0f;
+    f32 button_height    = -1.0f;
+};
+
+struct inventory_ui_t {
+    arena_t* arena = 0;
+
+    v2f camera = {};
+    v2f camera_size = {};
+
+    inventory_theme_t theme{};
+
+    floating_widget_t* selection = 0;
+
+    buffer<floating_widget_t*> widgets = {};
+
+    b32 state = 1;
+    b32 show_more = 0;
+};
+
+void inventory_input(
+    inventory_ui_t* inventory,
+    game_ui_input_t input
+) {
+    if (input.ui_left) {
+        if (inventory->show_more) {
+            inventory->show_more = 0;
+        } else if (inventory->selection) {
+            inventory->selection = nullptr;
+        } else {
+            inventory->state = 0;
+        }
+    }
+    if (input.ui_right) {
+        if (inventory->selection) {
+            inventory->show_more = 1;
+        } else if (inventory->widgets.count > 0) {
+            inventory->selection = inventory->widgets.data[0];
+        }
+    }
+    if (input.ui_down) {
+        inventory->show_more = 0;
+        range_u64(i, 0, inventory->widgets.count) {
+            if (inventory->selection == inventory->widgets[i]) {
+                inventory->selection = inventory->widgets[(i+1) % inventory->widgets.count];
+                break;
+            }
+        }
+    } else if (input.ui_up) {
+        inventory->show_more = 0;
+        range_u64(i, 0, inventory->widgets.count) {
+            if (inventory->selection == inventory->widgets[i]) {
+                inventory->selection = inventory->widgets[i?i-1:inventory->widgets.count-1];
+                break;
+            }
+        }
+    }
+}
+
+math::rect2d_t build_inventory_title(
+    gfx::gui::im::state_t& imgui,
+    zyy::entity_t* player,
+    inventory_ui_t* inventory,
+    v2f start
+) {
+    const auto& theme = inventory->theme;
+    auto* c = &imgui.ctx;
+    auto* font = imgui.ctx.dyn_font[theme.title_font];
+
+    auto bg_color = gfx::color::to_color32(theme.bg_color);
+    auto text_color = gfx::color::to_color32(theme.text_color);
+    auto panel_color = gfx::color::to_color32(theme.panel_color);
+
+    auto inventory_text_size = gfx::font_get_size(font, "Inventory"sv);
+
+    auto anim = glm::sin(c->input->time);
+
+    auto selection = c->begin_vertex_selection();
+    defer {
+        c->end_vertex_selection(selection);
+
+        math::transform_t transform{};
+        auto center = gfx::gui::selection_center(selection);
+        transform.origin = center;
+
+        transform.set_rotation(axis::backward, anim);
+
+        gfx::gui::apply_vertex_transform(selection, transform.to_matrix() * math::transform_t{-center}.to_matrix());
+    };
+
+    math::rect2d_t title = {start, start};
+    title.pull(inventory_text_size + v2f{8.0f});
+
+    math::rect2d_t r = title;
+    r.add(-inventory->camera + inventory->camera_size * 0.5f);
+
+    gfx::gui::draw_rect(c, r, bg_color);
+    r.pad(theme.border_thickness);
+    gfx::gui::draw_rect(c, r, panel_color);
+
+    gfx::gui::draw_string(c, "Inventory"sv, r.center() - inventory_text_size * 0.5f, text_color, font);
+
+    return title;
+}
+
+void build_inventory_ui(
+    gfx::gui::im::state_t& imgui,
+    zyy::entity_t* player,
+    inventory_ui_t* inventory    
+) {
+    assert(player->type == zyy::entity_type::player);
+
+    const auto& theme = inventory->theme;
+    auto* c = &imgui.ctx;
+    auto* font = imgui.ctx.dyn_font[theme.button_font];
+    auto dt = imgui.ctx.input->dt;
+
+    auto bg_color = gfx::color::to_color32(theme.bg_color);
+    auto text_color = gfx::color::to_color32(theme.text_color);
+    auto panel_color = gfx::color::to_color32(theme.panel_color);
+
+    auto memory = begin_temporary_memory(inventory->arena);
+    defer {
+        end_temporary_memory(memory);
+    };
+
+    if (inventory->state) {
+        imgui.hot = u64(inventory);
+        inventory_input(inventory, get_game_ui_input(imgui.ctx.input));
+    }
+    
+    v2f start = {};
+
+    auto cursor = [&]{
+        return start - inventory->camera + inventory->camera * 0.5f;
+    };
+
+    auto inventory_panel = build_inventory_title(imgui, player, inventory, start);
+
+    start += inventory_panel.size();
+
+    zyy::entity_t dummy{};
+    dummy.name.view("Empty");
+
+    // auto camera_target = v2f{0.0f};
+    if (inventory->selection == nullptr) {
+        // inventory->camera = tween::lerp(inventory->camera, v2f{0.0f}, dt);
+        inventory->camera = tween::lerp(inventory->camera, v2f{0.0f}, dt);
+    } else {
+        auto* widget = inventory->selection;
+        auto* item = (zyy::entity_t*)widget->data;
+
+        if (item) {
+            v2f p = {};
+            p.y = widget->aabb.min.y;
+
+            math::rect2d_t w{p, p};
+
+            w.max = w.min + v2f{420.f, 128.0f};
+            w.add(-w.size()*0.5f);
+
+            math::rect2d_t r = w;
+            r.add(-inventory->camera + inventory->camera_size * 0.5f);
+
+            r.pull(v2f{theme.border_thickness});
+            gfx::gui::draw_rect(c, r, bg_color);
+            r.pad(theme.border_thickness);
+            gfx::gui::draw_rect(c, r, panel_color);
+
+            auto title_size = gfx::font_get_size(font, item->name.c_data);
+
+            math::rect2d_t title;
+            std::tie(title, r) = math::cut_top(r, title.size().y + 10.0f);
+
+            gfx::gui::draw_rect(c, title, bg_color);
+            title.pad(theme.border_thickness);
+            gfx::gui::draw_rect(c, title, panel_color);
+
+            gfx::gui::draw_rect(c, r, bg_color);
+            r.pad(theme.border_thickness);
+            gfx::gui::draw_rect(c, title, panel_color);
+
+            gfx::gui::draw_string(c, item->name.c_data, title.center() - title_size * 0.5f, text_color, font);
+
+            if (inventory->show_more) {
+                inventory->camera = tween::lerp(inventory->camera, w.center(), 2.0f * dt);
+            }
+        }
+
+        if (!inventory->show_more) {
+            inventory->camera = tween::lerp(inventory->camera, inventory->selection->aabb.center(), 2.0f * dt);
+        }
+    }
+    // inventory->camera = glm::floor(inventory->camera);
+
+    range_u64(i, 0, inventory->widgets.count) {
+        auto* widget = inventory->widgets[i];
+        auto* item = (zyy::entity_t*)widget->data;
+        
+        if (item == nullptr) item = &dummy;
+
+        auto text_size = gfx::font_get_size(font, item->name.c_data);
+
+        widget->aabb = {start, start};
+        widget->aabb.max += glm::max(v2f{theme.button_width, theme.button_height}, text_size + v2f{8.0f});
+        
+        const f32 activate_speed = 1.0f;
+        if (inventory->selection == widget) {
+            widget->selection_alpha += dt * activate_speed;
+        } else {
+            widget->selection_alpha -= dt * activate_speed;
+        }
+        widget->selection_alpha = glm::clamp(widget->selection_alpha, 0.0f, 1.0f);
+
+        auto alpha = tween::in_out_sine(widget->selection_alpha);
+        // auto alpha = tween::out_bounce(widget->selection_alpha);
+        
+        widget->aabb.add(alpha * theme.button_width * math::width2);
+        // widget->aabb.add(alpha * -theme.button_width * math::width2);
+        // if (inventory->selection == widget) {
+        //     inventory->camera = tween::lerp(inventory->camera, widget->aabb.center(), 2.0f * dt);
+        // }
+
+        auto r = widget->aabb;
+        
+        r.add(-inventory->camera + inventory->camera_size * 0.5f);
+        r.pull(v2f{theme.border_thickness});
+        gfx::gui::draw_rect(c, r, bg_color);
+        r.pad(theme.border_thickness);
+        gfx::gui::draw_rect(c, r, panel_color);
+
+        gfx::gui::draw_string(c, item->name.c_data, r.center() - text_size * 0.5f, text_color, font);
+
+        start.y = widget->aabb.max.y + theme.border_thickness;
+        start.y += theme.vertical_spacing;
+        start.x += theme.vertical_spacing;
+    }
+
+}
 
 struct game_ui_t {
     game_theme_t game_theme{};
 
+    zyy::entity_t* player = 0;
     zyy::entity_t* entity = 0;
 
     u32 options_available = available_options::name;
@@ -121,6 +404,7 @@ struct game_ui_t {
     math::rect2d_t screen{};
 
     inline static b32 inventory_open = 0;
+    inline static inventory_ui_t* inventory = 0;
 
     inline static u32 highlight_option = 0;
     inline static u32 ui_style = ui_styles::second;
@@ -149,7 +433,7 @@ void draw_game_ui_first(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
         box.add(v2f{(f32(i)-4.5f) * width_plus_pad, 0.0f}); 
         
         gfx::gui::draw_rect(&imgui.ctx, box, game_theme.action_button_color);
-        gfx::gui::string_render(&imgui.ctx, fmt_sv("{}", i), box.min + game_theme.padding, gfx::color::rgba::white);
+        gfx::gui::draw_string(&imgui.ctx, fmt_sv("{}", i), box.min + game_theme.padding, gfx::color::rgba::white);
     }
 }
 
@@ -183,7 +467,21 @@ void draw_game_ui_second(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
     gfx::gui::draw_rect(&imgui.ctx, action_tab, game_theme.action_bar_fg_color);
 
     v2f cursor = action_tab.min + 2.0f;
-    gfx::gui::string_render(&imgui.ctx, fmt_sv("Health: {} / {}", game_ui->health.current, game_ui->health.max), &cursor, gfx::color::rgba::light_green);
+    auto health_percent = f32(game_ui->health.current) / f32(game_ui->health.max);
+    auto health_bar = action_tab;
+    health_bar.pad(4.0f);
+    health_bar.max.y = health_bar.min.y + 32.0f;
+    // gfx::gui::string_render(&imgui.ctx, fmt_sv("Health: {} / {}", game_ui->health.current, game_ui->health.max), &cursor, gfx::color::rgba::light_green);
+    gfx::gui::draw_progress_bar(&imgui.ctx,
+        health_bar, health_percent,
+        gfx::color::rgba::red, 
+        gfx::color::rgba::ue5_bg, 
+        gfx::color::rgba::black,
+        4.0f,
+        // 8.0f,
+        gfx::gui::progress_bar_style::leftround
+        // gfx::gui::progress_bar_style::rounded
+    );
 
     // for (i32 i = 0; i < 10; i++) {
     //     math::rect2d_t box{
@@ -233,8 +531,7 @@ void draw_game_inventory(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
     v2f title_cursor = panel_title.sample(math::half2) - title_size * math::half2;
     gfx::gui::draw_rect(&imgui.ctx, panel_title, game_theme.action_bar_fg_color);
 
-    gfx::gui::string_render(&imgui.ctx, title, &title_cursor, title_color);
-
+    gfx::gui::draw_string(&imgui.ctx, title, &title_cursor, title_color);
 }
 
 void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
@@ -248,8 +545,13 @@ void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
         case_invalid_default;
     }
 
-    if (game_ui->inventory_open) {
-        draw_game_inventory(imgui, game_ui);
+    if (game_ui->inventory) {
+        // draw_game_inventory(imgui, game_ui);
+        if (game_ui->inventory->state) {
+            build_inventory_ui(imgui, game_ui->player, game_ui->inventory);
+        } else {
+            game_ui->inventory = nullptr;
+        }
     }
 }
 
@@ -258,6 +560,8 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     if (player == nullptr) {
         return ui;
     }
+
+    ui.player = player;
     auto capture = gfx::gui::im::want_mouse_capture(world->game_state->gui.imgui);
 
     ui.screen = math::rect2d_t{v2f{0.0f}, world->render_system()->screen_size()};
@@ -274,11 +578,33 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     ui.health = player->stats.character.health;
 
     if (!capture && world->game_state->input().pressed.keys['T']) {
-        ui.inventory_open ^= true;
+        if (ui.inventory) {
+            ui.inventory = 0;
+        } else {
+            tag_struct(ui.inventory, inventory_ui_t, &world->arena);
+            ui.inventory->arena = &world->arena;
+            u64 widget_count = 0;
+
+            ui.inventory->widgets.reserve(ui.inventory->arena, player->inventory.items.count);
+            range_u64(i, 0, player->inventory.items.count) {
+                auto* item = player->inventory.items[i].entity;
+                // if (item == 0) continue;
+
+                tag_struct(auto* widget, floating_widget_t, ui.inventory->arena);
+                ui.inventory->widgets[widget_count++] = widget;
+
+                widget->data = item;
+                widget->id = u64(item);
+            }
+
+            ui.inventory->camera_size = ui.screen.max;
+        }
+        // ui.inventory_open ^= true;
     }
     
     math::ray_t game_ui_ray{ui.eye, ui.look};
-    DEBUG_DIAGRAM(game_ui_ray);
+    // DEBUG_DIAGRAM(game_ui_ray);
+
     auto raycast = world->physics->raycast_world(ui.eye, ui.look, ~zyy::physics_layers::player);
     if (raycast.hit) {
         auto* rb = (physics::rigidbody_t*)raycast.user_data;
@@ -361,7 +687,7 @@ draw_game_gui(game_memory_t* game_memory) {
         if (game_ui.options_available & available_options::name) {
             if (game_ui.entity->name.data) {
                 option_count += 1;
-                gfx::gui::string_render(&imgui.ctx, fmt_sv("{}", game_ui.entity->name.c_data), &look_at_cursor, color);
+                gfx::gui::draw_string(&imgui.ctx, fmt_sv("{}", game_ui.entity->name.c_data), &look_at_cursor, color);
             }
         }
 
@@ -370,7 +696,6 @@ draw_game_gui(game_memory_t* game_memory) {
 
         constexpr f32 indent = 0.0f;
         look_at_cursor.x += indent;
-
 
         if (game_ui.options_available & available_options::pickup) {
             if (option_count == game_ui.highlight_option) {
@@ -381,7 +706,7 @@ draw_game_gui(game_memory_t* game_memory) {
                     }
                 }
             }
-            gfx::gui::string_render(&imgui.ctx, "Pickup", &look_at_cursor, color);
+            gfx::gui::draw_string(&imgui.ctx, "Pickup", &look_at_cursor, color);
             option_count += 1;
         }
 
@@ -389,7 +714,7 @@ draw_game_gui(game_memory_t* game_memory) {
         if (option_count == game_ui.highlight_option) color = selection_color;
 
         if (game_ui.options_available & available_options::activate) {
-            gfx::gui::string_render(&imgui.ctx, "Activate", &look_at_cursor, color);
+            gfx::gui::draw_string(&imgui.ctx, "Activate", &look_at_cursor, color);
             option_count += 1;
         }
 
@@ -413,8 +738,8 @@ draw_game_gui(game_memory_t* game_memory) {
 
         v2f weapon_display_start = imgui.ctx.screen_size * v2f{0.05f, 0.9f};
         
-        gfx::gui::string_render(&imgui.ctx, fmt_sv("{} / {}", game_ui.mag.current, game_ui.mag.max), &weapon_display_start, gfx::color::rgba::white);
-        gfx::gui::string_render(&imgui.ctx, fmt_sv("Chambered: {}", weapon.chamber_count), &weapon_display_start, gfx::color::rgba::white);
+        gfx::gui::draw_string(&imgui.ctx, fmt_sv("{} / {}", game_ui.mag.current, game_ui.mag.max), &weapon_display_start, gfx::color::rgba::white);
+        gfx::gui::draw_string(&imgui.ctx, fmt_sv("Chambered: {}", weapon.chamber_count), &weapon_display_start, gfx::color::rgba::white);
     }
 }
 
@@ -423,7 +748,7 @@ make_grid_texture(arena_t* arena, gfx::vul::texture_2d_t* tex, u32 size, v3f c1,
     *tex = {};
     tex->size[0] = tex->size[1] = size;
     tex->channels = 4;
-    tex->pixels = push_struct<u8>(arena, size*size*4);
+    tag_array(tex->pixels, u8, arena, size*size*4);
     u64 i = 0;
     range_u64(x, 0, size) {
         range_u64(y, 0, size) {
@@ -492,7 +817,7 @@ make_noise_texture(arena_t* arena, u32 size) {
 
     tex->size[0] = tex->size[1] = size;
     tex->channels = 4;
-    tex->pixels = (u8*)push_bytes(arena, size*size*4);
+    tag_array(tex->pixels, u8, arena, size*size*4);
     // tex->format = VK_FORMAT_R8G8B8A8_SRGB;
     u64 i = 0;
     range_u64(x, 0, size) {
@@ -526,13 +851,16 @@ app_init_graphics(game_memory_t* game_memory) {
     // texture_add_border(&vk_gfx.null_texture, v3f{0.2f}, 4);
 
     // make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.7f, 0.7f, 0.7f}, v3f{0.66f, 0.66f, 0.66f}, 2.0f);
-    make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.98f}, v3f{0.66f, 0.66f, 0.66f}, 2.0f);
 
     // make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.7f, 0.13f, 0.13f}, v3f{0.79f, 0.16f, 0.16f}, 2.0f);
+
+    // good grid
+    // vk_gfx.null_texture = {};
+    make_grid_texture(&game_state->main_arena, &vk_gfx.null_texture, 256, v3f{0.98f}, v3f{0.66f, 0.66f, 0.66f}, 2.0f);
     texture_add_border(&vk_gfx.null_texture, v3f{0.2f}, 4);
+    vk_gfx.load_texture_sampler(&vk_gfx.null_texture);
 
     // make_error_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256);
-    vk_gfx.load_texture_sampler(&vk_gfx.null_texture);
 
     game_state->render_system = rendering::init<megabytes(32)>(vk_gfx, &game_state->main_arena);
     game_state->render_system->resource_file = game_state->resource_file;
@@ -925,15 +1253,18 @@ app_on_init(game_memory_t* game_memory) {
 
 
     // game_state->string_arena = arena_create(megabytes(2));
-    game_state->mesh_arena = arena_create(megabytes(2));
-    game_state->texture_arena = arena_create(megabytes(2));
+    game_state->mesh_arena = arena_create(kilobytes(64));
+    game_state->texture_arena = arena_create(megabytes(16));
     // game_state->gui.arena = arena_create(megabytes(1));
 
     // assets::sounds::load();
 #ifdef DEBUG_STATE
     tag_struct(game_state->debug_state, debug_state_t, main_arena, game_memory->input.time);
-    game_state->debug_state->arena = arena_create();
-    game_state->debug_state->watch_arena = arena_create(megabytes(4));
+    game_state->debug_state->arena = arena_create(kilobytes(16));
+    game_state->debug_state->watch_arena = arena_create(kilobytes(4));
+
+
+    game_state->debug_state->debug_alerts.reserve(&game_state->debug_state->arena, 64);
 
     gs_debug_state = game_state->debug_state;    
 
@@ -953,6 +1284,59 @@ app_on_init(game_memory_t* game_memory) {
                 console->console_commands[i].command.command, 
                 console->console_commands[i].command.data 
             );
+        }
+    }, console);
+
+    console_add_command(console, "setbg", [](void* data) {
+        auto* console = (debug_console_t*)data;
+
+        const auto& message = console->last_message();
+        auto [cmd, args] = utl::cut_left(message.text, " "sv);
+        if (args.empty()) {
+            console_log(console, "No Arguments Found");
+            return;
+        }
+
+        if (args[0] == '#') {
+            console->theme.bg_color = (gfx::color::str_to_rgba(args));
+        } else {
+            console_log(console, "None Hex Code BG Supported yet");
+        }
+    }, console);
+
+    console_add_command(console, "setabg", [](void* data) {
+        auto* console = (debug_console_t*)data;
+
+        const auto& message = console->last_message();
+        auto [cmd, args] = utl::cut_left(message.text, " "sv);
+        if (args.empty()) {
+            console_log(console, "No Arguments Found");
+            return;
+        }
+        f32 value;
+        auto [ptr, ec] = std::from_chars(&args[0], &args[args.size()], value);
+        if (ec == std::errc()) {
+            console->theme.bg_color.a = value;
+        } else {
+            console_log(console, "Failed to parse input");
+        }
+    }, console);
+
+    console_add_command(console, "setopen", [](void* data) {
+        auto* console = (debug_console_t*)data;
+
+        const auto& message = console->last_message();
+        auto [cmd, args] = utl::cut_left(message.text, " "sv);
+        if (args.empty()) {
+            console_log(console, "No Arguments Found");
+            return;
+        }
+        u32 value;
+        auto [ptr, ec] = std::from_chars(&args[0], &args[args.size()], value);
+        if (ec == std::errc()) {
+            console->theme.open_mode = value;
+        } else {
+            console_log(console, "Failed to parse input");
         }
     }, console);
 
@@ -1007,6 +1391,61 @@ app_on_init(game_memory_t* game_memory) {
         
     }, console);
 
+    console_add_command(console, "clear", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        utl::memzero(console->messages, sizeof(console->messages));
+    }, console);
+
+    console_add_command(console, "setvar", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        const auto& message = console->last_message();
+        auto [var, args] = utl::cut_left(message.text, " "sv);
+        if (args.empty()) {
+            console_log(console, "No Arguments Found");
+            return;
+        }
+        std::tie(var, args) = utl::cut_left(args, " "sv);
+        auto* watch_var = DEBUG_STATE.get_watch_variable(var);
+        if (!watch_var) {
+            console_log(console, "Watch Variable does not exist!");
+            return;
+        }
+        f32 value;
+        auto [ptr, ec] = std::from_chars(&args[0], &args[args.size()], value);
+        if (ec == std::errc()) {
+            switch(watch_var->type) {
+                case debug_watcher_type::UINT8:
+                    *watch_var->as_u8 = (u8)value;
+                    break;
+                case debug_watcher_type::UINT32:
+                    *watch_var->as_u32 = (u32)value;
+                    break;
+                case debug_watcher_type::FLOAT32:
+                    *watch_var->as_f32 = value;
+                    break;
+                case debug_watcher_type::FLOAT64:
+                    *watch_var->as_f64 = value;
+                    break;
+                default:
+                    console_log(console, "Unsupported variable type");
+            }
+        } else {
+            console_log(console, "Failed to parse input");
+        }
+    }, console);
+
+    console_add_command(console, "atimeout", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        const auto time = console->last_float();
+        if (time) {
+            console_log(console, fmt_sv("Setting Alert Timeout to {}", *time));
+            DEBUG_STATE.debug_alert_show_time = *time;
+        } else {
+            console_log(console, "Parse error", gfx::color::rgba::red);
+        }
+    }, console);
+
+
     console_add_command(console, "dtimeout", [](void* data) {
         auto* console = (debug_console_t*)data;
         const auto time = console->last_float();
@@ -1040,13 +1479,14 @@ app_on_init(game_memory_t* game_memory) {
         auto* game_state = (game_state_t*)console->user_data;
         auto args = console->get_args();
         if (args) { // args = "select <>"
-            auto [name, rest] = utl::cut_left(*args, " "sv);
+            auto rest = *args;
+            // auto [name, rest] = utl::cut_left(*args, " "sv);
             auto* entity = zyy::find_entity_by_name(game_state->game_world, rest);
             if (entity) {
                 DEBUG_STATE.selection = &entity->transform.origin;
             } else {
                 assert(!"Failed to find entity");
-                FLOG("name: {}, rest: {}", name, rest);
+                FLOG("Args: {}", rest);
                 DEBUG_STATE.selection = nullptr;
             }
         } else {
@@ -1072,13 +1512,181 @@ app_on_init(game_memory_t* game_memory) {
         }
     }, console);
 
+    console_add_command(console, "goto", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        auto args = console->get_args();
+        if (args) { // args = "select <>"
+            auto [view, name] = utl::cut_left(*args, " "sv);
+
+            f32 x,y,z;
+
+            {
+                auto [ptr, ec] = std::from_chars(&name[0], &name[name.size()], x);
+                if (ec != std::errc()) {
+                    assert(!"Failed to parse arguments");
+                    return;
+                }
+                name = name.substr(ptr - name.data() + 1);
+            }
+
+            {
+                auto [ptr, ec] = std::from_chars(&name[0], &name[name.size()], y);
+                if (ec != std::errc()) {
+                    assert(!"Failed to parse arguments");
+                    return;
+                }
+                name = name.substr(ptr - name.data() + 1);
+            }
+
+            {
+                auto [ptr, ec] = std::from_chars(&name[0], &name[name.size()], z);
+                if (ec != std::errc()) {
+                    assert(!"Failed to parse arguments");
+                    return;
+                }
+            }
+
+            gs_debug_camera.transform.origin = v3f{x,y,z};
+        } else {
+            assert(!"No Args");
+        }
+
+    }, console);
+    
+    console_add_command(console, "whoname", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        auto* game_state = (game_state_t*)console->user_data;
+        auto* world = game_state->game_world;
+        auto args = console->get_args();
+
+        if (args) { // args = "Who <>"
+            auto name = *args;
+            // auto [view, name] = utl::cut_left(*args, " "sv);
+
+            u64 count = 0;
+            range_u64(i, 0, world->entity_capacity) {
+                if (world->entities[i].is_alive()) {
+                    if (world->entities[i].name.sv() == name) {
+                        console_log(console, fmt_sv(
+                            "Matched[{}]: {} - {}",
+                            count++,
+                            world->entities[i].name.sv(),
+                            world->entities[i].global_transform().origin
+                        ));
+                    }
+                }
+            }
+    
+            if (count > 0) {
+                console_log(console, fmt_sv(
+                    "Found {} matches",
+                    count));
+            } else {
+                console_log(console, "Failed to find entity");
+            }
+        } else {
+            assert(!"No Args");
+        }
+    }, console);
+
+    console_add_command(console, "whotype", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        auto* game_state = (game_state_t*)console->user_data;
+        auto* world = game_state->game_world;
+        auto args = console->get_args();
+
+        if (args) { // args = "Who <>"
+            // auto [view, name] = utl::cut_left(*args, " "sv);
+            auto name = *args;
+
+            if (name.empty()) {
+                CLOG("Invalid arguments");
+                return;
+            }
+
+            //auto [type_name, _] = utl::cut_left(name, " ");
+            zyy::entity_type type = zyy::entity_type::SIZE;
+            switch(sid(name)) {
+                case "player"_sid: type = zyy::entity_type::player; break;
+                case "bad"_sid: type = zyy::entity_type::bad; break;
+                case "item"_sid: type = zyy::entity_type::item; break;
+                case "weapon"_sid: type = zyy::entity_type::weapon; break;
+                case "weapon_part"_sid: type = zyy::entity_type::weapon_part; break;
+                case "environment"_sid: type = zyy::entity_type::environment; break;
+                case_invalid_default;
+            }
+
+            u64 count = 0;
+            range_u64(i, 0, world->entity_capacity) {
+                if (world->entities[i].is_alive()) {
+                    if (world->entities[i].type == type) {
+                        console_log(console, fmt_sv(
+                            "Matched[{}]: {} - {}",
+                            count++,
+                            world->entities[i].name.sv(),
+                            world->entities[i].global_transform().origin
+                        ));
+                    }
+                }
+            }
+    
+            if (count > 0) {
+                console_log(console, fmt_sv(
+                    "Found {} matches",
+                    count));
+            } else {
+                console_log(console, "Failed to find entity");
+            }
+        } else {
+            assert(!"No Args");
+        }
+    }, console);
+
+    console_add_command(console, "alert", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        auto* game_state = (game_state_t*)console->user_data;
+        auto* world = game_state->game_world;
+        
+        auto args = console->get_args();
+        if (args) {
+            DEBUG_ALERT(*args);
+        } else {
+            DEBUG_ALERT("No Args");
+        }
+    }, console);
+
     console_add_command(console, "overflow", [](void* data) {
         auto* console = (debug_console_t*)data;
         auto* game_state = (game_state_t*)console->user_data;
         auto* world = game_state->game_world;
 
         tag_array(auto* arr, char, &world->arena, 1);
-        arr[1] = 'a';
+        auto* tag = (allocation_tag_t*)arr;
+        tag = tag - 1;
+        tag->pad[4] = 'w';
+    }, console);
+
+    console_add_command(console, "listwatch", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        for (auto* watch_var = DEBUG_STATE.watcher;
+            watch_var;
+            node_next(watch_var)
+        ) {
+            console_log(console, watch_var->name, gfx::color::rgba::light_green);
+        }
+    }, console);
+
+    console_add_command(console, "showprobe", [](void* data) {
+        for (auto* watch_var = DEBUG_STATE.watcher;
+            watch_var;
+            node_next(watch_var)
+        ) {
+            if (watch_var->name == "&show_light_probes") {
+                *watch_var->as_u32 = !*watch_var->as_u32;
+                return;
+            }
+        }
+        
     }, console);
 
     CLOG("Enter a command");
@@ -1105,19 +1713,6 @@ app_on_init(game_memory_t* game_memory) {
     game_state->game_world = zyy::world_init(game_state, physics);
 
 
-    zyy::world_init_effects(game_state->game_world);
-    
-    zyy::world_init_effects(game_state->game_world);
-
-    {
-        // auto& rs = game_state->render_system;
-        // auto& vertices = rs->scene_context->vertices.pool;
-        // auto& indices = rs->scene_context->indices.pool;
-        // prcgen::mesh_builder_t builder{vertices, indices};
-
-        // builder.add_box({v3f{-1.0f}, v3f{1.0f}});
-        // rendering::add_mesh(rs, "unit_cube", builder.build(&game_state->mesh_arena));
-    }
 
     gs_debug_camera.camera = &game_state->game_world->camera;
     gs_debug_camera.prio = 100;
@@ -1128,7 +1723,7 @@ app_on_init(game_memory_t* game_memory) {
     game_state->scene.sporadic_buffer.mode = 1;
     // game_state->scene.sporadic_buffer.use_lighting = 1;
 
-    zyy_info("game_state", "world size: {}mb", GEN_TYPE_INFO(zyy::world_t).size/megabytes(1));
+    FLOG("world size: {}mb", GEN_TYPE_INFO(zyy::world_t).size/megabytes(1));
 
     {
         auto memory = begin_temporary_memory(&game_state->main_arena);
@@ -1233,10 +1828,12 @@ app_on_reload(game_memory_t* game_memory) {
 b32 
 app_on_input(game_state_t* game_state, app_input_t* input) {
     if (input->pressed.keys[key_id::F10]) {
-        gs_jump_load_time = 1.0f;
+        // gs_jump_load_time = 1.0f;
+        DEBUG_ALERT("State Loaded");
     }
     if (input->pressed.keys[key_id::F9]) {
-        gs_jump_save_time = 1.0f;
+        // gs_jump_save_time = 1.0f;
+        DEBUG_ALERT("State Saved");
     }
     if (input->pressed.keys[key_id::F12]) {
         CLOG("noclip");
@@ -1250,7 +1847,8 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
             game_state->gui.imgui.active = 0;
         }
     }
-    if (input->pressed.keys[key_id::F2]) {
+    if (input->pressed.keys[key_id::BACKTICK]) {
+        input->pressed.keys[key_id::BACKTICK] = 0;
         if (auto b = gs_show_console = ((gs_show_console + 1) % 3)) {
             game_state->gui.imgui.active = "console_text_box"_sid;
         } else {
@@ -1261,8 +1859,10 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
     if (input->pressed.keys[key_id::F4]) {
         if (game_state->time_scale == 0.0f) {
             game_state->time_scale = 1.0f;
+            DEBUG_ALERT("Unpaused");
         } else {
             game_state->time_scale = 0.0f;
+            DEBUG_ALERT("Paused");
         }
     }
     if (input->pressed.keys[key_id::F5]) {
@@ -1271,6 +1871,7 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
         game_state->game_world = zyy::world_init(game_state, game_state->game_memory->physics);
 
         gs_debug_camera.camera = &game_state->game_world->camera;
+
         return 1;
     }
 
@@ -1289,14 +1890,17 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
             game_state->time_scale = 1.0f;
         }
         game_state->time_scale *= 0.5f;
-        game_state->time_text_anim = 1.0f;
+        // game_state->time_text_anim = 1.0f;
+        DEBUG_ALERT(fmt_sv("Time Scale: {}", game_state->time_scale));
     }
     if (input->pressed.keys[key_id::F7]) {
         if (game_state->time_scale==0.0f) {
             game_state->time_scale = 1.0f;
         }
         game_state->time_scale *= 2.0f;
-        game_state->time_text_anim = 1.0f;
+
+        DEBUG_ALERT(fmt_sv("Time Scale: {}", game_state->time_scale));
+        // game_state->time_text_anim = 1.0f;
     }
 
     return 0;
@@ -1352,8 +1956,9 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
                 continue;
             }
 
+            // DEBUG_WATCH(e);
 
-            DEBUG_WATCH(e);
+            auto global_transform = e->global_transform();
 
             const bool is_physics_object = e->physics.flags != zyy::PhysicsEntityFlags_None && e->physics.rigidbody;
             const bool is_pickupable = (e->flags & zyy::EntityFlags_Pickupable);
@@ -1361,9 +1966,23 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
             e->coroutine->run(world->frame_arena);
 
-            if (is_physics_object && e->physics.impulse != v3f{0.0f}) {
-                e->physics.rigidbody->add_impulse(e->physics.impulse);
-                e->physics.impulse = {};
+            if (is_physics_object) {
+                auto physics_collider_color = gfx::color::v4::orange;
+                for (u64 s = 0; s < e->physics.rigidbody->collider_count; s++) {
+                    if (e->physics.rigidbody->colliders[s].type == physics::collider_shape_type::SPHERE) {
+                        auto collision_sphere = e->physics.rigidbody->colliders[s].sphere;
+                        collision_sphere.origin = global_transform.xform(collision_sphere.origin);
+                        XDIAGRAM(collision_sphere, physics_collider_color, 0.00f);
+                    } else if (e->physics.rigidbody->colliders[s].type == physics::collider_shape_type::BOX) {
+                        auto collision_box = e->physics.rigidbody->colliders[s].box;
+                        collision_box = global_transform.xform_aabb(collision_box);
+                        XDIAGRAM(collision_box, physics_collider_color, 0.00f);
+                    }
+                }
+                if (e->physics.impulse != v3f{0.0f}) {
+                    e->physics.rigidbody->add_impulse(e->physics.impulse);
+                    e->physics.impulse = {};
+                }
             }
 
             if (brain_id != uid::invalid_id) {
@@ -1376,13 +1995,21 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
             // @debug
 
-            const auto entity_aabb = e->global_transform().xform_aabb(e->aabb);
+            const auto entity_aabb = global_transform.xform_aabb(e->aabb);
             if (e->type != zyy::entity_type::player) {
                 DEBUG_DIAGRAM_(entity_aabb, 0.0000f);
+            } else {
+                math::waypoint_t player_path{
+                    .point = global_transform.origin
+                };
+                // XDIAGRAM(player_path, gfx::color::v4::blue, 120.0f);
             }
             if (e->gfx.particle_system) {
-                const auto particle_aabb = e->gfx.particle_system->aabb;
-                DEBUG_DIAGRAM_(particle_aabb, 0.0000f);
+                auto particle_aabb = e->gfx.particle_system->aabb;
+                if (!e->gfx.particle_system->is_world_space()) {
+                    particle_aabb = global_transform.xform_aabb(particle_aabb);
+                }
+                XDIAGRAM(particle_aabb, gfx::color::v4::blue, 0.0000f);
             // } else if (e->gfx.mesh_id != -1) {
             //     auto& mesh = world->render_system()->mesh_cache.get(e->gfx.mesh_id);
             //     range_u64(j, 0, mesh.count) {
@@ -1681,21 +2308,22 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             DEBUG_STATE_DRAW_WATCH_WINDOW(imgui);
         }
 
+        const auto rdt = imgui.ctx.input->dt;
         if (gs_show_console == 1) {
-            if (DEBUG_STATE.console->open_percent < 0.33f) {
-                DEBUG_STATE.console->open_percent += imgui.ctx.input->dt;
+            if (DEBUG_STATE.console->open_percent + rdt < 0.33f) {
+                DEBUG_STATE.console->open_percent += rdt;
             } else {
                 DEBUG_STATE.console->open_percent = .33f;
             }
         } else if (gs_show_console == 2) {
-            if (DEBUG_STATE.console->open_percent < 1.0f) {
-                DEBUG_STATE.console->open_percent += imgui.ctx.input->dt;
+            if (DEBUG_STATE.console->open_percent + rdt < 1.0f) {
+                DEBUG_STATE.console->open_percent += rdt;
             } else {
                 DEBUG_STATE.console->open_percent = 1.0f;
             }
         } else {
-            if (DEBUG_STATE.console->open_percent > 0.0f) {
-                DEBUG_STATE.console->open_percent -= imgui.ctx.input->dt;
+            if (DEBUG_STATE.console->open_percent - rdt > 0.0f) {
+                DEBUG_STATE.console->open_percent -= rdt;
             } else {
                 DEBUG_STATE.console->open_percent = 0.0f;
             }
@@ -1952,9 +2580,8 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             }
             VkColorBlendEquationEXT blend_fn[1];
             blend_fn[0] = gfx::vul::utl::alpha_blending();
-            // blend_fn[0] = gfx::vul::utl::additive_blending();
             ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
-            // VkBool32 fb_blend[1] { false };
+
             VkBool32 fb_blend[1] { true };
             ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
 
@@ -2096,8 +2723,8 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             ext.vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, blend_fn);
             ext.vkCmdSetColorBlendEnableEXT(command_buffer,0, 1, fb_blend);
             
-            ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_FALSE);
-            ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_FALSE);
+            ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_TRUE);
+            ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
 
             vkCmdBindDescriptorSets(command_buffer, 
                 VK_PIPELINE_BIND_POINT_GRAPHICS, game_state->render_system->pipelines.gui.layout,
@@ -2149,23 +2776,6 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
             ext.vkCmdBindShadersEXT(command_buffer, 2, stages, gui_shaders);
 
-            for (auto* draw_command = imgui.commands.next;
-                draw_command != &imgui.commands;
-                node_next(draw_command)
-            ) {
-                if (draw_command->type == gfx::gui::draw_command_t::draw_type::draw) {
-                    vkCmdDrawIndexed(command_buffer,
-                        draw_command->draw.index_count,
-                        1, // instance count
-                        draw_command->draw.index_start, // first index
-                        0, //draw_command->draw.vertex_start, // first vertex
-                        0  // first instance
-                    );
-                } else {
-                    auto scissor = gfx::vul::utl::rect2D(draw_command->clip);
-                    ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
-                }
-            }
 
             for (auto* panel = imgui.panels.next;
                 panel != &imgui.panels;
@@ -2200,6 +2810,23 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
                 }
             }
 
+            for (auto* draw_command = imgui.commands.next;
+                draw_command != &imgui.commands;
+                node_next(draw_command)
+            ) {
+                if (draw_command->type == gfx::gui::draw_command_t::draw_type::draw) {
+                    vkCmdDrawIndexed(command_buffer,
+                        draw_command->draw.index_count,
+                        1, // instance count
+                        draw_command->draw.index_start, // first index
+                        0, //draw_command->draw.vertex_start, // first vertex
+                        0  // first instance
+                    );
+                } else {
+                    auto scissor = gfx::vul::utl::rect2D(draw_command->clip);
+                    ext.vkCmdSetScissorWithCountEXT(command_buffer, 1, &scissor);
+                }
+            }
             // vkCmdDrawIndexed(command_buffer,
             //     (u32)gui_indices.pool.count(),
             //     1, // instance count

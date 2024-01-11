@@ -56,6 +56,11 @@ struct collider_t {
     collider_id         id{uid::invalid_id};
     void*               shape;
 
+    union {
+        math::sphere_t sphere{};
+        math::rect3d_t   box;
+    }; 
+
     rigidbody_t*        rigidbody{0};
 
     u32                 is_trigger{0};

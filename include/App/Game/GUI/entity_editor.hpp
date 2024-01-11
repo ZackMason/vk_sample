@@ -796,10 +796,10 @@ save_world_window(
     if (load) {
         // load_world_file_for_edit(ee, file);
         {
-            // ee->begin_event_group();
-            // defer {
-            //     ee->end_event_group();
-            // };
+            ee->begin_event_group();
+            defer {
+                ee->end_event_group();
+            };
             for (auto* prefab = ee->prefabs.next;
                 prefab != &ee->prefabs;
                 node_next(prefab)
@@ -808,22 +808,13 @@ save_world_window(
             }
         }
 
-        arena_t arena = {};
+        arena_t arena = arena_create(megabytes(16));
         defer {
             arena_clear(&arena);
         };
-        char* bytes;
-        {
-            std::ifstream f{file, std::ios::binary};
-
-            f.seekg(0, std::ios::end);
-            const size_t size = f.tellg();
-            f.seekg(0, std::ios::beg);
-
-            bytes = (char*)push_bytes(&arena, size);
-            f.read(bytes, size);
-        }
-        utl::memory_blob_t blob{(std::byte*)bytes};
+        auto bytes = utl::read_bin_file(&arena, file);
+        
+        utl::memory_blob_t blob{(std::byte*)bytes.data};
         auto header = blob.deserialize<world_save_file_header_t>();
 
         ee->begin_event_group();
@@ -844,15 +835,12 @@ save_world_window(
         }
     } else {
         // ee->save_to_file(file);   
-        arena_t arena = {};
+        arena_t arena = arena_create(megabytes(16));
         push_bytes(&arena, 1);
         utl::memory_blob_t blob{&arena};
         blob.serialize(&arena, *ee);
 
         utl::write_binary_file(file, blob.data_view());
-        // std::ofstream f{file, std::ios::binary};
-
-        // f.write((const char*)blob.data, blob.serialize_offset);
         arena_clear(&arena);
     }
     
@@ -1112,7 +1100,7 @@ load_entity_window(
             im::end_scroll_rect(imgui, &scroll, &rect);
         };
 
-        for (const auto& entry : std::filesystem::recursive_directory_iterator("./")) {
+        for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/entity/")) {
             auto filename = entry.path().string();
             if (entry.is_directory()) {
                 continue;
@@ -2278,7 +2266,7 @@ entity_editor_update(entity_editor_t* ee) {
 
     const b32 alt_pressed = input->keys[key_id::LEFT_ALT] || input->keys[key_id::RIGHT_ALT];
     
-    const input_mapping_t mapping{
+    const keyboard_input_mapping_t mapping{
         .look_button = alt_pressed ? 0 : 1
     };
     auto pc = input->gamepads[0].is_connected ? gamepad_controller(input) : keyboard_controller(input, mapping);

@@ -74,7 +74,7 @@ struct mod_function {
 };
 
 struct prefab_t {
-    version_id VERSION{5};
+    version_id VERSION{6};
     entity_type type=entity_type::environment;
     u64 flags = 0;
     stack_string<128> type_name{};
@@ -171,10 +171,23 @@ zyy::prefab_t utl::memory_blob_t::deserialize<zyy::prefab_t>(arena_t* arena) {
     DESER(prefab.gfx);
     DESER(prefab.coroutine);
     OPTDESER(prefab.stats);
-    OPTDESER(prefab.weapon);
+    if (prefab.VERSION < 6) {
+        auto has = deserialize<u8>();
+        constexpr u64 v5_weapon_size_dont_touch = 88;
+        if (has) {
+            zyy::wep::base_weapon_t w;
+            utl::copy(&w.fire_rate, data+read_offset, v5_weapon_size_dont_touch);
+            advance(v5_weapon_size_dont_touch);
+            prefab.weapon = w;
+        }
+    } else {
+        OPTDESER(prefab.weapon);
+    }
     OPTDESER(prefab.physics);
-    DESER(prefab.spawn_bullet);
-    prefab.spawn_bullet.function = 0;
+    if (prefab.VERSION <= 5) {
+        DESER(prefab.spawn_bullet);
+        prefab.spawn_bullet.function = 0;
+    }
     DESER(prefab.on_hit_effect);
     prefab.on_hit_effect.function = 0;
     AOPTDESER(prefab.emitter);
@@ -200,7 +213,7 @@ void utl::memory_blob_t::serialize<zyy::prefab_t>(arena_t* arena, const zyy::pre
     serialize(arena, prefab.stats);
     serialize(arena, prefab.weapon);
     serialize(arena, prefab.physics);
-    serialize(arena, prefab.spawn_bullet);
+    // serialize(arena, prefab.spawn_bullet);
     serialize(arena, prefab.on_hit_effect);
     // serialize<u64>(arena, 0);
     serialize(arena, prefab.emitter);

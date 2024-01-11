@@ -445,6 +445,9 @@ physx_create_collider_impl(
                 physx::PxSphereGeometry(ci->radius), *material);
             ((physx::PxShape*)col->shape)->setLocalPose(physx::PxTransform(physx::PxVec3(ci->origin.x, ci->origin.y, ci->origin.z)));
             ((physx::PxShape*)col->shape)->userData = col;
+
+            col->sphere.origin = ci->origin;
+            col->sphere.radius = ci->radius;
         }   break;
         case collider_shape_type::BOX: {
             auto* ci = (collider_box_info_t*)info;
@@ -453,6 +456,9 @@ physx_create_collider_impl(
                 physx::PxBoxGeometry(PxVec3{ci->size.x, ci->size.y, ci->size.z}), *material);
             ((physx::PxShape*)col->shape)->userData = col;
             ((physx::PxShape*)col->shape)->setLocalPose(physics::cast_transform(ci->origin, ci->rot));
+            col->box = {};
+            col->box.expand(ci->origin + ci->size);
+            col->box.expand(ci->origin - ci->size);
         }   break;
         case_invalid_default;
     }

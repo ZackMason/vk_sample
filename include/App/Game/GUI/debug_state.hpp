@@ -3,6 +3,420 @@
 #include "zyy_core.hpp"
 // #include "App/Game/Entity/entity.hpp"
 
+
+struct console_theme_t {
+    v4f bg_color{0.0f, 0.0f, 0.0f, 0.8f};
+    v4f bar_color{0.5f, 0.2f, 0.2f, 1.0f};
+
+    // 0 - linear
+    // 1 - expo in out
+    // 2 - bounce in out
+    // 3 - sine in out
+    u32 open_mode = 1;
+};
+
+struct debug_console_t {
+    struct command_t {
+        void (*command)(void*){0};
+        void* data{0};
+    };
+
+    struct message_t {
+        char text[256] = {};
+        gfx::color32 color = gfx::color::rgba::white;
+        command_t command = {};
+    };
+
+    struct console_command_t {
+        console_command_t* next{0};
+        char name[64] = {};
+        command_t command = {};
+    };
+
+    void* user_data = 0; // store game_state
+
+    console_theme_t   theme{};
+    console_command_t console_commands[64]{};
+    u32 command_count{0};
+
+    message_t messages[256] = {};
+    size_t message_top = 0;
+
+    message_t* scrollback_buffer[16] = {};
+    i64        scrollback_top = 0;
+    i64        scrollback_search = 0;
+
+    // i32 scroll{0};
+    f32 open_percent = 0.0f;
+
+    std::optional<std::string_view> guess_command() {
+        range_u64(i, 0, array_count(console_commands)) {
+            std::string_view text_view{text_buffer};
+            std::string_view name_view{console_commands[i].name};
+            if (text_view == std::string_view{console_commands[i].name, text_view.size()}) {
+                if (name_view.size() == text_view.size()) {
+                    return std::nullopt;
+                } else {
+                    return console_commands[i].name;
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
+    const message_t& top_message() const {
+        return messages[message_top];
+    }
+
+    const message_t& last_message() const {
+        return messages[message_top?message_top-1:array_count(messages)-1];
+    }
+
+    std::optional<f32> last_float() const {
+        const auto& message = last_message();
+        auto i = std::string_view{message.text}.find_first_of("0123456789.+");
+        if (i != std::string_view::npos) {
+            std::stringstream ss{std::string_view{message.text}.substr(i).data()};
+            float f;
+            ss >> f;
+            return f;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    std::optional<std::string_view> get_args() const {
+        const auto& message = last_message();
+        auto i = std::string_view{message.text}.find_first_of(" ");
+        if (i != std::string_view::npos) {
+            return std::string_view{message.text}.substr(i + 1);
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    char    text_buffer[1024]{};
+    size_t  text_size{0};
+    size_t  text_position{0};
+};
+
+inline static void 
+console_add_command(
+    debug_console_t* console,
+    std::string_view command_name,
+    void (*command)(void*),
+    void* user_data
+) {
+    assert(console->command_count < array_count(console->console_commands));
+    debug_console_t::console_command_t& new_command = console->console_commands[console->command_count++];
+
+    utl::copy(new_command.name, command_name.data(), std::min(array_count(new_command.name), command_name.size()));
+    // strncpy_s(new_command.name, array_count(new_command.name), command_name.data(), command_name.size()+1);
+    new_command.command.command = command;
+    new_command.command.data = user_data;
+}
+
+inline static void 
+console_try_command(
+    debug_console_t* console,
+    std::string_view command_name
+) {
+    range_u64(i, 0, console->command_count) {
+        if (std::strstr(command_name.data(), console->console_commands[i].name)) {
+            console->console_commands[i].command.command(
+                console->console_commands[i].command.data
+            );
+            return;
+        }
+    }
+}
+
+inline static void
+console_log(
+    debug_console_t* console,
+    std::string_view text,
+    gfx::color32 color = gfx::color::rgba::white,
+    void (*on_click)(void*) = 0,
+    void* user_data = 0,
+    b32 execute = 0
+) {
+    size_t text_size = text.size();
+
+    auto* message = console->messages + console->message_top;
+
+    while(text_size > 0) {
+        console->message_top = (console->message_top + 1) % array_count(console->messages);
+        message->color = color;
+        const auto write_count = std::min(array_count(message->text), text_size);
+        utl::memzero(message->text, array_count(message->text));
+        utl::copy(message->text, text.data(), write_count);
+        text_size -= write_count;
+
+        message->command.data = user_data;
+        message->command.command = on_click;
+    }
+    if (execute) {
+        console->scrollback_buffer[console->scrollback_top] = message;
+        console->scrollback_top = (console->scrollback_top + 1) % array_count(console->scrollback_buffer);
+        console->scrollback_search = 0;
+        console_try_command(console, text);
+    }
+}
+
+inline void
+draw_console(
+    gfx::gui::im::state_t& imgui, 
+    debug_console_t* console,
+    v2f* pos
+) {
+    using namespace gfx::gui;
+    auto* c = &imgui.ctx;
+
+    imgui.begin_free_drawing();
+    auto* save_font = c->font;
+    c->font = c->dyn_font[30];
+    defer {
+        // imgui.end_free_drawing();
+        c->font = save_font;
+    };
+
+    imgui.hot = imgui.active = 
+        "DEBUG_console"_sid;
+
+    f32 open_prc = console->open_percent;
+    auto mouse = imgui.ctx.input->mouse.pos2();
+    auto clicked = imgui.ctx.input->mouse.buttons[0];
+    auto entered = imgui.ctx.input->pressed.keys[key_id::ENTER];
+    auto deleted = imgui.ctx.input->pressed.keys[key_id::BACKSPACE];
+    auto ctrl  = imgui.ctx.input->keys[key_id::LEFT_CONTROL];
+    auto left  = imgui.ctx.input->pressed.keys[key_id::LEFT];
+    auto right = imgui.ctx.input->pressed.keys[key_id::RIGHT];
+    auto up    = imgui.ctx.input->pressed.keys[key_id::UP];
+    auto tab   = imgui.ctx.input->pressed.keys[key_id::TAB];
+
+    const auto test_font_size = gfx::font_get_size(imgui.ctx.font, "Hello World!");
+
+    auto text_box_color = gfx::color::to_color32(console->theme.bar_color);
+    auto bg_color = gfx::color::to_color32(console->theme.bg_color);
+
+    auto r = imgui.ctx.screen_rect();
+    math::rect2d_t text_box;
+    math::rect2d_t _t;
+
+    auto open_alpha = (1.0f-open_prc);
+
+    switch (console->theme.open_mode) {
+        case 0:
+            break;
+        case 1:
+            open_alpha = tween::in_out_expo(open_alpha);
+            break;
+        case 2:
+            open_alpha = tween::out_bounce(open_alpha);
+            break;
+        case 3:
+            open_alpha = tween::in_out_sine(open_alpha);
+            break;
+        case_invalid_default;
+    }
+    // open_alpha = tween::in_out_sine(open_alpha);
+    r.add(-math::height2 * r.size().y * open_alpha);
+
+    draw_rect(c, r, bg_color);
+
+    {
+        auto text_color = gfx::color::rgba::cream;
+
+        std::tie(text_box, r) = math::cut_bottom(r, test_font_size.y);
+        std::tie(_t, r) = math::cut_left(r, 8.0f);
+        
+        draw_rect(c, text_box, text_box_color);
+
+        auto guessed_command = console->guess_command();
+        if (guessed_command && console->text_position < guessed_command->size()) {
+            auto guess_text_color = gfx::color::rgba::yellow;
+            draw_string(c, &((*guessed_command)[0]), text_box.min, guess_text_color);
+        }
+        draw_string(c, console->text_buffer, text_box.min, text_color);
+
+        auto pos_size = gfx::font_get_size(c->font, std::string_view{console->text_buffer, console->text_position});
+        auto [before_cursor, after_cursor] = math::cut_left(text_box, pos_size.x);
+
+        math::rect2d_t cursor;
+        cursor.min = math::top_right(before_cursor);
+        cursor.max = before_cursor.max;
+        cursor.min.x -= 3.0f;
+        draw_rect(c, cursor, gfx::color::rgba::yellow);
+    
+        auto key = c->input->keyboard_input();
+        if (tab && guessed_command) {
+            utl::memzero(console->text_buffer, array_count(console->text_buffer));
+            utl::copy(console->text_buffer, &((*guessed_command)[0]), guessed_command->size());
+
+            console->text_size = console->text_position 
+                = guessed_command->size();
+
+            console->text_buffer[console->text_position++] = ' ';
+            console->text_size++;
+        }
+        if (up) {
+            console->scrollback_search++;
+            auto scrollback_index = console->scrollback_top - console->scrollback_search;
+            auto* message_ptr = console->scrollback_buffer[scrollback_index % array_count(console->scrollback_buffer)];
+
+            if (message_ptr) {
+                const auto& message = *message_ptr;
+                std::string_view message_view{message.text};
+
+                if (message_view.empty() == false) {
+                    utl::memzero(console->text_buffer, array_count(console->text_buffer));
+                    utl::copy(console->text_buffer, message_view.data(), message_view.size());
+
+                    console->text_size = console->text_position 
+                        = message_view.size();
+                }
+            } else {
+                console_log(console, "No Message in Scrollback");
+            }
+        }
+        if (left) { 
+            if (console->text_position) {
+                console->text_position--;
+            }
+        } else if (right) {
+            if (console->text_position < console->text_size) {
+                console->text_position++;
+            }
+        }
+        if (key > 0) {
+            if (console->text_size + 1 < array_count(console->text_buffer)) {
+                if (console->text_position == console->text_size) {
+                    console->text_buffer[console->text_position++] = key;
+                } else {
+                    utl::copy(console->text_buffer + console->text_position + 1, console->text_buffer + console->text_position, console->text_size - console->text_position - 1);
+                    console->text_buffer[console->text_position++] = key;
+                }
+                console->text_size++;
+            }
+        }
+        if (entered) {
+            console_log(console, console->text_buffer, gfx::color::rgba::white, 0, 0, 1);
+            
+            utl::memzero(console->text_buffer, array_count(console->text_buffer));
+
+            console->text_position = console->text_size 
+                = 0;
+        }
+        if (deleted) {
+            if (ctrl) {
+                utl::memzero(console->text_buffer, console->text_position+1);
+
+                utl::copy(console->text_buffer, console->text_buffer + console->text_position, console->text_size - console->text_position);
+
+                console->text_size -= console->text_position;
+                console->text_position = 0;
+            } else if (console->text_position > 0) {
+                if (console->text_position == console->text_size) {
+                    console->text_position -= 1;
+                    console->text_buffer[console->text_position] = 0;
+                } else {
+                    console->text_position -= 1;
+                    utl::copy(console->text_buffer + console->text_position, console->text_buffer + console->text_position + 1, console->text_size - console->text_position + 1);
+                }
+                console->text_size -= 1;
+            }
+        }
+    }
+
+    c->font = c->dyn_font[24];
+    r = c->screen_rect().clip(r);
+    if (r.size().y <= 0.0f) {
+        imgui.end_free_drawing();
+        return;
+    }
+
+    local_persist f32 scroll;
+    local_persist f32 scroll_v;
+
+    scroll_v += c->input->mouse.scroll.y * 30.0f;
+    scroll   += scroll_v * c->input->dt;
+    // scroll_v *= c->input->dt * 20.0f;
+    scroll_v = tween::lerp_dt(scroll_v, 0.0f, 0.0095f, c->input->dt);
+
+    imgui.end_free_drawing();
+    imgui.scissor(r);
+    imgui.begin_free_drawing();
+
+    r.add(math::height2 * scroll);
+
+    defer {
+        imgui.end_free_drawing();
+        imgui.end_scissor();
+    };
+
+    // for (u64 i = 10; i <= 10; i--) {
+    for (u64 i = 0; i < array_count(console->messages); i++) {
+        u64 index = (console->message_top - 1 - i) % array_count(console->messages);
+        auto* message = console->messages + index;
+        if (message->text[0]==0) {
+            continue;
+        }
+        auto text_color = message->color;
+
+        std::tie(text_box, r) = math::cut_bottom(r, test_font_size.y);
+        // std::tie(text_box, r) = math::cut_top(r, test_font_size.y);
+        draw_string(c, message->text, text_box.min, text_color);
+
+        if (text_box.contains(mouse) && clicked) {
+            message->command.command(message->command.data);
+        }
+    }
+}
+
+inline void
+draw_console2(
+    gfx::gui::im::state_t& imgui, 
+    debug_console_t* console,
+    v2f* pos
+) {
+    using namespace gfx::gui;
+    
+
+    const auto theme = imgui.theme;
+    imgui.theme.border_radius = 1.0f;
+    v2f size={};
+    local_persist b32 open=1;
+
+    if (im::begin_panel(imgui, "Console"sv, pos, &size, &open)) {
+        // draw_reverse(imgui, console->messages);
+
+        for (u64 i = 10; i <= 10; i--) {
+            u64 index = (console->message_top - 1 - i) % array_count(console->messages);
+            auto* message = console->messages + index;
+            if (message->text[0]==0) {
+                continue;
+            }
+            imgui.theme.text_color = message->color;
+            if (im::text(imgui, fmt_sv("[{}] {}", index, message->text)) && message->command.command) {
+                message->command.command(message->command.data);
+            }
+        }
+        
+        if (im::text_edit(imgui, console->text_buffer, &console->text_size, "console_text_box"_sid)) {
+            console_log(console, console->text_buffer, gfx::color::rgba::white, 0, 0, 1);
+            
+            utl::memzero(console->text_buffer, array_count(console->text_buffer));
+            console->text_size = 0;
+        }
+
+        im::end_panel(imgui, pos, &size);
+    }
+
+    imgui.theme = theme;
+}
+
+
+
 enum struct debug_priority_level {
     LOW, MEDIUM, HIGH
 };
@@ -10,12 +424,13 @@ enum struct debug_priority_level {
 enum struct debug_variable_type {
     UINT32, INT32,
     FLOAT32, FLOAT64,
-    VEC2, VEC3,
-    AABB, RAY, TEXT,
+    VEC2, VEC3, WAYPOINT,
+    AABB, RAY, SPHERE, TEXT,
     COUNT
 };
 
 enum struct debug_watcher_type {
+    UINT8,
     UINT32, INT32,
     FLOAT32, FLOAT64,
     VEC2, VEC3,
@@ -36,6 +451,7 @@ struct debug_watcher_t {
         void* as_vptr;
         b32* as_b32;
         u32* as_u32;
+        u8*  as_u8;
         i32* as_i32;
         f32* as_f32;
         f64* as_f64;
@@ -71,6 +487,7 @@ struct debug_variable_t {
 
     debug_variable_type type{};
     f32 time_stamp{0};
+    v4f color{1.0f};
 
     union {
         u32 as_u32;
@@ -81,25 +498,26 @@ struct debug_variable_t {
         v3f as_v3f;
         math::rect3d_t as_aabb{};
         math::ray_t as_ray;
+        math::sphere_t as_sphere;
+        math::waypoint_t as_waypoint;
         stack_string<32> as_text;
     };
 };
 
 struct debug_alert_t {
-    // debug_alert_t* next = 0;
-    string_buffer message{};
+    stack_string<64> message{};
     f32 time;
 
     void make(arena_t* arena, std::string_view text, f32 t) {
         time = t;
 
-        message = {};
-        message.push(arena, std::span((char*)text.data(), text.size()));
+        auto size = std::min(message.capacity() - 1, text.size());
+
+        message.clear();
+        utl::copy(message.buffer, text.data(), size);
     }
 };
 
-
-struct debug_console_t;
 struct debug_state_t {
     f32& time;
     arena_t arena;
@@ -111,24 +529,28 @@ struct debug_state_t {
     v3f focus_point{0.0f};
     f32 focus_distance{0.10f};
 
-    f32 debug_alert_show_time{10.0f};
+    f32 debug_alert_show_time{2.0f};
     u64 active_alert_count = 0;
     buffer<debug_alert_t> debug_alerts = {};
 
     void alert(std::string_view text) {
+        if (console) {
+            console_log(console, text);
+        }
         if (active_alert_count < debug_alerts.count) {
             debug_alerts.data[active_alert_count++].make(&arena, text, time);
         } else {
-            debug_alert_t debug_alert = {};
-            debug_alert.make(&arena, text, time);
-            debug_alerts.push(&arena, debug_alert);
-            active_alert_count++;
+            console_log(console, "Alert buffer full!");
+            // debug_alert_t debug_alert = {};
+            // debug_alert.make(&arena, text, time);
+            // debug_alerts.push(&arena, debug_alert);
+            // active_alert_count++;
         }
     }
 
     void sort_active_alerts() {
         debug_alerts.sort([](auto& a, auto& b) {
-            return a.time < b.time;
+            return a.time > b.time;
         });
 
         active_alert_count = 0;
@@ -151,8 +573,10 @@ struct debug_state_t {
     debug_watcher_t* watcher{0};
     debug_watcher_t* free_watch{0};
 
-    char watcher_needle[64];
+    char watcher_needle[64] = {};
     size_t watcher_wpos{0};
+
+    utl::hash_trie_t<std::string_view, u32>* path_ids = 0;
 
     debug_console_t* console;
 
@@ -291,6 +715,28 @@ struct debug_state_t {
         imgui.theme = theme;
     }
 
+    // assumes you have started free drawing
+    void draw_alerts(gfx::gui::im::state_t& imgui) {
+        auto*  c = &imgui.ctx;
+        auto screen = imgui.ctx.screen_rect();
+
+        auto alert_start = screen.sample(v2f{0.5f, 0.2f});
+
+        auto* font = imgui.ctx.dyn_font[28];
+        f32 alert_padding = 8.0f;
+        auto text_color = gfx::color::rgba::white;
+
+        sort_active_alerts();
+        range_u64(i, 0, active_alert_count) {
+            auto cursor = alert_start;
+            auto text_size = gfx::font_get_size(font, debug_alerts.data[i].message.view());
+            cursor -= text_size * 0.5f;
+            gfx::gui::draw_string(c, debug_alerts.data[i].message.view(), cursor, text_color, font);
+            alert_start.y += text_size.y + alert_padding;
+        }
+    }
+    
+
     void draw(gfx::gui::im::state_t& imgui, const m44& proj, const m44& view, const v4f& viewport) {
         std::lock_guard lock{ticket};
         using namespace gfx::gui;
@@ -319,18 +765,25 @@ struct debug_state_t {
         };
 
         math::rect3d_t viewable{v3f{0.0f}, v3f{viewport.z, viewport.w, 1.0f}};
+
+        auto draw_point = [&](std::string_view name, auto point, auto color) {
+            if (glm::distance(point, focus_point) > focus_distance) return;
+            auto pos_ = math::world_to_screen(proj, view, viewport, point);
+            if (viewable.contains(pos_)) {
+                auto pos_up = swizzle::xy(math::world_to_screen(proj, view, viewport, point + axis::up * 0.05f));
+                auto pos = swizzle::xy(pos_);
+                draw_circle(&imgui.ctx, pos, glm::distance(pos_up, pos), gfx::color::to_color32(color));
+                draw_circle(&imgui.ctx, pos, glm::distance(pos_up, pos) * 0.66f, gfx::color::rgba::light_gray);
+                draw_string(&imgui.ctx, name, pos, gfx::color::to_color32(color));
+            }
+        };
+
         node_for(auto, variables, var) {
             // im::text(imgui, var->name);
             if (var->type == debug_variable_type::VEC3) {
-                if (glm::distance(var->as_v3f, focus_point) > focus_distance) continue;
-                auto pos_ = math::world_to_screen(proj, view, viewport, var->as_v3f);
-                if (viewable.contains(pos_)) {
-                    auto pos_up = swizzle::xy(math::world_to_screen(proj, view, viewport, var->as_v3f + axis::up * 0.05f));
-                    auto pos = swizzle::xy(pos_);
-                    draw_circle(&imgui.ctx, pos, glm::distance(pos_up, pos) * 0.66f, gfx::color::rgba::light_gray);
-                    draw_circle(&imgui.ctx, pos, glm::distance(pos_up, pos), gfx::color::rgba::light_blue);
-                    string_render(&imgui.ctx, var->name, pos, gfx::color::rgba::light_blue);
-                }
+                draw_point(var->name, var->as_v3f, var->color);
+            } else if (var->type == debug_variable_type::WAYPOINT) {
+                draw_point(var->name, var->as_waypoint.point, var->color);
             } else if (var->type == debug_variable_type::AABB) {
                 const auto aabb_distance = glm::distance(var->as_aabb.center(), focus_point);
                 if (
@@ -343,7 +796,18 @@ struct debug_state_t {
                 if (viewable.contains(pos)) {
                     // string_render(&imgui.ctx, var->name, swizzle::xy(pos), gfx::color::rgba::yellow);
                 }
-                draw_aabb(&imgui.ctx, var->as_aabb, proj * view, 2.0f, gfx::color::rgba::yellow);
+                draw_aabb(&imgui.ctx, var->as_aabb, proj * view, 2.0f, gfx::color::to_color32(var->color));
+
+            } else if (var->type == debug_variable_type::SPHERE) {
+                if (glm::distance(var->as_sphere.origin, focus_point) > focus_distance) continue;
+                auto ro_ = math::world_to_screen(proj, view, viewport, var->as_sphere.origin);
+
+                if (viewable.contains(ro_)) {
+                    auto ro = swizzle::xy(ro_);
+
+                    draw_wire_sphere(&imgui.ctx, var->as_sphere.origin, var->as_sphere.radius, proj * view, 3.0f, gfx::color::to_color32(var->color));
+                    draw_string(&imgui.ctx, var->name, ro, gfx::color::to_color32(var->color));
+                }
 
             } else if (var->type == debug_variable_type::RAY) {
                 if (glm::distance(var->as_ray.origin, focus_point) > focus_distance) continue;
@@ -353,16 +817,18 @@ struct debug_state_t {
                 if (viewable.contains(ro_)) {
                     auto ro = swizzle::xy(ro_);
                     auto rd = swizzle::xy(rd_);
-                    draw_line(&imgui.ctx, ro, rd, 2.0f, gfx::color::rgba::yellow);
-                    string_render(&imgui.ctx, var->name, ro, gfx::color::rgba::yellow);
+                    draw_line(&imgui.ctx, ro, rd, 2.0f, gfx::color::to_color32(var->color));
+                    draw_string(&imgui.ctx, var->name, ro, gfx::color::to_color32(var->color));
                 }
             }
         }
+
+        draw_alerts(imgui);
     }
 
     template <typename T>
-    debug_variable_t* add_time_variable(T val, std::string_view name, f32 force_life = -1.0f) {
-        auto* var = add_variable(val, name);
+    debug_variable_t* add_time_variable(T val, std::string_view name, v4f color, f32 force_life = -1.0f) {
+        auto* var = add_variable(val, name, color);
         if (force_life != -1.0f) {
             const auto delta = timeout - force_life;
             var->time_stamp = time - delta;
@@ -374,7 +840,7 @@ struct debug_state_t {
     }
 
     template <typename T>
-    debug_variable_t* add_variable(T val, std::string_view name) {
+    debug_variable_t* add_variable(T val, std::string_view name, v4f color) {
         std::lock_guard lock{ticket};
         // auto* var = first_free ? first_free : push_struct<debug_variable_t>(&arena);
         auto* var = first_free;
@@ -385,6 +851,7 @@ struct debug_state_t {
             tag_struct(var, debug_variable_t, &arena);
         }
         var->name = name;
+        var->color = color;
         // if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_variable_type::ENTITY; }
         if constexpr (std::is_same_v<T, u32>) { var->type = debug_variable_type::UINT32; }
         if constexpr (std::is_same_v<T, i32>) { var->type = debug_variable_type::INT32; }
@@ -394,15 +861,34 @@ struct debug_state_t {
         if constexpr (std::is_same_v<T, v3f>) { var->type = debug_variable_type::VEC3; }
         if constexpr (std::is_same_v<T, math::ray_t>) { var->type = debug_variable_type::RAY; }
         if constexpr (std::is_same_v<T, math::rect3d_t>) { var->type = debug_variable_type::AABB; }
+        if constexpr (std::is_same_v<T, math::sphere_t>) { var->type = debug_variable_type::SPHERE; }
         if constexpr (std::is_same_v<T, std::string_view>) { 
             var->type = debug_variable_type::TEXT; 
             utl::copy(&var->as_text.buffer, val.data(), val.size());
+        } else if constexpr (std::is_same_v<T, math::waypoint_t>) { 
+            var->type = debug_variable_type::WAYPOINT;
+            var->as_waypoint = val;
+            b32 had = 0;
+            auto* id = utl::hash_get(&path_ids, name, &arena, &had);
+            if (!had) {
+                *id = 0;
+            }
+            var->as_waypoint.id = (*id)++;
         } else {
             utl::copy(&var->as_u32, &val, sizeof(val));
         }
 
         node_push(var, variables);
         return var;
+    }
+
+    debug_watcher_t* get_watch_variable(std::string_view name) {
+        node_for(auto, watcher, var) {
+            if (var->name == name) {
+                return var;
+            }
+        }
+        return 0;
     }
 
     debug_watcher_t* has_watch_variable(void* ptr) {
@@ -418,10 +904,14 @@ struct debug_state_t {
     debug_watcher_t* watch_variable(T* val, std::string_view name) {
         std::lock_guard lock{ticket};
         if (auto cached = has_watch_variable((void*)val)) return cached;
+
         auto* var = create_watcher();
         var->name = name;
+        var->type = debug_watcher_type::COUNT;
+
         // if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_watcher_type::ENTITY; }
         if constexpr (std::is_same_v<T, const char>) { var->type = debug_watcher_type::CSTR; }
+        if constexpr (std::is_same_v<T, u8 >) { var->type = debug_watcher_type::UINT8; }
         if constexpr (std::is_same_v<T, u32>) { var->type = debug_watcher_type::UINT32; }
         if constexpr (std::is_same_v<T, i32>) { var->type = debug_watcher_type::INT32; }
         if constexpr (std::is_same_v<T, f32>) { var->type = debug_watcher_type::FLOAT32; }
@@ -430,6 +920,8 @@ struct debug_state_t {
         if constexpr (std::is_same_v<T, v3f>) { var->type = debug_watcher_type::VEC3; }
         if constexpr (std::is_same_v<T, math::ray_t>) { var->type = debug_watcher_type::RAY; }
         if constexpr (std::is_same_v<T, math::rect3d_t>) { var->type = debug_watcher_type::AABB; }
+
+        assert(var->type != debug_watcher_type::COUNT);
         
         utl::copy(&var->as_vptr, &val, sizeof(val));
 
@@ -458,328 +950,13 @@ struct debug_state_t {
     }
 };
 
-
-struct debug_console_t {
-    struct command_t {
-        void (*command)(void*){0};
-        void* data{0};
-    };
-
-    struct message_t {
-        char text[256]{};
-        gfx::color32 color = gfx::color::rgba::white;
-        command_t command{};
-    };
-
-    struct console_command_t {
-        console_command_t* next{0};
-        char name[64]{};
-        command_t command{};
-    };
-
-    void* user_data = 0; // store game_state
-
-    console_command_t console_commands[64]{};
-    u32 command_count{0};
-
-    message_t messages[256]{};
-    size_t message_top = 0;
-
-    // i32 scroll{0};
-    f32 open_percent = 0.0f;
-
-    const message_t& top_message() const {
-        return messages[message_top];
-    }
-
-    const message_t& last_message() const {
-        return messages[message_top?message_top-1:array_count(messages)-1];
-    }
-
-    std::optional<f32> last_float() const {
-        const auto& message = last_message();
-        auto i = std::string_view{message.text}.find_first_of("0123456789.+");
-        if (i != std::string_view::npos) {
-            std::stringstream ss{std::string_view{message.text}.substr(i).data()};
-            float f;
-            ss >> f;
-            return f;
-        } else {
-            return std::nullopt;
-        }
-    }
-
-    std::optional<std::string_view> get_args() const {
-        const auto& message = last_message();
-        auto i = std::string_view{message.text}.find_first_of(" ");
-        if (i != std::string_view::npos) {
-            return std::string_view{message.text}.substr(i);
-        } else {
-            return std::nullopt;
-        }
-    }
-
-    char    text_buffer[1024]{};
-    size_t  text_size{0};
-    size_t  text_position{0};
-};
-
-inline static void 
-console_add_command(
-    debug_console_t* console,
-    std::string_view command_name,
-    void (*command)(void*),
-    void* user_data
-) {
-    assert(console->command_count < array_count(console->console_commands));
-    debug_console_t::console_command_t& new_command = console->console_commands[console->command_count++];
-
-    utl::copy(new_command.name, command_name.data(), std::min(array_count(new_command.name), command_name.size()));
-    // strncpy_s(new_command.name, array_count(new_command.name), command_name.data(), command_name.size()+1);
-    new_command.command.command = command;
-    new_command.command.data = user_data;
-}
-
-inline static void 
-console_try_command(
-    debug_console_t* console,
-    std::string_view command_name
-) {
-    range_u64(i, 0, console->command_count) {
-        if (std::strstr(command_name.data(), console->console_commands[i].name)) {
-            console->console_commands[i].command.command(
-                console->console_commands[i].command.data
-            );
-            return;
-        }
-    }
-}
-
-inline static void
-console_log(
-    debug_console_t* console,
-    std::string_view text,
-    gfx::color32 color = gfx::color::rgba::white,
-    void (*on_click)(void*) = 0,
-    void* user_data = 0,
-    b32 execute = 0
-) {
-    size_t text_size = text.size();
-
-    while(text_size > 0) {
-        auto* message = console->messages + console->message_top;
-        console->message_top = (console->message_top + 1) % array_count(console->messages);
-        message->color = color;
-        const auto write_count = std::min(array_count(message->text), text_size);
-        utl::memzero(message->text, array_count(message->text));
-        utl::copy(message->text, text.data(), write_count);
-        text_size -= write_count;
-
-        message->command.data = user_data;
-        message->command.command = on_click;
-    }
-    if (execute) console_try_command(console, text);
-}
-
-inline void
-draw_console(
-    gfx::gui::im::state_t& imgui, 
-    debug_console_t* console,
-    v2f* pos
-) {
-    using namespace gfx::gui;
-    auto* c = &imgui.ctx;
-
-    imgui.begin_free_drawing();
-    auto* save_font = c->font;
-    c->font = c->dyn_font[24];
-    defer {
-        // imgui.end_free_drawing();
-        c->font = save_font;
-    };
-
-    imgui.hot =
-    imgui.active = "DEBUG_console"_sid;
-
-
-    f32 open_prc = console->open_percent;
-    auto mouse = imgui.ctx.input->mouse.pos2();
-    auto clicked = imgui.ctx.input->mouse.buttons[0];
-    auto entered = imgui.ctx.input->pressed.keys[key_id::ENTER];
-    auto deleted = imgui.ctx.input->pressed.keys[key_id::BACKSPACE];
-    auto ctrl = imgui.ctx.input->keys[key_id::LEFT_CONTROL];
-    auto left = imgui.ctx.input->pressed.keys[key_id::LEFT];
-    auto right = imgui.ctx.input->pressed.keys[key_id::RIGHT];
-
-    const auto test_font_size = gfx::font_get_size(imgui.ctx.font, "Hello World!");
-
-    auto text_box_color = gfx::color::rgba::dark_red;
-
-    auto r = imgui.ctx.screen_rect();
-    math::rect2d_t text_box;
-    math::rect2d_t _t;
-
-    r.add(-math::height2 * r.size().y * (1.0f-open_prc));
-
-    draw_rect(c, r, imgui.theme.bg_color);
-
-
-    {
-        auto text_color = gfx::color::rgba::cream;
-
-        std::tie(text_box, r) = math::cut_bottom(r, test_font_size.y);
-        std::tie(_t, r) = math::cut_left(r, 8.0f);
-        
-        draw_rect(c, text_box, text_box_color);
-
-        string_render(c, console->text_buffer, text_box.min, text_color);
-
-        auto pos_size = gfx::font_get_size(c->font, std::string_view{console->text_buffer, console->text_position});
-        auto [before_cursor, after_cursor] = math::cut_left(text_box, pos_size.x);
-
-        math::rect2d_t cursor;
-        cursor.min = math::top_right(before_cursor);
-        cursor.max = before_cursor.max;
-        cursor.min.x -= 3.0f;
-        draw_rect(c, cursor, gfx::color::rgba::yellow);
-    
-        auto key = c->input->keyboard_input();
-        if (left) { 
-            if (console->text_position) {
-                console->text_position--;
-            }
-        } else if (right) {
-            if (console->text_position < console->text_size) {
-                console->text_position++;
-            }
-        }
-        if (key > 0) {
-            if (console->text_size + 1 < array_count(console->text_buffer)) {
-                if (console->text_position == console->text_size) {
-                    console->text_buffer[console->text_position++] = key;
-                } else {
-                    utl::copy(console->text_buffer + console->text_position + 1, console->text_buffer + console->text_position, console->text_size - console->text_position - 1);
-                    console->text_buffer[console->text_position++] = key;
-                }
-                console->text_size++;
-            }
-        }
-        if (entered) {
-            console_log(console, console->text_buffer, gfx::color::rgba::white, 0, 0, 1);
-            
-            utl::memzero(console->text_buffer, array_count(console->text_buffer));
-
-            console->text_position = 
-            console->text_size = 0;
-        }
-        if (deleted) {
-            if (ctrl) {
-                utl::memzero(console->text_buffer, console->text_position+1);
-
-                utl::copy(console->text_buffer, console->text_buffer + console->text_position, console->text_size - console->text_position);
-
-                console->text_size -= console->text_position;
-                console->text_position = 0;
-            } else if (console->text_position > 0) {
-                if (console->text_position == console->text_size) {
-                    console->text_position -= 1;
-                    console->text_buffer[console->text_position] = 0;
-                } else {
-                    console->text_position -= 1;
-                    utl::copy(console->text_buffer + console->text_position, console->text_buffer + console->text_position + 1, console->text_size - console->text_position + 1);
-                }
-                console->text_size -= 1;
-            }
-        }
-    }
-
-    r = c->screen_rect().clip(r);
-
-    local_persist f32 scroll;
-    local_persist f32 scroll_v;
-
-    scroll_v += c->input->mouse.scroll.y * 3.0f;
-    scroll   += scroll_v * c->input->dt;
-    scroll_v = tween::damp(scroll_v, 0.0f, 0.95f, c->input->dt);
-
-    imgui.end_free_drawing();
-    imgui.scissor(r);
-    imgui.begin_free_drawing();
-
-    r.add(math::height2 * scroll);
-
-    defer {
-        imgui.end_free_drawing();
-        imgui.end_scissor();
-    };
-
-    // for (u64 i = 10; i <= 10; i--) {
-    for (u64 i = 0; i < array_count(console->messages); i++) {
-        u64 index = (console->message_top - 1 - i) % array_count(console->messages);
-        auto* message = console->messages + index;
-        if (message->text[0]==0) {
-            continue;
-        }
-        auto text_color = message->color;
-
-        std::tie(text_box, r) = math::cut_bottom(r, test_font_size.y);
-        // std::tie(text_box, r) = math::cut_top(r, test_font_size.y);
-        string_render(c, message->text, text_box.min, text_color);
-
-        if (text_box.contains(mouse) && clicked) {
-            message->command.command(message->command.data);
-        }
-    }
-}
-
-inline void
-draw_console2(
-    gfx::gui::im::state_t& imgui, 
-    debug_console_t* console,
-    v2f* pos
-) {
-    using namespace gfx::gui;
-    
-
-    const auto theme = imgui.theme;
-    imgui.theme.border_radius = 1.0f;
-    v2f size={};
-    local_persist b32 open=1;
-
-    if (im::begin_panel(imgui, "Console"sv, pos, &size, &open)) {
-        // draw_reverse(imgui, console->messages);
-
-        for (u64 i = 10; i <= 10; i--) {
-            u64 index = (console->message_top - 1 - i) % array_count(console->messages);
-            auto* message = console->messages + index;
-            if (message->text[0]==0) {
-                continue;
-            }
-            imgui.theme.text_color = message->color;
-            if (im::text(imgui, fmt_sv("[{}] {}", index, message->text)) && message->command.command) {
-                message->command.command(message->command.data);
-            }
-        }
-        
-        if (im::text_edit(imgui, console->text_buffer, &console->text_size, "console_text_box"_sid)) {
-            console_log(console, console->text_buffer, gfx::color::rgba::white, 0, 0, 1);
-            
-            utl::memzero(console->text_buffer, array_count(console->text_buffer));
-            console->text_size = 0;
-        }
-
-        im::end_panel(imgui, pos, &size);
-    }
-
-    imgui.theme = theme;
-}
-
 #define DEBUG_STATE (*gs_debug_state)
 
 #ifdef DEBUG_STATE
     #define DEBUG_WATCH(var) DEBUG_STATE.watch_variable((var), #var)
-    #define DEBUG_DIAGRAM(var) DEBUG_STATE.add_time_variable((var), #var)
-    #define DEBUG_DIAGRAM_(var, time) DEBUG_STATE.add_time_variable((var), #var, (time))
+    #define DEBUG_DIAGRAM(var) DEBUG_STATE.add_time_variable((var), #var, v4f{1.0f})
+    #define XDIAGRAM(var, color, time) DEBUG_STATE.add_time_variable((var), #var, color, time)
+    #define DEBUG_DIAGRAM_(var, time) DEBUG_STATE.add_time_variable((var), #var, v4f{1.0f}, (time))
     #define DEBUG_SET_FOCUS(point) DEBUG_STATE.focus_point = (point)
     #define DEBUG_SET_FOCUS_DISTANCE(distance) DEBUG_STATE.focus_distance = (distance)
     #define DEBUG_SET_TIMEOUT(time) DEBUG_STATE.timeout = (time)

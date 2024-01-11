@@ -35,8 +35,6 @@
 #define range_f32(itr, start, stop) for (f32 itr = (start); itr < (stop); itr++)
 #define loop_iota_i32(itr, stop) for (int itr = 0; itr < stop; itr++)
 
-
-
 #if defined(GAME_USE_SIMD)
 #include <immintrin.h>
 #endif
@@ -278,6 +276,10 @@ struct stack_string
         return std::string_view{buffer}.size();
     }
 
+    constexpr size_t capacity() const {
+        return N;
+    }
+
     constexpr bool empty() const {
         return buffer[0] == 0;
     }
@@ -407,7 +409,7 @@ struct fmt::formatter<glm::vec<3, T>>
 
 struct arena_settings_t {
     size_t alignment{16};
-    size_t minimum_block_size{1024*1024}; // tune this
+    size_t minimum_block_size{kilobytes(1)}; // tune this
     u8     fixed{0};
 };
 
@@ -422,10 +424,26 @@ struct allocation_tag_t {
     const char* file_name;
     const char* function_name;
     u64 line_number;
+
     u64 count;
     u64 type_size;
+    u64 block_id; // might not be needed
     allocation_tag_t* next;
-    char magic[4]={'A','T','A','G'};
+
+    u64 pad[40] = {};
+
+    void poison() {
+        range_u64(i, 0, array_count(pad)) {
+            pad[i] = ~0ui64;
+        }
+    }
+
+    b32 overflowed() const {
+        range_u64(i, 0, array_count(pad)) {
+            if (pad[i] != ~0) return true;
+        }
+        return false;
+    }
 };
 
 struct arena_t {
@@ -630,7 +648,7 @@ namespace key_id { enum {
     LEFT_BRACKET =91, /* [ */
     BACKSLASH =92, /* \ */
     RIGHT_BRACKET =93, /* ] */
-    GRAVE_ACCENT =96, /* ` */
+    BACKTICK =96, /* ` */
     WORLD_1 =161, /* non-US #1 */
     WORLD_2 =162, /* non-US #2 */
     ESCAPE =256,
@@ -787,7 +805,7 @@ struct app_input_t {
     char keyboard_input() noexcept {
         const bool shift = keys[key_id::LEFT_SHIFT] || keys[key_id::RIGHT_SHIFT];
 
-        range_u64(c, key_id::SPACE, key_id::GRAVE_ACCENT+1) {
+        range_u64(c, key_id::SPACE, key_id::BACKTICK+1) {
             if (pressed.keys[c]) { 
                 pressed.keys[c] = 0;
                 if (pressed.keys[key_id::BACKSLASH] && shift) return '|';
@@ -1241,7 +1259,7 @@ memzero(void* buffer, umm size) {
 }
 
 void*
-copy(void* dst, const void* src, umm size) {
+copy(void* dst, const void* src, umm size) {    
     return std::memmove(dst, src, size);
     return std::memcpy(dst, src, size);
 }
@@ -1285,7 +1303,7 @@ arena_create(umm minimum_block_size = 0) noexcept {
     if (minimum_block_size) {
         arena.settings.minimum_block_size = minimum_block_size;
     } else {
-        arena.settings.minimum_block_size = 1024*1024;
+        arena.settings.minimum_block_size = kilobytes(4);
     }
     arena.settings.alignment = 16;
     return arena;
@@ -1293,6 +1311,13 @@ arena_create(umm minimum_block_size = 0) noexcept {
 
 static void 
 arena_add_tag(arena_t* arena, allocation_tag_t* tag) {
+    if (arena->settings.fixed) {
+        tag->block_id = 0;
+    } else {
+        assert(arena->block_count);
+        tag->block_id = arena->block_count - 1;
+        tag->poison();
+    }
     node_push(tag, arena->tags);
 }
 
@@ -1346,7 +1371,13 @@ push_bytes(arena_t* arena, size_t bytes) {
     if (!arena->settings.fixed) {
         if (arena->top + bytes >= arena->size) [[unlikely]] {
             umm block_size = std::max(bytes + sizeof(arena_block_footer_t), arena->settings.minimum_block_size);
-            block_size = std::max(block_size, 1024ui64*1024ui64);
+            block_size = std::max(block_size, kilobytes(4));
+            
+            // arena->settings.minimum_block_size = std::max(block_size, arena->settings.minimum_block_size);
+
+            // if ((arena->block_count % 10) == 1) {
+            //     arena->settings.minimum_block_size *= 2;
+            // }
 
             arena_block_footer_t footer;
             footer.base = arena->start;
@@ -1383,10 +1414,10 @@ push_bytes(arena_t* arena, size_t bytes) {
 static allocation_tag_t*
 get_allocation_tag(void* ptr) {
     auto* tag = ((allocation_tag_t*)ptr)-1;
-    if (tag->magic == std::string_view{"ATAG"}) {
-        return tag;
-    }
-    return 0;
+    // if (tag->magic == std::string_view{"ATAG"}) {
+    return tag;
+    // }
+    // return 0;
 }
 
 #if ZYY_INTERNAL
@@ -1445,7 +1476,8 @@ bootstrap_arena_(umm offset, umm minimum_block_size = 0) {
 // todo add file and line for tagging
 arena_t 
 arena_sub_arena(arena_t* arena, size_t size) {
-    tag_array(auto* bytes, std::byte, arena, size);
+    using subarena_t = std::byte;
+    tag_array(auto* bytes, subarena_t, arena, size);
     return arena_create(bytes, size);
 }
 
@@ -1464,6 +1496,20 @@ inline void
 arena_begin_sweep(arena_t* arena) {
     assert(arena->block_count == 0);
     arena->top = 0;
+}
+
+arena_t arena_get_block(arena_t* arena, u64 block_index) {
+    arena_t result = *arena;
+    assert(block_index < arena->block_count);
+
+    range_u64(i, 1, arena->block_count - block_index) {
+        auto* footer = arena_get_footer(&result);
+        result.start = footer->base;
+        result.top = footer->used;
+        result.size = footer->size;
+    }
+
+    return result;
 }
 
 void
@@ -1491,11 +1537,17 @@ arena_clear(arena_t* arena) {
     if (arena->settings.fixed) {
         arena->top = 0;
     } else {
-        while(arena->block_count) {
+        // @Explain
+        // bootstrapped arena will be invalidated if they are freed
+        u64 block_count = arena->block_count;
+        while(block_count) { 
+            block_count = arena->block_count - 1;
             arena_free_block(arena);
         }
     }
 }
+
+
 
 temporary_arena_t
 begin_temporary_memory(arena_t* arena) {
@@ -1581,7 +1633,9 @@ struct allocator_t {
         // if we reach here, theres no free blocks that fit
 
         tag_struct(auto* new_block, memory_block_t, block_arena);            
-        auto* data = push_bytes(&arena, size);
+        auto* data = push_bytes(&arena, size); // TODO(zack): breaks mesh allocators if you tag
+        // using allocator_memory_t = std::byte;
+        // tag_array(auto* data, allocator_memory_t, &arena, size);
 
         utl::memzero(data, size);
 
@@ -1616,26 +1670,22 @@ struct buffer
     u64 count = 0;
 
     T* reallocate(arena_t* arena, u64 new_count) {
-        // puts("realloc");
         tag_array(T* new_data, T, arena, new_count);
         return new_data;
     }
 
     T* reallocate(utl::allocator_t* allocator, u64 size) {
-        // puts("realloc");
         auto* new_data = (T*)allocator->allocate(sizeof(T)*size);
         return new_data;
     }
 
     void reserve(utl::allocator_t* allocator, u64 size) {
-        // puts("reserve");
         if (data) allocator->free(data);
         data = allocator->allocate(size*sizeof(T));
         count = size;
     }
 
     void reserve(arena_t* arena, u64 size) {
-        // puts("reserve");
         data = reallocate(arena, size);
         count = size;
     }
@@ -2334,6 +2384,7 @@ REFLECT_TYPE(v3f) {
     .REFLECT_PROP(v3f, z);
 };
 
+
 #define GEN_TYPE_ID(type) (sid(#type))
 #define GEN_TYPE_INFO(type) (type_info_t{sid(#type), sizeof(type), #type})
 #define GEN_REFLECT_VAR(type, var) size_t offset{offsetof(type, var)}; const char* name{#var};
@@ -2601,6 +2652,12 @@ struct set_blend_command_t {
     blend_mode blend{blend_mode::alpha_blend};
 };
 
+struct batched_draw_t {
+    void* buffer{0}; // api buffer
+    u32   offset{0};
+    u32   count {0};
+};
+
 struct render_command_t {
     render_command_type type{render_command_type::draw_mesh};
 
@@ -2621,7 +2678,10 @@ struct render_group_t {
     buffer<render_command_t> commands{};
     u64                      size{0};
     
+    buffer<batched_draw_t>   draw_batches{};
+    
     render_command_t& push_command() {
+        assert(size < commands.count);
         return commands[size++];
     }
 };
@@ -3235,6 +3295,7 @@ namespace color {
     }
 
     namespace rgba {
+        
         static constexpr auto clear = "#00000000"_rgba;
         static constexpr auto clear_alpha = "#000000ff"_rgba;
         static constexpr auto black = "#000000ff"_rgba;
@@ -3281,11 +3342,14 @@ namespace color {
         static constexpr auto ray_white   = "#f1f1f1ff"_c4;
         static constexpr auto light_gray  = "#d3d3d3ff"_c4;
         static constexpr auto dark_gray   = "#2a2a2aff"_c4;
-        static constexpr auto red   = "#ff0000ff"_c4;
-        static constexpr auto reddish = "#fa2222ff"_c4;
+        static constexpr auto red     = "#ff0000ff"_c4;
+        static constexpr auto reddish = "#ff2222ff"_c4;
+        static constexpr auto dark_red = "#3d1111ff"_c4;
         static constexpr auto green = "#00ff00ff"_c4;
         static constexpr auto blue  = "#0000ffff"_c4;
         static constexpr auto purple= "#ff00ffff"_c4;
+        static constexpr auto dark_purple = "#150c25ff"_c4;
+        static constexpr auto darker_purple = "#0a0612ff"_c4;
         static constexpr auto cyan  = "#00ffffff"_c4;
         static constexpr auto yellow= "#ffff00ff"_c4;
         static constexpr auto yellowish= "#fafa22ff"_c4;
@@ -3397,6 +3461,22 @@ namespace gui {
         }
     };
 
+    using vertex_selector_t = buffer<vertex_t>;
+
+    void apply_vertex_transform(vertex_selector_t vertices, const m44& transform) {
+        range_u64(i, 0, vertices.count) { 
+            vertices[i].pos = transform * v4f{vertices[i].pos, 1.0f};
+        }
+    }
+
+    v3f selection_center(vertex_selector_t vertices) {
+        v3f result = {};
+        range_u64(i, 0, vertices.count) { 
+            result += vertices[i].pos;
+        }
+        return result / f32(vertices.count);
+    }
+
     struct ctx_t {
         utl::pool_t<vertex_t>* vertices;
         utl::pool_t<u32>* indices;
@@ -3409,6 +3489,21 @@ namespace gui {
 
         void depth_down() {
             // draw_z += 0.00001f;
+        }
+
+        vertex_selector_t begin_vertex_selection() {
+            vertex_selector_t result = {};
+            auto vertex_index = vertices->count();
+            result.data = &(*vertices)[vertex_index];
+            result.count = vertex_index;
+
+            return result;
+        }
+
+        void end_vertex_selection(vertex_selector_t& selection) {
+            auto vertex_index = vertices->count();
+            selection.count = vertex_index - selection.count;
+            assert(selection.count);
         }
 
         math::rect2d_t screen_rect() const {
@@ -3578,14 +3673,27 @@ namespace gui {
     }
 
     inline v2f
-    string_render(
+    draw_string(
         ctx_t* ctx,
         std::string_view text,
         v2f* position,
         const color32& text_color = color::rgba::white,
-        font_t* font = 0
+        font_t* font = 0,
+        color32 shadow = 0
     ) {
-        auto start = *position;
+        if (shadow) {
+            auto start = *position;
+            start += v2f{2.0f};
+            font_render(0, font ? font : ctx->font, 
+                text, 
+                start,
+                ctx->draw_z,
+                ctx->screen_size,
+                ctx->vertices,
+                ctx->indices,
+                shadow
+            );
+        }
         font_render(0, font ? font : ctx->font, 
             text, 
             *position,
@@ -3600,20 +3708,22 @@ namespace gui {
     }
 
     inline v2f
-    string_render(
+    draw_string(
         ctx_t* ctx,
         std::string_view text,
         const v2f& position,
         const color32& text_color = color::rgba::white,
-        font_t* font = 0
+        font_t* font = 0,
+        color32 shadow = 0
     ) {
         v2f cursor = position;
-        return string_render(
+        return draw_string(
             ctx,
             text,
             &cursor,
             text_color,
-            font
+            font,
+            shadow
         );
     }
 
@@ -4087,6 +4197,18 @@ namespace gui {
     }
 
     inline void
+    draw_rect_outline(
+        ctx_t* ctx,
+        math::rect2d_t box,
+        u32 color,
+        u32 outline_color,
+        f32 thickness
+    ) {
+        draw_rect(ctx, box, color);
+        draw_rect(ctx, box.pad(thickness), outline_color); 
+    }
+
+    inline void
     draw_round_rect(
         ctx_t* ctx,
         math::rect2d_t box,
@@ -4094,20 +4216,15 @@ namespace gui {
         u32 color,
         u32 num_segments = 20
     ) {
+        box.set_min_size(v2f{radius*2.0f});
         math::rect2d_t inner{box.min+radius, box.max-radius};
         
-        auto depth = ctx->draw_z;
         draw_circle(ctx, inner.min, radius, color, num_segments);
-        ctx->draw_z = depth;
         draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments);
-        ctx->draw_z = depth;
         draw_circle(ctx, inner.max, radius, color, num_segments);
-        ctx->draw_z = depth;
         draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments);
-        ctx->draw_z = depth;
 
         draw_rect(ctx, math::rect2d_t{box.min + v2f{radius,0}, inner.max+v2f{0,radius}}, color);
-        ctx->draw_z = depth;
         draw_rect(ctx, math::rect2d_t{box.min + v2f{0,radius}, inner.max+v2f{radius,0}}, color);
 
         // draw_circle(ctx, inner.min, radius, color, num_segments, 0.25f, 0.5f);
@@ -4115,6 +4232,101 @@ namespace gui {
         // draw_circle(ctx, inner.max, radius, color, num_segments, 0.25f, 0.0f);
         // draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments, 0.25f, 0.750f);
     }
+
+    inline void
+    draw_leftround_rect(
+        ctx_t* ctx,
+        math::rect2d_t box,
+        f32 radius,
+        u32 color,
+        u32 num_segments = 20
+    ) {
+        box.set_min_size(v2f{radius*2.0f});
+        math::rect2d_t inner{box.min+radius, box.max-radius};
+        
+        draw_circle(ctx, inner.min, radius, color, num_segments);
+        draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments);
+        // draw_circle(ctx, inner.max, radius, color, num_segments);
+        // draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments);
+
+        draw_rect(ctx, math::rect2d_t{box.min + v2f{radius,0}, box.max}, color);
+        draw_rect(ctx, math::rect2d_t{box.min + v2f{0,radius}, box.min+v2f{radius,inner.size().y}}, color);
+
+        // draw_circle(ctx, inner.min, radius, color, num_segments, 0.25f, 0.5f);
+        // draw_circle(ctx, inner.min + v2f{0,inner.size().y}, radius, color, num_segments, 0.25f, 0.25f);
+        // draw_circle(ctx, inner.max, radius, color, num_segments, 0.25f, 0.0f);
+        // draw_circle(ctx, inner.min + v2f{inner.size().x,0}, radius, color, num_segments, 0.25f, 0.750f);
+    }
+
+    inline void
+    draw_round_rect_outline(
+        ctx_t* ctx,
+        math::rect2d_t box,
+        f32 radius,
+        u32 color,
+        u32 outline_color,
+        f32 thickness,
+        u32 num_segments = 20
+    ) {
+        draw_round_rect(ctx, box, radius, outline_color, num_segments);
+        draw_round_rect(ctx, box.pad(thickness), radius, color, num_segments);
+    }
+
+    enum struct progress_bar_style : u32 {
+        none, rounded, rounded_outline,
+        leftround, rightround,
+    };
+
+    inline void
+    draw_progress_bar(
+        ctx_t* ctx,
+        math::rect2d_t box,
+        f32 percent,
+        u32 bar_color,
+        u32 bg_color,
+        u32 outline_color,
+        f32 thickness,
+        progress_bar_style style = progress_bar_style::none,
+        f32 border_radius = 4.0f,
+        u32 num_segments = 20
+    ) {
+        assert(percent >= 0.0f && percent <= 1.0f);
+        switch (style) {
+            case progress_bar_style::none: {
+                draw_round_rect(ctx, box.pad(thickness), border_radius, bg_color, num_segments);
+            } break;
+            case progress_bar_style::rightround:
+            case progress_bar_style::leftround:
+            case progress_bar_style::rounded:
+            case progress_bar_style::rounded_outline: {
+                draw_round_rect_outline(ctx, box, border_radius, bg_color, outline_color, thickness, num_segments);
+            } break;
+            case_invalid_default;
+        }
+
+        box.max.x = box.min.x + box.size().x * percent;
+
+        auto half_circle_percentage = border_radius / box.size().x;
+
+        switch (style) {
+            case progress_bar_style::none:
+            case progress_bar_style::rounded: {
+                draw_round_rect(ctx, box.pad(thickness), border_radius, bar_color, num_segments);
+            } break;
+            case progress_bar_style::rounded_outline: {
+                draw_round_rect_outline(ctx, box.pad(thickness), border_radius, bar_color, outline_color, thickness, num_segments);
+            } break;
+            case progress_bar_style::leftround: {
+                if (percent < 1.0f - half_circle_percentage) {
+                    draw_leftround_rect(ctx, box.pad(thickness), border_radius, bar_color, num_segments);
+                } else {
+                    draw_round_rect(ctx, box.pad(thickness), border_radius, bar_color, num_segments);
+                }
+            } break;
+            case_invalid_default;
+        }
+    }
+
 
     namespace im {
         constexpr u64 id_ignore_clear_flag = 0b1;
@@ -4812,9 +5024,9 @@ namespace gui {
             render_panel(imgui, *imgui.panel, 1);
 
             if (imgui.ctx.input->keys[key_id::LEFT_ALT]) {
-                string_render(&imgui.ctx, fmt_sv("{}: {}", name.sv(), imgui.panel->min), &imgui.panel->draw_cursor, theme.text_color);
+                draw_string(&imgui.ctx, fmt_sv("{}: {}", name.sv(), imgui.panel->min), &imgui.panel->draw_cursor, theme.text_color);
             } else {
-                string_render(&imgui.ctx, name.sv(), &imgui.panel->draw_cursor, theme.text_color);
+                draw_string(&imgui.ctx, name.sv(), &imgui.panel->draw_cursor, theme.text_color);
             }
 
             imgui.panel->max_draw = {};
@@ -5878,7 +6090,7 @@ namespace gui {
             box.pad(-imgui.theme.border_thickness);
             draw_rect(&imgui.ctx, box, imgui.theme.bg_color);
             draw_rect(&imgui.ctx, prc_box, imgui.active.id == drg_id ? imgui.theme.active_color : imgui.theme.fg_color);
-            string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tmp_cursor, imgui.theme.text_color);
+            draw_string(&imgui.ctx, fmt_sv("{:.2f}", *val), &tmp_cursor, imgui.theme.text_color);
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
             const v2f offset = v2f{x,y} - imgui.drag_start;
@@ -5899,9 +6111,9 @@ namespace gui {
             if (imgui.active.id == drg_id) {
                 {
                     auto tc = imgui.drag_start + v2f{2.0f};
-                    string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tc, gfx::color::rgba::black);
+                    draw_string(&imgui.ctx, fmt_sv("{:.2f}", *val), &tc, gfx::color::rgba::black);
                     tc = imgui.drag_start - v2f{1.0f};
-                    string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tc, gfx::color::rgba::white);
+                    draw_string(&imgui.ctx, fmt_sv("{:.2f}", *val), &tc, gfx::color::rgba::white);
                 }
                 draw_circle(&imgui.ctx, imgui.drag_start, 5.0f, gfx::color::rgba::black);
                 draw_circle(&imgui.ctx, imgui.drag_start, 3.0f, gfx::color::rgba::white);
@@ -6094,7 +6306,7 @@ namespace gui {
             draw_rect(&imgui.ctx, prc_box, imgui.active.id == sld_id ? imgui.theme.active_color : imgui.theme.fg_color);
             // box.max += v2f{1.0f};
             // box.min -= v2f{1.0f};
-            string_render(&imgui.ctx, fmt_sv("{:.2f}", *val), &tmp_cursor, imgui.theme.text_color);
+            draw_string(&imgui.ctx, fmt_sv("{:.2f}", *val), &tmp_cursor, imgui.theme.text_color);
 
             const auto [x,y] = imgui.ctx.input->mouse.pos;
 
@@ -6217,8 +6429,8 @@ namespace gui {
             }
 
             auto shadow_cursor = temp_cursor + imgui.theme.shadow_distance;
-            string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
-            string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            draw_string(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
+            draw_string(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
 
             if (imgui.drag_event && imgui.drag_event->widget_id == txt_id) {
                 auto text_height = temp_cursor.y - y;
@@ -6353,12 +6565,12 @@ namespace gui {
             draw_round_rect(&imgui.ctx, text_box, 4.0f, bg_color, 10);
 
             if (imgui.active.id == txt_id) {
-                string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
-                string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+                draw_string(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
+                draw_string(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             } else {
                 auto sval = fmt_str("{}", *value);
-                string_render(&imgui.ctx, sval, &shadow_cursor, imgui.theme.shadow_color);
-                string_render(&imgui.ctx, sval, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+                draw_string(&imgui.ctx, sval, &shadow_cursor, imgui.theme.shadow_color);
+                draw_string(&imgui.ctx, sval, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             }
 
             constexpr b32 show_clear = 1;
@@ -6479,12 +6691,12 @@ namespace gui {
             draw_round_rect(&imgui.ctx, text_box, 4.0f, bg_color, 10);
 
             if (imgui.active.id == txt_id) {
-                string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
-                string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+                draw_string(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
+                draw_string(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             } else {
                 auto sval = fmt_str("{}", *value);
-                string_render(&imgui.ctx, sval, &shadow_cursor, imgui.theme.shadow_color);
-                string_render(&imgui.ctx, sval, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+                draw_string(&imgui.ctx, sval, &shadow_cursor, imgui.theme.shadow_color);
+                draw_string(&imgui.ctx, sval, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             }
             
 
@@ -6681,8 +6893,8 @@ namespace gui {
             draw_round_rect(&imgui.ctx, text_box, 4.0f, bg_color, 10);
             
             auto shadow_cursor = temp_cursor + imgui.theme.shadow_distance;
-            string_render(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
-            string_render(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            draw_string(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
+            draw_string(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
             
             constexpr b32 show_clear = 1;
             if constexpr (show_clear) {
@@ -6946,7 +7158,7 @@ namespace gui {
             // box.pull(v2f{-1.0f});
             // draw_round_rect(&imgui.ctx, box, imgui.theme.border_radius, imgui.hot.id == btn_id ? imgui.theme.active_color : color, 10);
 
-            string_render(&imgui.ctx, name, same_line, text_color, imgui.ctx.font);
+            draw_string(&imgui.ctx, name, same_line, text_color, imgui.ctx.font);
             
             if (imgui.next_same_line) {
                 imgui.panel->draw_cursor.x = box.max.x + imgui.theme.padding;
@@ -7106,13 +7318,15 @@ namespace gui {
             const b32 shift_held = imgui.ctx.input->keys[key_id::LEFT_SHIFT] || imgui.ctx.input->keys[key_id::RIGHT_SHIFT];
             const b32 delete_held = imgui.ctx.input->keys[key_id::X];
             const v2f mouse{x,y};
+
+            f32 t = (mouse - gradient_box.min).x / gradient_box.size().x;
+            auto nearest_sample_distance = gradient->nearest_distance(t);
+            const f32 sample_click_threshold = 0.02f;
+            const b32 clicked_sample = nearest_sample_distance < sample_click_threshold;
+
             if (imgui.active.id == grd_id) {
-                f32 t = (mouse - gradient_box.min).x / gradient_box.size().x;
                 
                 if (gradient_box.contains(mouse)) {
-                    auto nearest_sample_distance = gradient->nearest_distance(t);
-                    const f32 sample_click_threshold = 0.02f;
-                    const b32 clicked_sample = nearest_sample_distance < sample_click_threshold;
                     if (clicked_sample) {
                         imgui.selected_index = gradient->closest(t);
                         if (delete_held) {
@@ -7120,11 +7334,13 @@ namespace gui {
                             imgui.selected_index = gradient->count + 1;
                         }
                     }
+                    // } else {
+                        // imgui.selected_index = gradient->count;
                     if (imgui.selected_index > gradient->count) {
                     } else {
+                        imgui.selected_index = gradient->closest(t);
                         gradient->positions[imgui.selected_index] = t;
                         gradient->sort();
-                        imgui.selected_index = gradient->closest(t);
                     }
                     
                     if (!clicked_sample) {
@@ -7250,11 +7466,13 @@ font_load(
     font->font_info = {};
     font->size = size;
 
-    font->bitmap = (u8*)push_bytes(arena, font->pixel_count*font->pixel_count);
+    // font->bitmap = (u8*)push_bytes(arena, font->pixel_count*font->pixel_count);
+    tag_array(font->bitmap, u8, arena, font->pixel_count*font->pixel_count);
     // auto memory = begin_temporary_memory(arena);
     // size_t stack_mark = arena_get_mark(arena);
 
-        font->ttf_buffer = (u8*)push_bytes(arena, 1<<20);
+        tag_array(font->ttf_buffer, u8, arena, 1<<20);
+        // font->ttf_buffer = (u8*)push_bytes(arena, 1<<20);
         // font->ttf_buffer = (u8*)push_bytes(memory.arena, 1<<20);
         
         FILE* file = 0;
@@ -8279,6 +8497,278 @@ struct memory_blob_t {
     }
 };
 
+#define ZYY_SERIALIZE_TYPE_1(type, a) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a);}
+
+#define ZYY_SERIALIZE_TYPE_2(type, a, b) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b);}
+
+#define ZYY_SERIALIZE_TYPE_3(type, a, b, c) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c);}
+
+#define ZYY_SERIALIZE_TYPE_4(type, a, b, c, d) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d);}
+
+#define ZYY_SERIALIZE_TYPE_5(type, a, b, c, d, e) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e);}
+
+#define ZYY_SERIALIZE_TYPE_6(type, a, b, c, d, e, f) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f);}
+
+#define ZYY_SERIALIZE_TYPE_7(type, a, b, c, d, e, f, g) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g);}
+
+#define ZYY_SERIALIZE_TYPE_8(type, a, b, c, d, e, f, g, h) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h);}
+
+#define ZYY_SERIALIZE_TYPE_9(type, a, b, c, d, e, f, g, h, i) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h); \
+    serialize(arena, save_data.##i);}
+
+#define ZYY_SERIALIZE_TYPE_10(type, a, b, c, d, e, f, g, h, i, j) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h); \
+    serialize(arena, save_data.##i); \
+    serialize(arena, save_data.##j);}
+
+#define ZYY_SERIALIZE_TYPE_11(type, a, b, c, d, e, f, g, h, i, j, k) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h); \
+    serialize(arena, save_data.##i); \
+    serialize(arena, save_data.##j); \
+    serialize(arena, save_data.##k);}
+
+#define ZYY_SERIALIZE_TYPE_12(type, a, b, c, d, e, f, g, h, i, j, k, l) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h); \
+    serialize(arena, save_data.##i); \
+    serialize(arena, save_data.##j); \
+    serialize(arena, save_data.##k); \
+    serialize(arena, save_data.##l);}
+
+#define ZYY_SERIALIZE_TYPE_13(type, a, b, c, d, e, f, g, h, i, j, k, l, m) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h); \
+    serialize(arena, save_data.##i); \
+    serialize(arena, save_data.##j); \
+    serialize(arena, save_data.##k); \
+    serialize(arena, save_data.##l); \
+    serialize(arena, save_data.##m);}
+
+#define ZYY_SERIALIZE_TYPE_14(type, a, b, c, d, e, f, g, h, i, j, k, l, m, n) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h); \
+    serialize(arena, save_data.##i); \
+    serialize(arena, save_data.##j); \
+    serialize(arena, save_data.##k); \
+    serialize(arena, save_data.##l); \
+    serialize(arena, save_data.##m); \
+    serialize(arena, save_data.##n);}
+
+#define ZYY_SERIALIZE_TYPE_15(type, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h); \
+    serialize(arena, save_data.##i); \
+    serialize(arena, save_data.##j); \
+    serialize(arena, save_data.##k); \
+    serialize(arena, save_data.##l); \
+    serialize(arena, save_data.##m); \
+    serialize(arena, save_data.##n); \
+    serialize(arena, save_data.##o);}
+
+#define ZYY_SERIALIZE_TYPE_16(type, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h); \
+    serialize(arena, save_data.##i); \
+    serialize(arena, save_data.##j); \
+    serialize(arena, save_data.##k); \
+    serialize(arena, save_data.##l); \
+    serialize(arena, save_data.##m); \
+    serialize(arena, save_data.##n); \
+    serialize(arena, save_data.##o); \
+    serialize(arena, save_data.##p);}
+
+#define ZYY_SERIALIZE_TYPE_17(type, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) \
+    template<> void ::utl::memory_blob_t::serialize<type>( \
+    arena_t* arena, \
+    const type& save_data \
+) { \
+    serialize(arena, type{}.VERSION); \
+    serialize(arena, save_data.##a); \
+    serialize(arena, save_data.##b); \
+    serialize(arena, save_data.##c); \
+    serialize(arena, save_data.##d); \
+    serialize(arena, save_data.##e); \
+    serialize(arena, save_data.##f); \
+    serialize(arena, save_data.##g); \
+    serialize(arena, save_data.##h); \
+    serialize(arena, save_data.##i); \
+    serialize(arena, save_data.##j); \
+    serialize(arena, save_data.##k); \
+    serialize(arena, save_data.##l); \
+    serialize(arena, save_data.##m); \
+    serialize(arena, save_data.##n); \
+    serialize(arena, save_data.##o); \
+    serialize(arena, save_data.##p); \
+    serialize(arena, save_data.##q);}
+
 namespace res {
 
 namespace magic {
@@ -8375,11 +8865,12 @@ load_pack_file(
         entry->size = loader.deserialize<u64>();
     }
     
+    using resource_data_t = std::byte;
     tag_array(packed_file->resources, resource_t, arena, packed_file->file_count);
     loader.deserialize<u64>();
     for (size_t i = 0; i < packed_file->file_count; i++) {
         size_t resource_size = packed_file->resources[i].size = loader.deserialize<u64>();
-        tag_array(packed_file->resources[i].data, std::byte, arena, packed_file->resources[i].size);
+        tag_array(packed_file->resources[i].data, resource_data_t, arena, packed_file->resources[i].size);
         utl::copy(packed_file->resources[i].data, loader.read_data(), resource_size);
         loader.advance(resource_size);
     }
@@ -8591,7 +9082,8 @@ string_buffer read_text_file(arena_t* arena, std::string_view filename) {
     const size_t file_size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    auto* bytes = (char*)push_bytes(arena, file_size);
+    using text_file_data_t = char;
+    tag_array(auto* bytes, text_file_data_t, arena, file_size);
     file.read(bytes, file_size);
 
     result.data = bytes;
@@ -8609,7 +9101,8 @@ buffer<u8> read_bin_file(arena_t* arena, std::string_view filename) {
     const size_t file_size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    auto* bytes = (u8*)push_bytes(arena, file_size);
+    using bin_file_data_t = u8;
+    tag_array(auto* bytes, bin_file_data_t, arena, file_size);
     file.read((char*)bytes, file_size);
 
     result.data = bytes;
@@ -8735,6 +9228,33 @@ in_out_elastic(f32 x) noexcept {
         ? -(glm::pow(2.0f, 20.0f * x - 10.0f) * glm::sin((20.0f * x - 11.125f) * c5)) * 0.5f 
         : (glm::pow(2.0f, -20.0f * x + 10.0f) * glm::sin((20.0f * x - 11.125f) * c5)) * 0.5f + 1.0f;
 }
+constexpr f32 
+in_out_expo(f32 x) noexcept {
+    return x == 0.0f
+        ? 0.0f
+        : x == 1.0f
+        ? 1.0f
+        : x < 0.5f ? glm::pow(2.0f, 20.0f * x - 10.0f) * 0.5f
+        : (2.0f - glm::pow(2.0f, -20.0f * x + 10.0f)) * 0.5f;
+}
+
+constexpr f32 
+out_bounce(f32 x) noexcept {
+    const f32 n1 = 7.5625f;
+    const f32 d1 = 2.75f;
+
+    if (x < 1.0f / d1) {
+        return n1 * x * x;
+    } else if (x < 2.0f / d1) {
+        return n1 * (x -= 1.5f / d1) * x + 0.75f;
+    } else if (x < 2.5f / d1) {
+        return n1 * (x -= 2.25f / d1) * x + 0.9375f;
+    } else {
+        return n1 * (x -= 2.625f / d1) * x + 0.984375f;
+    }
+}
+
+
 
 template <typename T>
 auto generic(auto&& fn) {

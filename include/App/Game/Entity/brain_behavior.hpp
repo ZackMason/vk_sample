@@ -93,8 +93,8 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto& yaw = cc.yaw;
     auto& pitch = cc.pitch;
 
-    const v3f forward = zyy::cam::get_direction(yaw, pitch);
-    const v3f right   = glm::cross(forward, axis::up);
+    const v3f forward = cc.forward();
+    const v3f right   = cc.right(forward);
 
     if (!ignore_mouse) {
         yaw += head_move.x * dt;
@@ -163,7 +163,8 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     }
 
     if (do_input && pc.jump && cc.can_jump() && (is_on_ground || is_on_wall)) {
-        audio->emit_event(sound_event::jump_dirt, world_position);
+        // audio->emit_event(sound_event::land_dirt, world_position);
+        audio->emit_event(sound_event::jump_dirt, world_position); // this event has audio lag in it
 
         cc.just_jumped();
         rigidbody->velocity.y = 0.3f;// 50.0f * dt;

@@ -42,6 +42,11 @@ namespace math {
     constexpr inline static v2f half2{0.5f};
     constexpr inline static v2f half_width2{0.5f, 0.0f};
     constexpr inline static v2f half_height2{0.5f, 0.5f};
+
+    template <typename T>
+    constexpr auto saturate(T x) {
+        return glm::clamp(x, T{0.0f}, T{1.0f});
+    }
     
     m33 normalize(const m33& m) {
         return m33 {
@@ -331,6 +336,11 @@ namespace math {
         }
     };
 
+    struct waypoint_t {
+        v3f point{0.0f};
+        u32 id   {0};
+    };
+
     struct sphere_t {
         v3f origin{0.0f};
         f32 radius{0.0f};
@@ -417,12 +427,10 @@ namespace math {
         v3f points[8];
     };
 
-    // template <typename T>
     struct hit_result_t {
         bool intersect{false};
         f32 distance{0.0f};
         v3f position{0.f, 0.f, 0.f};
-        // T& object;
 
         operator bool() const {
             return intersect;
@@ -481,8 +489,9 @@ struct aabb_t {
         *this = t;
     }
 
-    void pad(f32 amount) {
+    aabb_t<T>& pad(f32 amount) {
         pull(v2f{-amount});
+        return *this;
     }
 
     void add(T amount) {
@@ -736,7 +745,7 @@ intersect(const ray_t& ray, const aabb_t<v3f>& aabb) {
     const f32 tmin = std::max(std::max(std::min(min_v.x, max_v.x), std::min(min_v.y, max_v.y)), std::min(min_v.z, max_v.z));
     const f32 tmax = std::min(std::min(std::max(min_v.x, max_v.x), std::max(min_v.y, max_v.y)), std::max(min_v.z, max_v.z));
 
-    hit_result_t hit;
+    hit_result_t hit = {};
     hit.intersect = false;
 
     if (tmax < 0.0f || tmin > tmax) {
@@ -754,7 +763,6 @@ intersect(const ray_t& ray, const aabb_t<v3f>& aabb) {
 }
 
 struct transform_t {
-	
 	transform_t(const v3f& position, const quat& rotation) : origin{position} {
         set_rotation(rotation);
     }
@@ -829,6 +837,7 @@ struct transform_t {
         }
         return *this;
     }
+    // in radians
 	constexpr void set_rotation(const v3f& rotation) {
         f32 scales[3];
         range_u32(i, 0, 3) {

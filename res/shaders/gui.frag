@@ -67,15 +67,15 @@ void main() {
     //     color.a = tex.a;
     // }
 
-    fFragColor.a = clamp(color.a, 0.0, 1.0);
+    fFragColor.a = saturate(color.a);
 
     if (vec3(0.0)!=voNormal) {
         // fFragColor.rgb *= saturate(dot(normal, normalize(vec3(1,2,3))));
     }
 
-    if (fFragColor.a < 0.01) {
-        discard;
-    }
+    // if (fFragColor.a < 0.01) {
+    //     discard;
+    // }
 
     // fFragColor.rgb *= fFragColor.rgb;
 }

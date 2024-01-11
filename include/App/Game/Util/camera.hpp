@@ -90,6 +90,14 @@ struct first_person_controller_t {
     f32 jump_time{1.0f};
     f32 _jump_timer{jump_time};
 
+    v3f forward() const {
+        return zyy::cam::get_direction(yaw, pitch);
+    }
+
+    v3f right(v3f fd) {
+        return glm::cross(fd, axis::up);
+    }
+
     b32 hands_stable() const {
         const auto pd = hand;
         const auto od = glm::angle(glm::inverse(hand_orientation));

@@ -3,6 +3,385 @@
 #include "dialog_window.hpp"
 
 
+b32 draw_memory_region(
+    gfx::gui::im::state_t& imgui,
+    math::rect2d_t rect,
+    umm start_address, umm one_past_last,
+    v2f mouse,
+    u64 bytes_per_row = megabytes(1),
+    b32 invalid = 0,
+    b32 tag = 0
+) {
+    b32 result = false;
+    assert(bytes_per_row);
+    f32 row_height = 10.0f;
+    // u64 bytes_per_row = kilobytes(4);
+    u64 min_index   = start_address / bytes_per_row; 
+    u64 max_index   = (one_past_last-1) / bytes_per_row; 
+
+    auto color = tag ? gfx::color::rgba::red :
+        invalid ? 
+        gfx::color::rgba::dark_gray : 
+        (u32)utl::rng::fnv_hash_u64(start_address) | gfx::color::rgba::clear_alpha;
+    
+    range_u64(i, min_index, max_index+1) {
+        math::rect2d_t r;
+
+        u64 row_address_start = i * bytes_per_row;
+
+        // r.max.y = rect.max.y - f32(i) * row_height;
+        // r.min.y = r.max.y - row_height;
+
+        r.min.y = rect.min.y + f32(i) * row_height;
+        r.max.y = r.min.y + row_height;
+
+        f32 tmin = i == min_index ? 
+            f32(start_address - row_address_start) / f32(bytes_per_row)
+            : 0.0f;
+        f32 tmax = i == (max_index) ? 
+            f32(one_past_last - row_address_start) / f32(bytes_per_row)
+            : 1.0f;
+
+        r.min.x = rect.sample(math::width2 * tmin).x;
+        r.max.x = rect.sample(math::width2 * tmax).x;
+
+        if (r.size().x > 2.0f && r.size().y > 2.0f) {
+            gfx::gui::draw_rect(&imgui.ctx, r, gfx::color::rgba::black);
+            gfx::gui::draw_rect(&imgui.ctx, r.pad(2.0f), color);
+
+            if (r.contains(mouse)) {
+                result = true;
+            }
+        }
+    }
+
+    return result;
+}
+
+void draw_fixed_arena(
+    gfx::gui::im::state_t& imgui,
+    math::rect2d_t rect,
+    arena_t* arena
+) {
+    u64 desired_line_count = 54;
+    u64 total_virtual_space = arena->size;
+    auto mouse = imgui.ctx.input->mouse.pos2();
+
+    gfx::gui::draw_rect(&imgui.ctx, rect, gfx::color::rgba::white);
+
+    b32 show_invalid = false;
+    range_u64(block, 0, arena->block_count) {
+        //u64 block_start_virtual = blocks[block].top;
+        u64 arena_start_virtual = arena->top;
+        u64 arena_end_virtual   = arena->size + 1;
+
+        show_invalid |= draw_memory_region(imgui, rect, arena_start_virtual, arena_end_virtual, mouse, total_virtual_space / desired_line_count, 1);
+    }
+
+    // range_u64(block, 0, arena->block_count) {
+    //     //u64 block_start_virtual = blocks[block].top;
+    //     u64 arena_start_virtual = block_virtual_address[block];
+    //     u64 arena_end_virtual   = block_virtual_address[block] + blocks[block].top + 1;
+
+    //     draw_memory_region(imgui, rect, arena_start_virtual, arena_end_virtual, mouse, total_virtual_space / desired_line_count);
+    // }
+
+
+    for (auto* tag = arena->tags;
+        tag;
+        tag = tag->next
+    ) {
+        u64 alloc_size = tag->type_size * tag->count;
+        u64 tag_memory = u64(tag);
+        u64 start_memory = u64(tag + 1);
+        u64 block_start = u64(arena->start);
+
+        u64 tag_start_virtual = tag_memory - block_start;
+        u64 arena_start_virtual = start_memory - block_start;
+        u64 arena_end_virtual = arena_start_virtual + alloc_size + 1;
+
+        if (draw_memory_region(imgui, rect, tag_start_virtual, tag_start_virtual + sizeof(allocation_tag_t) + 1, mouse, total_virtual_space / desired_line_count, 0, 1)) {
+            math::rect2d_t tooltip;
+            tooltip.min = mouse + v2f{3.0f};
+
+            auto tooltip_text = "tag"sv;
+
+            tooltip.max = tooltip.min + gfx::font_get_size(imgui.ctx.font, tooltip_text);
+            
+            gfx::gui::draw_rect(
+                &imgui.ctx,
+                tooltip,
+                gfx::color::to_color32(v4f{v3f{0.0f}, 0.75f})
+            );
+            gfx::gui::draw_string(&imgui.ctx, 
+                tooltip_text,
+                tooltip.min
+            );
+        }
+        if (draw_memory_region(imgui, rect, arena_start_virtual, arena_end_virtual, mouse, total_virtual_space / desired_line_count)) {
+            math::rect2d_t tooltip;
+            tooltip.min = mouse + v2f{3.0f};
+
+            auto tooltip_text = fmt_str("{}[{}]: {}|{}", tag->type_name, tag->count, utl::trim_filename(tag->file_name), tag->line_number);
+
+            tooltip.max = tooltip.min + gfx::font_get_size(imgui.ctx.font, tooltip_text);
+            
+            gfx::gui::draw_rect(
+                &imgui.ctx,
+                tooltip,
+                gfx::color::to_color32(v4f{v3f{0.0f}, 0.75f})
+            );
+            gfx::gui::draw_string(&imgui.ctx, 
+                tooltip_text,
+                tooltip.min
+            );
+        }
+    }
+
+    if (show_invalid) {
+        math::rect2d_t tooltip;
+        tooltip.min = mouse + v2f{3.0f};
+
+        auto tooltip_text = "Invalid Memory"sv;
+
+        tooltip.max = tooltip.min + gfx::font_get_size(imgui.ctx.font, tooltip_text);
+        
+        gfx::gui::draw_rect(
+            &imgui.ctx,
+            tooltip,
+            gfx::color::to_color32(v4f{v3f{0.0f}, 0.75f})
+        );
+        gfx::gui::draw_string(&imgui.ctx, 
+            tooltip_text,
+            tooltip.min
+        );
+    }
+}
+
+void draw_arena_panel(
+    gfx::gui::im::state_t& imgui,
+    math::rect2d_t rect,
+    arena_t* arena
+) {
+    auto* c = &imgui.ctx;
+    auto* font = imgui.ctx.dyn_font[8];
+    const f32 padding = 8.0f;
+    const auto text_color = gfx::color::rgba::white;
+    const auto shadow_color = gfx::color::rgba::black;
+
+    auto line_size = gfx::font_get_size(font, "Hello World");
+
+    rect.pad(4.0f);
+    math::rect2d_t r;
+
+    u64 total_size = 0;
+    u64 total_used = 0;
+    math::statistic_t memory_stat = {};
+    math::begin_statistic(memory_stat);
+
+    range_u64(i, 0, arena->block_count) {
+        auto block = arena_get_block(arena, i);
+        total_size += block.size;
+        total_used += block.top;
+    }
+
+    f32 unused_percent = f32(f64(total_used) / f64(total_size));
+
+    node_for(auto, arena->tags, tag) {
+        math::update_statistic(memory_stat, f64(tag->type_size * tag->count));
+    }
+
+    math::end_statistic(memory_stat);
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    gfx::gui::draw_string(c, fmt_sv("Total Memory Usage: {} {} / {} {}", 
+        math::pretty_bytes(total_used), math::pretty_bytes_postfix(total_used),
+        math::pretty_bytes(total_size), math::pretty_bytes_postfix(total_size)
+    ), r.min, text_color, font, shadow_color);
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    gfx::gui::draw_string(c, fmt_sv("Unused Percentage: {:.2f}%", 100.0f*(1.0f-unused_percent)), r.min, text_color, font, shadow_color);
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    // blank line
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    gfx::gui::draw_string(c, fmt_sv("Min Block Size: {} {}", 
+        math::pretty_bytes(arena->settings.minimum_block_size), math::pretty_bytes_postfix(arena->settings.minimum_block_size)), r.min, text_color, font, shadow_color);
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    gfx::gui::draw_string(c, fmt_sv("Block Count: {}", arena->block_count), r.min, text_color, font, shadow_color);
+
+    auto tag_count = node_count(arena->tags);
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    gfx::gui::draw_string(c, fmt_sv("Allocation Count: {}", tag_count), r.min, text_color, font, shadow_color);
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    // blank line
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    gfx::gui::draw_string(c, fmt_sv("Alignment: {}", arena->settings.alignment), r.min, text_color, font, shadow_color);
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    gfx::gui::draw_string(c, fmt_sv("Average Allocation Size: {} {}", 
+        math::pretty_bytes((u64)memory_stat.average), math::pretty_bytes_postfix((u64)memory_stat.average)
+    ), r.min, text_color, font, shadow_color);
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    gfx::gui::draw_string(c, fmt_sv("Min Allocation Size: {} {}", 
+        math::pretty_bytes((u64)memory_stat.range.min), math::pretty_bytes_postfix((u64)memory_stat.range.min)
+    ), r.min, text_color, font, shadow_color);
+
+    std::tie(r, rect) = math::cut_top(rect, line_size.y + padding);
+    gfx::gui::draw_string(c, fmt_sv("Max Allocation Size: {} {}", 
+        math::pretty_bytes((u64)memory_stat.range.max), math::pretty_bytes_postfix((u64)memory_stat.range.max)
+    ), r.min, text_color, font, shadow_color);
+
+}
+
+void draw_arena(
+    gfx::gui::im::state_t& imgui,
+    math::rect2d_t rect,
+    arena_t* arena
+) {
+    math::rect2d_t info_panel;
+    std::tie(info_panel, rect) = math::cut_right(rect, rect.size().x * 0.3f);
+
+    draw_arena_panel(imgui, info_panel, arena);
+    
+    if (arena->settings.fixed) {
+        draw_fixed_arena(imgui, rect, arena);
+        return;
+    }
+
+    u64 desired_line_count = 54;
+    u64 total_virtual_space = 0;
+    auto mouse = imgui.ctx.input->mouse.pos2();
+
+    auto memory = begin_temporary_memory(&imgui.frame_arena);
+    defer {
+        end_temporary_memory(memory);
+    };
+
+    buffer<u64> block_virtual_address = {};
+    buffer<arena_t> blocks = {};
+    block_virtual_address.reserve(memory.arena, arena->block_count);
+    blocks.reserve(memory.arena, arena->block_count);
+
+    range_u64(block, 0, arena->block_count) {
+        auto fake_arena_block = arena_get_block(arena, block);
+        blocks.data[block] = fake_arena_block;
+        block_virtual_address.data[block] = total_virtual_space;
+        total_virtual_space += fake_arena_block.size;
+    }
+
+    gfx::gui::draw_rect(&imgui.ctx, rect, gfx::color::rgba::white);
+
+    b32 show_invalid = false;
+    range_u64(block, 0, arena->block_count) {
+        //u64 block_start_virtual = blocks[block].top;
+        u64 arena_start_virtual = block_virtual_address[block] + blocks[block].top;
+        u64 arena_end_virtual   = block_virtual_address[block] + blocks[block].size + 1;
+
+        show_invalid |= draw_memory_region(imgui, rect, arena_start_virtual, arena_end_virtual, mouse, total_virtual_space / desired_line_count, 1);
+    }
+
+    range_u64(block, 0, arena->block_count) {
+        //u64 block_start_virtual = blocks[block].top;
+        u64 arena_start_virtual = block_virtual_address[block];
+        u64 arena_end_virtual   = block_virtual_address[block] + blocks[block].top + 1;
+
+        draw_memory_region(imgui, rect, arena_start_virtual, arena_end_virtual, mouse, total_virtual_space / desired_line_count);
+    }
+
+#if 0
+#else
+
+    for (auto* tag = arena->tags;
+        tag;
+        tag = tag->next
+    ) {
+        assert(!tag->overflowed());
+
+        u64 block_id = tag->block_id;
+        u64 tag_start_memory =  u64(tag) - u64(blocks[block_id].start);
+        u64 alloc_size = tag->type_size * tag->count;
+        u64 start_memory =  u64(tag + 1);
+        if (tag_start_memory + alloc_size > blocks[block_id].size) {
+            block_id += 1;
+            assert(block_id < arena->block_count);
+            start_memory = u64(blocks[block_id].start);
+        }
+        u64 block_start = u64(blocks[block_id].start);
+
+        u64 block_start_virtual = start_memory - block_start;
+        u64 arena_start_virtual = block_virtual_address[block_id] + block_start_virtual;
+        u64 tag_start_virtual   = block_virtual_address[tag->block_id] + tag_start_memory;
+        u64 tag_end_virtual     = tag_start_virtual + sizeof(allocation_tag_t) + 1;
+
+        u64 arena_end_virtual = arena_start_virtual + alloc_size + 1;
+
+        if (draw_memory_region(imgui, rect, tag_start_virtual, tag_end_virtual, mouse, total_virtual_space / desired_line_count, 0, 1)) {
+            math::rect2d_t tooltip;
+            tooltip.min = mouse + v2f{3.0f};
+
+            auto tooltip_text = "tag"sv;
+
+            tooltip.max = tooltip.min + gfx::font_get_size(imgui.ctx.font, tooltip_text);
+            
+            gfx::gui::draw_rect(
+                &imgui.ctx,
+                tooltip,
+                gfx::color::to_color32(v4f{v3f{0.0f}, 0.75f})
+            );
+            gfx::gui::draw_string(&imgui.ctx, 
+                tooltip_text,
+                tooltip.min
+            );
+        }
+
+        if (draw_memory_region(imgui, rect, arena_start_virtual, arena_end_virtual, mouse, total_virtual_space / desired_line_count)) {
+            math::rect2d_t tooltip;
+            tooltip.min = mouse + v2f{3.0f};
+
+            auto tooltip_text = fmt_str("{}[{}]: {}|{}", tag->type_name, tag->count, utl::trim_filename(tag->file_name), tag->line_number);
+
+            tooltip.max = tooltip.min + gfx::font_get_size(imgui.ctx.font, tooltip_text);
+            
+            gfx::gui::draw_rect(
+                &imgui.ctx,
+                tooltip,
+                gfx::color::to_color32(v4f{v3f{0.0f}, 0.75f})
+            );
+            gfx::gui::draw_string(&imgui.ctx, 
+                tooltip_text,
+                tooltip.min
+            );
+        }
+    }
+#endif
+
+    if (show_invalid) {
+        math::rect2d_t tooltip;
+        tooltip.min = mouse + v2f{3.0f};
+
+        auto tooltip_text = "Invalid Memory"sv;
+
+        tooltip.max = tooltip.min + gfx::font_get_size(imgui.ctx.font, tooltip_text);
+        
+        gfx::gui::draw_rect(
+            &imgui.ctx,
+            tooltip,
+            gfx::color::to_color32(v4f{v3f{0.0f}, 0.75f})
+        );
+        gfx::gui::draw_string(&imgui.ctx, 
+            tooltip_text,
+            tooltip.min
+        );
+    }
+
+}
+
 global_variable f32 BEHAVIOR_RECT_PAD_SIZE = 4.0f;
 void draw_behavior(
     gfx::gui::im::state_t& imgui,
@@ -117,7 +496,7 @@ void draw_behavior(
 
     auto string_render = [&](std::string_view text) {
         auto p = cursor;
-        auto s = gfx::gui::string_render(&imgui.ctx, text, &cursor);
+        auto s = gfx::gui::draw_string(&imgui.ctx, text, &cursor);
         rect.expand(p + s);
     };
 
@@ -964,7 +1343,7 @@ void draw_release_info(auto* game_state) {
 
         auto text_color = gfx::color::to_color32(v4f{1.0f, 1.0f, 1.0f, 0.5f});
     
-        gfx::gui::string_render(
+        gfx::gui::draw_string(
             &game_state->gui.ctx, 
             string_t{}.view(release_info),
             (game_state->gui.ctx.screen_size - gfx::font_get_size(font, release_info)) * math::width2, 
@@ -1007,6 +1386,8 @@ draw_gui(game_memory_t* game_memory) {
 
     auto* render_system = game_state->render_system;
 
+    local_persist const char* open_arena_name = 0;
+    local_persist arena_t* open_arena_window = 0;
 
     arena_t* display_arenas[] = {
         &game_state->main_arena,
@@ -1077,6 +1458,7 @@ draw_gui(game_memory_t* game_memory) {
     const auto dt = game_memory->input.dt;
     
     auto& imgui = game_state->gui.imgui;
+#if 0
     {
         imgui.begin_free_drawing();
         defer {
@@ -1085,7 +1467,7 @@ draw_gui(game_memory_t* game_memory) {
 
         game_state->time_text_anim -= dt;
         if ((gs_reload_time -= dt) > 0.0f) {
-            gfx::gui::string_render(
+            gfx::gui::draw_string(
                 &game_state->gui.ctx, 
                 string_t{}.view("Code Reloaded"),
                 game_state->gui.ctx.screen_size/v2f{2.0f,4.0f} - gfx::font_get_size(&game_state->default_font, "Code Reloaded")/2.0f, 
@@ -1094,7 +1476,7 @@ draw_gui(game_memory_t* game_memory) {
             );
         }
         if ((gs_jump_load_time -= dt) > 0.0f) {
-            gfx::gui::string_render(
+            gfx::gui::draw_string(
                 &game_state->gui.ctx, 
                 string_t{}.view("State Reset"),
                 game_state->gui.ctx.screen_size/v2f{2.0f,4.0f} - gfx::font_get_size(&game_state->default_font, "State Reset")/2.0f, 
@@ -1103,7 +1485,7 @@ draw_gui(game_memory_t* game_memory) {
             );
         }
         if ((gs_jump_save_time -= dt) > 0.0f) {
-            gfx::gui::string_render(
+            gfx::gui::draw_string(
                 &game_state->gui.ctx, 
                 string_t{}.view("State Saved"),
                 game_state->gui.ctx.screen_size/v2f{2.0f,4.0f} - gfx::font_get_size(&game_state->default_font, "State Saved")/2.0f, 
@@ -1112,36 +1494,36 @@ draw_gui(game_memory_t* game_memory) {
             );
         }
         if (game_state->time_text_anim > 0.0f) {
-            gfx::gui::string_render(
+            gfx::gui::draw_string(
                 &game_state->gui.ctx, 
                 string_t{}.view(fmt_str("Time Scale: {}", game_state->time_scale).c_str()),
                 game_state->gui.ctx.screen_size/2.0f, gfx::color::to_color32(v4f{0.80f, .9f, 1.0f, game_state->time_text_anim})
             );
         }
     }
-
+#endif
     
 #ifdef DEBUG_STATE
     {
-        if (DEBUG_STATE.has_alert()) {
-            local_persist im::panel_state_t debug_alert_panel{
-                .pos = v2f{400.0f, 0.0f},
-                .open = 1,
-            };
-            // debug_alert_panel.size = {};
-            if (im::begin_panel(imgui, "Debug Alerts", &debug_alert_panel)) {
-                local_persist f32 scroll;
-                local_persist v2f rect{64.0f, 64.0f};
+        // if (DEBUG_STATE.has_alert()) {
+        //     // local_persist im::panel_state_t debug_alert_panel{
+        //     //     .pos = v2f{400.0f, 0.0f},
+        //     //     .open = 1,
+        //     // };
+        //     // debug_alert_panel.size = {};
+        //     // if (im::begin_panel(imgui, "Debug Alerts", &debug_alert_panel)) {
+        //     //     local_persist f32 scroll;
+        //     //     local_persist v2f rect{64.0f, 64.0f};
 
-                im::begin_scroll_rect(imgui, &scroll, &rect); 
-                    DEBUG_STATE.sort_active_alerts();
-                    range_u64(i, 0, DEBUG_STATE.debug_alerts.count) {
-                        im::text(imgui, DEBUG_STATE.debug_alerts.data[i].message.sv());
-                    }
-                im::end_scroll_rect(imgui, &scroll, &rect); 
-                im::end_panel(imgui, &debug_alert_panel);
-            }
-        }
+        //     //     im::begin_scroll_rect(imgui, &scroll, &rect); 
+        //     //         DEBUG_STATE.sort_active_alerts();
+        //     //         range_u64(i, 0, DEBUG_STATE.debug_alerts.count) {
+        //     //             im::text(imgui, DEBUG_STATE.debug_alerts.data[i].message.sv());
+        //     //         }
+        //     //     im::end_scroll_rect(imgui, &scroll, &rect); 
+        //     //     im::end_panel(imgui, &debug_alert_panel);
+        //     // }
+        // }
         if (DEBUG_STATE.selection) {
             widget_pos = DEBUG_STATE.selection;
             DEBUG_STATE.selection = 0;
@@ -1641,12 +2023,23 @@ draw_gui(game_memory_t* game_memory) {
                 };
 
                 for (size_t i = 0; i < array_count(display_arenas); i++) {
-                    if (im::text(imgui, arena_display_info(display_arenas[i], display_arena_names[i]), open_arena+i)) {
-                        im::begin_scroll_rect(imgui, &tag_scroll, &tag_rect);
-                        defer {
-                            im::end_scroll_rect(imgui, &tag_scroll, &tag_rect);
-                        };
+                    // if (im::text(imgui, arena_display_info(display_arenas[i], display_arena_names[i]), open_arena+i)) {
+                    if (im::text(imgui, arena_display_info(display_arenas[i], display_arena_names[i]))) {
 
+                        // im::begin_scroll_rect(imgui, &tag_scroll, &tag_rect);
+                        // defer {
+                        //     im::end_scroll_rect(imgui, &tag_scroll, &tag_rect);
+                        // };
+
+                        // math::rect2d_t arena_rect = math::zero_to(tag_rect - v2f{8.0f});
+                        // arena_rect.add(imgui.panel->draw_cursor);
+
+                        open_arena_window = display_arenas[i];
+                        open_arena_name = display_arena_names[i] + 2;
+                        // draw_arena(imgui, arena_rect, display_arenas[i]);
+
+
+                        /*
                         auto tag_count = node_count(display_arenas[i]->tags);
                         im::text(imgui, fmt_sv("- Tags: {}", tag_count));
                         auto* start = display_arenas[i]->tags;
@@ -1663,11 +2056,15 @@ draw_gui(game_memory_t* game_memory) {
                                 std::system(fmt_sv("code -g {}:{}:0", tag->file_name, tag->line_number).data());
                             }
                         }
+                        */
                     }
                 }
                 for (size_t i = 0; i < array_count(display_pools); i++) {
                     im::text(imgui, pool_display_info(display_pools[i], display_pool_names[i]));
                 }
+            } else {
+                open_arena_window = 0;
+                open_arena_name = 0;
             }
 
             if (open_tab == "Entities"_sid) {
@@ -1698,6 +2095,33 @@ draw_gui(game_memory_t* game_memory) {
             }
 
             im::end_panel(imgui, &main_pos, &main_size);
+        }
+
+        if (open_arena_window) {
+            imgui.begin_free_drawing();
+            defer {
+                imgui.end_free_drawing();
+            };
+            auto text_color = gfx::color::rgba::white;
+            const auto shadow_color = gfx::color::rgba::black;
+            auto bg_color = gfx::color::rgba::ue5_dark_grid;
+            auto fg_color = gfx::color::rgba::ue5_bg;
+            auto* font = imgui.ctx.dyn_font[16];
+            auto* title_font = imgui.ctx.dyn_font[28];
+            auto r = imgui.ctx.screen_rect();
+            r.pull(-r.size() * 0.2f);
+            auto [title, arena_rect] = math::cut_top(r, 100.0f);
+
+            auto title_text_size = gfx::font_get_size(title_font, open_arena_name);
+            gfx::gui::draw_rect(&imgui.ctx, title, bg_color);
+            title.pad(4.0f);
+            gfx::gui::draw_rect(&imgui.ctx, title, fg_color);
+            gfx::gui::draw_string(&imgui.ctx, open_arena_name, title.center() - title_text_size * 0.5f, text_color, title_font, shadow_color);
+            
+            gfx::gui::draw_rect(&imgui.ctx, arena_rect, bg_color);
+            arena_rect.pad(4.0f);
+            gfx::gui::draw_rect(&imgui.ctx, arena_rect, fg_color);
+            draw_arena(imgui, arena_rect, open_arena_window);
         }
 
         // for (zyy::entity_t* e = game_itr(game_state->game_world); e; e = e->next) {

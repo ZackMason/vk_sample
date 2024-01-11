@@ -3,6 +3,9 @@
 
 #include <zyy_core.hpp>
 
+#include "game_screen.hpp"
+#include "game_settings.hpp"
+
 // #include "Game/Sound/wwise_sound.hpp"
 #include "Game/Sound/fmod_sound.hpp"
 
@@ -127,41 +130,18 @@ utl::memory_blob_t::deserialize<loaded_skeletal_mesh_t>(arena_t* arena) {
     return result;
 }
 
-namespace fullscreen_mode { enum : u8 {
-    window, fullscreen, borderless
-};}
-
-namespace vsync_mode { enum : u8 {
-    off = 0, on = 1,
-};}
-
-namespace ddgi_mode { enum : u8 {
-    off = 0, realtime = 1, baked = 2,
-};}
-
-struct game_graphics_config_t {
-    u64 VERSION{0};
-
-    u16 width;
-    u16 height;
-
-    u32 fps_max;
-    f32 gamma;
-
-    f32 fov;
-    f32 scale;
-
-    u8 fullscreen;
-    u8 vsync;
-    u8 aa_mode;
-    
-    // advanced
-    u8 ddgi = ddgi_mode::realtime;
-    u8 lighting;
-};
 
 namespace zyy {
     struct world_t;
+};
+
+struct game_ui_input_t {
+    b32 ui_up = 0;
+    b32 ui_down = 0;
+    b32 ui_right = 0;
+    b32 ui_left = 0;
+    b32 select = 0;
+    b32 back = 0;
 };
 
 struct player_controller_t {
@@ -208,7 +188,18 @@ gamepad_controller(app_input_t* input) {
     return pc;
 }
 
-struct input_mapping_t {
+// Todo use this before saving
+enum keybind_index : u32 {
+    KeybindIndex_LookButton,
+    KeybindIndex_FireButton,
+    KeybindIndex_AimButton,
+
+    KeybindIndex_MoveForward,
+};
+
+struct keyboard_input_mapping_t {
+    u64 VERSION{0};
+
     i32 look_button{0};
     i32 fire_button{0};
     i32 aim_button{1};
@@ -231,14 +222,35 @@ struct input_mapping_t {
     u16 inv4{'4'};
 };
 
+ZYY_SERIALIZE_TYPE_17(keyboard_input_mapping_t, 
+    look_button, fire_button, aim_button, 
+    move_forward, move_backward, move_left, move_right,
+    jump, sprint, interact, swap, swap2, emote,
+    inv1, inv2, inv3, inv4);
+
+inline static game_ui_input_t
+get_game_ui_input(app_input_t* input, keyboard_input_mapping_t mapping = keyboard_input_mapping_t{.look_button=0}) {
+    game_ui_input_t result = {};
+
+    result.ui_up    = input->pressed.keys[mapping.move_forward];
+    result.ui_down  = input->pressed.keys[mapping.move_backward];
+    result.ui_right = input->pressed.keys[mapping.move_right];
+    result.ui_left  = input->pressed.keys[mapping.move_left];
+
+    result.select   = input->pressed.keys[mapping.interact];
+    result.back     = input->pressed.keys[mapping.swap];
+
+    return result;
+}
+
 inline static player_controller_t
-keyboard_controller(app_input_t* input, input_mapping_t mapping = input_mapping_t{.look_button=0}) {
+keyboard_controller(app_input_t* input, keyboard_input_mapping_t mapping = keyboard_input_mapping_t{.look_button=0}) {
     player_controller_t pc = {};
     pc.move_input = v3f{
-        f32(input->keys['D']) - f32(input->keys['A']),
+        f32(input->keys[mapping.move_right]) - f32(input->keys[mapping.move_left]),
         // 0.0f,
         f32(input->keys['Q']) - f32(input->keys['E']),
-        f32(input->keys['W']) - f32(input->keys['S'])
+        f32(input->keys[mapping.move_forward]) - f32(input->keys[mapping.move_backward])
     };
 
     const f32 CAMERA_TURN_SPEED = 0.1f;
@@ -286,17 +298,8 @@ struct player_profile_t {
     buffer<minion_profile_t> minions = {};
 };
 
-template<>
-void
-utl::memory_blob_t::serialize<player_profile_t>(
-    arena_t* arena, 
-    const player_profile_t& save_data
-) {
-    serialize(arena, player_profile_t{}.VERSION);
-    serialize(arena, save_data.name);
-    serialize(arena, save_data.money);
-    serialize(arena, save_data.minions);
-}
+ZYY_SERIALIZE_TYPE_3(player_profile_t, name, money, minions);
+
 
 template<>
 player_profile_t

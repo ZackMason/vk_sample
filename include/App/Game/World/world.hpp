@@ -211,7 +211,7 @@ namespace zyy {
         assert(world->entity_capacity < array_count(world->entities));
         entity_t* e{0};
 
-        if (false && world->free_entities) {
+        if (world->free_entities) {
             node_pop(e, world->free_entities);
             world->entity_count++;
             assert(e);
@@ -282,7 +282,7 @@ namespace zyy {
         if (def.gfx.albedo_texture != ""sv) {
             auto aid = (u32)rs->texture_cache.get_id(def.gfx.albedo_texture.view());
             if (aid == 0) {
-                tag_array(auto* texture, char, &world->arena, def.gfx.albedo_texture.size()+1);
+                tag_array(auto* texture, char, &rs->arena, def.gfx.albedo_texture.size()+1);
                 utl::copy(texture, def.gfx.albedo_texture.buffer, def.gfx.albedo_texture.size());
                 texture[def.gfx.albedo_texture.size()] = '\0';
                 aid = (u32)rs->texture_cache.load(&rs->arena, *rs->vk_gfx, texture);
@@ -534,13 +534,13 @@ namespace zyy {
 
     static void 
     world_free(world_t*& world) {
-        arena_clear(&world->arena);
         arena_clear(&world->particle_arena);
         
         world->render_system()->scene_context->instance_storage_buffer.pool.clear();
         world->render_system()->scene_context->entities.pool.clear();
         world->render_system()->scene_context->entity_count = 0;
         
+        arena_clear(&world->arena);
         world = nullptr;
     }
 
@@ -571,7 +571,8 @@ namespace zyy {
         world->physics = phys_api;
         phys_api->user_world = world;
         
-        world->particle_arena = arena_create(megabytes(8));
+        // world->particle_arena = arena_create(megabytes(8));
+        world->particle_arena = arena_create(kilobytes(8));
         
         // frame arenas cant be dynamic, because their blocks will be freed
         constexpr umm frame_arena_size = megabytes(8);
@@ -698,7 +699,8 @@ namespace zyy {
             }
         
             if (e->type == entity_type::player) {
-                world->game_state->sfx->set_listener(e->global_transform().origin);
+                auto forward = e->camera_controller.forward();
+                world->game_state->sfx->set_listener(e->global_transform().origin, forward);
             }
             if (e->attached_sound) {
                 if (e->attached_sound->isValid() == false) {

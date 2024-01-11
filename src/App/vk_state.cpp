@@ -312,7 +312,6 @@ swapchain_support_details_t querySwapChainSupport(VkPhysicalDevice device, VkSur
     return details;
 }
 
-
 namespace internal {
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -321,15 +320,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     void* pUserData) {
 
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-        // Message is important enough to show
-        zyy_error("validation", "Validation Layer: {}", pCallbackData->pMessage);
+        zyy_error("validation", pCallbackData->pMessage);
         // std::terminate();
     }
 
     return VK_FALSE;
 }
-    
-
 
 #if !NDEBUG
     constexpr bool enable_validation = true;
