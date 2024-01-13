@@ -1,7 +1,7 @@
 #ifndef CUSTOM_PHYSICS_HPP
 #define CUSTOM_PHYSICS_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include <unordered_map>
 
@@ -47,7 +47,7 @@ custom_create_collider_impl(
 
 void
 custom_create_scene(api_t* api, const void* filter = 0) {
-    zyy_info(__FUNCTION__, "Creating scene");
+    ztd_info(__FUNCTION__, "Creating scene");
 }
 
 void

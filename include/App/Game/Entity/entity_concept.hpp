@@ -2,11 +2,11 @@
 #define GAME_ENTITY_CONCEPT_HPP
 
 #include "uid.hpp"
-#include "zyy_character_stats.hpp"
-#include "zyy_inventory.hpp"
-#include "zyy_interactable.hpp"
+#include "ztd_character_stats.hpp"
+#include "ztd_inventory.hpp"
+#include "ztd_interactable.hpp"
 
-namespace zyy {
+namespace ztd {
 
 template <typename EntityType>
 concept CEntity = requires(EntityType entity) {
@@ -69,7 +69,7 @@ struct entity_coroutine_t {
             coroutine.line=0;
             _is_running = true;
         } else {
-            // zyy_warn(__FUNCTION__, "{} tried to start coroutine that is already running", coroutine.data);
+            // ztd_warn(__FUNCTION__, "{} tried to start coroutine that is already running", coroutine.data);
         }
     }
     inline void run(frame_arena_t& frame_arena) {
@@ -93,7 +93,7 @@ struct entity_ref_t {
 };
 
 
-#if ZYY_INTERNAL
+#if ZTD_INTERNAL
 struct DEBUG_entity_meta_info_t {
     const char* prefab_name;
     const char* file_name;

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 #include "uid.hpp"
 
-namespace zyy {
+namespace ztd {
     struct entity_t;
 }
 
@@ -641,7 +641,7 @@ struct ai_path_t {
 };
 
 struct skull_brain_t {
-    zyy::entity_t* owner{0};
+    ztd::entity_t* owner{0};
     // stack_buffer<skull_brain_t*, 16> neighbors = {};
     // stack_buffer<interest_point_t, 16> enemies = {};
 };
@@ -681,7 +681,7 @@ struct print_t : public bt::behavior_t {
     }
 
     virtual bt::behavior_status on_update(blackboard_t* blkbrd) override {
-        zyy_info("bt::print", text);
+        ztd_info("bt::print", text);
         return bt::behavior_status::SUCCESS;
     }
 };
@@ -728,7 +728,7 @@ struct move_toward_t : public bt::behavior_t {
     }
 
     virtual bt::behavior_status on_update(blackboard_t* blkbrd) override {
-        // zyy_info("bt::move_toward", text);
+        // ztd_info("bt::move_toward", text);
 
         auto* target = utl::hash_get(&blkbrd->points, text, blkbrd->arena);
         auto* self = utl::hash_get(&blkbrd->points, "self"sv, blkbrd->arena);
@@ -765,7 +765,7 @@ struct run_away_t : public bt::behavior_t {
     }
 
     virtual bt::behavior_status on_update(blackboard_t* blkbrd) override {
-        // zyy_info("bt::run_away", text);
+        // ztd_info("bt::run_away", text);
         auto* target = utl::hash_get(&blkbrd->points, text, blkbrd->arena);
         auto* self = utl::hash_get(&blkbrd->points, "self"sv, blkbrd->arena);
 
@@ -824,7 +824,7 @@ person_init(arena_t* arena, brain_t* brain) {
 }
 
 static void
-brain_init(arena_t* arena, zyy::entity_t* entity, brain_t* brain) {
+brain_init(arena_t* arena, ztd::entity_t* entity, brain_t* brain) {
     switch(brain->type) {
         case brain_type::flyer: brain->skull = {.owner = entity}; break;
         case brain_type::person: person_init(arena, brain); break;

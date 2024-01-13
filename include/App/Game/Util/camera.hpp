@@ -1,8 +1,8 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
-namespace zyy::cam {
+namespace ztd::cam {
 
 struct camera_t : math::transform_t {
     math::ray_t get_ray(const v2f& uv);
@@ -91,7 +91,7 @@ struct first_person_controller_t {
     f32 _jump_timer{jump_time};
 
     v3f forward() const {
-        return zyy::cam::get_direction(yaw, pitch);
+        return ztd::cam::get_direction(yaw, pitch);
     }
 
     v3f right(v3f fd) {

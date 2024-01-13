@@ -79,9 +79,9 @@ private:
         std::lock_guard lock{mut};
 
         // if (type_name) {
-        //     zyy_info("px::alloc", "{}::allocate: {} bytes from {}:{}", type_name, size, file_name, line);
+        //     ztd_info("px::alloc", "{}::allocate: {} bytes from {}:{}", type_name, size, file_name, line);
         // } else {
-        //     zyy_info("px::alloc", "typeless::allocate: {} bytes from {}:{}", size, file_name, line);
+        //     ztd_info("px::alloc", "typeless::allocate: {} bytes from {}:{}", size, file_name, line);
         // }
 
         // todo(zack): search for freed blocks
@@ -123,7 +123,7 @@ private:
         block->next = heap;
         heap = block;
 
-        // zyy_info("px::free", "deallocate: {} bytes", block->size);
+        // ztd_info("px::free", "deallocate: {} bytes", block->size);
     }
 };
 
@@ -131,7 +131,7 @@ class error_callback_t : public physx::PxErrorCallback {
 public:
     virtual void reportError(physx::PxErrorCode::Enum code, const char* message, const char* file, int line)
     {
-        zyy_error("physx", "PhysX Error Callback({}): {}:{} -\n\t{}\n", (u32)code, file, line, message);
+        ztd_error("physx", "PhysX Error Callback({}): {}:{} -\n\t{}\n", (u32)code, file, line, message);
     }
 };
 

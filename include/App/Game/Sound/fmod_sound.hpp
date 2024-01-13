@@ -1,6 +1,6 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include "fmod.hpp"
 #include "fmod_studio.hpp"

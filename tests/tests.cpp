@@ -1,4 +1,4 @@
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include <cassert>
 #include <exception>
@@ -118,7 +118,7 @@ void utl::memory_blob_t::serialize<scene_t>( arena_t* arena, const scene_t& s) {
 
 template<>
 void utl::memory_blob_t::serialize<entity_t>( arena_t* arena, const entity_t& e) {
-    // zyy_info("entity", "Saving entity: {}", (void*)&e);
+    // ztd_info("entity", "Saving entity: {}", (void*)&e);
     serialize(arena, e.id);
     serialize(arena, e.pos);
     // serialize(arena, e.item);
@@ -127,7 +127,7 @@ void utl::memory_blob_t::serialize<entity_t>( arena_t* arena, const entity_t& e)
 
 template<>
 entity_t utl::memory_blob_t::deserialize<entity_t>() {
-    // zyy_info("entity", "Loading entity");
+    // ztd_info("entity", "Loading entity");
     entity_t e;
     e.id = deserialize<u64>();
     e.pos = deserialize<v2f>();
@@ -171,10 +171,10 @@ void print_properties(auto obj) {
         };
         
         if (p.type) {
-            zyy_info("refl", "{}: {} = {} - ({} offset, {} bytes)", p.name.data(), p.type->name, p.get_value(obj, data), p.offset, p.size);
+            ztd_info("refl", "{}: {} = {} - ({} offset, {} bytes)", p.name.data(), p.type->name, p.get_value(obj, data), p.offset, p.size);
             print_properties(*p.type);
         } else {
-            zyy_warn("refl", "Unregistered type");
+            ztd_warn("refl", "Unregistered type");
         }
     }
 }
@@ -226,7 +226,7 @@ int main(int argc, char** argv) {
     //     constexpr size_t arena_size = megabytes(32);
     //     arena_t arena = arena_create(new u8[arena_size], arena_size);
         
-    //     using namespace zyy;
+    //     using namespace ztd;
 
     //     entity::ecs_world_t* w = entity::world_init(&arena, 24);
     //     auto e = w->get_entity(w->create_entity());
@@ -739,8 +739,8 @@ int main(int argc, char** argv) {
             delete [] arena.start;
         };
         
-        const auto& p0 = zyy::db::characters::soldier;
-        const auto& p1 = zyy::db::rooms::map_01;
+        const auto& p0 = ztd::db::characters::soldier;
+        const auto& p1 = ztd::db::rooms::map_01;
         TEST_ASSERT(p0.stats->health.max == 120);
         TEST_ASSERT(p0.stats->health.max == p0.stats->health.current);
         
@@ -750,8 +750,8 @@ int main(int argc, char** argv) {
         blob.serialize(&arena, p0);
         blob.serialize(&arena, p1);
 
-        auto r0 = blob.deserialize<zyy::prefab_t>();
-        auto r1 = blob.deserialize<zyy::prefab_t>();
+        auto r0 = blob.deserialize<ztd::prefab_t>();
+        auto r1 = blob.deserialize<ztd::prefab_t>();
         
         TEST_ASSERT(r0.stats->health.max == 120);
         TEST_ASSERT(r0.type_name == "soldier"sv);
@@ -765,7 +765,7 @@ int main(int argc, char** argv) {
             delete [] arena.start;
         };
 
-        using namespace zyy;
+        using namespace ztd;
 
         wep::base_weapon_t rifle = wep::create_rifle();
         wep::base_weapon_t shotgun = wep::create_shotgun();
@@ -939,7 +939,7 @@ int main(int argc, char** argv) {
     });
 
     RUN_TEST("script hashing")
-        using namespace zyy;
+        using namespace ztd;
         using namespace utl::rng;
         
         static constexpr size_t arena_size = kilobytes(4);
@@ -953,7 +953,7 @@ int main(int argc, char** argv) {
             u32 score{0};
             void end_play(world_t* world) {}
             void begin_play(world_t* world) {
-                zyy_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
+                ztd_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
             }
 
             void update(world_t* world, f32 dt) {
@@ -967,7 +967,7 @@ int main(int argc, char** argv) {
             f32 strength{1.0f};
             void end_play(world_t* world) {}
             void begin_play(world_t* world) {
-                zyy_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
+                ztd_info(__FUNCTION__, "type: {} - id: {}", script_name(), id);
             }
 
             void update(world_t* world, f32 dt) {

@@ -24,10 +24,6 @@ vec3 aces_film(vec3 x)
 
 layout(set = 0, binding = 0) uniform sampler2D uTextures[4096];
 
-layout (push_constant, scalar) uniform constants {
-    mat4 V;
-    mat4 P;
-} PushConstants;
 
 void main() {
     vec3 normal = vec3(0.0)==voNormal?vec3(0.0):normalize(voNormal);

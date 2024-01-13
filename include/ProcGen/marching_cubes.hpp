@@ -1,7 +1,7 @@
 #ifndef MARCHING_CUBES_HPP
 #define MARCHING_CUBES_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 namespace prcgen::marching_cubes {
 namespace internal {

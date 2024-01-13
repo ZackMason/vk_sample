@@ -1,13 +1,13 @@
 [1m[38;2;255;255;255m[info][save]: Save File Path: C:\Users\crazy\AppData\Roaming/estella
 [0m[1m[38;2;255;255;255m[info][win32]: Loading Platform Layer
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 268435456
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: author: Zack Mason-Blaug
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: vsync: 1
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: ddgi: 64
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: editor_level: save_test.zyy
-[0m[1m[38;2;255;255;255m[info][utl::read_config]: start_level: save_test.zyy
+[0m[1m[38;2;255;255;255m[info][utl::read_config]: start_level: res/worlds/save_test.zyy
 [0m[1m[38;2;255;255;255m[info][win32]: Initializing Physics
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 9451832
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 12603704
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
 [0m[1m[38;2;255;255;255m[info][win32]: Physics Loaded
@@ -16,62 +16,127 @@ Found 2 GLFW Required Instance Extensions:
 	VK_KHR_surface
 	VK_KHR_win32_surface
 [1m[38;2;255;255;255m[info][win32]: Platform Initialization Completed
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/unlock.wav
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 0
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/Steps_dirt-002.wav
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 1
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/1911-reload.wav
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 2
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/9mm_firing_01.wav
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 3
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Loading Sound: ./res/audio/shotgun_firing_01.wav
-[0m[1m[38;2;255;255;255m[info][sdl_mixer::load_sound]: Sound Loaded: id = 4
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16384
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 12705156
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 17781673
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 17781673
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 33201000
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8496526
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 35982509
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 651207
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 651207
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 100179
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 75129
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 301517
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 366625
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1050200
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1050376
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 72953
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1134720
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 129068
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 139716
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 124590
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 159836
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1243452
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 149529
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 79366
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 133749
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 393386
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 6104392
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1043672
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 161398
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 125292
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 246560
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 109004
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4051048
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 3809068
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 6480968
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 74642
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 201870
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 229205
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 10170933
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2798824
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 438478
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 102695
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 125299
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 10553405
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 3326828
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 149537
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 11658521
 [0m[1m[38;2;255;255;255m[info][app_init]: Creating physics scene
 [0m[1m[38;2;255;255;255m[info][physics::physx_create_scene]: Creating scene
-[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x1d625ba0220
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1048576
+[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x27a6c9e05e0
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 131072
 [0m[1m[38;2;255;255;255m[info][app_init]: Created physics scene
-[0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 13
+[0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 15
 [0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_optimus
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OBS_HOOK
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_nsight-sys
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_overlay
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_nomad_release_public_2023_3_0
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_GPU_Trace_release_public_2023_3_0
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_api_dump
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_gfxreconstruct
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_synchronization2
@@ -462,7 +527,6 @@ Found 2 GLFW Required Instance Extensions:
 
 [0m[1m[38;2;255;255;255m[info][vk]: vkCreateDescriptorPool
 [0m[1m[38;2;255;255;255m[info][vulkan]: init finished
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
@@ -472,6 +536,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 29587680
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 33554432
 [0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: null
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 160000
@@ -502,8 +567,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
 	width: 4
 	height: 4
-	channels: 3
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 192
+	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -556,6 +621,12 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 8000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (31): i = 2 *****
+
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 128000000
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
@@ -580,7 +651,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 32000000
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 40000000
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 16
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -685,7 +756,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1048576
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4147200
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
@@ -737,7 +808,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1048576
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4147200
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
@@ -837,13 +908,15 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Mesh name: Mesh
 [0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Mesh name: Alpha_Surface
 [0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Mesh name: Alpha_Joints
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65536
 [0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Mesh name: Alpha_Joints
 [0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Mesh name: Alpha_Surface
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16777216
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -861,7 +934,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -870,8 +943,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -880,7 +952,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -889,7 +961,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -898,7 +970,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -907,7 +979,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16777216
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -916,7 +989,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -925,8 +998,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -935,7 +1007,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -944,7 +1016,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -953,7 +1025,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -962,7 +1034,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -971,7 +1043,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16777216
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -980,8 +1053,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -990,7 +1062,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -999,7 +1071,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1008,7 +1080,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1017,7 +1089,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1026,7 +1098,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1035,8 +1107,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16777216
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1045,7 +1117,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1054,7 +1126,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1063,7 +1135,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1072,7 +1144,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1081,7 +1153,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1090,8 +1162,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1100,7 +1171,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16777216
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1109,7 +1181,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1118,7 +1190,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1127,7 +1199,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1136,7 +1208,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1145,8 +1217,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 2097152
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 262144
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 1048576
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1155,9 +1226,13 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/probe_integrate.comp.spv
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/probe_integrate_depth.comp.spv
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/simple.vert.spv
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/simple.frag.spv
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: default
 [0m[1m[38;2;255;255;255m[info][rendering]: Creating material: triplanar
@@ -1187,11 +1262,12 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.vert.spv
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/skybox.frag.spv
 [0m[1m[38;2;255;255;255m[info][rendering::shader_cache_t::add]: Adding shader: ./res/shaders/bin/voidsky.frag.spv
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: author: Zack Mason-Blaug
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: vsync: 1
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: ddgi: 64
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: editor_level: save_test.zyy
-[0m[1m[38;2;255;255;255m[info][utl::read_config]: start_level: save_test.zyy
+[0m[1m[38;2;255;255;255m[info][utl::read_config]: start_level: res/worlds/save_test.zyy
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 33554432
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Plane
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material.001, albedo: blood_01, normal: 
@@ -1221,13 +1297,13 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][game_state]: world size: 15mb
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: author: Zack Mason-Blaug
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: vsync: 1
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: ddgi: 64
 [0m[1m[38;2;255;255;255m[info][utl::read_config]: editor_level: save_test.zyy
-[0m[1m[38;2;255;255;255m[info][utl::read_config]: start_level: save_test.zyy
-[0m[1m[38;2;255;255;255m[info][load_world_file]: Loading world 'save_test.zyy' - save file version: 1
+[0m[1m[38;2;255;255;255m[info][utl::read_config]: start_level: res/worlds/save_test.zyy
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][load_world_file]: Loading world 'res/worlds/save_test.zyy' - save file version: 1
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Plane<trimesh>.002
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Plane<trimesh>.001
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
@@ -1272,21 +1348,10 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][zyy::world_new_brain]: Brain 72057594037927936 activated
+[0m[1m[38;2;255;255;255m[info][ztd::world_new_brain]: Brain 72057594037927936 activated
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material, albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 3584
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (31): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.002
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 3840
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1301,8 +1366,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
 	width: 4
 	height: 4
-	channels: 3
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 192
+	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 256
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
 [0m[1m[38;2;255;255;255m[info][vk]: 
@@ -1312,6 +1377,17 @@ Found 2 GLFW Required Instance Extensions:
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
 [0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: white.png
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.002
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 3840
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (31): i = 2 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (31): i = 1 *****
+
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Body
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material.001, albedo: painted_noise, normal: 
 [0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
@@ -1429,7 +1505,7 @@ Found 2 GLFW Required Instance Extensions:
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
 [0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: Cultist.001.png
-[0m[1m[38;2;255;255;255m[info][zyy::world_new_brain]: Brain 72057594037927936 activated
+[0m[1m[38;2;255;255;255m[info][ztd::world_new_brain]: Brain 72057594037927936 activated
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: fountain<trimesh>
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material.001, albedo: trim_01.png, normal: 
 [0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
@@ -1513,10 +1589,69 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
+[0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Loading particle version: 4
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Sphere
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 69888
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (31): i = 2 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (31): i = 1 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
+	res/textures/painted_noise.png
+
+[0m[1m[38;2;255;255;255m[info][vk::load_texture]: Texture Info:
+	width: 512
+	height: 512
+	channels: 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 4194304
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (31): i = 2 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (3): i = 1 *****
+
+[0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: painted_noise.png
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8192
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 20504
+[0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Loading particle version: 4
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8192
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 20504
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.003
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Plane<trimesh>
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
+[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 44544
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (31): i = 2 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (31): i = 1 *****
+
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 13568
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
+[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (6) and type (31): i = 2 *****
+
+[0m[1m[38;2;255;255;255m[info][vk]: 
+***** Found given memory flag (1) and type (31): i = 1 *****
+
+[0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Loading particle version: 4
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8192
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 20504
 [0m[1m[38;2;255;255;255m[info][rendering::lighting::update_probe_positions]: Updating Light Probe Box
 [0m[1m[38;2;255;255;255m[info][rendering::lighting::update_probe_positions]: -- Total Probe Count: 3969
 [0m[1m[38;2;255;255;255m[info][rendering::lighting::update_probe_positions]: -- Probe Dimensions: 21 x 9 x 21
-[0m[1m[38;2;255;255;255m[info][rendering::lighting::update_probe_positions]: -- Probe AABB: [-30.00, 0.00, -30.00] - [33.00, 27.00, 33.00]
+[0m[1m[38;2;255;255;255m[info][rendering::lighting::update_probe_positions]: -- Probe AABB: [-30.00, -2.83, -30.00] - [33.00, 24.17, 33.00]
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 3175200
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 4
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
@@ -1537,9 +1672,17 @@ Found 2 GLFW Required Instance Extensions:
 
 [0m[1m[38;2;255;255;255m[info][rendering::lighting::init_textures]: Irradiance Texture Size: 3100Kb
 [0m[1m[38;2;255;255;255m[info][rendering::lighting::init_textures]: Visibility Texture Size: 10046Kb
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1048576
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4194304
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 1048576
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16384
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6400000
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
@@ -1556,17 +1699,8 @@ Found 2 GLFW Required Instance Extensions:
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
 [0m[1m[38;2;255;255;255m[info][rt]: Frame: 1
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Sphere
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 69888
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (31): i = 1 *****
-
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16384
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16384
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6400000
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
@@ -1581,18 +1715,6 @@ Found 2 GLFW Required Instance Extensions:
 
 [0m[1m[38;2;255;255;255m[info][rt]: Frame: 2
 [0m[1m[38;2;255;255;255m[info][rt]: Frame: 3
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Icosphere
-[0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 3840
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
-[0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (6) and type (31): i = 2 *****
-
-[0m[1m[38;2;255;255;255m[info][vk]: 
-***** Found given memory flag (1) and type (31): i = 1 *****
-
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
 [0m[1m[38;2;255;255;255m[info][win32]: Saved graphics config
 [0m[1m[38;2;255;255;255m[info][app_on_deinit]: Render System cleaned up
 [0m[1m[38;2;255;255;255m[info][app_on_deinit]: Graphics API cleaned up

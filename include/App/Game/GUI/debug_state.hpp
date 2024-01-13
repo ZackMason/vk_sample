@@ -1,6 +1,6 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 // #include "App/Game/Entity/entity.hpp"
 
 
@@ -54,7 +54,7 @@ struct debug_console_t {
             std::string_view text_view{text_buffer};
             std::string_view name_view{console_commands[i].name};
             if (text_view == std::string_view{console_commands[i].name, text_view.size()}) {
-                if (name_view.size() == text_view.size()) {
+                if (name_view.size() <= text_view.size()) {
                     return std::nullopt;
                 } else {
                     return console_commands[i].name;
@@ -96,8 +96,9 @@ struct debug_console_t {
     }
 
     char    text_buffer[1024]{};
-    size_t  text_size{0};
-    size_t  text_position{0};
+    // size_t  text_size{0};
+    // size_t  text_position{0};
+    gfx::gui::text_input_state_t text_input{.data = text_buffer, .text_position = 0, .text_size = 0, .max_size = 1024};
 };
 
 inline static void 
@@ -233,13 +234,13 @@ draw_console(
         draw_rect(c, text_box, text_box_color);
 
         auto guessed_command = console->guess_command();
-        if (guessed_command && console->text_position < guessed_command->size()) {
+        if (guessed_command) {
             auto guess_text_color = gfx::color::rgba::yellow;
             draw_string(c, &((*guessed_command)[0]), text_box.min, guess_text_color);
         }
         draw_string(c, console->text_buffer, text_box.min, text_color);
 
-        auto pos_size = gfx::font_get_size(c->font, std::string_view{console->text_buffer, console->text_position});
+        auto pos_size = gfx::font_get_size(c->font, std::string_view{console->text_buffer, console->text_input.text_position});
         auto [before_cursor, after_cursor] = math::cut_left(text_box, pos_size.x);
 
         math::rect2d_t cursor;
@@ -250,14 +251,7 @@ draw_console(
     
         auto key = c->input->keyboard_input();
         if (tab && guessed_command) {
-            utl::memzero(console->text_buffer, array_count(console->text_buffer));
-            utl::copy(console->text_buffer, &((*guessed_command)[0]), guessed_command->size());
-
-            console->text_size = console->text_position 
-                = guessed_command->size();
-
-            console->text_buffer[console->text_position++] = ' ';
-            console->text_size++;
+            gfx::gui::text_paste(console->text_input, *guessed_command, true);
         }
         if (up) {
             console->scrollback_search++;
@@ -269,62 +263,26 @@ draw_console(
                 std::string_view message_view{message.text};
 
                 if (message_view.empty() == false) {
-                    utl::memzero(console->text_buffer, array_count(console->text_buffer));
-                    utl::copy(console->text_buffer, message_view.data(), message_view.size());
-
-                    console->text_size = console->text_position 
-                        = message_view.size();
+                    gfx::gui::text_paste(console->text_input, message_view, false);
                 }
             } else {
                 console_log(console, "No Message in Scrollback");
             }
         }
         if (left) { 
-            if (console->text_position) {
-                console->text_position--;
-            }
+            gfx::gui::text_cursor_left(console->text_input);
         } else if (right) {
-            if (console->text_position < console->text_size) {
-                console->text_position++;
-            }
+            gfx::gui::text_cursor_right(console->text_input);
         }
-        if (key > 0) {
-            if (console->text_size + 1 < array_count(console->text_buffer)) {
-                if (console->text_position == console->text_size) {
-                    console->text_buffer[console->text_position++] = key;
-                } else {
-                    utl::copy(console->text_buffer + console->text_position + 1, console->text_buffer + console->text_position, console->text_size - console->text_position - 1);
-                    console->text_buffer[console->text_position++] = key;
-                }
-                console->text_size++;
-            }
-        }
+        gfx::gui::text_input(console->text_input, key);
+
         if (entered) {
             console_log(console, console->text_buffer, gfx::color::rgba::white, 0, 0, 1);
             
-            utl::memzero(console->text_buffer, array_count(console->text_buffer));
-
-            console->text_position = console->text_size 
-                = 0;
+            gfx::gui::text_clear(console->text_input);
         }
         if (deleted) {
-            if (ctrl) {
-                utl::memzero(console->text_buffer, console->text_position+1);
-
-                utl::copy(console->text_buffer, console->text_buffer + console->text_position, console->text_size - console->text_position);
-
-                console->text_size -= console->text_position;
-                console->text_position = 0;
-            } else if (console->text_position > 0) {
-                if (console->text_position == console->text_size) {
-                    console->text_position -= 1;
-                    console->text_buffer[console->text_position] = 0;
-                } else {
-                    console->text_position -= 1;
-                    utl::copy(console->text_buffer + console->text_position, console->text_buffer + console->text_position + 1, console->text_size - console->text_position + 1);
-                }
-                console->text_size -= 1;
-            }
+            gfx::gui::text_delete(console->text_input, ctrl);
         }
     }
 
@@ -373,54 +331,6 @@ draw_console(
     }
 }
 
-inline void
-draw_console2(
-    gfx::gui::im::state_t& imgui, 
-    debug_console_t* console,
-    v2f* pos
-) {
-    using namespace gfx::gui;
-    
-
-    const auto theme = imgui.theme;
-    imgui.theme.border_radius = 1.0f;
-    v2f size={};
-    local_persist b32 open=1;
-
-    if (im::begin_panel(imgui, "Console"sv, pos, &size, &open)) {
-        // draw_reverse(imgui, console->messages);
-
-        for (u64 i = 10; i <= 10; i--) {
-            u64 index = (console->message_top - 1 - i) % array_count(console->messages);
-            auto* message = console->messages + index;
-            if (message->text[0]==0) {
-                continue;
-            }
-            imgui.theme.text_color = message->color;
-            if (im::text(imgui, fmt_sv("[{}] {}", index, message->text)) && message->command.command) {
-                message->command.command(message->command.data);
-            }
-        }
-        
-        if (im::text_edit(imgui, console->text_buffer, &console->text_size, "console_text_box"_sid)) {
-            console_log(console, console->text_buffer, gfx::color::rgba::white, 0, 0, 1);
-            
-            utl::memzero(console->text_buffer, array_count(console->text_buffer));
-            console->text_size = 0;
-        }
-
-        im::end_panel(imgui, pos, &size);
-    }
-
-    imgui.theme = theme;
-}
-
-
-
-enum struct debug_priority_level {
-    LOW, MEDIUM, HIGH
-};
-
 enum struct debug_variable_type {
     UINT32, INT32,
     FLOAT32, FLOAT64,
@@ -458,7 +368,7 @@ struct debug_watcher_t {
         v2f* as_v2f;
         v3f* as_v3f;
         // math::rect3d_t as_aabb;
-        // zyy::entity_t* as_entt;
+        // ztd::entity_t* as_entt;
         math::ray_t* as_ray;
     };
 
@@ -852,7 +762,7 @@ struct debug_state_t {
         }
         var->name = name;
         var->color = color;
-        // if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_variable_type::ENTITY; }
+        // if constexpr (std::is_same_v<T, ztd::entity_t>) { var->type = debug_variable_type::ENTITY; }
         if constexpr (std::is_same_v<T, u32>) { var->type = debug_variable_type::UINT32; }
         if constexpr (std::is_same_v<T, i32>) { var->type = debug_variable_type::INT32; }
         if constexpr (std::is_same_v<T, f32>) { var->type = debug_variable_type::FLOAT32; }
@@ -909,7 +819,7 @@ struct debug_state_t {
         var->name = name;
         var->type = debug_watcher_type::COUNT;
 
-        // if constexpr (std::is_same_v<T, zyy::entity_t>) { var->type = debug_watcher_type::ENTITY; }
+        // if constexpr (std::is_same_v<T, ztd::entity_t>) { var->type = debug_watcher_type::ENTITY; }
         if constexpr (std::is_same_v<T, const char>) { var->type = debug_watcher_type::CSTR; }
         if constexpr (std::is_same_v<T, u8 >) { var->type = debug_watcher_type::UINT8; }
         if constexpr (std::is_same_v<T, u32>) { var->type = debug_watcher_type::UINT32; }
@@ -934,7 +844,7 @@ struct debug_state_t {
         std::lock_guard lock{ticket};
         node_for(auto, watcher, n) {
             if (n->name == name) {
-                // if constexpr (std::is_same_v<T, zyy::entity_t>) { assert(n->type == debug_watcher_type::ENTITY); }
+                // if constexpr (std::is_same_v<T, ztd::entity_t>) { assert(n->type == debug_watcher_type::ENTITY); }
                 if constexpr (std::is_same_v<T, const char>) { assert(n->type == debug_watcher_type::CSTR); }
                 if constexpr (std::is_same_v<T, u32>) { assert(n->type == debug_watcher_type::UINT32); }
                 if constexpr (std::is_same_v<T, i32>) { assert(n->type == debug_watcher_type::INT32); }
@@ -966,9 +876,9 @@ struct debug_state_t {
     #define CLOG(text) console_log(DEBUG_STATE.console, (text), gfx::color::rgba::white, 0, 0, 1)
     #define FLOG(text, ...) console_log(DEBUG_STATE.console, fmt_sv((text), __VA_ARGS__), gfx::color::rgba::white, 0, 0, 1)
     
-    #define aslert(expr) do { if (!(expr)) { zyy_warn(__FUNCTION__, "{}", #expr); DEBUG_STATE.alert(fmt_sv("Assertion Failed: {}:{} - {}", ::utl::trim_filename(__FILE__), __LINE__, #expr)); } } while(0)
-    #undef assert
-    #define assert(expr) aslert(expr)
+    #define aslert(expr) do { if (!(expr)) { ztd_warn(__FUNCTION__, "{}", #expr); DEBUG_STATE.alert(fmt_sv("Assertion Failed: {}:{} - {}", ::utl::trim_filename(__FILE__), __LINE__, #expr)); } } while(0)
+    // #undef assert
+    // #define assert(expr) aslert(expr)
 
     #define assert_false(expr) do { assert((expr)); if(!(expr)) return false; } while (0)
     #define assert_true(expr) do { assert((expr)); if(!(expr)) return true; } while (0)

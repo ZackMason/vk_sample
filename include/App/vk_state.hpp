@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include <vulkan\vulkan.h>
 
 #include <vector>
 #include <functional>
 
-#define VK_OK(res) do { const auto r = (res); if ((r) != VK_SUCCESS) { zyy_error("vk", gfx::vul::utl::error_string(r)); std::terminate(); } } while(0)
+#define VK_OK(res) do { const auto r = (res); if ((r) != VK_SUCCESS) { ztd_error("vk", gfx::vul::utl::error_string(r)); std::terminate(); } } while(0)
 
 using VkDataBuffer = VkBuffer;
 
@@ -105,9 +105,7 @@ struct storage_buffer_t : public gpu_buffer_t {
     ::utl::allocator_t allocator{};
 
     void create_allocator(arena_t* arena) {
-        allocator = ::utl::allocator_t{arena};
-        dlist_init(&allocator.free_blocks);
-        dlist_init(&allocator.used_blocks);
+        allocator.block_arena = arena;
         allocator.arena = arena_create(pool.start, pool.size_bytes());
     }
 };
@@ -530,7 +528,7 @@ struct state_t {
     template <typename T, size_t N>
     VkResult create_storage_buffer(storage_buffer_t<T, N>* buffer, u32 additional_usage = 0 ) {
         if constexpr (N * sizeof(T) > gigabytes(1)) {
-            zyy_warn(__FUNCTION__, "Giant buffer allocated: {} Gb", float(N * sizeof(T)) / float(gigabytes(1)));
+            ztd_warn(__FUNCTION__, "Giant buffer allocated: {} Gb", float(N * sizeof(T)) / float(gigabytes(1)));
         }
         const auto r = create_data_buffer(sizeof(T) * N, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | additional_usage, buffer);
         void* gpu_ptr{0};
@@ -704,7 +702,7 @@ create_pipeline_layout(
 
     VkPipelineLayout pipeline_layout{};
     if (vkCreatePipelineLayout(device, &info, nullptr, &pipeline_layout) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to create pipeline layout!");
+        ztd_error("vulkan", "failed to create pipeline layout!");
         std::terminate();
     }
 

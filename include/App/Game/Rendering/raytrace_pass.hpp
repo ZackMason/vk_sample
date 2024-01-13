@@ -67,7 +67,7 @@ begin_rt_pass(
 
         local_persist u32 frame=0;
         if (frame++ < 3) {
-            zyy_info("rt", "Frame: {}", frame);
+            ztd_info("rt", "Frame: {}", frame);
         }
 
         v3f axis = glm::normalize(utl::rng::random_s::randnv());

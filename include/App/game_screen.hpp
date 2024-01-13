@@ -1,6 +1,6 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 enum struct game_screen_type : u32 {
     intro,

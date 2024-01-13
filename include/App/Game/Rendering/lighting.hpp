@@ -1,7 +1,7 @@
 #ifndef LIGHTING_HPP
 #define LIGHTING_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 #include "uid.hpp"
 #include "App/vk_state.hpp"
 
@@ -126,7 +126,7 @@ namespace rendering::lighting {
                 // gfx.load_texture_sampler(&probe_box->filter_texture, "res/textures/painted_noise.png", arena);
                 gfx.load_texture_sampler(&probe_box->filter_texture, "res/textures/white.png", arena);
             } else {
-                zyy_warn(__FUNCTION__, "Tried to load ddgi filter but no arena");
+                ztd_warn(__FUNCTION__, "Tried to load ddgi filter but no arena");
             }
         }
 
@@ -161,8 +161,8 @@ namespace rendering::lighting {
 
         const umm irradiance_size = irradiance_width * irradiance_height * 2 * sizeof(f32);
         const umm visibility_size = visibility_width * visibility_height * 2 * sizeof(f32);
-        zyy_info(__FUNCTION__, "Irradiance Texture Size: {}Kb", irradiance_size/kilobytes(1));
-        zyy_info(__FUNCTION__, "Visibility Texture Size: {}Kb", visibility_size/kilobytes(1));
+        ztd_info(__FUNCTION__, "Irradiance Texture Size: {}Kb", irradiance_size/kilobytes(1));
+        ztd_info(__FUNCTION__, "Visibility Texture Size: {}Kb", visibility_size/kilobytes(1));
     }
 
     static void 
@@ -189,10 +189,10 @@ namespace rendering::lighting {
         probe_box->settings.aabb_max = probe_box->aabb.max;
         probe_box->settings.grid_size = v3f{probe_box->grid_size};
 
-        zyy_info(__FUNCTION__, "Creating Light Probe Box");
-        zyy_info(__FUNCTION__, "-- Total Probe Count: {}", total_probe_count);
-        zyy_info(__FUNCTION__, "-- Probe Dimensions: {} x {} x {}", probe_count.x, probe_count.y, probe_count.z);
-        zyy_info(__FUNCTION__, "-- Probe AABB: {} - {}", probe_box->settings.aabb_min, probe_box->settings.aabb_max);
+        ztd_info(__FUNCTION__, "Creating Light Probe Box");
+        ztd_info(__FUNCTION__, "-- Total Probe Count: {}", total_probe_count);
+        ztd_info(__FUNCTION__, "-- Probe Dimensions: {} x {} x {}", probe_count.x, probe_count.y, probe_count.z);
+        ztd_info(__FUNCTION__, "-- Probe AABB: {} - {}", probe_box->settings.aabb_min, probe_box->settings.aabb_max);
 
         u32 i = 0;
         range_u32(z, 0, probe_count.z) {
@@ -220,10 +220,10 @@ namespace rendering::lighting {
         probe_box->settings.grid_size = v3f{probe_box->grid_size};
 
 
-        zyy_info(__FUNCTION__, "Updating Light Probe Box");
-        zyy_info(__FUNCTION__, "-- Total Probe Count: {}", total_probe_count);
-        zyy_info(__FUNCTION__, "-- Probe Dimensions: {} x {} x {}", probe_count.x, probe_count.y, probe_count.z);
-        zyy_info(__FUNCTION__, "-- Probe AABB: {} - {}", probe_box->settings.aabb_min, probe_box->settings.aabb_max);
+        ztd_info(__FUNCTION__, "Updating Light Probe Box");
+        ztd_info(__FUNCTION__, "-- Total Probe Count: {}", total_probe_count);
+        ztd_info(__FUNCTION__, "-- Probe Dimensions: {} x {} x {}", probe_count.x, probe_count.y, probe_count.z);
+        ztd_info(__FUNCTION__, "-- Probe AABB: {} - {}", probe_box->settings.aabb_min, probe_box->settings.aabb_max);
 
         u32 i = 0;
         range_u32(z, 0, probe_count.z) {

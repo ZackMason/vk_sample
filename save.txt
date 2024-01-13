@@ -1,4 +1,4 @@
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include <thread>
 #include <mutex>
@@ -97,15 +97,15 @@ create_meta_data_dir() {
     size_t path_size;
     const errno_t err = _dupenv_s(&app_data_path, &path_size, "APPDATA");
     if (err) {
-        zyy_error("save", "Get Env Error: {}, cant save", err);
+        ztd_error("save", "Get Env Error: {}, cant save", err);
         std::terminate(); // need to be warned of this
     }
 
     const std::string meta_path = fmt_str("{}/estella", std::string_view{app_data_path, path_size-1});
     
-    zyy_info("save", "Save File Path: {}", meta_path);
+    ztd_info("save", "Save File Path: {}", meta_path);
     if (!std::filesystem::exists(meta_path)) {
-        zyy_info("save", "Creating save directory");
+        ztd_info("save", "Creating save directory");
         std::filesystem::create_directory(meta_path);
     }
 
@@ -117,7 +117,7 @@ load_graphics_config(game_memory_t* game_memory) {
     std::ifstream file{"gfx_config.bin", std::ios::binary};
 
     if(!file.is_open()) {
-        zyy_error("win32", "Failed to graphics config file");
+        ztd_error("win32", "Failed to graphics config file");
         return;
     }
 
@@ -149,7 +149,7 @@ save_graphics_config(game_memory_t* game_memory) {
 
     // delete data;
 
-    zyy_info("win32", "Saved graphics config");
+    ztd_info("win32", "Saved graphics config");
 }
 
 GLFWwindow* 
@@ -218,7 +218,7 @@ update_input(game_memory_t* game_memory, GLFWwindow* window) {
                 if (std::fabs(state.axes[a]) < 0.35f) { // deadzone
                     state.axes[a] = 0.0f;
                 }
-                // zyy_info("input", "axis[{}]:{}", a, axes_[a]);
+                // ztd_info("input", "axis[{}]:{}", a, axes_[a]);
             }
                             
             gamepad.left_stick.x    = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
@@ -248,7 +248,7 @@ update_input(game_memory_t* game_memory, GLFWwindow* window) {
             gamepad.buttons[button_id::left_thumb].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_LEFT_THUMB];
             gamepad.buttons[button_id::right_thumb].is_held = state.buttons[GLFW_GAMEPAD_BUTTON_RIGHT_THUMB];
         } else {
-            // zyy_warn("input", "Joystick is not gamepad");
+            // ztd_warn("input", "Joystick is not gamepad");
             gamepad = {};
         }
 
@@ -326,7 +326,7 @@ update_dlls(app_dll_t* app_dlls, game_memory_t* game_memory) {
     bool need_reload = !std::filesystem::exists("./build/lock.tmp");
     if (need_reload) {
         utl::profile_t p{"dll reload time"};
-        zyy_warn("win32", "Game DLL Reload Detected");
+        ztd_warn("win32", "Game DLL Reload Detected");
         app_dlls->on_unload(game_memory);
 
         FreeLibrary((HMODULE)app_dlls->dll);
@@ -335,10 +335,10 @@ update_dlls(app_dll_t* app_dlls, game_memory_t* game_memory) {
         load_dlls(app_dlls);
 
         if (app_dlls->dll == 0) {
-            zyy_error("win32", "Failed to load game");
+            ztd_error("win32", "Failed to load game");
         }
 
-        zyy_warn("win32", "Game DLL has reloaded");
+        ztd_warn("win32", "Game DLL has reloaded");
         app_dlls->on_reload(game_memory);
 
         gs_game_dll_write_time = win32_last_write_time(".\\build\\app_build.dll");
@@ -419,7 +419,7 @@ LONG exception_filter(_EXCEPTION_POINTERS* exception_info) {
 
     MessageBox(0, fmt::format("Exception at address {}\nCode: {}\nFlag: {}", address, msg!=""?msg:fmt::format("{}", code), flags).c_str(), 0, MB_ABORTRETRYIGNORE);
 
-    zyy_error(__FUNCTION__, "Exception at {} Code: {} Flag: {}", address, msg!=""?msg:fmt::format("{}", code), flags);
+    ztd_error(__FUNCTION__, "Exception at {} Code: {} Flag: {}", address, msg!=""?msg:fmt::format("{}", code), flags);
 
     return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -442,9 +442,9 @@ main(int argc, char* argv[]) {
     SetUnhandledExceptionFilter(exception_filter);
     create_meta_data_dir();
 
-    zyy_info("win32", "Loading Platform Layer");
+    ztd_info("win32", "Loading Platform Layer");
     defer {
-        zyy_info("win32", "Closing Application");
+        ztd_info("win32", "Closing Application");
     };
 
     game_memory_t game_memory{};
@@ -474,19 +474,19 @@ main(int argc, char* argv[]) {
         
         // if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
         if (vkCreateWin32SurfaceKHR(*(VkInstance*)instance, &createInfo, nullptr, (VkSurfaceKHR*)surface) != VK_SUCCESS) {
-            zyy_error("vulkan", "failed to create window surface!");
+            ztd_error("vulkan", "failed to create window surface!");
             std::terminate();
         }
     };
 
-    void* physics_dll = LoadLibraryA(".\\build\\zyy_physics.dll");
+    void* physics_dll = LoadLibraryA(".\\build\\ztd_physics.dll");
     arena_t physics_arena = arena_create(win32_alloc(gigabytes(2)), gigabytes(2));
     arena_t restore_physics_arena = arena_create(win32_alloc(gigabytes(2)), gigabytes(2));
     gs_physics_arena = &physics_arena;
     gs_physics_restore_arena = &restore_physics_arena;
     if (physics_dll)
     {
-        zyy_info("win32", "Initializing Physics");
+        ztd_info("win32", "Initializing Physics");
         game_memory.physics = win32_alloc<physics::api_t>();
         restore_point.physics = win32_alloc<physics::api_t>();
         restore_point.physics->arena = &restore_physics_arena;
@@ -504,12 +504,12 @@ main(int argc, char* argv[]) {
 
 #if USE_SDL
     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
-        zyy_info("sdl_mixer", "Couldn't initialize SDL: {}", SDL_GetError());
+        ztd_info("sdl_mixer", "Couldn't initialize SDL: {}", SDL_GetError());
         return 255;
     }
 
     if (Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, MIX_DEFAULT_CHANNELS, 4096) < 0) {
-        zyy_info("sdl_mixer", "Couldn't open audio: {}", SDL_GetError());
+        ztd_info("sdl_mixer", "Couldn't open audio: {}", SDL_GetError());
         return 255;
     }
 #endif
@@ -519,14 +519,14 @@ main(int argc, char* argv[]) {
     load_sound_closure.data = &audio_cache;
     load_sound_closure.func = reinterpret_cast<void(*)(void*)>(
         +[](void* data, const char* path) -> u64 {
-            zyy_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
+            ztd_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
 
             auto* cache = (audio_cache_t*)data;
             #if USE_SDL
             cache->sounds[cache->sound_count] = Mix_LoadWAV(path);
             #endif
 
-            zyy_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
+            ztd_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
         
             return cache->sound_count++;
     });
@@ -535,7 +535,7 @@ main(int argc, char* argv[]) {
     play_sound_closure.data = &audio_cache;
     play_sound_closure.func = reinterpret_cast<void(*)(void*)>(
         +[](void* data, u64 id) -> void {
-            zyy_info("sdl_mixer::play_sound", "playing Sound: {}", id);
+            ztd_info("sdl_mixer::play_sound", "playing Sound: {}", id);
 
             auto* cache = (audio_cache_t*)data;
 
@@ -548,7 +548,7 @@ main(int argc, char* argv[]) {
     game_memory.audio.play_sound_closure = &play_sound_closure;
 
     u64 sound = load_sound_closure.dispatch_request<u64>("./res/audio/unlock.wav");
-    zyy_info("sdl_mixer::play_sound", "playing Sound: {}", sound);
+    ztd_info("sdl_mixer::play_sound", "playing Sound: {}", sound);
     //play_sound_closure.dispatch(sound);
 
     app_dll_t app_dlls;
@@ -556,7 +556,7 @@ main(int argc, char* argv[]) {
 
     GLFWwindow* window = init_glfw(&game_memory);
 
-    zyy_info("win32", "Platform Initialization Completed");
+    ztd_info("win32", "Platform Initialization Completed");
 
     app_dlls.on_init(&game_memory);
 
@@ -613,7 +613,7 @@ main(int argc, char* argv[]) {
         if (game_memory.input.pressed.keys[key_id::F8]) {
             const auto dif = utl::memdif((const u8*)physics_arena.start, (const u8*)restore_physics_arena.start, restore_physics_arena.top);
             const auto undif = restore_physics_arena.top - dif;
-            zyy_info("memdif", "dif {} bytes, undif {} megabytes", dif, undif/megabytes(1));
+            ztd_info("memdif", "dif {} bytes, undif {} megabytes", dif, undif/megabytes(1));
         }
         if (game_memory.input.pressed.keys[key_id::F9]) {
 #ifdef MULTITHREAD_ENGINE
@@ -686,7 +686,7 @@ main(int argc, char* argv[]) {
          
                 }
             } catch (std::exception & e) {
-                zyy_error("exception", "{}", e.what());
+                ztd_error("exception", "{}", e.what());
             }
         }
 #ifndef MULTITHREAD_ENGINE

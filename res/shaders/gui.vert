@@ -19,9 +19,9 @@ layout ( location = 2 ) out vec4 voColor;
 layout ( location = 3 ) out vec3 voNormal;
 
 layout (push_constant, scalar) uniform constants {
-    mat4 V;
-    mat4 P;
-} PushConstants;
+    mat4 kVP;
+    vec2 kScreenSize;
+};
 
 void
 main() {
@@ -32,11 +32,10 @@ main() {
 
     if (aNrm != 0) {
         voNormal = unpack_normal(aNrm);
-        pos = PushConstants.P * PushConstants.V * vec4(aVertex.xyz, 1.0);
+        pos = kVP * vec4(aVertex.xyz, 1.0);
     } else {
         voNormal = vec3(0,0,1);
-        pos = vec4(aVertex.xy * 2.0 - 1.0, aVertex.z, 1);
-        // pos = vec4(aVertex.xy * 2.0 - 1.0, 0.00001 * gl_VertexIndex, 1);
+        pos = vec4((aVertex.xy / kScreenSize) * 2.0 - 1.0, aVertex.z, 1);
     }
         
     gl_Position = pos;

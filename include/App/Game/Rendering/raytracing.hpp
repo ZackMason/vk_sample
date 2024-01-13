@@ -181,14 +181,14 @@ struct rt_cache_t {
         // size_t entity_size
     ) {
         TIMED_FUNCTION;
-        // zyy_warn(__FUNCTION__, "Building BLAS");
+        // ztd_warn(__FUNCTION__, "Building BLAS");
         const VkBufferUsageFlags buffer_usage_flags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
         range_u64(i, 0, mesh.count) {
             auto& m = mesh.meshes[i];
             if (m.blas!=0) continue;
 
-            zyy_warn(__FUNCTION__, "Building BLAS Mesh: vs {}, vc {}, is {}, ic {}", m.vertex_start, m.vertex_count, m.index_start, m.index_count);
+            ztd_warn(__FUNCTION__, "Building BLAS Mesh: vs {}, vc {}, is {}, ic {}", m.vertex_start, m.vertex_count, m.index_start, m.index_count);
             auto b = blas_count++;
             auto& c_blas = blas[b];
             assert(blas_count < array_count(blas));
@@ -294,7 +294,7 @@ struct rt_cache_t {
 
             m.blas = safe_truncate_u64(b);
         }
-        // zyy_warn(__FUNCTION__, "Finished BLAS build");
+        // ztd_warn(__FUNCTION__, "Finished BLAS build");
     }
 };
 
@@ -542,7 +542,7 @@ struct rt_compute_pass_t {
         auto i = instance_count++;
         assert(instance_count < array_count(tlas_instances));
         if (instance_count > array_count(tlas_instances)) {
-            zyy_error(__FUNCTION__, "TLAS OVERFLOW"); return;
+            ztd_error(__FUNCTION__, "TLAS OVERFLOW"); return;
         }
 
         VkAccelerationStructureInstanceKHR& acceleration_structure_instance    = tlas_instances[i];

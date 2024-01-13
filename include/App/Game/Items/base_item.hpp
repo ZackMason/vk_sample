@@ -1,16 +1,16 @@
 #pragma once
 
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include "App/Game/Weapons/base_weapon.hpp"
 
-namespace zyy {
+namespace ztd {
     struct world_t;
     struct entity_t;
 }
 
-namespace zyy::item {
+namespace ztd::item {
     namespace effect_type {
         enum {
             FIRE        = BIT(0),
@@ -23,9 +23,9 @@ namespace zyy::item {
     };
 
     struct effect_t;
-    using on_hit_effect_t = void(*)(zyy::world_t*, effect_t*, zyy::entity_t*, zyy::entity_t*, v3f p, v3f n);
+    using on_hit_effect_t = void(*)(ztd::world_t*, effect_t*, ztd::entity_t*, ztd::entity_t*, v3f p, v3f n);
     //                                       (world, effect, owner, bullet)
-    using on_bullet_effect_function = void(*)(zyy::world_t*, effect_t*, zyy::entity_t*, zyy::entity_t*, zyy::entity_t*);
+    using on_bullet_effect_function = void(*)(ztd::world_t*, effect_t*, ztd::entity_t*, ztd::entity_t*, ztd::entity_t*);
 
     struct effect_t {
         u64 type{};

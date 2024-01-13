@@ -1,7 +1,7 @@
 #ifndef RENDERING_PARTICLE_HPP
 #define RENDERING_PARTICLE_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 DEFINE_TYPED_ID(particle_system_id);
 
@@ -113,7 +113,7 @@ utl::memory_blob_t::deserialize<particle_system_settings_t>(arena_t* arena) {
     
         DESER(VERSION);
 
-        zyy_info(__FUNCTION__, "Loading particle version: {}", settings.VERSION);
+        ztd_info(__FUNCTION__, "Loading particle version: {}", settings.VERSION);
 
         constexpr u64 v3_particle_size = 76;// sizeof(particle_t);
 

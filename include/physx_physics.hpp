@@ -1,7 +1,7 @@
 #ifndef PHYSX_PHYSICS_HPP
 #define PHYSX_PHYSICS_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include "App/Game/Physics/physics_world.hpp"
 
@@ -178,7 +178,7 @@ void physx_rigidbody_set_collision_flags(rigidbody_t* rb) {
             shape->setQueryFilterData(filter);
             shape->setSimulationFilterData(filter);
         } else {
-            zyy_warn(__FUNCTION__, "No Shape on character: {}", (void*)controller);
+            ztd_warn(__FUNCTION__, "No Shape on character: {}", (void*)controller);
         }
 
     } else {
@@ -517,7 +517,7 @@ static PxFilterFlags filterShader(
 void
 physx_create_scene(api_t* api, const void* filter = 0) {
     TIMED_FUNCTION;
-    zyy_info(__FUNCTION__, "Creating scene");
+    ztd_info(__FUNCTION__, "Creating scene");
     auto* ps = get_physx(api);
     assert(ps->state);
     
@@ -623,7 +623,7 @@ physx_raycast_world(const api_t* api, v3f ro, v3f rd, u32 layer) {
     auto* ps = get_physx(api);
     auto dist = glm::length(rd);
     if (dist == 0.0f) {
-        zyy_warn(__FUNCTION__, "Ray direction is zero");
+        ztd_warn(__FUNCTION__, "Ray direction is zero");
     } else {
         rd = glm::normalize(rd);
     }
@@ -694,7 +694,7 @@ physx_simulate(api_t* api, f32 dt) {
     TIMED_FUNCTION;
     const auto* ps = get_physx(api);
 
-    // zyy_info(__FUNCTION__, "dt: {}", dt);
+    // ztd_info(__FUNCTION__, "dt: {}", dt);
 
     range_u64(i, 0, api->character_count) {
         auto* rb = api->characters[i];

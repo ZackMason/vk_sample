@@ -1,4 +1,4 @@
-#include <zyy_core.hpp>
+#include <ztd_core.hpp>
 
 global_variable b32 gs_debug_camera_active;
 
@@ -31,7 +31,7 @@ global_variable f32 gs_jump_load_time = 0.0f;
 global_variable b32 gs_show_console=0;
 global_variable b32 gs_show_watcher=false;
 
-global_variable zyy::cam::first_person_controller_t gs_debug_camera;
+global_variable ztd::cam::first_person_controller_t gs_debug_camera;
 
 global_variable VkCullModeFlagBits gs_cull_modes[] = {
     VK_CULL_MODE_BACK_BIT,
@@ -63,7 +63,7 @@ generate_world_from_file(arena_t* arena, std::string_view file) {
             generator->add_step(prefab.type_name.data(), WORLD_STEP_TYPE_LAMBDA(environment) {
 
             });
-            zyy::tag_spawn(world, prefab, o, b);
+            ztd::tag_spawn(world, prefab, o, b);
         });
     });
     return generator;
@@ -74,7 +74,7 @@ generate_world_from_file(arena_t* arena, std::string_view file) {
 
 #include "App/Game/GUI/entity_editor.hpp"
 
-#include "App/Game/Entity/zyy_entity_serialize.hpp"
+#include "App/Game/Entity/ztd_entity_serialize.hpp"
 
 inline game_state_t*
 get_game_state(game_memory_t* mem) {
@@ -206,7 +206,7 @@ void inventory_input(
 
 math::rect2d_t build_inventory_title(
     gfx::gui::im::state_t& imgui,
-    zyy::entity_t* player,
+    ztd::entity_t* player,
     inventory_ui_t* inventory,
     v2f start
 ) {
@@ -220,19 +220,13 @@ math::rect2d_t build_inventory_title(
 
     auto inventory_text_size = gfx::font_get_size(font, "Inventory"sv);
 
-    auto anim = glm::sin(c->input->time);
 
     auto selection = c->begin_vertex_selection();
     defer {
+        auto anim = glm::sin(c->input->time);
         c->end_vertex_selection(selection);
 
-        math::transform_t transform{};
-        auto center = gfx::gui::selection_center(selection);
-        transform.origin = center;
-
-        transform.set_rotation(axis::backward, anim);
-
-        gfx::gui::apply_vertex_transform(selection, transform.to_matrix() * math::transform_t{-center}.to_matrix());
+        gfx::gui::rotate_selection_center(selection, anim);
     };
 
     math::rect2d_t title = {start, start};
@@ -252,10 +246,10 @@ math::rect2d_t build_inventory_title(
 
 void build_inventory_ui(
     gfx::gui::im::state_t& imgui,
-    zyy::entity_t* player,
+    ztd::entity_t* player,
     inventory_ui_t* inventory    
 ) {
-    assert(player->type == zyy::entity_type::player);
+    assert(player->type == ztd::entity_type::player);
 
     const auto& theme = inventory->theme;
     auto* c = &imgui.ctx;
@@ -286,7 +280,7 @@ void build_inventory_ui(
 
     start += inventory_panel.size();
 
-    zyy::entity_t dummy{};
+    ztd::entity_t dummy{};
     dummy.name.view("Empty");
 
     // auto camera_target = v2f{0.0f};
@@ -295,7 +289,7 @@ void build_inventory_ui(
         inventory->camera = tween::lerp(inventory->camera, v2f{0.0f}, dt);
     } else {
         auto* widget = inventory->selection;
-        auto* item = (zyy::entity_t*)widget->data;
+        auto* item = (ztd::entity_t*)widget->data;
 
         if (item) {
             v2f p = {};
@@ -342,7 +336,7 @@ void build_inventory_ui(
 
     range_u64(i, 0, inventory->widgets.count) {
         auto* widget = inventory->widgets[i];
-        auto* item = (zyy::entity_t*)widget->data;
+        auto* item = (ztd::entity_t*)widget->data;
         
         if (item == nullptr) item = &dummy;
 
@@ -388,13 +382,13 @@ void build_inventory_ui(
 struct game_ui_t {
     game_theme_t game_theme{};
 
-    zyy::entity_t* player = 0;
-    zyy::entity_t* entity = 0;
+    ztd::entity_t* player = 0;
+    ztd::entity_t* entity = 0;
 
     u32 options_available = available_options::name;
 
-    zyy::health_t health;
-    zyy::wep::ammo_mag_t mag;
+    ztd::health_t health;
+    ztd::wep::ammo_mag_t mag;
 
     v3f eye;
     v3f look;
@@ -555,7 +549,7 @@ void draw_game_ui(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
     }
 }
 
-game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
+game_ui_t create_game_ui(ztd::world_t* world, ztd::entity_t* player) {
     game_ui_t ui{};
     if (player == nullptr) {
         return ui;
@@ -570,7 +564,7 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
 
     auto yaw = player->camera_controller.yaw;
     auto pitch = player->camera_controller.pitch;
-    ui.look = zyy::cam::get_direction(yaw, pitch);
+    ui.look = ztd::cam::get_direction(yaw, pitch);
     ui.eye += ui.look * 1.50f;
 
     ui.look *= 9.0f;
@@ -605,12 +599,12 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     math::ray_t game_ui_ray{ui.eye, ui.look};
     // DEBUG_DIAGRAM(game_ui_ray);
 
-    auto raycast = world->physics->raycast_world(ui.eye, ui.look, ~zyy::physics_layers::player);
+    auto raycast = world->physics->raycast_world(ui.eye, ui.look, ~ztd::physics_layers::player);
     if (raycast.hit) {
         auto* rb = (physics::rigidbody_t*)raycast.user_data;
-        auto* entity = (zyy::entity_t*)rb->user_data;
+        auto* entity = (ztd::entity_t*)rb->user_data;
         if (entity == player) {
-            zyy_warn(__FUNCTION__, "Ray Hit Player");
+            ztd_warn(__FUNCTION__, "Ray Hit Player");
         }
         ui.entity = entity;
     } else {
@@ -624,7 +618,7 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
 
         ui.mag = weapon->stats.weapon.mag;
 
-        auto aim_raycast = world->physics->raycast_world(aim_ray.origin, aim_ray.direction, ~zyy::physics_layers::player);
+        auto aim_raycast = world->physics->raycast_world(aim_ray.origin, aim_ray.direction, ~ztd::physics_layers::player);
         if (aim_raycast.hit) {
             ui.aim_location = aim_raycast.point;
         } else {
@@ -635,10 +629,10 @@ game_ui_t create_game_ui(zyy::world_t* world, zyy::entity_t* player) {
     if (ui.entity) {
         ui.options_available = available_options::name;
 
-        if (ui.entity->flags & zyy::EntityFlags_Interactable) {
+        if (ui.entity->flags & ztd::EntityFlags_Interactable) {
             ui.options_available |= available_options::activate;
         }
-        if (ui.entity->flags & zyy::EntityFlags_Pickupable) {
+        if (ui.entity->flags & ztd::EntityFlags_Pickupable) {
             ui.options_available |= available_options::pickup;
         }
     }
@@ -870,7 +864,7 @@ app_init_graphics(game_memory_t* game_memory) {
     vk_gfx.create_index_buffer(&game_state->gui.indices[1]);
     auto* rs = game_state->render_system;
 
-    gfx::gui::ctx_clear(&game_state->gui.ctx, &game_state->gui.vertices[0].pool, &game_state->gui.indices[0].pool);
+    // gfx::gui::ctx_clear(&game_state->gui.ctx, &game_state->gui.vertices[0].pool, &game_state->gui.indices[0].pool);
     // load all meshes from the resource file
     // range_u64(i, 0, game_state->resource_file->file_count) {
     //     if (game_state->resource_file->table[i].file_type != utl::res::magic::mesh) { 
@@ -1269,7 +1263,7 @@ app_on_init(game_memory_t* game_memory) {
     gs_debug_state = game_state->debug_state;    
 
 // #if 0
-// #ifdef ZYY_INTERNAL 
+// #ifdef ZTD_INTERNAL 
     tag_struct(gs_debug_state->console, debug_console_t, main_arena);
     auto* console = gs_debug_state->console;
     console->user_data = game_state;
@@ -1481,7 +1475,7 @@ app_on_init(game_memory_t* game_memory) {
         if (args) { // args = "select <>"
             auto rest = *args;
             // auto [name, rest] = utl::cut_left(*args, " "sv);
-            auto* entity = zyy::find_entity_by_name(game_state->game_world, rest);
+            auto* entity = ztd::find_entity_by_name(game_state->game_world, rest);
             if (entity) {
                 DEBUG_STATE.selection = &entity->transform.origin;
             } else {
@@ -1499,8 +1493,8 @@ app_on_init(game_memory_t* game_memory) {
         auto* game_state = (game_state_t*)console->user_data;
         auto args = console->get_args();
         if (args) { // args = "select <>"
-            auto [view, name] = utl::cut_left(*args, " "sv);
-            auto* entity = zyy::find_entity_by_name(game_state->game_world, name);
+            auto [name, t] = utl::cut_left(*args, " "sv);
+            auto* entity = ztd::find_entity_by_name(game_state->game_world, name);
             if (entity) {
                 gs_debug_camera.transform.origin = entity->transform.origin;
             } else {
@@ -1516,7 +1510,12 @@ app_on_init(game_memory_t* game_memory) {
         auto* console = (debug_console_t*)data;
         auto args = console->get_args();
         if (args) { // args = "select <>"
-            auto [view, name] = utl::cut_left(*args, " "sv);
+            auto name = *args;
+
+            if (name.empty()) {
+                assert(!"Failed to parse arguments");
+                return;
+            }
 
             f32 x,y,z;
 
@@ -1605,14 +1604,14 @@ app_on_init(game_memory_t* game_memory) {
             }
 
             //auto [type_name, _] = utl::cut_left(name, " ");
-            zyy::entity_type type = zyy::entity_type::SIZE;
+            ztd::entity_type type = ztd::entity_type::SIZE;
             switch(sid(name)) {
-                case "player"_sid: type = zyy::entity_type::player; break;
-                case "bad"_sid: type = zyy::entity_type::bad; break;
-                case "item"_sid: type = zyy::entity_type::item; break;
-                case "weapon"_sid: type = zyy::entity_type::weapon; break;
-                case "weapon_part"_sid: type = zyy::entity_type::weapon_part; break;
-                case "environment"_sid: type = zyy::entity_type::environment; break;
+                case "player"_sid: type = ztd::entity_type::player; break;
+                case "bad"_sid: type = ztd::entity_type::bad; break;
+                case "item"_sid: type = ztd::entity_type::item; break;
+                case "weapon"_sid: type = ztd::entity_type::weapon; break;
+                case "weapon_part"_sid: type = ztd::entity_type::weapon_part; break;
+                case "environment"_sid: type = ztd::entity_type::environment; break;
                 case_invalid_default;
             }
 
@@ -1701,16 +1700,16 @@ app_on_init(game_memory_t* game_memory) {
 
     
     physics::api_t* physics = game_memory->physics;
-    physics->entity_transform_offset = offsetof(zyy::entity_t, transform);
+    physics->entity_transform_offset = offsetof(ztd::entity_t, transform);
     if (physics) {
-        zyy_info("app_init", "Creating physics scene");
+        ztd_info("app_init", "Creating physics scene");
         assert(physics && physics->create_scene);
         physics->create_scene(physics, 0);
-        zyy_info("app_init", "Created physics scene");
+        ztd_info("app_init", "Created physics scene");
     }
     app_init_graphics(game_memory);
 
-    game_state->game_world = zyy::world_init(game_state, physics);
+    game_state->game_world = ztd::world_init(game_state, physics);
 
 
 
@@ -1723,7 +1722,7 @@ app_on_init(game_memory_t* game_memory) {
     game_state->scene.sporadic_buffer.mode = 1;
     // game_state->scene.sporadic_buffer.use_lighting = 1;
 
-    FLOG("world size: {}mb", GEN_TYPE_INFO(zyy::world_t).size/megabytes(1));
+    FLOG("world size: {}mb", GEN_TYPE_INFO(ztd::world_t).size/megabytes(1));
 
     {
         auto memory = begin_temporary_memory(&game_state->main_arena);
@@ -1794,17 +1793,17 @@ app_on_deinit(game_memory_t* game_memory) {
     vkDeviceWaitIdle(vk_gfx.device);
 
     rendering::cleanup(game_state->render_system);
-    zyy_info(__FUNCTION__, "Render System cleaned up");
+    ztd_info(__FUNCTION__, "Render System cleaned up");
 
     vk_gfx.cleanup();
-    zyy_info(__FUNCTION__, "Graphics API cleaned up");
+    ztd_info(__FUNCTION__, "Graphics API cleaned up");
 
     game_state->~game_state_t();
 }
 
 export_fn(void) 
 app_on_unload(game_memory_t* game_memory) {
-    zyy_warn(__FUNCTION__, "Reloading Game...");
+    ztd_warn(__FUNCTION__, "Reloading Game...");
     game_state_t* game_state = get_game_state(game_memory);
     
     game_state->modding.loader.unload_library();
@@ -1822,7 +1821,7 @@ app_on_reload(game_memory_t* game_memory) {
     game_state->modding.loader.load_library(".\\build\\code.dll");
     // game_state->modding.loader.load_module();
     // game_state->render_system->ticket.unlock();
-    zyy_warn(__FUNCTION__, "Reload Complete");
+    ztd_warn(__FUNCTION__, "Reload Complete");
 }
 
 b32 
@@ -1849,6 +1848,7 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
     }
     if (input->pressed.keys[key_id::BACKTICK]) {
         input->pressed.keys[key_id::BACKTICK] = 0;
+        input->text.fire = 0;
         if (auto b = gs_show_console = ((gs_show_console + 1) % 3)) {
             game_state->gui.imgui.active = "console_text_box"_sid;
         } else {
@@ -1866,9 +1866,9 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
         }
     }
     if (input->pressed.keys[key_id::F5]) {
-        zyy::world_destroy_all(game_state->game_world);
-        zyy::world_free(game_state->game_world);
-        game_state->game_world = zyy::world_init(game_state, game_state->game_memory->physics);
+        ztd::world_destroy_all(game_state->game_world);
+        ztd::world_free(game_state->game_world);
+        game_state->game_world = ztd::world_init(game_state, game_state->game_memory->physics);
 
         gs_debug_camera.camera = &game_state->game_world->camera;
 
@@ -1916,7 +1916,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     auto* rs = game_state->render_system;
     auto* world = game_state->game_world;
     
-    zyy::world_update(world, dt);
+    ztd::world_update(world, dt);
 
     // DEBUG_DIAGRAM_(v3f{axis::right * 50.0f}, 0.01f);
 
@@ -1926,7 +1926,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         } else {
             world->player->transform.origin.y = 0.0f;
         }
-        // zyy_warn("killz", "Reset players vertical position");
+        // ztd_warn("killz", "Reset players vertical position");
         // game_state->game_memory->input.pressed.keys[key_id::F10] = 1;
     }
 
@@ -1936,11 +1936,11 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         if (world->physics) {
             world->physics->simulate(world->physics, dt);
         } else {
-            zyy_warn("game", "No physics in world");
+            ztd_warn("game", "No physics in world");
         }
 
     }
-    zyy::world_update_kinematic_physics(world);
+    ztd::world_update_kinematic_physics(world);
 
         
     {
@@ -1949,7 +1949,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         for (size_t i{0}; i < world->entity_capacity; i++) {
             auto* e = world->entities + i;
             auto brain_id = e->brain_id;
-            if (e->flags & zyy::EntityFlags_Breakpoint) {
+            if (e->flags & ztd::EntityFlags_Breakpoint) {
                 __debugbreak();
             }
             if (e->is_alive() == false) {
@@ -1960,8 +1960,8 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
 
             auto global_transform = e->global_transform();
 
-            const bool is_physics_object = e->physics.flags != zyy::PhysicsEntityFlags_None && e->physics.rigidbody;
-            const bool is_pickupable = (e->flags & zyy::EntityFlags_Pickupable);
+            const bool is_physics_object = e->physics.flags != ztd::PhysicsEntityFlags_None && e->physics.rigidbody;
+            const bool is_pickupable = (e->flags & ztd::EntityFlags_Pickupable);
             const bool is_not_renderable = !e->is_renderable();
 
             e->coroutine->run(world->frame_arena);
@@ -1996,7 +1996,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
             // @debug
 
             const auto entity_aabb = global_transform.xform_aabb(e->aabb);
-            if (e->type != zyy::entity_type::player) {
+            if (e->type != ztd::entity_type::player) {
                 DEBUG_DIAGRAM_(entity_aabb, 0.0000f);
             } else {
                 math::waypoint_t player_path{
@@ -2023,7 +2023,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         return;
     }
 
-    zyy::world_kill_free_queue(world);
+    ztd::world_kill_free_queue(world);
 
     if (gs_debug_camera_active) {
         auto& imgui = game_state->gui.imgui;
@@ -2037,7 +2037,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         auto& yaw = gs_debug_camera.yaw;
         auto& pitch = gs_debug_camera.pitch;
 
-        const v3f forward = zyy::cam::get_direction(yaw, pitch);
+        const v3f forward = ztd::cam::get_direction(yaw, pitch);
         const v3f right   = glm::cross(forward, axis::up);
 
         if (!ignore_mouse) {
@@ -2157,7 +2157,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         }
 
         if (is_not_renderable) {
-            // zyy_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
+            // ztd_warn("render", "Skipping: {} - {}", (void*)e, e->flags);
             continue;
         }
 
@@ -2209,7 +2209,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         v3f size = e->aabb.size()*0.5f;
         // v4f bounds{e->aabb.center(), glm::max(glm::max(size.x, size.y), size.z) };
 
-        // if (e->type == zyy::entity_type::player) continue;
+        // if (e->type == ztd::entity_type::player) continue;
 
         if (instance_count == 0) continue;
 
@@ -2291,7 +2291,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     }
 
     // arena_sweep_keep(&world->render_system()->instance_storage_buffer.pool, (std::byte*)(world->effects.blood_splats + world->effects.blood_splat_max));
-    zyy::world_render_bloodsplat(world);
+    ztd::world_render_bloodsplat(world);
 
     rendering::end_render_group(rs, world->render_groups[0]);
     rendering::end_render_group(rs, world->render_groups[1]);
@@ -2354,7 +2354,7 @@ game_on_update(game_memory_t* game_memory) {
             world_generator->execute(game_state->game_world, [&](){draw_gui(game_memory);});
         // } catch ( std::exception& e) {
             // DEBUG_STATE.alert(e.what());
-            // zyy_error("world_generator->execute", "Exception loading world: {}", e.what());
+            // ztd_error("world_generator->execute", "Exception loading world: {}", e.what());
             // game_state->game_world->world_generator->force_completion();
         // }
         std::lock_guard lock{game_state->render_system->ticket};
@@ -2732,11 +2732,12 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
 
             {
                 struct gui_pc_t {
-                    m44 v;
-                    m44 p;
+                    m44 vp;
+                    v2f screen_size;
                 } constants;
-                constants.v = rs->view;
-                constants.p = rs->projection;
+                constants.vp = rs->projection * rs->view;
+                constants.screen_size = imgui.ctx.screen_size;
+
                 vkCmdPushConstants(command_buffer, game_state->render_system->pipelines.gui.layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 
                     0, sizeof(constants), &constants
@@ -2875,7 +2876,7 @@ app_on_render(game_memory_t* game_memory) {
     auto* game_state = get_game_state(game_memory);
     // local_persist u32 frame_count = 0;
     // if (frame_count < 3) {
-    //     zyy_info("frame", "Frame: {}", frame_count);
+    //     ztd_info("frame", "Frame: {}", frame_count);
     // }
     // std::lock_guard lock{game_state->render_system->ticket};
     switch (scene_state) {
@@ -2899,7 +2900,7 @@ app_on_render(game_memory_t* game_memory) {
         
         }   break;
         default:
-            zyy_warn("scene::render", "Unknown scene: {}", scene_state);
+            ztd_warn("scene::render", "Unknown scene: {}", scene_state);
             break;
         //     scene_state = 1;
     }
@@ -2931,7 +2932,7 @@ app_on_update(game_memory_t* game_memory) {
         }         
             break;
         default:
-            zyy_warn("scene::update", "Unknown scene: {}", scene_state);
+            ztd_warn("scene::update", "Unknown scene: {}", scene_state);
             scene_state = 1;
             break;
     }

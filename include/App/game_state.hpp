@@ -1,7 +1,7 @@
 #ifndef APP_HPP
 #define APP_HPP
 
-#include <zyy_core.hpp>
+#include <ztd_core.hpp>
 
 #include "game_screen.hpp"
 #include "game_settings.hpp"
@@ -45,7 +45,7 @@ utl::memory_blob_t::deserialize<loaded_skeletal_mesh_t>(arena_t* arena) {
     assert(mesh == utl::res::magic::skel);
 
     result.mesh.count = deserialize<u64>();
-    zyy_warn(__FUNCTION__, "Loading {} meshes", result.mesh.count);
+    ztd_warn(__FUNCTION__, "Loading {} meshes", result.mesh.count);
     tag_array(result.mesh.meshes, gfx::mesh_view_t, arena, result.mesh.count);
 
     u64 total_vertex_count = 0;
@@ -53,7 +53,7 @@ utl::memory_blob_t::deserialize<loaded_skeletal_mesh_t>(arena_t* arena) {
 
     for (size_t j = 0; j < result.mesh.count; j++) {
         std::string name = deserialize<std::string>();
-        zyy_info(__FUNCTION__, "Mesh name: {}", name);
+        ztd_info(__FUNCTION__, "Mesh name: {}", name);
         const size_t vertex_count = deserialize<u64>();
         const size_t vertex_bytes = sizeof(gfx::skinned_vertex_t) * vertex_count;
 
@@ -108,18 +108,18 @@ utl::memory_blob_t::deserialize<loaded_skeletal_mesh_t>(arena_t* arena) {
     range_u64(a, 0, animation_count) {
         auto& animation = animations[a];
         animation.optimize();
-        // zyy_info(__FUNCTION__, "Animation: {}, size: {}", animation.name, sizeof(gfx::anim::animation_t));
+        // ztd_info(__FUNCTION__, "Animation: {}, size: {}", animation.name, sizeof(gfx::anim::animation_t));
         // range_u64(n, 0, animation.node_count) {
         //     auto& node = animation.nodes[n];
         //     auto& timeline = node.bone;
         //     // if (timeline) {
-        //     //     zyy_info(__FUNCTION__, "Bone: {}, id: {}", timeline->name, timeline->id);
+        //     //     ztd_info(__FUNCTION__, "Bone: {}, id: {}", timeline->name, timeline->id);
         //     // }
         // }
     }
     // range_u64(b, 0, skeleton->bone_count) {
     //     auto& bone = skeleton->bones[b];
-    //     zyy_info(__FUNCTION__, "Bone: {}, parent: {}", bone.name_hash, bone.parent);
+    //     ztd_info(__FUNCTION__, "Bone: {}, parent: {}", bone.name_hash, bone.parent);
     // }
 
     result.animations.data = animations;
@@ -131,7 +131,7 @@ utl::memory_blob_t::deserialize<loaded_skeletal_mesh_t>(arena_t* arena) {
 }
 
 
-namespace zyy {
+namespace ztd {
     struct world_t;
 };
 
@@ -473,7 +473,7 @@ struct game_state_t {
 
     fmod_sound::sound_engine_t* sfx{0};
 
-    zyy::world_t* game_world{0};
+    ztd::world_t* game_world{0};
 
     f32 time_scale = 1.0f;
     f32 time_text_anim = 0.0f;

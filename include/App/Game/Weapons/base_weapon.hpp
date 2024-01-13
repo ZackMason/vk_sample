@@ -1,16 +1,16 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 
 #include "bullet.hpp"
 
 
-namespace zyy::item {
+namespace ztd::item {
     struct effect_t;
 };
 
-namespace zyy::wep {
+namespace ztd::wep {
     enum WeaponType {
         WeaponType_Sword,
         WeaponType_Wand,
@@ -259,8 +259,8 @@ namespace zyy::wep {
 }
 
 template<>
-zyy::wep::base_weapon_t utl::memory_blob_t::deserialize<zyy::wep::base_weapon_t>() {
-    zyy::wep::base_weapon_t weapon{};
+ztd::wep::base_weapon_t utl::memory_blob_t::deserialize<ztd::wep::base_weapon_t>() {
+    ztd::wep::base_weapon_t weapon{};
 
     #define DESER(x) x = deserialize<decltype(x)>();
     
@@ -285,8 +285,8 @@ zyy::wep::base_weapon_t utl::memory_blob_t::deserialize<zyy::wep::base_weapon_t>
 }
 
 template<>
-void utl::memory_blob_t::serialize<zyy::wep::base_weapon_t>(arena_t* arena, const zyy::wep::base_weapon_t& weapon) {
-    serialize(arena, zyy::wep::base_weapon_t{}.VERSION);
+void utl::memory_blob_t::serialize<ztd::wep::base_weapon_t>(arena_t* arena, const ztd::wep::base_weapon_t& weapon) {
+    serialize(arena, ztd::wep::base_weapon_t{}.VERSION);
     
     serialize(arena, weapon.fire_rate);
     serialize(arena, weapon.load_speed);

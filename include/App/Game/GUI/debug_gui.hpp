@@ -265,10 +265,11 @@ void draw_arena(
 
     buffer<u64> block_virtual_address = {};
     buffer<arena_t> blocks = {};
-    block_virtual_address.reserve(memory.arena, arena->block_count);
-    blocks.reserve(memory.arena, arena->block_count);
+    auto block_count = arena->block_count;
+    block_virtual_address.reserve(memory.arena, block_count);
+    blocks.reserve(memory.arena, block_count);
 
-    range_u64(block, 0, arena->block_count) {
+    range_u64(block, 0, block_count) {
         auto fake_arena_block = arena_get_block(arena, block);
         blocks.data[block] = fake_arena_block;
         block_virtual_address.data[block] = total_virtual_space;
@@ -278,7 +279,7 @@ void draw_arena(
     gfx::gui::draw_rect(&imgui.ctx, rect, gfx::color::rgba::white);
 
     b32 show_invalid = false;
-    range_u64(block, 0, arena->block_count) {
+    range_u64(block, 0, block_count) {
         //u64 block_start_virtual = blocks[block].top;
         u64 arena_start_virtual = block_virtual_address[block] + blocks[block].top;
         u64 arena_end_virtual   = block_virtual_address[block] + blocks[block].size + 1;
@@ -286,7 +287,7 @@ void draw_arena(
         show_invalid |= draw_memory_region(imgui, rect, arena_start_virtual, arena_end_virtual, mouse, total_virtual_space / desired_line_count, 1);
     }
 
-    range_u64(block, 0, arena->block_count) {
+    range_u64(block, 0, block_count) {
         //u64 block_start_virtual = blocks[block].top;
         u64 arena_start_virtual = block_virtual_address[block];
         u64 arena_end_virtual   = block_virtual_address[block] + blocks[block].top + 1;
@@ -309,7 +310,7 @@ void draw_arena(
         u64 start_memory =  u64(tag + 1);
         if (tag_start_memory + alloc_size > blocks[block_id].size) {
             block_id += 1;
-            assert(block_id < arena->block_count);
+            assert(block_id < block_count);
             start_memory = u64(blocks[block_id].start);
         }
         u64 block_start = u64(blocks[block_id].start);
@@ -1001,7 +1002,7 @@ set_ui_textures(game_state_t* game_state) {
         txt_id = rs->texture_cache.next(txt_id)
     ) {
         if (txt_id >= array_count(ui_textures)) {
-            zyy_warn(__FUNCTION__, "Invalid texture id");
+            ztd_warn(__FUNCTION__, "Invalid texture id");
             break;
         }
         ui_textures[txt_id] = rs->texture_cache[txt_id];
@@ -1019,7 +1020,7 @@ set_ui_textures(game_state_t* game_state) {
 
     gui_pipeline.layout = gfx::vul::create_pipeline_layout(
         vk_gfx.device,
-        gui_pipeline.set_layouts, gui_pipeline.set_count, sizeof(m44)*2
+        gui_pipeline.set_layouts, gui_pipeline.set_count, assets::shaders::gui_vert.push_constant_size
     );
 
     game_state->ui_descriptor = vk_gfx.create_image_descriptor_set(
@@ -1063,7 +1064,7 @@ void draw_worlds(auto* game_state, auto& imgui) {
                 auto filename = entry.path().string();
                 if (entry.is_directory()) {
                     continue;
-                } else if (entry.is_regular_file() && utl::has_extension(filename, "zyy")) {
+                } else if (entry.is_regular_file() && utl::has_extension(filename, "ztd")) {
                     if (im::text(imgui, filename)) {
                         tag_array(auto* str, char, &world->arena, filename.size()+1);
                         utl::copy(str, filename.c_str(), filename.size()+1);
@@ -1120,7 +1121,7 @@ draw_entity_gui(auto* game_state, auto& imgui) {
     const m44 vp = 
             game_state->render_system->vp;
 
-    local_persist zyy::entity_t* selected_entity{0};
+    local_persist ztd::entity_t* selected_entity{0};
     local_persist bt::behavior_tree_t* behavior_tree{0};
     local_persist blackboard_t* blackboard{0};
         
@@ -1176,10 +1177,10 @@ draw_entity_gui(auto* game_state, auto& imgui) {
                     break;
                 }
                 im::text(imgui, 
-                    fmt_sv("Children[{}]", zyy::entity_child_count(e))
+                    fmt_sv("Children[{}]", ztd::entity_child_count(e))
                 );
 
-    #if ZYY_INTERNAL
+    #if ZTD_INTERNAL
                 auto _DEBUG_meta = e->_DEBUG_meta;
                 auto spawn_delta = game_state->game_world->time() - _DEBUG_meta.game_time;
                 
@@ -1212,19 +1213,19 @@ draw_entity_gui(auto* game_state, auto& imgui) {
                 }
 
                 switch(e->physics.flags) {
-                    case zyy::PhysicsEntityFlags_None:
+                    case ztd::PhysicsEntityFlags_None:
                         im::text(imgui, "Physics Type: None");
                         break;
-                    case zyy::PhysicsEntityFlags_Character:
+                    case ztd::PhysicsEntityFlags_Character:
                         im::text(imgui, "Physics Type: Character");
                         break;
-                    case zyy::PhysicsEntityFlags_Kinematic:
+                    case ztd::PhysicsEntityFlags_Kinematic:
                         im::text(imgui, "Physics Type: Kinematic");
                         break;
-                    case zyy::PhysicsEntityFlags_Static:
+                    case ztd::PhysicsEntityFlags_Static:
                         im::text(imgui, "Physics Type: Static");
                         break;
-                    case zyy::PhysicsEntityFlags_Dynamic:
+                    case ztd::PhysicsEntityFlags_Dynamic:
                         im::text(imgui, "Physics Type: Dynamic");
                         break;
                 }
@@ -1233,7 +1234,7 @@ draw_entity_gui(auto* game_state, auto& imgui) {
                 }
 
                 switch(e->type) {
-                    case zyy::entity_type::weapon: {
+                    case ztd::entity_type::weapon: {
                         auto stats = e->stats.weapon;
                         im::text(imgui, "Type: Weapon");
                         im::text(imgui, "- Stats");
@@ -1260,9 +1261,9 @@ draw_entity_gui(auto* game_state, auto& imgui) {
 
                 if (im::text(imgui, fmt_sv("Kill\0: {}"sv, (void*)e))) {
                     auto* te = e->next;
-                    zyy_info("gui", "Killing entity: {}", (void*)e);
+                    ztd_info("gui", "Killing entity: {}", (void*)e);
                     e->queue_free();
-                    // zyy::world_destroy_entity(game_state->game_world, e);
+                    // ztd::world_destroy_entity(game_state->game_world, e);
                     if (!te) {
                         v2f s ={};
                         im::end_panel(imgui, 0, &s);
@@ -1272,7 +1273,7 @@ draw_entity_gui(auto* game_state, auto& imgui) {
                 }
 
                 if (check_for_debugger() && im::text(imgui, fmt_sv("Breakpoint\0{}"sv, e->id))) {
-                    e->flags ^= zyy::EntityFlags_Breakpoint;
+                    e->flags ^= ztd::EntityFlags_Breakpoint;
                 }
 
                 v2f e_panel_size = {};
@@ -1601,7 +1602,7 @@ draw_gui(game_memory_t* game_memory) {
             open_tab = im::tabs(imgui, std::span{tabs}, open_tab);
             
 
-#if ZYY_INTERNAL
+#if ZTD_INTERNAL
             local_persist bool show_record[128];
             if (open_tab == "Profiling"_sid) {
                 debug_table_t* tables[] {
@@ -2124,7 +2125,7 @@ draw_gui(game_memory_t* game_memory) {
             draw_arena(imgui, arena_rect, open_arena_window);
         }
 
-        // for (zyy::entity_t* e = game_itr(game_state->game_world); e; e = e->next) {
+        // for (ztd::entity_t* e = game_itr(game_state->game_world); e; e = e->next) {
         
         local_persist math::rect2d_t depth_uv{v2f{0.0}, v2f{0.04, 0.2}};
         local_persist math::rect2d_t color_uv{v2f{0.0}, v2f{0.04, 0.2}};

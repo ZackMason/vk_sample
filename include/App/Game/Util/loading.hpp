@@ -1,7 +1,7 @@
 #ifndef UTIL_LOADING_HPP
 #define UTIL_LOADING_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 inline gfx::mesh_list_t
 load_bin_mesh_data(
@@ -24,13 +24,13 @@ load_bin_mesh_data(
     assert(mesh == utl::res::magic::mesh);
 
     results.count = blob.deserialize<u64>();
-    zyy_warn(__FUNCTION__, "Loading {} meshes", results.count);
+    ztd_warn(__FUNCTION__, "Loading {} meshes", results.count);
     tag_array(results.meshes, gfx::mesh_view_t, arena, results.count);
     // results.meshes  = push_struct<gfx::mesh_view_t>(arena, results.count);
 
     for (size_t i = 0; i < results.count; i++) {
         std::string name = blob.deserialize<std::string>();
-        zyy_info(__FUNCTION__, "Mesh name: {}", name);
+        ztd_info(__FUNCTION__, "Mesh name: {}", name);
         const size_t vertex_count = blob.deserialize<u64>();
         const size_t vertex_bytes = sizeof(gfx::vertex_t) * vertex_count;
 
@@ -67,7 +67,7 @@ load_bin_mesh_data(
 
     for (size_t i = 0; i < results.count; i++) {
         const auto& material = results.meshes[i].material = blob.deserialize<gfx::material_info_t>();
-        zyy_info(__FUNCTION__, "Loaded material: {}, albedo: {}, normal: {}", material.name, material.albedo, material.normal);
+        ztd_info(__FUNCTION__, "Loaded material: {}, albedo: {}, normal: {}", material.name, material.albedo, material.normal);
     }
 
     results.aabb = {};
@@ -95,7 +95,7 @@ load_bin_mesh(
     if (file_data) {
         gfx::mesh_list_t results = load_bin_mesh_data(arena, file_data, vertices, indices);
     } else {
-        zyy_warn("game_state::load_bin_mesh", "Failed to open mesh file: {}", path);
+        ztd_warn("game_state::load_bin_mesh", "Failed to open mesh file: {}", path);
     }
 
     return {};

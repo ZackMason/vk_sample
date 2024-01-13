@@ -1,10 +1,10 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include "App/game_state.hpp"
 #include "App/Game/Entity/entity.hpp"
-#include "App/Game/Entity/zyy_entity_prefab.hpp"
+#include "App/Game/Entity/ztd_entity_prefab.hpp"
 #include "App/Game/Rendering/render_system.hpp"
 
 
@@ -12,7 +12,7 @@ struct game_state_t;
 
 struct world_generator_t;
 
-namespace zyy {
+namespace ztd {
 
     enum physics_layers : u32 {
         none = 0ui32,
@@ -30,9 +30,9 @@ namespace zyy {
     constexpr u32 enemy_bullet_collision_group = ~physics_layers::enemy & ~physics_layers::enemy_bullets;
 
     struct prefab_loader_t {
-        utl::hash_trie_t<std::string_view, zyy::prefab_t>* map = 0; 
+        utl::hash_trie_t<std::string_view, ztd::prefab_t>* map = 0; 
 
-        zyy::prefab_t load(arena_t* arena, std::string_view name) {
+        ztd::prefab_t load(arena_t* arena, std::string_view name) {
             b32 had = 0;
             auto* prefab = utl::hash_get(&map, name, arena, &had);
             
@@ -123,10 +123,10 @@ namespace zyy {
 
         size_t          entity_count{0};
         size_t          entity_capacity{0};
-        zyy::entity_id next_entity_id{1};
-        zyy::entity_t  entities[max_entities]; // entities from [0,cap]
-        zyy::entity_t* entity_id_hash[max_entities*2];
-        zyy::entity_t* free_entities{0};
+        ztd::entity_id next_entity_id{1};
+        ztd::entity_t  entities[max_entities]; // entities from [0,cap]
+        ztd::entity_t* entity_id_hash[max_entities*2];
+        ztd::entity_t* free_entities{0};
 
         event_t* events{0};
 
@@ -135,9 +135,9 @@ namespace zyy {
         // brain_t  brains[4096];
         // brain_t* free_brain{0};
 
-        zyy::entity_t* player;
+        ztd::entity_t* player;
 
-        zyy::cam::camera_t camera;
+        ztd::cam::camera_t camera;
 
         physics::api_t* physics{0};
 
@@ -238,21 +238,21 @@ namespace zyy {
     }
 
     static void
-    world_new_brain(world_t* world, zyy::entity_t* entity, brain_type type) {
+    world_new_brain(world_t* world, ztd::entity_t* entity, brain_type type) {
         assert(entity);
         assert(world);
 
         entity->brain.type = type;
         brain_init(&world->arena, entity, &entity->brain);
         auto brain_id = entity->brain.id = entity->brain_id = world_new_brain(world, type);
-        zyy_info(__FUNCTION__, "Brain {} activated", brain_id);
+        ztd_info(__FUNCTION__, "Brain {} activated", brain_id);
     }
         
     static entity_t*
     spawn(
         world_t* world,
         rendering::system_t* rs,
-        const zyy::prefab_t& def,
+        const ztd::prefab_t& def,
         const v3f& pos = {},
         const m33& basis = m33{1.0f}
     ) {
@@ -315,7 +315,7 @@ namespace zyy {
 
         if (def.coroutine) {
             entity->coroutine.emplace(
-                zyy::entity_coroutine_t{
+                ztd::entity_coroutine_t{
                     .coroutine={world->game_state->time, (void*)entity}, 
                     .func=def.coroutine.get(mod_loader)
                 }
@@ -392,7 +392,7 @@ namespace zyy {
                 rb = world->physics->create_rigidbody(world->physics, entity, physics::rigidbody_type::DYNAMIC, entity->transform.origin, entity->transform.get_orientation());
             }
             if (!rb) {
-                zyy_error(__FUNCTION__, "Failed to spawn rigidbody!");
+                ztd_error(__FUNCTION__, "Failed to spawn rigidbody!");
             }
             assert(rb);
             entity->physics.rigidbody = rb;
@@ -419,7 +419,7 @@ namespace zyy {
                         physics::collider_convex_info_t ci;
                         ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
                         if (ci.mesh == nullptr) {
-                            zyy_warn(__FUNCTION__, "Error loading convex physics mesh: {}", collider_name);
+                            ztd_warn(__FUNCTION__, "Error loading convex physics mesh: {}", collider_name);
                         } else {
                             ci.size = safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name));
                             collider = world->physics->create_collider(
@@ -433,7 +433,7 @@ namespace zyy {
                         physics::collider_trimesh_info_t ci;
                         ci.mesh = utl::res::pack_file_get_file_by_name(resource_file, collider_name);
                         if (ci.mesh == nullptr) {
-                            zyy_warn(__FUNCTION__, "Error loading trimesh physics mesh: {}", collider_name);
+                            ztd_warn(__FUNCTION__, "Error loading trimesh physics mesh: {}", collider_name);
                         } else {
                             ci.size = safe_truncate_u64(utl::res::pack_file_get_file_size(resource_file, collider_name));
                             collider = world->physics->create_collider(
@@ -507,7 +507,7 @@ namespace zyy {
     static entity_t*
     tag_spawn_(
         world_t* world,
-        const zyy::prefab_t& def,
+        const ztd::prefab_t& def,
         const char* prefab_name,
         const char* file_name,
         const char* function,
@@ -516,7 +516,7 @@ namespace zyy {
         const m33& basis = m33{1.0f}
     ) {
         auto* e = spawn(world, world->render_system(), def, pos, basis);
-        e->_DEBUG_meta = zyy::DEBUG_entity_meta_info_t {
+        e->_DEBUG_meta = ztd::DEBUG_entity_meta_info_t {
             .prefab_name = prefab_name,
             .file_name = file_name,
             .function = function,
@@ -526,11 +526,11 @@ namespace zyy {
         return e;
     }
 
-}; // namespace zyy
+}; // namespace ztd
 
 #include "App/Game/Entity/brain_behavior.hpp"
 
-namespace zyy {
+namespace ztd {
 
     static void 
     world_free(world_t*& world) {
@@ -734,13 +734,13 @@ namespace zyy {
             if (e->is_alive() == false) {
                 continue;
             }
-            if (e->physics.flags & zyy::PhysicsEntityFlags_Dying) {
+            if (e->physics.flags & ztd::PhysicsEntityFlags_Dying) {
                 e->physics.flags = 0;
                 world->physics->remove_rigidbody(world->physics, e->physics.rigidbody);
                 e->physics.rigidbody = 0;
                 continue;
             }
-            if (e->physics.rigidbody && e->physics.flags & zyy::PhysicsEntityFlags_Kinematic) {
+            if (e->physics.rigidbody && e->physics.flags & ztd::PhysicsEntityFlags_Kinematic) {
                 world->physics->set_rigidbody(0, e->physics.rigidbody);
                 e->transform.origin = e->physics.rigidbody->position;
                 e->transform.basis = glm::toMat3(e->physics.rigidbody->orientation);
@@ -772,7 +772,7 @@ namespace zyy {
         }
 
         e->gfx = {};
-        new (e) zyy::entity_t;
+        new (e) ztd::entity_t;
 
         e->id = uid::invalid_id;
         node_push(e, world->free_entities);
@@ -815,7 +815,7 @@ namespace zyy {
     }
 }
 
-#if ZYY_INTERNAL
+#if ZTD_INTERNAL
     #define tag_spawn(world, prefab, ...) \
         tag_spawn_((world), (prefab), #prefab, __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
 #else 
@@ -855,7 +855,7 @@ utl::memory_blob_t::deserialize<world_save_file_header_t>() {
     return result;
 }
 
-void load_world_file(zyy::world_t* world, const char* name) {
+void load_world_file(ztd::world_t* world, const char* name) {
     arena_t* arena = &world->arena;
 
     auto [bytes, file_size] = utl::read_bin_file(arena, name);
@@ -863,12 +863,12 @@ void load_world_file(zyy::world_t* world, const char* name) {
 
     auto header = blob.deserialize<world_save_file_header_t>();
     
-    zyy_info(__FUNCTION__, "Loading world '{}' - save file version: {}", name, header.VERSION);
+    ztd_info(__FUNCTION__, "Loading world '{}' - save file version: {}", name, header.VERSION);
     range_u64(i, 0, header.prefab_count) {
-        auto prefab = blob.deserialize<zyy::prefab_t>(arena);
+        auto prefab = blob.deserialize<ztd::prefab_t>(arena);
         auto transform = blob.deserialize<math::transform_t>();
 
-        zyy::tag_spawn(world, prefab, transform.origin, transform.basis);
+        ztd::tag_spawn(world, prefab, transform.origin, transform.basis);
     }
 
     if (header.light_probe_count > 0) {
@@ -882,7 +882,7 @@ void load_world_file(zyy::world_t* world, const char* name) {
     }
 }
 
-void load_world_file(zyy::world_t* world, const char* name, auto&& callback) {
+void load_world_file(ztd::world_t* world, const char* name, auto&& callback) {
     arena_t* arena = &world->arena;
 
     auto [bytes, file_size] = utl::read_bin_file(arena, name);
@@ -891,9 +891,9 @@ void load_world_file(zyy::world_t* world, const char* name, auto&& callback) {
 
     auto header = blob.deserialize<world_save_file_header_t>();
     
-    zyy_info(__FUNCTION__, "Loading world '{}' - save file version: {}", name, header.VERSION);
+    ztd_info(__FUNCTION__, "Loading world '{}' - save file version: {}", name, header.VERSION);
     range_u64(i, 0, header.prefab_count) {
-        auto prefab = blob.deserialize<zyy::prefab_t>(arena);
+        auto prefab = blob.deserialize<ztd::prefab_t>(arena);
         auto transform = blob.deserialize<math::transform_t>();
 
         callback(world, prefab, transform.origin, transform.basis);

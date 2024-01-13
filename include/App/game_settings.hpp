@@ -1,6 +1,6 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 namespace fullscreen_mode { enum : u8 {
     window, fullscreen, borderless

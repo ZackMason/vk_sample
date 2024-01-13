@@ -1,6 +1,6 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include "uid.hpp"
 
@@ -14,7 +14,7 @@
 
 #include <variant>
 
-namespace zyy {
+namespace ztd {
 struct world_t;
 
 // using entity_update_function = void(*)(entity_t*, world_t*);
@@ -27,7 +27,7 @@ struct entity_t {
     u64         tag{0};
     string_t    name;
 
-#if ZYY_INTERNAL
+#if ZTD_INTERNAL
     DEBUG_entity_meta_info_t _DEBUG_meta{};
 #endif
 
@@ -207,7 +207,7 @@ struct entity_t {
     void queue_free(b32 and_children = 1) noexcept {
         assert(uid::is_valid(id));
         assert(((flags & EntityFlags_Dead) == 0) && "Should not have access to dead entities");
-        // zyy_info(__FUNCTION__, "Killing entity: {} - {}", (void*)this, name.c_str() ? name.c_str() : "<null>");
+        // ztd_info(__FUNCTION__, "Killing entity: {} - {}", (void*)this, name.c_str() ? name.c_str() : "<null>");
         flags |= EntityFlags_Dying;
         
         if (and_children) {
@@ -288,4 +288,4 @@ entity_child_count(
     return result;
 }
 
-}; // namespace zyy
+}; // namespace ztd

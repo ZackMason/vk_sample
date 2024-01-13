@@ -1,13 +1,13 @@
 #ifndef GUI_ENTITY_EDITOR_HPP
 #define GUI_ENTITY_EDITOR_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include "dialog_window.hpp"
 #include "App/Game/Entity/entity.hpp"
-#include "App/Game/Entity/zyy_entity_prefab.hpp"
-#include "App/Game/Entity/zyy_coroutine_callbacks.hpp"
-#include "App/Game/Entity/zyy_physics_callbacks.hpp"
+#include "App/Game/Entity/ztd_entity_prefab.hpp"
+#include "App/Game/Entity/ztd_coroutine_callbacks.hpp"
+#include "App/Game/Entity/ztd_physics_callbacks.hpp"
 
 
 #include "App/game_state.hpp"
@@ -108,7 +108,7 @@ namespace csg {
 struct instanced_prefab_t {
     instanced_prefab_t* next = 0;
     instanced_prefab_t* prev = 0;
-    zyy::prefab_t prefab{};
+    ztd::prefab_t prefab{};
     math::transform_t transform{};
     particle_system_t* particle_system = 0;
     rendering::gfx_entity_id gfx_id = 0;
@@ -132,7 +132,7 @@ struct instanced_prefab_t {
 };
 
 struct saved_prefab_t {
-    zyy::prefab_t prefab;
+    ztd::prefab_t prefab;
     m44 transform;
 };
 
@@ -147,8 +147,8 @@ enum edit_change_type {
 };
 
 struct prefab_edit_t {
-    zyy::prefab_t* where{0};
-    zyy::prefab_t change[Edit_Count];
+    ztd::prefab_t* where{0};
+    ztd::prefab_t change[Edit_Count];
 };
 
 struct text_edit_t {
@@ -280,7 +280,7 @@ struct entity_editor_t {
     edit_event_t undo_sentinel{};
     edit_event_t* event_group{0};
 
-    zyy::world_path_t paths{};
+    ztd::world_path_t paths{};
     gfx::color::gradient_t* gradient{0};
 
     void redo() {
@@ -368,7 +368,7 @@ struct entity_editor_t {
         on_add_to_undo();
     }
 
-    void edit_prefab(zyy::prefab_t* where, zyy::prefab_t what, zyy::prefab_t from) {
+    void edit_prefab(ztd::prefab_t* where, ztd::prefab_t what, ztd::prefab_t from) {
         tag_struct(auto* edit, edit_event_t, &undo_arena);
         edit->type = edit_type_t::PREFAB;
         tag_struct(edit->prefab_edit, prefab_edit_t, &undo_arena);
@@ -398,7 +398,7 @@ struct entity_editor_t {
         edit_bytes(where, what, *where);
     }
 
-    void edit_prefab(zyy::prefab_t* where, zyy::prefab_t what) {
+    void edit_prefab(ztd::prefab_t* where, ztd::prefab_t what) {
         edit_prefab(where, what, *where);
     }
 
@@ -410,7 +410,7 @@ struct entity_editor_t {
         edit_basis(where, what, *where);
     }
 
-    instanced_prefab_t* instance_prefab(const zyy::prefab_t& prefab, const math::transform_t& transform, b32 push_undo = 1) {
+    instanced_prefab_t* instance_prefab(const ztd::prefab_t& prefab, const math::transform_t& transform, b32 push_undo = 1) {
         tag_struct(auto* inst, instanced_prefab_t, &arena);
         inst->prefab = prefab;
         inst->transform = transform;
@@ -508,7 +508,7 @@ struct entity_editor_t {
     }
 
     m44 projection{1.0f};
-    zyy::cam::orbit_camera_t camera{};
+    ztd::cam::orbit_camera_t camera{};
 
     struct selection_t {
         selection_mode mode;
@@ -594,11 +594,11 @@ struct entity_editor_t {
     } light_probe_settings{};
 
     instanced_prefab_t prefabs{};
-    zyy::prefab_t creating_entity{};
-    zyy::prefab_t* entity{&creating_entity};
+    ztd::prefab_t creating_entity{};
+    ztd::prefab_t* entity{&creating_entity};
 
     csg::world_t  csg_world{};
-    zyy::world_t* editor_world{0};
+    ztd::world_t* editor_world{0};
 
     void save_to_file(const char* name) {
         std::ofstream file{name, std::ios::binary};
@@ -617,7 +617,7 @@ struct entity_editor_t {
             prefab != &prefabs;
             node_next(prefab)
         ) {
-            file.write((char*)&prefab->prefab, sizeof(zyy::prefab_t));
+            file.write((char*)&prefab->prefab, sizeof(ztd::prefab_t));
             file.write((char*)&prefab->transform, sizeof(math::transform_t));
         }
     }
@@ -628,7 +628,7 @@ struct entity_editor_t {
     {
         if (app_) {
             // undo_arena = arena_sub_arena(&game_state->main_arena, megabytes(1));
-            editor_world = zyy::world_init(game_state, game_state->game_memory->physics);
+            editor_world = ztd::world_init(game_state, game_state->game_memory->physics);
             // auto& mesh = csg_world.build_unit_cube(app_->render_system->scene_context->vertices.allocator, app_->render_system->scene_context->indices.allocator);
             // csg_world.box_mesh_id = rendering::add_mesh(app_->render_system, "box_brush", mesh);
         }
@@ -764,9 +764,11 @@ save_world_window(
         
         for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/worlds/")) {
             auto filename = entry.path().string();
+            auto extension_match = utl::has_extension(filename, "zmap") || utl::has_extension(filename, "zyy");
             if (entry.is_directory()) {
                 continue;
-            } else if (entry.is_regular_file() && utl::has_extension(filename, "zyy")) {
+
+            } else if (entry.is_regular_file() && extension_match) {
                 if (dialog_box.text_buffer[0]) {
                     if (std::strstr(filename.c_str(), dialog_box.text_buffer) == nullptr) {
                         continue;
@@ -823,7 +825,7 @@ save_world_window(
         };
 
         range_u64(i, 0, header.prefab_count) {
-            auto prefab = blob.deserialize<zyy::prefab_t>(&ee->arena);
+            auto prefab = blob.deserialize<ztd::prefab_t>(&ee->arena);
             auto transform = blob.deserialize<math::transform_t>();
             ee->instance_prefab(prefab, transform);
         }
@@ -1354,7 +1356,7 @@ entity_editor_render(entity_editor_t* ee) {
         };
 
         if (im::text(imgui, fmt_sv("Type: {}"sv, types[(u32)ee->entity->type]))) {
-            ee->entity->type = (zyy::entity_type)(((u32)ee->entity->type + 1) % (u32)zyy::entity_type::SIZE);
+            ee->entity->type = (ztd::entity_type)(((u32)ee->entity->type + 1) % (u32)ztd::entity_type::SIZE);
         }
 
         std::string_view entity_flags[] {
@@ -1405,7 +1407,7 @@ entity_editor_render(entity_editor_t* ee) {
         }
         if (im::text(imgui, "Physics"sv, &show_physics)) {
             if (!ee->entity->physics) {
-                ee->entity->physics.emplace(zyy::prefab_t::physics_t{});
+                ee->entity->physics.emplace(ztd::prefab_t::physics_t{});
             }
             auto& physics = *ee->entity->physics;
         
@@ -1448,7 +1450,7 @@ entity_editor_render(entity_editor_t* ee) {
             for (u64 i = 0; i < array_count(physics.shapes); i++) {
                 if (!physics.shapes[i]) {
                     if (add_shape) {
-                        physics.shapes[i].emplace(zyy::prefab_t::physics_t::shape_t{});
+                        physics.shapes[i].emplace(ztd::prefab_t::physics_t::shape_t{});
                         add_shape = 0;
                     } else {
                         continue;
@@ -1529,7 +1531,7 @@ entity_editor_render(entity_editor_t* ee) {
 
         if (!ee->entity->stats) {
             if (im::text(imgui, "Create Character")) {
-                ee->entity->stats.emplace(zyy::character_stats_t{});
+                ee->entity->stats.emplace(ztd::character_stats_t{});
                 show_stats = true;
             }
         } else if (im::text(imgui, "Show Character", &show_stats)) {
@@ -1665,7 +1667,7 @@ entity_editor_render(entity_editor_t* ee) {
 
         if (!ee->entity->weapon) {
             if (im::text(imgui, "Create Weapon")) {
-                ee->entity->weapon.emplace(zyy::wep::base_weapon_t{});
+                ee->entity->weapon.emplace(ztd::wep::base_weapon_t{});
                 show_weapon = true;
             }
         } else if (im::text(imgui, "Show Weapon", &show_weapon)) {
@@ -1763,7 +1765,7 @@ entity_editor_render(entity_editor_t* ee) {
                     // CLOG("Optimized");
                     u8* r = (u8*)&prefab_start;
                     u8* w = (u8*)e;
-                    for (u64 i = 0; i < sizeof(zyy::prefab_t); i++) {
+                    for (u64 i = 0; i < sizeof(ztd::prefab_t); i++) {
                         if (*w != *r) {
                             ee->edit_bytes(w, *(u64*)r);
                             break;
@@ -1803,7 +1805,7 @@ entity_editor_render(entity_editor_t* ee) {
 
         im::text(imgui, "============================");
         if (im::text(imgui, "Add Path")) {
-            tag_struct(auto* path, zyy::world_path_t, &ee->arena);
+            tag_struct(auto* path, ztd::world_path_t, &ee->arena);
 
             dlist_insert_as_last(&ee->paths, path);
         }
@@ -2163,7 +2165,7 @@ entity_editor_update(entity_editor_t* ee) {
                 if (entity.gfx.albedo_texture.empty() == false) {
                     auto aid = (u32)rs->texture_cache.get_id(entity.gfx.albedo_texture.view());
                     if (aid == 0) {
-                        zyy_warn(__FUNCTION__, "Missing Texture: {}", entity.gfx.albedo_texture.view());
+                        ztd_warn(__FUNCTION__, "Missing Texture: {}", entity.gfx.albedo_texture.view());
                         tag_array(auto* texture, char, &ee->game_state->texture_arena, entity.gfx.albedo_texture.size()+1);
                         utl::copy(texture, entity.gfx.albedo_texture.buffer, entity.gfx.albedo_texture.size());
                         texture[entity.gfx.albedo_texture.size()] = '\0';
@@ -2320,17 +2322,17 @@ entity_editor_update(entity_editor_t* ee) {
 
 //     file.read((char*)&header, sizeof(header));
     
-//     assert(header.prefab_size == sizeof(zyy::prefab_t));
+//     assert(header.prefab_size == sizeof(ztd::prefab_t));
     
 //     range_u64(i, 0, header.prefab_count) {
 //         math::transform_t transform;
-//         zyy::prefab_t prefab = {};
+//         ztd::prefab_t prefab = {};
 
 //         file.read((char*)&prefab, header.prefab_size);
 //         file.read((char*)&transform, sizeof(transform));
 
-//         if (prefab.VERSION != zyy::prefab_t{}.VERSION) {
-//             zyy_error(__FUNCTION__, "Prefab version ({}) not supported", prefab.VERSION);
+//         if (prefab.VERSION != ztd::prefab_t{}.VERSION) {
+//             ztd_error(__FUNCTION__, "Prefab version ({}) not supported", prefab.VERSION);
 //         } else {
 //             auto* inst = ee->instance_prefab(prefab, transform);
 //         }

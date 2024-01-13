@@ -1,8 +1,8 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
-namespace zyy {
+namespace ztd {
 
 struct world_t;
 
@@ -171,7 +171,7 @@ struct player_script_t {
 
     void end_play(world_t* world) {}
     void begin_play(world_t* world) {
-        zyy_info("PlayerScript", "Hello World: {} - {}", script_name(), id);
+        ztd_info("PlayerScript", "Hello World: {} - {}", script_name(), id);
     }
 
     void update(world_t* world, f32 dt) {

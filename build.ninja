@@ -67,16 +67,16 @@ rule end_build_profile
 
 # Build targets
 
-build build\zyy_platform.obj: compile_cpp src\zyy_platform.cpp
+build build\ztd_platform.obj: compile_cpp src\ztd_platform.cpp
   outputs = $out
-  opt_flags = $OptimizationFlags -DZYY_INTERNAL=1
+  opt_flags = $OptimizationFlags -DZTD_INTERNAL=1
   include_flags = /I include /I include\vendor /I include\vendor\SDL /I $VULKAN_SDK\include
   link_flags = $lflags /LIBPATH:$VULKAN_SDK\lib /LIBPATH:lib\debug vulkan-1.lib $sdl_lflags glfw3.lib
   random = $out.rnd
 
-build build\zyy_physics.obj: compile_cpp src\zyy_physics.cpp
+build build\ztd_physics.obj: compile_cpp src\ztd_physics.cpp
   outputs = $out
-  opt_flags = /DNDEBUG /O2 /fp:fast /arch:AVX2 -DZYY_LINK_PHYSICS_API_PHYSX=1 -DZYY_INTERNAL=1
+  opt_flags = /DNDEBUG /O2 /fp:fast /arch:AVX2 -DZYY_LINK_PHYSICS_API_PHYSX=1 -DZTD_INTERNAL=1
   include_flags = /I include /I include\vendor $PhysXInclude
   link_flags = $lflags /LIBPATH:$PhysXCompiler\$PhysXOpt $PhysXLinkLibs
   
@@ -86,31 +86,31 @@ build build\vendor_build.obj: compile_cpp src\vendor\vendor_build.cpp
   include_flags = /I src\vendor /I include\vendor\Detour /I include\vendor\Recast 
   link_flags = $lflags
 
-build build\zyy_build.obj: compile_cpp src\zyy_build.cpp
+build build\cultist.obj: compile_cpp src\cultist.cpp
   outputs = $out
-  opt_flags = $OptimizationFlags -DZYY_INTERNAL=1
+  opt_flags = $OptimizationFlags -DZTD_INTERNAL=1
   include_flags = /I include /I include\vendor /I $VULKAN_SDK\include $FMODInclude
   link_flags = $lflags
   
-build build\zyy_build.dll: link_dll build\zyy_build.obj build\vendor_build.obj
+build build\cultist.dll: link_dll build\cultist.obj build\vendor_build.obj
   outputs = $out
-  opt_flags = $OptimizationFlags -DZYY_INTERNAL=1
+  opt_flags = $OptimizationFlags -DZTD_INTERNAL=1
   link_flags = $lflags /LIBPATH:$VULKAN_SDK\lib /LIBPATH:lib\debug vulkan-1.lib $FMODLink
   random = $out.rnd
 
-build build\zyy_physics.dll: link_dll build\zyy_physics.obj
+build build\ztd_physics.dll: link_dll build\ztd_physics.obj
   outputs = $out
-  opt_flags = /DNDEBUG /O2 /fp:fast /arch:AVX2 -DZYY_LINK_PHYSICS_API_PHYSX=1 -DZYY_INTERNAL=1
+  opt_flags = /DNDEBUG /O2 /fp:fast /arch:AVX2 -DZYY_LINK_PHYSICS_API_PHYSX=1 -DZTD_INTERNAL=1
   link_flags = $lflags /LIBPATH:lib\debug /LIBPATH:$PhysXCompiler/$PhysXOpt $PhysXLinkLibs
   random = $out.rnd
 
-build build\game.exe: link_exe build\zyy_platform.obj
+build build\game.exe: link_exe build\ztd_platform.obj
   outputs = $out
   link_flags = $lflags /LIBPATH:$VULKAN_SDK\lib /LIBPATH:lib\debug vulkan-1.lib $sdl_lflags glfw3.lib  
 
 build build\tests.obj: compile_cpp tests\tests.cpp
     outputs = $out
-    opt_flags = $OptimizationFlags -DZYY_INTERNAL=0
+    opt_flags = $OptimizationFlags -DZTD_INTERNAL=0
     include_flags = /I include /I include\vendor
     link_flags = $lflags /LIBPATH:lib\debug $sdl_lflags
 
@@ -121,8 +121,8 @@ build build\tests.exe: link_exe build\tests.obj
 
 default build\game.exe 
 #default build\tests.exe
-default build\zyy_build.dll 
-default build\zyy_physics.dll
+default build\cultist.dll 
+default build\ztd_physics.dll
 
 build res\shaders\bin\closesthit.rchit.spv: compile_shader res/shaders/closesthit.rchit
 build res\shaders\bin\probe_raygen.rgen.spv: compile_shader res/shaders/probe_raygen.rgen

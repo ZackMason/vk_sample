@@ -1,7 +1,7 @@
 #ifndef DESCRIPTOR_ALLOCATOR_HPP
 #define DESCRIPTOR_ALLOCATOR_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 namespace gfx::vul {
 
@@ -162,7 +162,7 @@ descriptor_allocator_t::allocate(VkDescriptorSet* set, VkDescriptorSetLayout lay
         if (allocResult == VK_SUCCESS) {
             return true;
         }
-        zyy_error(__FUNCTION__, "Big issues allocating descriptor set");
+        ztd_error(__FUNCTION__, "Big issues allocating descriptor set");
     }
 
     return false;
@@ -278,7 +278,7 @@ descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCre
 
     //sort the bindings if they aren't in order
     if (!isSorted) {
-        zyy_warn(__FUNCTION__, "Bindings aren't sorted");
+        ztd_warn(__FUNCTION__, "Bindings aren't sorted");
         range_u64(w, 0, info->bindingCount-1) {
             size_t min{w};
 
@@ -299,11 +299,11 @@ descriptor_layout_cache_t::create_descriptor_set_layout(VkDescriptorSetLayoutCre
     //try to grab from cache
     const size_t hash = layout_info.hash();
     size_t bucket = hash % MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE;
-    // zyy_warn(__FUNCTION__, "binding hash: {}", hash);
+    // ztd_warn(__FUNCTION__, "binding hash: {}", hash);
     
     while (cache[bucket] != VK_NULL_HANDLE && meta[bucket] != hash) {
         bucket = (bucket + 1) % MAX_DESCRIPTOR_LAYOUT_CACHE_SIZE;
-        zyy_warn(__FUNCTION__, "probe: {} - {}", hash, bucket);
+        ztd_warn(__FUNCTION__, "probe: {} - {}", hash, bucket);
     }
 
     if (meta[bucket] == hash) {
@@ -447,7 +447,7 @@ bool descriptor_builder_t::build(VkDescriptorSet& set, VkDescriptorSetLayout& la
 	//allocate descriptor
 	bool success = alloc->allocate(&set, layout);
 	if (!success) { 
-        zyy_warn(__FUNCTION__, "Failed to build descriptor set");
+        ztd_warn(__FUNCTION__, "Failed to build descriptor set");
         return false; 
     };
 
@@ -492,7 +492,7 @@ bool descriptor_builder_t::build_push(
 	//allocate descriptor
 	bool success = alloc->allocate(&set, layout);
 	if (!success) { 
-        zyy_warn(__FUNCTION__, "Failed to build descriptor set");
+        ztd_warn(__FUNCTION__, "Failed to build descriptor set");
         return false; 
     };
 

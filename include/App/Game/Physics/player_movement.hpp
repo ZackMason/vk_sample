@@ -1,6 +1,6 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 static v3f
 quake_accelerate(v3f wishdir, v3f velocity, float accelerate, float max_velocity, float dt) {

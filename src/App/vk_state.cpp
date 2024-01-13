@@ -164,14 +164,14 @@ find_memory_by_flag_and_type(VkPhysicalDevice gpu_device, u32 memoryFlagBits, u3
 			if( ( vmpf & memoryFlagBits ) != 0 )
 			{
 #if !NDEBUG
-				zyy_info("vk", "\n***** Found given memory flag ({}) and type ({}): i = {} *****\n", memoryFlagBits, memoryTypeBits, i );
+				ztd_info("vk", "\n***** Found given memory flag ({}) and type ({}): i = {} *****\n", memoryFlagBits, memoryTypeBits, i );
 #endif
 				return i;
 			}
 		}
 	}
 
-	zyy_error("vk", "\n***** Could not find given memory flag ({}) and type ({}) *****\n", memoryFlagBits, memoryTypeBits);
+	ztd_error("vk", "\n***** Could not find given memory flag ({}) and type ({}) *****\n", memoryFlagBits, memoryTypeBits);
 	
 	return (u32)~0;
 }
@@ -320,7 +320,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     void* pUserData) {
 
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-        zyy_error("validation", pCallbackData->pMessage);
+        ztd_error("validation", pCallbackData->pMessage);
         // std::terminate();
     }
 
@@ -388,17 +388,17 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         u32 layerCount;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
         
-        zyy_info("vulkan", "Layer count: {}", layerCount);
+        ztd_info("vulkan", "Layer count: {}", layerCount);
 
         std::vector<VkLayerProperties> availableLayers(layerCount);
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
         for (const char* layerName : validationLayers) {
             bool layerFound = false;
-            zyy_info("vulkan", "Layer name: {}", layerName);
+            ztd_info("vulkan", "Layer name: {}", layerName);
 
             for (const auto& layerProperties : availableLayers) {
-                zyy_info("vulkan", "\t- Layer prop: {}", layerProperties.layerName);
+                ztd_info("vulkan", "\t- Layer prop: {}", layerProperties.layerName);
                 if (strcmp(layerName, layerProperties.layerName) == 0) {
                     layerFound = true;
                     return true;
@@ -423,9 +423,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		vkEnumerateInstanceExtensionProperties(nullptr, &numExtensionsAvailable, instance_extensions);
 		
 		
-		zyy_info("vk::ext", "{} Instance Extensions actually available:", numExtensionsAvailable);
+		ztd_info("vk::ext", "{} Instance Extensions actually available:", numExtensionsAvailable);
 		for (u32 i = 0; i < numExtensionsAvailable; i++) {
-			zyy_info("vk::ext", "{:X}  '{}'", 
+			ztd_info("vk::ext", "{:X}  '{}'", 
                 instance_extensions[i].specVersion,
 				instance_extensions[i].extensionName);
 		}
@@ -439,7 +439,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         // extensions.push_back(VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME);
 
         for (const auto& e : extensions) {
-            zyy_info("vulkan", "loading extension: {}", e);
+            ztd_info("vulkan", "loading extension: {}", e);
         }
 
         return extensions;
@@ -471,16 +471,16 @@ void state_t::init(app_config_t* info, arena_t* temp_arena) {
     create_instance(info);
     create_debug_messenger();
     create_surface(info);
-    zyy_info("vulkan", "created surface.");
+    ztd_info("vulkan", "created surface.");
     find_device(temp_arena);
     create_logical_device();
 
     load_extension_functions(*this);
     
-    zyy_info("vulkan", "created device.");
+    ztd_info("vulkan", "created device.");
 
     create_swap_chain(info->window_size[0], info->window_size[1], info->graphics_config.vsync);
-    zyy_info("vulkan", "created swap chain.");
+    ztd_info("vulkan", "created swap chain.");
 
     create_command_pool();
 
@@ -495,7 +495,7 @@ void state_t::init(app_config_t* info, arena_t* temp_arena) {
 
 
 
-    zyy_info("vulkan", "init finished");
+    ztd_info("vulkan", "init finished");
 }
 
 void 
@@ -601,14 +601,14 @@ void state_t::create_command_pool() {
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphics_family.value();
 
     if (vkCreateCommandPool(device, &poolInfo, nullptr, &command_pool) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to create command pool!");
+        ztd_error("vulkan", "failed to create command pool!");
         std::terminate();
     }
 
     poolInfo.queueFamilyIndex = queueFamilyIndices.compute_family.value();
 
     // if (vkCreateCommandPool(device, &poolInfo, nullptr, &compute_command_pool) != VK_SUCCESS) {
-    //     zyy_error("vulkan", "failed to create command pool!");
+    //     ztd_error("vulkan", "failed to create command pool!");
     //     std::terminate();
     // }
 }
@@ -636,7 +636,7 @@ void state_t::create_image_views() {
         createInfo.subresourceRange.layerCount = 1;
 
         if (vkCreateImageView(device, &createInfo, nullptr, &swap_chain_image_views[i]) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to create image views!");
+        ztd_error("vulkan", "failed to create image views!");
             std::terminate();
         }
     }
@@ -707,7 +707,7 @@ void state_t::create_surface(app_config_t* info) {
     
     // // if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
     // if (vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface) != VK_SUCCESS) {
-    //     zyy_error("vulkan", "failed to create window surface!");
+    //     ztd_error("vulkan", "failed to create window surface!");
     //     std::terminate();
     // }
 }
@@ -719,7 +719,7 @@ void state_t::create_debug_messenger() {
     internal::populateDebugMessengerCreateInfo(createInfo);
     
     if (internal::CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debug_messenger) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to set up debug messenger!");
+        ztd_error("vulkan", "failed to set up debug messenger!");
         std::terminate();
     }
 #endif
@@ -729,7 +729,7 @@ void state_t::create_instance(app_config_t* info) {
     if constexpr (internal::enable_validation){
         if (!internal::check_validation_layer_support()) {
             assert(0  && "Failed to provide validation layers");
-            zyy_error("vulkan", "Failed to provide validation layers");
+            ztd_error("vulkan", "Failed to provide validation layers");
             std::terminate();
         }
     }
@@ -763,9 +763,9 @@ void state_t::create_instance(app_config_t* info) {
 
     VK_OK(vkCreateInstance(&create_info, nullptr, &instance));
 
-    zyy_info("vulkan", "{} extensions loaded", extensions.size());
+    ztd_info("vulkan", "{} extensions loaded", extensions.size());
 
-    zyy_info("vulkan", "instance created");
+    ztd_info("vulkan", "instance created");
 }
 
 
@@ -776,7 +776,7 @@ bool check_device_extension_support(VkPhysicalDevice device) {
     std::vector<VkExtensionProperties> availableExtensions(extensionCount);
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-    zyy_info("vulkan", "extensions available: - {}", availableExtensions.size());
+    ztd_info("vulkan", "extensions available: - {}", availableExtensions.size());
     
 
     std::set<std::string> requiredExtensions(internal::deviceExtensions.begin(), internal::deviceExtensions.end());
@@ -787,7 +787,7 @@ bool check_device_extension_support(VkPhysicalDevice device) {
         requiredExtensions.erase(extension.extensionName);
     }
     // for (const auto& extension : requiredExtensions) {
-    //     zyy_error(__FUNCTION__, "Missing extension: {}", extension);
+    //     ztd_error(__FUNCTION__, "Missing extension: {}", extension);
     // }
 
     return requiredExtensions.empty();
@@ -818,7 +818,7 @@ void state_t::find_device(arena_t* arena) {
     u32 device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
     if (device_count == 0) {
-        zyy_error("vulkan", "No Physical Device Found, You Must Be Poor LOL");
+        ztd_error("vulkan", "No Physical Device Found, You Must Be Poor LOL");
         std::terminate();
     }
     tag_array(VkPhysicalDevice* devices, VkPhysicalDevice, arena, device_count);
@@ -835,10 +835,10 @@ void state_t::find_device(arena_t* arena) {
     VkPhysicalDeviceProperties vpdp{};
     vkGetPhysicalDeviceProperties(gpu_device, &vpdp);
 
-    zyy_info("vk::device", "Selecting device: {}", vpdp.deviceName);
+    ztd_info("vk::device", "Selecting device: {}", vpdp.deviceName);
 
     if (gpu_device == VK_NULL_HANDLE) {
-        zyy_error("vulkan", "Failed to find a poggers gpu, oh no");
+        ztd_error("vulkan", "Failed to find a poggers gpu, oh no");
         std::terminate();
     }
 }
@@ -904,10 +904,10 @@ void state_t::create_logical_device() {
     }
 
     if (vkCreateDevice(gpu_device, &createInfo, nullptr, &device) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to create logical device!");
+        ztd_error("vulkan", "failed to create logical device!");
         std::terminate();
     } else {
-        zyy_info("vulkan", "created logical device");
+        ztd_info("vulkan", "created logical device");
     }
 
     graphics_index = indices.graphics_family.value();
@@ -946,7 +946,7 @@ static std::vector<char> read_bin_file(std::string_view filename) {
     std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
 
     if (!file.is_open()) {
-        zyy_error("vulkan", "failed to open shader file - {}", filename);
+        ztd_error("vulkan", "failed to open shader file - {}", filename);
         assert(0);
     }
     size_t fileSize = (size_t) file.tellg();
@@ -967,7 +967,7 @@ VkShaderModule create_shader_module(VkDevice device, std::span<char> code) {
 
     VkShaderModule shaderModule;
     if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to create shader module!");
+        ztd_error("vulkan", "failed to create shader module!");
     }
     return shaderModule;
 }
@@ -1119,9 +1119,9 @@ state_t::create_data_buffer(
 	memory_allocate_flags_info.flags                     = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
 
 	#if !NDEBUG
-		zyy_info("vk::create_data_buffer", "Buffer vmr.size = {}", vmr.size );
-		zyy_info("vk::create_data_buffer", "Buffer vmr.alignment = {}", vmr.alignment );
-		zyy_info("vk::create_data_buffer", "Buffer vmr.memoryTypeBits = {}", vmr.memoryTypeBits );
+		ztd_info("vk::create_data_buffer", "Buffer vmr.size = {}", vmr.size );
+		ztd_info("vk::create_data_buffer", "Buffer vmr.alignment = {}", vmr.alignment );
+		ztd_info("vk::create_data_buffer", "Buffer vmr.memoryTypeBits = {}", vmr.memoryTypeBits );
     #endif
 
 	VkMemoryAllocateInfo			vmai;
@@ -1504,7 +1504,7 @@ state_t::create_pipeline_state(
     pipelineLayoutInfo.pPushConstantRanges = create_info->push_constant_size ? &vpcr : 0;
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipeline->pipeline_layout) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to create pipeline layout!");
+        ztd_error("vulkan", "failed to create pipeline layout!");
         std::terminate();
     }
 
@@ -1531,7 +1531,7 @@ state_t::create_pipeline_state(
     pipelineInfo.basePipelineIndex = -1; // Optional
 
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline->pipeline) != VK_SUCCESS) {
-        zyy_error("vulkan", "failed to create graphics pipeline!");
+        ztd_error("vulkan", "failed to create graphics pipeline!");
         std::terminate();
     }
 
@@ -1781,7 +1781,7 @@ state_t::transition_image_layout(
 
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        // zyy_error("vk::image_layout_transistion", "unsupported layout transition!");
+        // ztd_error("vk::image_layout_transistion", "unsupported layout transition!");
         // std::terminate();
     }
 
@@ -2061,7 +2061,7 @@ state_t::load_texture(
     const auto image_size = texture->size[0] * texture->size[1] * texture->channels;
     if (arena) {
         if (texture->pixels) {
-            zyy_warn(__FUNCTION__, "Leaking texture pixels");
+            ztd_warn(__FUNCTION__, "Leaking texture pixels");
         }
         tag_array(texture->pixels, u8, arena, (u64)image_size);
         ::utl::copy(texture->pixels, data.data(), image_size);
@@ -2076,7 +2076,7 @@ state_t::load_texture(
     std::string_view path, 
     arena_t* arena
 ) {
-    zyy_info("vk::load_texture", "Loading Texture:\n\t{}\n", path);
+    ztd_info("vk::load_texture", "Loading Texture:\n\t{}\n", path);
 
     stbi_set_flip_vertically_on_load(true);
     texture->channels = 0;
@@ -2105,7 +2105,7 @@ state_t::load_texture(
     load_texture(texture, std::span{data, (size_t)image_size}, arena);
     
     stbi_image_free(data);
-    zyy_info("vk::load_texture", 
+    ztd_info("vk::load_texture", 
         "Texture Info:\n\twidth: {}\n\theight: {}\n\tchannels: {}", 
         texture->size[0], texture->size[1], texture->channels
     );
@@ -2367,7 +2367,7 @@ void state_t::create_descriptor_set_pool() {
 		vdpci.pPoolSizes = &vdps[0];
 
 	VK_OK(vkCreateDescriptorPool(device, &vdpci, 0, &descriptor_pool));
-	zyy_info("vk", "vkCreateDescriptorPool");
+	ztd_info("vk", "vkCreateDescriptorPool");
 
 }
 

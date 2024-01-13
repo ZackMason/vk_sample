@@ -566,14 +566,14 @@ namespace glm {
 		return glm::vec<3, T, Q>(v.z, v.y, v.x);
 	}
 
-	// zyy
+	// ztd
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<3, T, Q> zyy(const glm::vec<3, T, Q> &v) {
+	GLM_INLINE glm::vec<3, T, Q> ztd(const glm::vec<3, T, Q> &v) {
 		return glm::vec<3, T, Q>(v.z, v.y, v.y);
 	}
 
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<3, T, Q> zyy(const glm::vec<4, T, Q> &v) {
+	GLM_INLINE glm::vec<3, T, Q> ztd(const glm::vec<4, T, Q> &v) {
 		return glm::vec<3, T, Q>(v.z, v.y, v.y);
 	}
 
@@ -1130,14 +1130,14 @@ namespace glm {
 		return glm::vec<4, T, Q>(v.x, v.z, v.y, v.x);
 	}
 
-	// xzyy
+	// xztd
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> xzyy(const glm::vec<3, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> xztd(const glm::vec<3, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.x, v.z, v.y, v.y);
 	}
 
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> xzyy(const glm::vec<4, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> xztd(const glm::vec<4, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.x, v.z, v.y, v.y);
 	}
 
@@ -1689,14 +1689,14 @@ namespace glm {
 		return glm::vec<4, T, Q>(v.y, v.z, v.y, v.x);
 	}
 
-	// yzyy
+	// yztd
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> yzyy(const glm::vec<3, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> yztd(const glm::vec<3, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.y, v.z, v.y, v.y);
 	}
 
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> yzyy(const glm::vec<4, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> yztd(const glm::vec<4, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.y, v.z, v.y, v.y);
 	}
 
@@ -2056,42 +2056,42 @@ namespace glm {
 		return glm::vec<4, T, Q>(v.z, v.y, v.x, v.w);
 	}
 
-	// zyyx
+	// ztdx
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> zyyx(const glm::vec<3, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> ztdx(const glm::vec<3, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.z, v.y, v.y, v.x);
 	}
 
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> zyyx(const glm::vec<4, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> ztdx(const glm::vec<4, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.z, v.y, v.y, v.x);
 	}
 
-	// zyyy
+	// ztdy
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> zyyy(const glm::vec<3, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> ztdy(const glm::vec<3, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.z, v.y, v.y, v.y);
 	}
 
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> zyyy(const glm::vec<4, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> ztdy(const glm::vec<4, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.z, v.y, v.y, v.y);
 	}
 
-	// zyyz
+	// ztdz
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> zyyz(const glm::vec<3, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> ztdz(const glm::vec<3, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.z, v.y, v.y, v.z);
 	}
 
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> zyyz(const glm::vec<4, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> ztdz(const glm::vec<4, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.z, v.y, v.y, v.z);
 	}
 
-	// zyyw
+	// ztdw
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> zyyw(const glm::vec<4, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> ztdw(const glm::vec<4, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.z, v.y, v.y, v.w);
 	}
 
@@ -2208,14 +2208,14 @@ namespace glm {
 		return glm::vec<4, T, Q>(v.z, v.z, v.y, v.x);
 	}
 
-	// zzyy
+	// zztd
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> zzyy(const glm::vec<3, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> zztd(const glm::vec<3, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.z, v.z, v.y, v.y);
 	}
 
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> zzyy(const glm::vec<4, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> zztd(const glm::vec<4, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.z, v.z, v.y, v.y);
 	}
 
@@ -2617,9 +2617,9 @@ namespace glm {
 		return glm::vec<4, T, Q>(v.w, v.z, v.y, v.x);
 	}
 
-	// wzyy
+	// wztd
 	template<typename T, qualifier Q>
-	GLM_INLINE glm::vec<4, T, Q> wzyy(const glm::vec<4, T, Q> &v) {
+	GLM_INLINE glm::vec<4, T, Q> wztd(const glm::vec<4, T, Q> &v) {
 		return glm::vec<4, T, Q>(v.w, v.z, v.y, v.y);
 	}
 

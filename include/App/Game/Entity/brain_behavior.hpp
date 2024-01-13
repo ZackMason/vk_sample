@@ -5,9 +5,9 @@
 #include "App/Game/Entity/entity_db.hpp"
 #include "App/Game/Physics/player_movement.hpp"
 
-#define BRAIN_BEHAVIOR_FUNCTION(name) static void name(zyy::world_t* world, zyy::entity_t* entity, brain_t* brain, f32 dt)
+#define BRAIN_BEHAVIOR_FUNCTION(name) static void name(ztd::world_t* world, ztd::entity_t* entity, brain_t* brain, f32 dt)
 
-void entity_blackboard_common(zyy::entity_t* entity) {
+void entity_blackboard_common(ztd::entity_t* entity) {
     auto* brain = &entity->brain;
     auto* rng = utl::hash_get(&brain->blackboard.points, "rng"sv, brain->blackboard.arena);
     auto* rng_move = utl::hash_get(&brain->blackboard.points, "rng_move"sv, brain->blackboard.arena);
@@ -207,7 +207,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
     auto& weapon = player->primary_weapon.entity->stats.weapon;
 
     if (player->primary_weapon.entity) {
-        using zyy::wep::base_weapon_t;
+        using ztd::wep::base_weapon_t;
         auto weapon_state = weapon.update(dt);
         switch (weapon_state) {
         case base_weapon_t::update_result_t::idle:
@@ -255,7 +255,7 @@ BRAIN_BEHAVIOR_FUNCTION(player_behavior) {
         // spawn the bullets from the gun
         range_u64(bullet, 0, fired) {
             auto* b = weapon.bullet_fn(
-                world, zyy::db::misc::plasma_bullet,
+                world, ztd::db::misc::plasma_bullet,
                 bullets[bullet]
             );
             b->stats.effect = player->primary_weapon.entity->stats.effect;
@@ -285,7 +285,7 @@ void collect_nearby(
     range_u64(i, 0, near->hit_count) {
         if (buffer.is_full()) break;
         auto* rb = (physics::rigidbody_t*)near->hits[i].user_data;
-        auto* n = (zyy::entity_t*)rb->user_data;
+        auto* n = (ztd::entity_t*)rb->user_data;
         interest_point_t interest = {};
         interest.data = n;
         interest.point = n->global_transform().origin;
@@ -314,7 +314,7 @@ void collect_nearby_enemy(
     range_u64(i, 0, near->hit_count) {
         if (buffer.is_full()) break;
         auto* rb = (physics::rigidbody_t*)near->hits[i].user_data;
-        auto* n = (zyy::entity_t*)rb->user_data;
+        auto* n = (ztd::entity_t*)rb->user_data;
 
         if (std::find(enemy_types.begin(), enemy_types.end(), n->brain.type) == enemy_types.end()) {
             continue;
@@ -348,7 +348,7 @@ void collect_nearby(
     range_u64(i, 0, near->hit_count) {
         if (buffer.is_full()) break;
         auto* rb = (physics::rigidbody_t*)near->hits[i].user_data;
-        auto* n = (zyy::entity_t*)rb->user_data;
+        auto* n = (ztd::entity_t*)rb->user_data;
         
         if (n->brain.type != brain_type::flyer) {
             continue;
@@ -400,8 +400,8 @@ BRAIN_BEHAVIOR_FUNCTION(person_behavior) {
     if (*has_target) {
         *target = buffer[0].point;
         range_u64(i, 0, buffer.count()) {
-            auto* e = (zyy::entity_t*)buffer[i].data;
-            if (e->flags & zyy::EntityFlags_Pickupable) {
+            auto* e = (ztd::entity_t*)buffer[i].data;
+            if (e->flags & ztd::EntityFlags_Pickupable) {
                 *closest_weapon = buffer[i].point;
             }
         }
@@ -459,11 +459,11 @@ BRAIN_BEHAVIOR_FUNCTION(skull_behavior) {
         enemy_types
     );
 
-    zyy::entity_t* target = 0;
+    ztd::entity_t* target = 0;
     if (buffer.count()) {
-        target = (zyy::entity_t*)buffer[0].data;
+        target = (ztd::entity_t*)buffer[0].data;
         range_u64(i, 0, buffer.count()) {
-            auto n = (zyy::entity_t*)buffer[i].data;
+            auto n = (ztd::entity_t*)buffer[i].data;
             if (n->brain.type == brain_type::player) {
                 target = n;
             }

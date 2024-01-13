@@ -1,19 +1,19 @@
 #pragma once
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 
-namespace zyy {
+namespace ztd {
     struct entity_t;
     struct world_t;
     struct prefab_t;
 }
 
-namespace zyy::item {
+namespace ztd::item {
     struct effect_t;
 }
 
-namespace zyy::wep {
+namespace ztd::wep {
     enum struct bullet_type {
         PELLET, LASER, ROCKET, GRENADE, SIZE
     };
@@ -28,19 +28,19 @@ namespace zyy::wep {
         bullet_type type{bullet_type::SIZE};
     };
 
-    using spawn_bullet_function = zyy::entity_t* (*)(
-        zyy::world_t*,
-        const zyy::prefab_t&,
+    using spawn_bullet_function = ztd::entity_t* (*)(
+        ztd::world_t*,
+        const ztd::prefab_t&,
         bullet_t        
     );
 
-    export_fn(zyy::entity_t*) spawn_bullet(
-        zyy::world_t* world,
-        const zyy::prefab_t& prefab,
+    export_fn(ztd::entity_t*) spawn_bullet(
+        ztd::world_t* world,
+        const ztd::prefab_t& prefab,
         bullet_t bullet);
 
-    export_fn(zyy::entity_t*) spawn_rocket(
-        zyy::world_t* world,
-        const zyy::prefab_t& prefab,
+    export_fn(ztd::entity_t*) spawn_rocket(
+        ztd::world_t* world,
+        const ztd::prefab_t& prefab,
         bullet_t bullet);
 }

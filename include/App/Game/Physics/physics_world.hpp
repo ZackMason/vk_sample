@@ -132,7 +132,7 @@ namespace physics {
                     load_convex(data, size, transform);
                     break;
                 default:
-                    zyy_warn("rigidbody", "Failed to load shape");
+                    ztd_warn("rigidbody", "Failed to load shape");
             }
         }
         void load_trimesh(std::byte* data, size_t size, const math::transform_t& transform) {
@@ -200,7 +200,7 @@ namespace physics {
         assert(state->physics);
         assert(state->dispatcher);
 
-        zyy_info("physx", "physics_world_init: {}", (void*)world);
+        ztd_info("physx", "physics_world_init: {}", (void*)world);
         world->state = state;
 
         physx::PxSceneDesc scene_desc(state->physics->getTolerancesScale());

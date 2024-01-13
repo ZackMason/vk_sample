@@ -1,7 +1,7 @@
 #ifndef APP_RENDERING_ASSETS_HPP
 #define APP_RENDERING_ASSETS_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include "App/vk_state.hpp"
 
@@ -61,11 +61,11 @@ namespace assets::shaders {
         SHADER_PATH("gui.vert")
         .set_stage(VERT)
         .add_next_stage(FRAG)
-        .add_push_constant(CAMERA_CONSTANTS_SIZE);
+        .add_push_constant(sizeof(m44) + sizeof(v2f));
     ASSET_SHADER(gui_frag)
         SHADER_PATH("gui.frag")
         .set_stage(FRAG)
-        .add_push_constant(CAMERA_CONSTANTS_SIZE);
+        .add_push_constant(sizeof(m44) + sizeof(v2f));
 
     ASSET_SHADER(simple_vert)
         SHADER_PATH("simple.vert")

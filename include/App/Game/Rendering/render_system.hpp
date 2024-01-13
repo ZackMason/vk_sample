@@ -1,7 +1,7 @@
 #ifndef RENDER_SYSTEM_HPP
 #define RENDER_SYSTEM_HPP
 
-#include "zyy_core.hpp"
+#include "ztd_core.hpp"
 
 #include "App/vk_state.hpp"
 
@@ -98,7 +98,7 @@ namespace rendering {
                 if (textures[i].hash) {
                     textures[i].hash = 0;
 
-#if !ZYY_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
+#if !ZTD_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
                     // Todo(Zack): destroy texture
 #endif
                     load(
@@ -160,11 +160,11 @@ namespace rendering {
             u64 id = hash % array_count(textures);
             // probe
             while(textures[id].is_dead() == false && textures[id].hash != hash) {
-                zyy_warn(__FUNCTION__, "probing for texture, {} collided with {}", name, textures[id].name);
+                ztd_warn(__FUNCTION__, "probing for texture, {} collided with {}", name, textures[id].name);
                 id = (id+1) % array_count(textures);
             }
 
-            zyy_info(__FUNCTION__, "Adding texture: {}", name);
+            ztd_info(__FUNCTION__, "Adding texture: {}", name);
             textures[id].hash = hash;
             textures[id].name = name;
             textures[id].texture = texture;
@@ -180,10 +180,10 @@ private:
             u64 start = id;
             // probe
             while(textures[id].hash && textures[id].hash != hash) {
-                zyy_warn(__FUNCTION__, "probing for texture");
+                ztd_warn(__FUNCTION__, "probing for texture");
                 id = (id+1) % array_count(textures);
                 if (id == start) {
-                    zyy_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
+                    ztd_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
                     assert(0);
                     return textures[0];
                 }
@@ -197,10 +197,10 @@ private:
             u64 start = id;
             // probe
             while(textures[id].hash && textures[id].hash != hash) {
-                zyy_warn(__FUNCTION__, "probing for texture");
+                ztd_warn(__FUNCTION__, "probing for texture");
                 id = (id+1) % array_count(textures);
                 if (id == start) {
-                    zyy_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
+                    ztd_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
                     assert(0);
                     return textures[0];
                 }
@@ -299,7 +299,7 @@ public:
             range_u64(i, 0, array_count(shaders)) {
                 if (shaders[i].hash) {
                     shaders[i].hash = 0;
-#if !ZYY_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
+#if !ZTD_INTERNAL // for debug builds, we dont want to destroy resources because of hot reloading
                     vk_gfx.ext.vkDestroyShaderEXT(vk_gfx.device, shaders[i].shader, nullptr);
 #endif
                     load(
@@ -385,11 +385,11 @@ public:
             u64 id = hash % array_count(shaders);
             // probe
             while(shaders[id].hash != 0 && shaders[id].hash != hash) {
-                zyy_warn(__FUNCTION__, "probing for shader, {} collided with {}", name, shaders[id].name);
+                ztd_warn(__FUNCTION__, "probing for shader, {} collided with {}", name, shaders[id].name);
                 id = (id+1) % array_count(shaders);
             }
 
-            zyy_info(__FUNCTION__, "Adding shader: {}", name);
+            ztd_info(__FUNCTION__, "Adding shader: {}", name);
             shaders[id].hash = hash;
             shaders[id].name = name;
             shaders[id].stage = stage;
@@ -412,10 +412,10 @@ private:
             u64 start = id;
             // probe
             while(!shaders[id].hash && shaders[id].hash != hash) {
-                zyy_warn(__FUNCTION__, "probing for shader ({}), hit {}", name, shaders[id].name);
+                ztd_warn(__FUNCTION__, "probing for shader ({}), hit {}", name, shaders[id].name);
                 id = (id+1) % array_count(shaders);
                 if (id == start) {
-                    zyy_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
+                    ztd_warn(__FUNCTION__, "hash map need to be bigger, this should never happen");
                     assert(0);
                     return shaders[0];
                 }
@@ -772,7 +772,7 @@ public:
                 vkCreateSemaphore(device, &semaphoreInfo, nullptr, &render_semaphore) != VK_SUCCESS ||
                 vkCreateFence(device, &fenceInfo, nullptr, &fence) != VK_SUCCESS
             ) {
-                zyy_error(__FUNCTION__, "failed to create sync objects for frame");
+                ztd_error(__FUNCTION__, "failed to create sync objects for frame");
                 std::terminate();
             }
         }
@@ -794,7 +794,7 @@ public:
 
             auto submit_result = vkQueueSubmit(queue, 1, &submitInfo, fence);
             if (submit_result != VK_SUCCESS) {
-                zyy_error(__FUNCTION__, "failed to submit draw command buffer!\n\n\t{}", gfx::vul::utl::error_string(submit_result));
+                ztd_error(__FUNCTION__, "failed to submit draw command buffer!\n\n\t{}", gfx::vul::utl::error_string(submit_result));
                 // std::terminate();
                 *(volatile int*)0 = 1;
             }
@@ -1678,7 +1678,7 @@ public:
             }
         }
         if (!material) {
-            zyy_info("rendering", "Creating material: {}", name);
+            ztd_info("rendering", "Creating material: {}", name);
             tag_struct(material, material_node_t, &rs->arena, std::move(p_material), shaders, shader_count);
             material->name.own(&rs->arena, name);
             material->pipeline = pipeline;
@@ -1762,7 +1762,7 @@ public:
         renderPassInfo.pDependencies = dependencies;
 
         if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &rs->render_passes[0]) != VK_SUCCESS) {
-            zyy_error("vulkan", "failed to create render pass!");
+            ztd_error("vulkan", "failed to create render pass!");
             std::terminate();
         }
     }
@@ -1825,7 +1825,7 @@ public:
             vfci.layers = 1;
 
             if (vkCreateFramebuffer(device, &vfci, nullptr, &rs->framebuffers[i]) != VK_SUCCESS) {
-                zyy_error("vulkan", "failed to create framebuffer!");
+                ztd_error("vulkan", "failed to create framebuffer!");
                 std::terminate();
             }
         }
