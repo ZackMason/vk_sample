@@ -151,7 +151,7 @@ struct physx_backend_t {
 inline static physx_backend_t*
 physx_init_backend(physx_backend_t* pb, arena_t* arena) {
     assert(pb);
-    tag_struct(pb->state, physx_state_t, arena, megabytes(8));
+    tag_struct(pb->state, physx_state_t, arena);
 
     init_physx_state(*pb->state);
 
@@ -733,15 +733,15 @@ physx_simulate(api_t* api, f32 dt) {
         }
     }
 
-    temp_arena_t scratch = *api->arena;
+    arena_t scratch = *api->arena;
     scratch.top = align16(scratch.top);
     scratch.size = (scratch.size / kilobytes(16)) * kilobytes(16);
 
     ps->world->scene->simulate(
         dt,
         0
-        // ,arena_get_top(&scratch), 
-        // safe_truncate_u64(arena_get_remaining(&scratch))
+        ,arena_get_top(&scratch), 
+        safe_truncate_u64(arena_get_remaining(&scratch))
     );
     ps->world->scene->fetchResults(true);
 

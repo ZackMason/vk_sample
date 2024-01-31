@@ -1,4 +1,3 @@
-
 struct Entity {
     uint64_t vertex_start;
     uint64_t index_start;

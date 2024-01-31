@@ -1,7 +1,7 @@
 {
     "C_Cpp.clang_format_path": "/usr/lib/llvm-10/bin/clang-format",
     "C_Cpp.default.includePath": [
-      "~/.conan/data/**", "Z:/fmod/api/studio/inc", "Z:/fmod/api/core/inc", "Z:/wwise/SDK/include", "C:/VulkanSDK/1.3.250.1/Include/", "./include/vendor", "./include/", "C:/Users/zack/Documents/Github/PhysX5/PhysX/physx/include/", "C:/Users/crazy/Documents/Github/PhysX/physx/include/"
+      "Z:/imgui", "Z:/imgui/backends/", "Z:/luau/VM/include/", "Z:/luau/Compiler/include/", "~/.conan/data/**", "Z:/fmod/api/studio/inc", "Z:/fmod/api/core/inc", "Z:/wwise/SDK/include", "C:/VulkanSDK/1.3.250.1/Include/", "./include/vendor", "./include/", "C:/Users/zack/Documents/Github/PhysX5/PhysX/physx/include/", "C:/Users/crazy/Documents/Github/PhysX/physx/include/"
     ],
     "files.associations": {
       "string": "cpp",
@@ -112,6 +112,7 @@
       "aslert",
       "blkbrd_tab",
       "bools",
+      "ccopy",
       "dlist",
       "gamepads",
       "hitbuffer",

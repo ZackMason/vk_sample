@@ -54,7 +54,7 @@ DEFINE_TYPED_ID(collider_id);
 struct collider_t {
     collider_shape_type type;
     collider_id         id{uid::invalid_id};
-    void*               shape;
+    void*               shape; // api data
 
     union {
         math::sphere_t sphere{};
@@ -335,6 +335,9 @@ struct export_dll api_t {
     void* user_world{nullptr};
 
     arena_t*        arena;
+
+    using cleanup_function = void(*)(api_t*);
+    cleanup_function cleanup{0};
 
     simulate_function           simulate{0};
     update_rigidbody_function   set_rigidbody{0};

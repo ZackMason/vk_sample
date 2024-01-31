@@ -115,6 +115,9 @@ namespace ztd {
     struct world_t {
         game_state_t* game_state;
 
+        luau::vm_t L{};
+        luau::bytecode_t world_code = {};
+
         arena_t arena;
         arena_t particle_arena;
         frame_arena_t frame_arena;
@@ -535,6 +538,7 @@ namespace ztd {
     static void 
     world_free(world_t*& world) {
         arena_clear(&world->particle_arena);
+        arena_clear(&world->L.user_data.allocator.arena);
         
         world->render_system()->scene_context->instance_storage_buffer.pool.clear();
         world->render_system()->scene_context->entities.pool.clear();
@@ -581,9 +585,21 @@ namespace ztd {
 
         world_init_effects(world);
 
+        world->L.user_data.allocator.arena = arena_create(kilobytes(256));
+        world->L.user_data.allocator.arena.settings.alignment = 0;
+
+        world->L.init(world);
+        world->L.user_data.user_data = world;
+
+        world->L.makelibrary(world->L.loadfile("res/lua/world.lua"), "_World");
+        // world->L.makelibrary(world->L.loadfile("res/lua/waveworld.lua"), "_Level");
+        // world->L.dofile("res/lua/waveworld.lua");
+
+        
+        // CLOG("lua _world = _Level()");
+        
         return world;
     }
-
 
     void world_place_bloodsplat(
         world_t* world, const m44& transform

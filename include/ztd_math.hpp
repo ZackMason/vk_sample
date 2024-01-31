@@ -473,6 +473,11 @@ struct aabb_t {
         return size() * a + min;
     }
 
+    f32 aspect() const {
+        auto s = size();
+        return s.x/s.y;
+    }
+
     // from center
     void set_size(v2f s) {
         auto c = center();
@@ -828,7 +833,7 @@ struct transform_t {
     }
 
 	void look_at(const v3f& target, const v3f& up = axis::up) {
-        set_rotation(glm::quatLookAt(target-origin, up));
+        set_rotation(glm::quatLookAt(glm::normalize(target-origin), up));
     }
 
     constexpr transform_t& set_scale(const v3f& scale) {

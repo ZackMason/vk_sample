@@ -74,7 +74,7 @@ struct mod_function {
 };
 
 struct prefab_t {
-    version_id VERSION{6};
+    version_id VERSION{7};
     entity_type type=entity_type::environment;
     u64 flags = 0;
     stack_string<128> type_name{};
@@ -138,10 +138,21 @@ struct prefab_t {
     u32 inventory_size=0; // @version 1 - added
 
     struct child_t {
+        u64 VERSION{0};
         const prefab_t* entity{0};
         v3f             offset{0.0f};
+        v3f             scale{1.0f};
+        quat            orientation = quat_identity;
     };
-    std::array<child_t, 10> children{};
+    std::array<child_t, 32> children{}; // @version 7 - added
+
+    u32 child_count() const {
+        u32 result = 0;
+        range_u64(i, 0, array_count(children)) {
+            result += children[i].entity != nullptr;
+        }
+        return result;
+    }
 
     prefab_t& operator=(const prefab_t& o) {
         if (this != &o) {
@@ -154,11 +165,24 @@ struct prefab_t {
 
 }
 
+// ZYY_SERIALIZE_TYPE_4(prefab_t::child_t, entity, offset, scale, orientation);
+// template<> void 
+// ::utl::memory_blob_t::serialize<ztd::prefab_t::child_t>(arena_t* arena, const ztd::prefab_t::child_t& save_data ) { 
+//     if (save_data.entity) {
+//         serialize(arena, ztd::prefab_t::child_t{}.VERSION); 
+//         serialize(arena, *save_data.entity); 
+//         serialize(arena, save_data.offset); 
+//         serialize(arena, save_data.scale); 
+//         serialize(arena, save_data.orientation);
+//     }
+// }
+
 template<>
 ztd::prefab_t utl::memory_blob_t::deserialize<ztd::prefab_t>(arena_t* arena) {
     ztd::prefab_t prefab{};
 
     #define DESER(x) x = deserialize<decltype(x)>();
+    #define ADESER(x) x = deserialize<decltype(x)>(arena);
     #define OPTDESER(x) x = try_deserialize<decltype(x)::value_type>();
     #define AOPTDESER(x) x = try_deserialize<decltype(x)::value_type>(arena);
 
@@ -174,6 +198,7 @@ ztd::prefab_t utl::memory_blob_t::deserialize<ztd::prefab_t>(arena_t* arena) {
     if (prefab.VERSION < 6) {
         auto has = deserialize<u8>();
         constexpr u64 v5_weapon_size_dont_touch = 88;
+        aslert(!"Loading degen weapons");
         if (has) {
             ztd::wep::base_weapon_t w;
             utl::copy(&w.fire_rate, data+read_offset, v5_weapon_size_dont_touch);
@@ -193,8 +218,24 @@ ztd::prefab_t utl::memory_blob_t::deserialize<ztd::prefab_t>(arena_t* arena) {
     AOPTDESER(prefab.emitter);
     DESER(prefab.brain_type);
     DESER(prefab.inventory_size);
- 
+    if (prefab.VERSION >= 7) {
+        u32 child_count = 0;
+        DESER(child_count);
+        range_u64(i, 0, child_count) {
+            ztd::prefab_t::child_t child{};
+            tag_struct(auto* child_prefab, ztd::prefab_t, arena);
+
+            DESER(child.VERSION);
+            *child_prefab = deserialize<ztd::prefab_t>(arena);
+            DESER(child.offset);
+            DESER(child.scale);
+            DESER(child.orientation);
+            prefab.children[i] = child;
+        }
+    }
+
     #undef DESER
+    #undef ADESER
     #undef OPTDESER
     #undef AOPTDESER
 
@@ -220,6 +261,20 @@ void utl::memory_blob_t::serialize<ztd::prefab_t>(arena_t* arena, const ztd::pre
     // serialize(arena, prefab.effect); // @Version 3 - removed
     serialize(arena, prefab.brain_type);
     serialize(arena, prefab.inventory_size);
+
+    // save the children
+    serialize(arena, prefab.child_count()); 
+    range_u64(i, 0, array_count(prefab.children)) {
+        auto& save_data = prefab.children[i];
+        if (save_data.entity) {
+            serialize(arena, ztd::prefab_t::child_t{}.VERSION); 
+            serialize(arena, *save_data.entity); 
+            serialize(arena, save_data.offset); 
+            serialize(arena, save_data.scale); 
+            serialize(arena, save_data.orientation);
+        }
+    } 
+
     // serialize(arena, prefab.children); @Version 2 - removed
 }
 

@@ -9,7 +9,23 @@
 [0m[1m[38;2;255;255;255m[info][win32]: Initializing Physics
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 12603704
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8388608
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4143
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][win32]: Physics Loaded
 [0m
 Found 2 GLFW Required Instance Extensions:
@@ -125,18 +141,107 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 11658521
 [0m[1m[38;2;255;255;255m[info][app_init]: Creating physics scene
 [0m[1m[38;2;255;255;255m[info][physics::physx_create_scene]: Creating scene
-[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x27a6c9e05e0
+[0m[1m[38;2;255;255;255m[info][physx]: physics_world_init: 0x205221a06a0
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 7288
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4888
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 131072
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4888
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4888
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4888
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 5167
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16408
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 6191
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4143
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 10287
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 6191
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 13359
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 7192
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 14360
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 6408
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8216
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8216
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8216
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8216
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 15384
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 17432
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8216
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][app_init]: Created physics scene
 [0m[1m[38;2;255;255;255m[info][vulkan]: Layer count: 15
 [0m[1m[38;2;255;255;255m[info][vulkan]: Layer name: VK_LAYER_KHRONOS_validation
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_optimus
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_OBS_HOOK
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_nsight-sys
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_overlay
-[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_nomad_release_public_2023_3_0
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_NV_GPU_Trace_release_public_2023_3_0
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_overlay
+[0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_VALVE_steam_fossilize
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_api_dump
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_LUNARG_gfxreconstruct
 [0m[1m[38;2;255;255;255m[info][vulkan]: 	- Layer prop: VK_LAYER_KHRONOS_synchronization2
@@ -536,7 +641,7 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
-[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 29587680
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 29587984
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 33554432
 [0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: null
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 160000
@@ -1326,6 +1431,21 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 5080
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.002
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 3584
@@ -1348,6 +1468,18 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 10264
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 10264
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][ztd::world_new_brain]: Brain 72057594037927936 activated
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material, albedo: , normal: 
@@ -1377,6 +1509,7 @@ Found 2 GLFW Required Instance Extensions:
 ***** Found given memory flag (1) and type (3): i = 1 *****
 
 [0m[1m[38;2;255;255;255m[info][rendering::texture_cache_t::add]: Adding texture: white.png
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cube.002
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 3840
@@ -1460,6 +1593,12 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 5080
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Cultist<convex>
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: Material.002, albedo: Cultist_001.png, normal: 
 [0m[1m[38;2;255;255;255m[info][vk::load_texture]: Loading Texture:
@@ -1534,6 +1673,15 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 10020
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 9984
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 6664
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16600
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: water
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: , albedo: , normal: 
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 577024
@@ -1589,6 +1737,13 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 30744
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 30744
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Loading particle version: 4
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Mesh name: Sphere
 [0m[1m[38;2;255;255;255m[info][load_bin_mesh_data]: Loaded material: DefaultMaterial, albedo: , normal: 
@@ -1645,6 +1800,8 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][vk]: 
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][utl::memory_blob_t::deserialize]: Loading particle version: 4
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8192
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 20504
@@ -1674,6 +1831,84 @@ Found 2 GLFW Required Instance Extensions:
 [0m[1m[38;2;255;255;255m[info][rendering::lighting::init_textures]: Visibility Texture Size: 10046Kb
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 32792
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 360472
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 32792
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 32792
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 32792
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65560
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 32792
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 32792
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16408
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8943
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16408
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 8216
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16408
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4120
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 13647
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16384
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
@@ -1699,8 +1934,11 @@ Found 2 GLFW Required Instance Extensions:
 ***** Found given memory flag (1) and type (31): i = 1 *****
 
 [0m[1m[38;2;255;255;255m[info][rt]: Frame: 1
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16408
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16384
 [0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16384
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.size = 6400000
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.alignment = 256
 [0m[1m[38;2;255;255;255m[info][vk::create_data_buffer]: Buffer vmr.memoryTypeBits = 31
@@ -1714,9 +1952,29 @@ Found 2 GLFW Required Instance Extensions:
 ***** Found given memory flag (6) and type (31): i = 2 *****
 
 [0m[1m[38;2;255;255;255m[info][rt]: Frame: 2
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
 [0m[1m[38;2;255;255;255m[info][rt]: Frame: 3
-[0m[1m[38;2;255;255;255m[info][win32]: Saved graphics config
-[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Render System cleaned up
-[0m[1m[38;2;255;255;255m[info][app_on_deinit]: Graphics API cleaned up
-[0m[1m[38;2;255;255;255m[info][win32]: Closing Application
-[0m
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16408
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65560
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 32792
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 32792
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4255
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4255
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4255
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 65560
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 13647
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16408
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 4096
+[0m[1m[38;2;255;255;255m[info][win32_alloc]: Allocating: 16408
+[0m[1m[38;2;

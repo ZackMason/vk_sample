@@ -11,6 +11,7 @@
 #include <span>
 #include <set>
 
+#include "khr/spirv_reflect.c"
 
 namespace gfx::vul {
 
@@ -354,12 +355,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
         VK_KHR_SPIRV_1_4_EXTENSION_NAME,
-        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+        // VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
         VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
+    };
         // VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
         // VK_KHR_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
         // VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME,
-    };
 
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
         createInfo = {};
@@ -973,7 +974,7 @@ VkShaderModule create_shader_module(VkDevice device, std::span<char> code) {
 }
 
 void create_shader_objects(
-    arena_t arena,
+    arena_t* arena,
     const state_t& state,
     VkDescriptorSetLayout* descriptor_set_layouts,
     u32 descriptor_set_layout_count,
@@ -991,7 +992,7 @@ void create_shader_objects(
     assert(shader_count <= 10);
 
     auto& device = state.device;
-    tag_array(VkShaderCreateInfoEXT* shader_create_info, VkShaderCreateInfoEXT, &arena, shader_count);
+    tag_array(VkShaderCreateInfoEXT* shader_create_info, VkShaderCreateInfoEXT, arena, shader_count);
     VkPushConstantRange vpcr{};
         vpcr.offset = 0;
 	    vpcr.size = push_constant_size;
@@ -1016,7 +1017,7 @@ void create_shader_objects(
 }
 
 void create_shader_objects_from_files(
-    arena_t arena,
+    arena_t* arena,
     const state_t& state,
     VkDescriptorSetLayout* descriptor_set_layout,
     u32 descriptor_set_layout_count,
@@ -2081,7 +2082,8 @@ state_t::load_texture(
     stbi_set_flip_vertically_on_load(true);
     texture->channels = 0;
 
-    u8* data;
+    // todo(zack): lol fix
+    u8* data = 0;
     if (::utl::has_extension(path, "png")) {
         data = stbi_load(path.data(), &texture->size.x, &texture->size.y, &texture->channels, STBI_rgb_alpha);
     } else {

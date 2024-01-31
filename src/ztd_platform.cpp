@@ -5,6 +5,8 @@
 #include <iostream>
 #include <filesystem>
 
+#include "../LivePP/API/x64/LPP_API_x64_CPP.h"
+
 #if !_WIN32 
     #error "No Linux platform"
 #else
@@ -126,26 +128,26 @@ void win32_save_blocks_to_file(HANDLE file, win32_memory_block_t* head) {
     OVERLAPPED overlapped = {}; // ms says dont reuse, lets see what happens
     overlapped.OffsetHigh = overlapped.Offset = 0xffffffff;
 
+    utl::profile_t p{"Serialize State"};
+
     for (auto* block = head->next;
         block != head;
         node_next(block)
     ) {
-
         assert(block->size < std::numeric_limits<DWORD>::max());
         win32_saved_block_t saved = {};
         void* base = get_base_pointer(block);
         assert(base);
         saved.base = (u64)base;
         saved.size = block->size;
-        result = WriteFile(file, &saved, sizeof(saved), &bytes_written, &overlapped);
+        result = WriteFile(file, &saved, sizeof(saved), &bytes_written, 0);
         assert(result);
-        result = WriteFile(file, base, (DWORD)block->size, &bytes_written, &overlapped);
+        result = WriteFile(file, base, (DWORD)block->size, &bytes_written, 0);
         assert(result);
-
     }
 
     win32_saved_block_t terminator = {}; // I'll be (the) back
-    result = WriteFile(file, &terminator, sizeof(terminator), &bytes_written, &overlapped);
+    result = WriteFile(file, &terminator, sizeof(terminator), &bytes_written, 0);
     assert(result);
 }
 
@@ -167,10 +169,11 @@ void win32_read_blocks_from_file(HANDLE file, win32_memory_block_t* head) {
             void* base = (void*)saved.base;
             // ztd_info(__FUNCTION__, "Loading block: {} - {}Mb", base, saved.size/megabytes(1));
             auto* block = get_block_pointer(base);
+            // dlist_remove(block);
             dlist_insert_as_last(head, block);
             result = ReadFile(file, base, (u32)saved.size, &bytes_read, 0);
             assert(result);
-        } else {
+        } else { // null terminator 
             break;
         }
     }
@@ -180,7 +183,7 @@ void win32_read_blocks_from_file(HANDLE file, win32_memory_block_t* head) {
 }
 
 void win32_load_loop_file(HANDLE file) {
-    //free_all_used_blocks();
+    free_all_used_blocks();
     win32_read_blocks_from_file(file, &allocated_blocks);
 }
 
@@ -283,6 +286,59 @@ bool check_buffer_overflow() {
     return false;
 }
 
+void report_total_memory_usage();
+void report_leaked_blocks() {
+    u64 block_count = 0;
+    u64 leak_size = 0;
+    for(auto* block = allocated_blocks.next;
+        block != &allocated_blocks;
+        block = block->next
+    ) {
+        block_count += 1;
+        leak_size += block->size;
+        ztd_error(__FUNCTION__, "Block Leaked {} - {} bytes", (void*)block, block->size);
+    }
+    if (block_count) {
+        ztd_error(__FUNCTION__, "{} block{}leaked in total - {}{}", 
+            block_count, block_count > 1 ? "s " : " ",
+            math::pretty_bytes(leak_size), math::pretty_bytes_postfix(leak_size)
+        );
+        report_total_memory_usage();
+    } else {
+        ztd_info(__FUNCTION__, "Zero blocks leaked");
+    }
+}
+
+void report_total_memory_usage() {
+    u64 block_count = 0;
+    u64 usage_size = 0;
+
+    for(auto* block = allocated_blocks.next;
+        block != &allocated_blocks;
+        block = block->next
+    ) {
+        block_count += 1;
+        usage_size += block->size;
+        ztd_error(__FUNCTION__, "Active Block {} - {} bytes", (void*)block, block->size);
+    }
+    
+    for(auto* block = freed_blocks.next;
+        block != &freed_blocks;
+        block = block->next
+    ) {
+        block_count += 1;
+        usage_size += block->size;
+        ztd_error(__FUNCTION__, "Free Block {} - {} bytes", (void*)block, block->size);
+    }
+
+    if (block_count) {
+        ztd_error(__FUNCTION__, "{} block{}in total - {}{}", 
+            block_count, block_count > 1 ? "s " : " ",
+            math::pretty_bytes(usage_size), math::pretty_bytes_postfix(usage_size)
+        );
+    }
+}
+
 FILETIME gs_game_dll_write_time;
 
 FILETIME win32_last_write_time(const char* path) {
@@ -316,19 +372,30 @@ win32_load_proc(void* lib, const char* name) {
 
 #endif
 
+
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
-#define USE_SDL 1
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include "imgui.h"
+#include "imgui.cpp"
+#include "imgui_demo.cpp"
+#include "imgui_draw.cpp"
+#include "imgui_tables.cpp"
+#include "imgui_widgets.cpp"
 
-#if USE_SDL
-#define SDL_MAIN_HANDLED
-#include "SDL.h"
-#include "SDL_mixer.h"
-#endif
+#include "imgui_impl_glfw.cpp"
+
+// #define USE_SDL 1
+
+// #if USE_SDL
+// #define SDL_MAIN_HANDLED
+// #include "SDL.h"
+// #include "SDL_mixer.h"
+// #endif
 
 
 struct audio_cache_t {
@@ -724,6 +791,25 @@ i32 message_box_proc(const char* text) {
 
 int 
 main(int argc, char* argv[]) {
+    lpp::LppProjectPreferences prefs = lpp::LppCreateDefaultProjectPreferences();
+    prefs.unitySplitting.isEnabled = false;
+    auto lppAgent = lpp::LppCreateDefaultAgentWithPreferences(nullptr, L"LivePP", &prefs);
+
+    // bail out in case the agent is not valid
+    if (!lpp::LppIsValidDefaultAgent(&lppAgent)) {
+        ztd_error("Live++", "Failed to init");
+        return 1;
+    }
+    defer {
+        // lpp::LppDestroySynchronizedAgent(&lppAgent);
+        lpp::LppDestroyDefaultAgent(&lppAgent);
+    };
+  
+    lppAgent.EnableModule(lpp::LppGetCurrentModulePath(), lpp::LPP_MODULES_OPTION_ALL_IMPORT_MODULES, nullptr, nullptr);
+    lppAgent.EnableAutomaticHandlingOfDynamicallyLoadedModules(0, 0);
+
+    // enable Live++ for all loaded modules
+
     _set_error_mode(_OUT_TO_MSGBOX);
     // SetUnhandledExceptionFilter(exception_filter);
 
@@ -731,7 +817,7 @@ main(int argc, char* argv[]) {
     dlist_init(&freed_blocks);
     // gs_loop_file = win32_begin_loop_file("state1.ztd");
 
-    create_meta_data_dir();
+    // create_meta_data_dir();
 
     ztd_info("win32", "Loading Platform Layer");
     defer {
@@ -753,6 +839,9 @@ main(int argc, char* argv[]) {
 
     // constexpr size_t application_memory_size = gigabytes(2);
     game_memory.arena = arena_create(megabytes(8));
+    defer {
+        arena_clear(&game_memory.arena);
+    };
 
     // game_memory_t restore_point;
     // restore_point.arena.start = 0;
@@ -786,9 +875,11 @@ main(int argc, char* argv[]) {
 
     void* physics_dll = LoadLibraryA(".\\build\\ztd_physics.dll");
     arena_t physics_arena = arena_create(megabytes(8));
+    defer {
+        arena_clear(&physics_arena);
+    };
     
-    if (physics_dll)
-    {
+    if (physics_dll) {
         ztd_info("win32", "Initializing Physics");
         game_memory.physics = push_struct<physics::api_t>(&physics_arena);
     
@@ -805,47 +896,9 @@ main(int argc, char* argv[]) {
         ztd_info("win32", "Physics Loaded");
     }
 
-// #if USE_SDL
-//     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
-//         ztd_info("sdl_mixer", "Couldn't initialize SDL: {}", SDL_GetError());
-//         return 255;
-//     }
-
-//     if (Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, MIX_DEFAULT_CHANNELS, 4096) < 0) {
-//         ztd_info("sdl_mixer", "Couldn't open audio: {}", SDL_GetError());
-//         return 255;
-//     }
-    
-// #endif
-
-//     audio_cache_t audio_cache{};
-//     closure_t& load_sound_closure = Platform.audio.load_sound;
-//     load_sound_closure.data = &audio_cache;
-//     load_sound_closure.func = reinterpret_cast<void(*)(void*)>(
-//         +[](void* data, const char* path) -> u64 {
-//             auto* cache = (audio_cache_t*)data;
-
-// #if USE_SDL
-//             ztd_info("sdl_mixer::load_sound", "Loading Sound: {}", path);
-//             cache->sounds[cache->sound_count] = Mix_LoadWAV(path);
-//             ztd_info("sdl_mixer::load_sound", "Sound Loaded: id = {}", cache->sound_count);
-// #endif
-
-//             return cache->sound_count++;
-//     });
-    
-//     closure_t& play_sound_closure = Platform.audio.play_sound;
-//     play_sound_closure.data = &audio_cache;
-//     play_sound_closure.func = reinterpret_cast<void(*)(void*)>(
-//         +[](void* data, u64 id) -> void {
-
-//             auto* cache = (audio_cache_t*)data;
-
-// #if USE_SDL
-//             ztd_info("sdl_mixer::play_sound", "playing Sound: {}", id);
-//             Mix_PlayChannel(-1, cache->sounds[id], 0);
-// #endif
-//     });
+    defer {
+        if (game_memory.physics) game_memory.physics->cleanup(game_memory.physics);
+    };
 
     game_memory.platform = Platform;
 
@@ -854,10 +907,25 @@ main(int argc, char* argv[]) {
 
     GLFWwindow* window = init_glfw(&game_memory);
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    game_memory.imgui_context = ImGui::GetCurrentContext();
+    ImGuiIO& io = ImGui::GetIO(); //(void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    
+
+    // Setup Dear ImGui style
+    // ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForVulkan(window, true);
+
     ztd_info("win32", "Platform Initialization Completed");
 
     app_dlls.on_init(&game_memory);
-
+  
 #ifdef MULTITHREAD_ENGINE
     // std::atomic_bool reload_flag = false;
     // std::atomic_bool rendering_flag = false;
@@ -935,6 +1003,9 @@ main(int argc, char* argv[]) {
         }
 #endif 
 
+        if (game_memory.input.pressed.keys[key_id::F8]) {
+            report_total_memory_usage();
+        }
 #ifdef ENABLE_MEMORY_LOOP
         if (game_memory.input.pressed.keys[key_id::F10]) {
 #ifdef MULTITHREAD_ENGINE
@@ -969,13 +1040,16 @@ main(int argc, char* argv[]) {
 #ifdef MULTITHREAD_ENGINE
                 rendering_lock.lock();
 #endif 
-                update_dlls(&app_dlls, &game_memory);
+                // update_dlls(&app_dlls, &game_memory);
 #ifdef MULTITHREAD_ENGINE
                 rendering_lock.unlock();
 #endif 
             }
             first = false;
         }
+        
+        ImGui_ImplGlfw_NewFrame();
+
         // limit gameplay fps
         local_persist f64 last_time = glfwGetTime();
         // while((f32)(glfwGetTime())-last_time<1.0f/60.0f);
@@ -1019,6 +1093,7 @@ main(int argc, char* argv[]) {
 #endif 
         }
 
+        game_memory.input.text.key = 0; // todo clean
         glfwPollEvents();
 
         if (game_memory.input.keys[key_id::ESCAPE] || 
@@ -1037,6 +1112,8 @@ main(int argc, char* argv[]) {
     save_graphics_config(&game_memory);
 
     app_dlls.on_deinit(&game_memory);
+
+    report_leaked_blocks();
 
     return 0;
 }

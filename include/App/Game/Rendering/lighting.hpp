@@ -71,6 +71,9 @@ namespace rendering::lighting {
     struct probe_settings_t {
         v3f aabb_min;
         v3f aabb_max;
+
+        v3i scroll_offset;
+
         // math::rect3d_t aabb;
         v3u dim{100,10,100};
         v3f grid_size{0.0f};

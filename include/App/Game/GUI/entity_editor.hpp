@@ -14,100 +14,11 @@
 
 #include <filesystem>
 
-namespace csg {
-    enum struct brush_type {
-        box, sphere,
-    };
-
-    struct csg_box_t {
-        v3f size{1.0f};
-    };
-    struct csg_sphere_t {
-        f32 radius{1.0f};
-    };
-
-    struct brush_t {
-        brush_t* next{0};
-        brush_type type{brush_type::box};
-        u32 gfx_id{0};
-
-        math::transform_t transform{};
-
-        union {
-            csg_box_t box{};
-            csg_sphere_t sphere;
-        };
-
-        void apply_scale() {
-            if (type == brush_type::box) {
-                box.size.x = transform.get_basis_magnitude(0);
-                box.size.y = transform.get_basis_magnitude(1);
-                box.size.z = transform.get_basis_magnitude(2);
-                transform.basis = m33{1.0f};
-            }
-        }
-    };
-
-    struct world_t {
-        arena_t arena={};
-        brush_t* brushes{0};
-        b32 rebuild = 1;
-
-        u64 box_mesh_id = 0;
-        gfx::mesh_list_t box_mesh;
-
-        // gfx::mesh_list_t& build_unit_cube(utl::allocator_t& vertices, utl::allocator_t& indices) {
-        //     gfx::mesh_builder_t builder{vertices, indices};
-
-        //     math::rect3d_t box{};
-        //     box.expand(v3f{0.5f});
-        //     box.expand(v3f{-0.5f});
-
-        //     builder.add_box(box);
-            
-        //     return box_mesh = builder.build(&arena);
-        // }
-
-        // gfx::mesh_list_t build(utl::pool_t<gfx::vertex_t>& vertices, utl::pool_t<u32>& indices) {
-        //     // if (rebuild == 0) return *this;
-
-        //     gfx::mesh_builder_t builder{vertices, indices};
-
-        //     node_for(auto, brushes, brush) {
-        //         if (brush->type == brush_type::box) {
-        //             math::rect3d_t box{};
-        //             // box.expand(brush->box.size*0.5f);
-        //             // box.expand(-brush->box.size*0.5f);
-        //             box.expand(v3f{0.5f});
-        //             box.expand(v3f{-0.5f});
-
-        //             builder.add_box(box, brush->transform);
-        //         }
-        //     }
-
-        //     rebuild = 0;
-            
-        //     return builder.build(&arena);
-        // }
-
-        brush_t* new_box_brush(u32 gfx_id) {
-            tag_struct(auto* brush, brush_t, &arena);
-            brush->type = brush_type::box;
-            brush->box = {};
-            brush->gfx_id = gfx_id;
-
-            node_push(brush, brushes);
-
-            rebuild = 1;
-
-            return brush;
-        }
-    };
-};
-
 struct instanced_prefab_t {
     instanced_prefab_t* next = 0;
     instanced_prefab_t* prev = 0;
+    instanced_prefab_t* first_child = 0;
+    instanced_prefab_t* parent = 0;
     ztd::prefab_t prefab{};
     math::transform_t transform{};
     particle_system_t* particle_system = 0;
@@ -283,14 +194,20 @@ struct entity_editor_t {
     ztd::world_path_t paths{};
     gfx::color::gradient_t* gradient{0};
 
+    m44 projection{1.0f};
+    b32 show_editor = 1;
+
     void redo() {
         auto* cmd = redo_sentinel.next;
         if (cmd != &redo_sentinel) {
             dlist_remove(cmd);
             
+            console_log(&console, fmt_sv("Redo: {}", (u32)cmd->type));
             execute(cmd);
             
             dlist_insert(&undo_sentinel, cmd);
+        } else {
+            log_error("Nothing to redo");
         }
     }
 
@@ -298,8 +215,13 @@ struct entity_editor_t {
         auto* cmd = undo_sentinel.next;
         if (cmd != &undo_sentinel) {
             dlist_remove(cmd);
+
+            console_log(&console, fmt_sv("Undo: {}", (u32)cmd->type));
             execute(cmd, 0b11);
+            
             dlist_insert(&redo_sentinel, cmd);
+        } else {
+            log_error("Nothing to undo");
         }
     }
 
@@ -411,6 +333,8 @@ struct entity_editor_t {
     }
 
     instanced_prefab_t* instance_prefab(const ztd::prefab_t& prefab, const math::transform_t& transform, b32 push_undo = 1) {
+        console_log(&console, "Instancing Prefab");
+
         tag_struct(auto* inst, instanced_prefab_t, &arena);
         inst->prefab = prefab;
         inst->transform = transform;
@@ -473,6 +397,8 @@ struct entity_editor_t {
     instanced_prefab_t* copy_prefab(instanced_prefab_t* what) {
         auto* prefab = instance_prefab(what->prefab, what->transform);
 
+        console_log(&console, "Prefab Copied");
+
         if (prefab->prefab.emitter) {
             if (prefab->prefab.emitter->particle_color._type == gfx::color::color_variant_type::gradient) {
                 prefab->prefab.emitter->particle_color.gradient.count = 0;
@@ -497,6 +423,7 @@ struct entity_editor_t {
         edit->prefab_insert.head = &prefabs;
         edit->prefab_insert.prefab = what;
 
+
         if (selection.prefab == what) {
             selection.prefab = 0;
             entity = &creating_entity;
@@ -505,9 +432,10 @@ struct entity_editor_t {
         execute_insert(edit->prefab_insert, Edit_From);
         insert_edit_event(edit);
         on_add_to_undo();
+
+        console_log(&console, "Prefab Removed");
     }
 
-    m44 projection{1.0f};
     ztd::cam::orbit_camera_t camera{};
 
     struct selection_t {
@@ -516,13 +444,12 @@ struct entity_editor_t {
         v3f* selection{0};
         m33* basis{0};
         instanced_prefab_t* prefab{0};
-        csg::brush_t* brush{0};
+        // csg::brush_t* brush{0};
 
         selection_t& operator=(v3f* v) {
             selection = v;
             basis = 0;
             prefab = 0;
-            brush = 0;
             mode = selection_mode::pos;
             return *this;
         }
@@ -546,12 +473,6 @@ struct entity_editor_t {
                 *this = (math::transform_t*)0;
             }
             prefab = p;
-            return *this;
-        }
-        selection_t& operator=(csg::brush_t* b) {
-            *this = (instanced_prefab_t*)0;
-            *this = &b->transform;
-            brush = b;
             return *this;
         }
 
@@ -597,8 +518,48 @@ struct entity_editor_t {
     ztd::prefab_t creating_entity{};
     ztd::prefab_t* entity{&creating_entity};
 
-    csg::world_t  csg_world{};
-    ztd::world_t* editor_world{0};
+    // csg::world_t  csg_world{};
+    // ztd::world_t* editor_world{0};
+
+    enum struct browser_type : u32 {
+        loadw, savew, loade, savee, texture, model, sound, animation
+    };
+    struct browser_state_t {
+        browser_type type{browser_type::loadw};
+        browser_state_t* next{this};
+        browser_state_t* prev{this};
+    };
+
+    browser_state_t browser_state{};
+
+    b32 has_browser(browser_type type) {
+        dlist_for(browser_state, browser) {
+            if (browser->type == type) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void open_browser(browser_type type) {
+        if (has_browser(type)) return;
+
+        tag_struct(auto* browser, browser_state_t, &arena);
+        browser->type = type;
+
+        dlist_insert_as_last(&browser_state, browser);
+    }
+
+    void close_browser(browser_type type) {
+        dlist_for(browser_state, browser) {
+            if (browser->type == type) {
+                dlist_remove(browser);
+            }
+        }
+    }
+
+    stack_string<256> tooltip;
+    debug_console_t console;
 
     void save_to_file(const char* name) {
         std::ofstream file{name, std::ios::binary};
@@ -622,27 +583,12 @@ struct entity_editor_t {
         }
     }
 
+    entity_editor_t(game_state_t* app_);
 
-    entity_editor_t(game_state_t* app_)
-    : game_state{app_}
-    {
-        if (app_) {
-            // undo_arena = arena_sub_arena(&game_state->main_arena, megabytes(1));
-            editor_world = ztd::world_init(game_state, game_state->game_memory->physics);
-            // auto& mesh = csg_world.build_unit_cube(app_->render_system->scene_context->vertices.allocator, app_->render_system->scene_context->indices.allocator);
-            // csg_world.box_mesh_id = rendering::add_mesh(app_->render_system, "box_brush", mesh);
-        }
-
-        dlist_init(&prefabs);
-        dlist_init(&redo_sentinel);
-        dlist_init(&undo_sentinel);
-        dlist_init(&paths);
-
-        camera.move(v3f{-10.0f, 4.0f, 00.0f});
-
-        // gradient.add(&arena, v4f{0.89f, 0.84f, 0.3f, 1.0f}, 0.0f);
-        // gradient.add(&arena, v4f{0.09f, 0.14f, 0.93f, 1.0f}, 1.0f);
+    void log_error(std::string_view text) {
+        console_log(&console, text, gfx::color::rgba::red);
     }
+    
 };
 
 
@@ -667,6 +613,146 @@ void utl::memory_blob_t::serialize<entity_editor_t>(arena_t* arena, const entity
         serialize(arena, inst->transform);
     }
 }
+
+entity_editor_t::entity_editor_t(game_state_t* app_)
+    : game_state{app_}
+    {
+        console.user_data = this;
+        console.open_percent = 1.0f;
+
+        console_log(&console, "Entity Editor - 0.0.1");
+
+        console_add_command(&console, "help", [](void* data) {
+            auto* console = (debug_console_t*)data;
+            range_u64(i, 0, console->command_count) {
+                console_log(
+                    console, 
+                    console->console_commands[i].name, 
+                    gfx::color::rgba::yellow, 
+                    console->console_commands[i].command.command, 
+                    console->console_commands[i].command.data 
+                );
+            }
+        }, &console);
+
+        console_add_command(&console, "listw", [](void* data) {
+            auto* ee = (entity_editor_t*)data;
+            auto* console = &ee->console;
+
+            for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/worlds/")) {
+                auto filename = entry.path().string();
+                auto extension_match = utl::has_extension(filename, "zmap") || utl::has_extension(filename, "zyy");
+                if (entry.is_directory()) {
+                    continue;
+                } else if (entry.is_regular_file() && extension_match) {
+                    console_log(console, filename, gfx::color::rgba::purple);
+                }
+            }
+        }, this);
+        
+        console_add_command(&console, "loadw", [](void* data) {
+            auto* ee = (entity_editor_t*)data;
+            auto* console = &ee->console;
+
+            auto args = console->get_args();
+            if (!args) {
+                console_log(
+                    console, 
+                    "Parse Error",
+                    gfx::color::rgba::red
+                );
+                return;
+            }
+
+            {
+                ee->begin_event_group();
+                defer {
+                    ee->end_event_group();
+                };
+                for (auto* prefab = ee->prefabs.next;
+                    prefab != &ee->prefabs;
+                    node_next(prefab)
+                ) {
+                    ee->remove_prefab(prefab);
+                }
+            }
+
+            arena_t arena = arena_create(megabytes(16));
+            defer {
+                arena_clear(&arena);
+            };
+            auto bytes = utl::read_bin_file(&arena, fmt_sv("./res/worlds/{}", *args));
+            if (bytes.count == 0) {
+                console_log(
+                    console, 
+                    "Failed to open file",
+                    gfx::color::rgba::red
+                );
+                return;
+            }
+            
+            utl::memory_blob_t blob{(std::byte*)bytes.data};
+            auto header = blob.deserialize<world_save_file_header_t>();
+
+            ee->begin_event_group();
+            defer {
+                ee->end_event_group();
+            };
+
+            range_u64(i, 0, header.prefab_count) {
+                auto prefab = blob.deserialize<ztd::prefab_t>(&ee->arena);
+                auto transform = blob.deserialize<math::transform_t>();
+                ee->instance_prefab(prefab, transform);
+            }
+
+            if (header.light_probe_count > 0) {
+                ee->light_probe_settings.aabb.min = header.light_probe_min;
+                ee->light_probe_settings.aabb.max = header.light_probe_max;
+                ee->light_probe_settings.grid_size = header.light_probe_grid_size;
+            }
+        }, this);
+
+        console_add_command(&console, "savew", [](void* data) {
+            auto* ee = (entity_editor_t*)data;
+            auto* console = &ee->console;
+
+            auto args = console->get_args();
+            if (!args) {
+                console_log(
+                    console, 
+                    "Parse Error",
+                    gfx::color::rgba::red
+                );
+                return;
+            }
+
+            arena_t arena = arena_create(megabytes(16));
+            push_bytes(&arena, 1);
+            utl::memory_blob_t blob{&arena};
+            blob.serialize(&arena, *ee);
+
+            utl::write_binary_file(*args, blob.data_view());
+            arena_clear(&arena);
+        }, this);
+
+
+        if (app_) {
+            // undo_arena = arena_sub_arena(&game_state->main_arena, megabytes(1));
+            // editor_world = ztd::world_init(game_state, game_state->game_memory->physics);
+            // auto& mesh = csg_world.build_unit_cube(app_->render_system->scene_context->vertices.allocator, app_->render_system->scene_context->indices.allocator);
+            // csg_world.box_mesh_id = rendering::add_mesh(app_->render_system, "box_brush", mesh);
+        }
+
+        dlist_init(&prefabs);
+        dlist_init(&redo_sentinel);
+        dlist_init(&undo_sentinel);
+        dlist_init(&paths);
+
+        camera.move(v3f{-10.0f, 4.0f, 00.0f});
+
+        // gradient.add(&arena, v4f{0.89f, 0.84f, 0.3f, 1.0f}, 0.0f);
+        // gradient.add(&arena, v4f{0.09f, 0.14f, 0.93f, 1.0f}, 1.0f);
+    }
 
 // why is this here?
 REFLECT_TYPE(std::string_view) {
@@ -740,113 +826,317 @@ REFLECT_TYPE(std::string_view) {
 
 // void load_world_file_for_edit(entity_editor_t* ee, const char* name);
 
+#include "imgui.h"
 static bool
-save_world_window(
-    gfx::gui::im::state_t& imgui,
+ImGui_load_entity_window(
     entity_editor_t* ee,
     bool load = 0
 ) {
-    using namespace gfx::gui;
-    local_persist dialog_window_t dialog_box{.position = v2f{500.0f, 300.0f}};;
+    local_persist char text_buffer[512] = {};
     char file[512] = {};
 
-    auto draw_files = [&](){
-        auto* game_state = ee->game_state;
+    if (ImGui::Begin(load ? "Load Entity" : "Save Entity")) {
+        ImGui::InputText("Filter", text_buffer, array_count(text_buffer));
 
-        im::space(imgui, 64.0f);
-        local_persist v2f rect{0.0f, 256.0f};
-        local_persist f32 scroll;
-
-        im::begin_scroll_rect(imgui, &scroll, &rect);
-        defer {
-            im::end_scroll_rect(imgui, &scroll, &rect);
-        };
-        
-        for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/worlds/")) {
+        u64 drawn = 0;
+        for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/entity/")) {
             auto filename = entry.path().string();
-            auto extension_match = utl::has_extension(filename, "zmap") || utl::has_extension(filename, "zyy");
             if (entry.is_directory()) {
                 continue;
-
-            } else if (entry.is_regular_file() && extension_match) {
-                if (dialog_box.text_buffer[0]) {
-                    if (std::strstr(filename.c_str(), dialog_box.text_buffer) == nullptr) {
+            } else if (entry.is_regular_file() && utl::has_extension(filename, "entt")) {
+                if (text_buffer[0]) {
+                    if (std::strstr(filename.c_str(), text_buffer) == nullptr) {
                         continue;
                     }
                 }
-                if (im::text(imgui, filename)) {
+                if (ImGui::Button(filename.c_str())) {
                     utl::copy(file, filename.c_str(), filename.size());
+                }
+                if ((drawn++ % 3) < 2) {
+                    ImGui::SameLine();
                 }
             }
         }
-    };
+    }
+    ImGui::End();
 
-    dialog_box
-        .set_title(load?"Load World":"Save World")
-        .set_description("Select a file")
-        .draw(imgui, draw_files)
-        .into(file);
-
-    if (dialog_box.done == 2) {
+    if (!file[0]) {
         return false;
     }
 
-    if (!file[0]) {
-        return true;
+    if (load) {
+        *ee->entity = load_from_file(&ee->game_state->main_arena, file);
+    } else { // show_save
+        std::ofstream ffile{file, std::ios::binary};
+
+        if (ffile.is_open() == false) {
+            return false;
+        }
+        auto memory = begin_temporary_memory(&ee->arena);
+
+        utl::memory_blob_t blob{memory.arena};
+
+        blob.serialize(memory.arena, *ee->entity);
+
+        ffile.write((const char*)blob.data, blob.serialize_offset);
+
+        end_temporary_memory(memory);
     }
 
-    if (load) {
-        // load_world_file_for_edit(ee, file);
-        {
+    return true;
+}
+
+static bool
+ImGui_load_mesh_window(
+    entity_editor_t* ee
+) {
+    local_persist char text_buffer[512] = {};
+    char file[512] = {};
+
+    if (ImGui::Begin("Load Mesh")) {
+        ImGui::InputText("Filter", text_buffer, array_count(text_buffer));
+        auto* game_state = ee->game_state;
+        auto* pack_file = game_state->resource_file;
+
+        u64 drawn = 0;
+        for(u64 rf = 0; rf < pack_file->file_count; rf++) {
+            if (pack_file->table[rf].file_type != utl::res::magic::mesh) {
+                continue;  
+            }
+            if (text_buffer[0] && std::strstr(pack_file->table[rf].name.c_data, text_buffer) == nullptr) {
+                continue;
+            }
+            if (ImGui::Button(pack_file->table[rf].name.c_data)) {
+                utl::copy(file, pack_file->table[rf].name.c_data, std::strlen(pack_file->table[rf].name.c_data));
+            }
+            if ((drawn++ % 3) < 2) {
+                ImGui::SameLine();
+            }
+        }
+    }
+    ImGui::End();
+
+    if (!file[0]) {
+        return false;
+    }
+
+    auto slen = std::strlen(file);
+    utl::copy(ee->entity->gfx.mesh_name.buffer, file, slen);
+    ee->entity->gfx.mesh_name.buffer[slen] = 0;
+
+    return true;
+}
+
+static bool
+ImGui_save_world_window(
+    entity_editor_t* ee,
+    bool load 
+) {
+    local_persist char text_buffer[512];
+    char file[512] = {};
+    ImGui::Begin(load?"Load World":"Save World");
+
+    if (ImGui::InputText("Search", text_buffer, array_count(text_buffer))) {
+
+    }
+
+    for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/worlds/")) {
+        auto filename = entry.path().string();
+        auto extension_match = utl::has_extension(filename, "zmap") || utl::has_extension(filename, "zyy");
+        if (entry.is_directory()) {
+            continue;
+
+        } else if (entry.is_regular_file() && extension_match) {
+            if (text_buffer[0]) {
+                if (std::strstr(filename.c_str(), text_buffer) == nullptr) {
+                    continue;
+                }
+            }
+            if (ImGui::Button(filename.c_str())) {
+                assert(filename.size() + 1 < array_count(file));
+                utl::copy(file, filename.c_str(), filename.size());
+            }
+        }
+    }
+
+    ImGui::End();
+
+    if (file[0] != 0) {
+        if (load) {
+            {
+                ee->begin_event_group();
+                defer {
+                    ee->end_event_group();
+                };
+                for (auto* prefab = ee->prefabs.next;
+                    prefab != &ee->prefabs;
+                    node_next(prefab)
+                ) {
+                    ee->remove_prefab(prefab);
+                }
+            }
+
+            arena_t arena = arena_create(megabytes(16));
+            defer {
+                arena_clear(&arena);
+            };
+            auto bytes = utl::read_bin_file(&arena, file);
+            
+            utl::memory_blob_t blob{(std::byte*)bytes.data};
+            auto header = blob.deserialize<world_save_file_header_t>();
+
             ee->begin_event_group();
             defer {
                 ee->end_event_group();
             };
-            for (auto* prefab = ee->prefabs.next;
-                prefab != &ee->prefabs;
-                node_next(prefab)
-            ) {
-                ee->remove_prefab(prefab);
+
+            range_u64(i, 0, header.prefab_count) {
+                auto prefab = blob.deserialize<ztd::prefab_t>(&ee->arena);
+                auto transform = blob.deserialize<math::transform_t>();
+                ee->instance_prefab(prefab, transform);
+            }
+
+            if (header.light_probe_count > 0) {
+                ee->light_probe_settings.aabb.min = header.light_probe_min;
+                ee->light_probe_settings.aabb.max = header.light_probe_max;
+                ee->light_probe_settings.grid_size = header.light_probe_grid_size;
+            }
+        } else {
+            // ee->save_to_file(file);   
+            arena_t arena = arena_create(megabytes(16));
+            push_bytes(&arena, 1);
+            utl::memory_blob_t blob{&arena};
+            blob.serialize(&arena, *ee);
+
+            utl::write_binary_file(file, blob.data_view());
+            arena_clear(&arena);
+        }
+        return 1;
+    }
+    return 0;
+}
+
+static void 
+ImGui_entity_panel(entity_editor_t* ee) {
+    local_persist bool show_gfx;
+    // local_persist char text_buffer[1024];
+
+    auto& e = *ee->entity;
+
+    if (ImGui::Begin("Entity")) {
+        ImGui::BeginGroup();
+            if (ImGui::Button("New")) {
+                ee->entity = &ee->creating_entity;
+                *ee->entity = {};
+                ee->selection_stack.clear();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Clear")) {
+                *ee->entity = {};
+                ee->selection_stack.clear();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Add")) {
+                auto* prefab = ee->instance_prefab(*ee->entity, math::transform_t{});
+
+                ee->selection = prefab;
+
+                ee->entity = &ee->creating_entity;
+                *ee->entity = {};
+                ee->selection_stack.clear();
+            }
+        ImGui::EndGroup();
+
+        if (ImGui::InputText("Typename", e.type_name.buffer, e.type_name.capacity())) {
+        }
+
+        ImGui::Combo("Type", (int*)&ee->entity->type, "environment\0player\0bad\0weapon\0weapon_part\0item\0trigger\0effect\0door\0container\0SIZE");
+    }
+    ImGui::End();
+
+    if (ImGui::Begin("Graphics", &show_gfx)) {
+        if (ImGui::InputText("Mesh Name", e.gfx.mesh_name.buffer, e.gfx.mesh_name.capacity())) {
+
+        }
+
+        int spoof_mat_id = (int)e.gfx.material_id;
+        ImGui::DragInt("Material Id", &spoof_mat_id, 0.1f);
+        if (spoof_mat_id<0) spoof_mat_id = 0;
+        e.gfx.material_id = (u64)spoof_mat_id;
+
+        if (ImGui::InputText("Albedo Name", e.gfx.albedo_texture.buffer, e.gfx.albedo_texture.capacity())) {
+
+        }
+    }
+    ImGui::End();
+}
+
+static void
+ImGui_main_editor(entity_editor_t* ee) {
+    local_persist bool wload, wsave;
+    local_persist bool eload, esave;
+    local_persist bool mload, aload;
+    local_persist bool show_file;
+
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            ImGui::SeparatorText("World");
+            ImGui::MenuItem("Open World", 0, &wload);
+            ImGui::MenuItem("Save World", 0, &wsave);
+
+            ImGui::SeparatorText("Entity");
+            ImGui::MenuItem("Open Entity", 0, &eload);
+            ImGui::MenuItem("Save Entity", 0, &esave);
+
+            ImGui::SeparatorText("Graphics");
+            ImGui::MenuItem("Open Mesh", 0, &mload);
+            ImGui::MenuItem("Open Albedo", 0, &aload);
+
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Edit")) {
+            if (ImGui::MenuItem("Undo", 0)) { ee->undo(); }
+            if (ImGui::MenuItem("Redo", 0)) { ee->redo(); }
+
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+
+    ImGui::Begin("Entity Editor", 0);
+
+        if (wload || wsave) {
+            if (ImGui_save_world_window(ee, wload)) {
+                wsave = wload = false;
+            }
+        }
+        if (mload && ImGui_load_mesh_window(ee)) {
+            mload = 0;
+        }
+        if (eload || esave) {
+            if (ImGui_load_entity_window(ee, eload)) {
+                eload = esave = 0;
             }
         }
 
-        arena_t arena = arena_create(megabytes(16));
-        defer {
-            arena_clear(&arena);
-        };
-        auto bytes = utl::read_bin_file(&arena, file);
+        ImGui::SeparatorText("Light Probe Settings");
+        if (ImGui::Button("Min")) {
+            ee->selection = &ee->light_probe_settings.aabb.min;
+            ee->selection_stack.clear();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Max")) {
+            ee->selection = &ee->light_probe_settings.aabb.max;
+            ee->selection_stack.clear();
+        }
+        ImGui::SameLine();
         
-        utl::memory_blob_t blob{(std::byte*)bytes.data};
-        auto header = blob.deserialize<world_save_file_header_t>();
+        ImGui::DragFloat("Grid Size", &ee->light_probe_settings.grid_size);
 
-        ee->begin_event_group();
-        defer {
-            ee->end_event_group();
-        };
 
-        range_u64(i, 0, header.prefab_count) {
-            auto prefab = blob.deserialize<ztd::prefab_t>(&ee->arena);
-            auto transform = blob.deserialize<math::transform_t>();
-            ee->instance_prefab(prefab, transform);
-        }
+    ImGui::End();
 
-        if (header.light_probe_count > 0) {
-            ee->light_probe_settings.aabb.min = header.light_probe_min;
-            ee->light_probe_settings.aabb.max = header.light_probe_max;
-            ee->light_probe_settings.grid_size = header.light_probe_grid_size;
-        }
-    } else {
-        // ee->save_to_file(file);   
-        arena_t arena = arena_create(megabytes(16));
-        push_bytes(&arena, 1);
-        utl::memory_blob_t blob{&arena};
-        blob.serialize(&arena, *ee);
-
-        utl::write_binary_file(file, blob.data_view());
-        arena_clear(&arena);
-    }
-    
-    return false;
+    ImGui_entity_panel(ee);
 }
 
 static bool
@@ -1158,12 +1448,457 @@ load_entity_window(
     return false;
 }
 
+void draw_browser_panel(gfx::gui::im::state_t& imgui, entity_editor_t* ee, const math::rect2d_t& r) {
+    auto* c = &imgui.ctx;
+    auto* font = imgui.ctx.dyn_font[8];
+    auto* title_font = imgui.ctx.dyn_font[18];
+
+    auto fg_color = imgui.theme.bg_color;
+    auto bg_color = imgui.theme.fg_color;
+    auto active_color = imgui.theme.active_color;
+    auto border_color = imgui.theme.border_color;
+    auto border_thickness = imgui.theme.border_thickness;
+    auto text_color = imgui.theme.text_color;
+    auto shadow = imgui.theme.shadow_color;
+    auto padding = 4.0f;
+    
+    auto mouse = imgui.ctx.input->mouse.pos2();
+    auto scroll = imgui.ctx.input->mouse.scroll[1];
+    auto mdelta = imgui.ctx.input->mouse.delta2();
+    auto clicked = imgui.ctx.input->released.mouse_btns[0];
+    auto held = imgui.ctx.input->mouse.buttons[0];
+    
+    auto screen = c->screen_rect();
+
+    math::rect2d_t panel{r};
+    math::rect2d_t label;
+    math::rect2d_t _tr;
+
+    using namespace gfx::gui;
+
+    u64 widget_id = imgui.verify_id("browser"_sid);
+
+    auto title_size = gfx::font_get_size(font, "Browser");
+
+    draw_rect_outline(c, panel, fg_color, bg_color, border_thickness);
+
+    panel.pad(padding);
+
+    // std::tie(label, panel) = math::cut_top(panel, title_size.y + padding);
+
+    {
+        auto text_size = gfx::font_get_size(font, "Any");
+        
+        auto tab_min_width = panel.size().x / 7.0f;
+
+        math::rect2d_t tabs;
+        std::tie(tabs, panel) = math::cut_top(panel, text_size.y + padding + 4.0f);
+
+        using namespace gfx::color;
+        const gfx::color32 tab_colors[] = {
+            to_color32(v4f{0.9f, 0.9f, 0.9f, 1.0f}),
+            to_color32(v4f{0.1f, 0.1f, 0.9f, 1.0f}),
+            to_color32(v4f{0.1f, 0.9f, 0.1f, 1.0f}),
+            to_color32(v4f{0.9f, 0.1f, 0.1f, 1.0f}),
+            to_color32(v4f{0.9f, 0.1f, 0.9f, 1.0f}),
+            to_color32(v4f{0.9f, 0.9f, 0.1f, 1.0f})
+        };
+
+        local_persist entity_editor_t::browser_type selected_type = entity_editor_t::browser_type::loadw;
+        u32 tab_count = 0;
+
+        #define draw_tab(show, name, filter) \
+            if (show) { \
+                math::rect2d_t name; \
+                std::tie(name, tabs) = math::cut_left(tabs, std::max(tab_min_width, text_size.x + 8.0f)); \
+                name.pad(1.0f); \
+                if (name.contains(mouse) && clicked) { selected_type = entity_editor_t::browser_type::##filter; } \
+                gfx::gui::draw_round_rect_outline(c, name, 2.0f, to_color32(v4f{0.0f, 0.0f, 0.0f, 0.5f}), selected_type == entity_editor_t::browser_type::##filter ? tab_colors[tab_count++] : modulate(tab_colors[tab_count++], 0.1f), border_thickness); \
+                gfx::gui::draw_string(c, #name, name.min, text_color, font, shadow); \
+            }
+
+        b32 has[32] = {};
+        dlist_for(ee->browser_state, browser) {
+            has[(u32)browser->type] = 1;
+        }
+        draw_tab(has[0], loadworld, loadw);
+        draw_tab(has[1], saveworld, savew);
+        draw_tab(has[2], loadentity, loade);
+
+        local_persist stack_string<256> search_buffer = {};
+        local_persist text_input_state_t search_in{
+            .data = search_buffer.buffer,
+            .text_position = 0,
+            .text_size = 0,
+            .max_size = search_buffer.capacity()
+        };
+
+        if (has[(u32)selected_type]) {
+            { // search bar
+                std::tie(label, panel) = math::cut_top(panel, text_size.y + padding * 2.0f);
+                draw_rect(c, label, bg_color);
+                text_box(c, search_in, label.pad(border_thickness), font, text_color, fg_color, label.contains(mouse), utl::cond(search_in.text_size == 0, "Search"sv));
+            }
+
+            switch(selected_type) {
+                case entity_editor_t::browser_type::savew:
+                case entity_editor_t::browser_type::loadw: {
+                      for (const auto& entry : std::filesystem::recursive_directory_iterator("./res/worlds/")) {
+                        auto filename = entry.path().string();
+                        auto extension_match = utl::has_extension(filename, "zmap") || utl::has_extension(filename, "zyy");
+                        if (entry.is_directory()) {
+                            continue;
+                        } else if (entry.is_regular_file() && extension_match) {
+                            if (!search_buffer.empty()) {
+                                if (std::strstr(filename.c_str(), search_buffer.buffer) == nullptr) {
+                                    continue;
+                                }
+                            }
+
+                            using namespace gfx::gui::cut_string_result_t;
+
+                            switch(cut_string(c, panel, filename, imgui.theme, 0, font)) {
+                                case fire:
+                                    if (selected_type == entity_editor_t::browser_type::loadw) {
+                                        console_log(&ee->console, fmt_sv("loadw {}", utl::trim_filename(filename, '/')), text_color, 0, 0, 1);
+                                    } else {
+                                        console_log(&ee->console, fmt_sv("savew {}", utl::trim_filename(filename, '/')), text_color, 0, 0, 1);
+                                    }
+                                    ee->close_browser(selected_type);
+                                case hot:
+                                    ee->tooltip = std::format("{}{} - {}", math::pretty_bytes(entry.file_size()), math::pretty_bytes_postfix(entry.file_size()), std::filesystem::last_write_time(entry.path()));
+                                default: break;
+                            };
+                        }
+                    }
+                } break;
+            }
+        }
+
+        #undef draw_tab
+    }
+}
+
+void draw_world_panel(gfx::gui::im::state_t& imgui, entity_editor_t* ee, v2f& window_pos, v2f& window_size) {
+    auto* c = &imgui.ctx;
+    auto* font = imgui.ctx.dyn_font[8];
+    auto* title_font = imgui.ctx.dyn_font[18];
+
+    auto fg_color = imgui.theme.bg_color;
+    auto bg_color = imgui.theme.fg_color;
+    auto active_color = imgui.theme.active_color;
+    auto border_color = imgui.theme.border_color;
+    auto border_thickness = imgui.theme.border_thickness;
+    auto text_color = imgui.theme.text_color;
+    auto shadow = imgui.theme.shadow_color;
+    auto padding = 4.0f;
+    
+    auto mouse = imgui.ctx.input->mouse.pos2();
+    auto mdelta = imgui.ctx.input->mouse.delta2();
+    auto clicked = imgui.ctx.input->released.mouse_btns[0];
+    auto held = imgui.ctx.input->mouse.buttons[0];
+    
+    auto screen = c->screen_rect();
+
+    math::rect2d_t panel{window_pos, window_pos + window_size};
+    math::rect2d_t label;
+    math::rect2d_t _tr;
+
+    using namespace gfx::gui;
+
+    local_persist char panel_buffer[1024];
+    local_persist text_input_state_t panel_input{
+        .data = panel_buffer,
+        .max_size = array_count(panel_buffer)
+    };
+
+    u64 widget_id = imgui.verify_id("world_panel"_sid);
+
+    auto title_size = gfx::font_get_size(font, "World");
+
+    draw_rect_outline(c, panel, fg_color, bg_color, border_thickness);
+    
+    {   // add
+        using namespace gfx::gui::cut_string_result_t;
+
+        switch(cut_string(c, panel, "Add Entity", text_color, fg_color, border_color, border_thickness, v2f{padding}, font, shadow)) {
+            case fire:
+                ee->log_error("Not Implemented");
+            case hot:
+                ee->tooltip = "Copy current entity into the world"sv;
+            default: break;
+        };
+    }
+
+    {   // light probes
+        std::tie(label, panel) = math::cut_top(panel, title_size.y + padding);
+        draw_string(c, "Light Probes", label.min, text_color, font, shadow).x;
+
+        std::tie(label, panel) = math::cut_top(panel, title_size.y + padding);
+            auto s = draw_string(c, "Min", label.min, text_color, font, shadow);
+            std::tie(_tr, label) = math::cut_left(label, s.x + padding);
+            // float_box(c, panel_input, label, font, text_color, fg_color, label.contains(mouse), &ee->light_probe_settings.aabb.min);
+
+        std::tie(label, panel) = math::cut_top(panel, title_size.y + padding);
+
+            s = draw_string(c, "Max", label.min, text_color, font, shadow);
+            std::tie(_tr, label) = math::cut_left(label, s.x + padding);
+
+        std::tie(label, panel) = math::cut_top(panel, title_size.y + padding);
+            s = draw_string(c, "Grid Size", label.min, text_color, font, shadow);
+            std::tie(_tr, label) = math::cut_left(label, s.x + padding);
+            float_box(c, label, font, text_color, bg_color, label.contains(mouse), &ee->light_probe_settings.grid_size);
+
+    }
+
+}
+
+void draw_entity_panel(gfx::gui::im::state_t& imgui, entity_editor_t* ee, v2f& window_pos, v2f& window_size) {
+    auto* c = &imgui.ctx;
+    auto* font = imgui.ctx.dyn_font[14];
+    auto* title_font = imgui.ctx.dyn_font[18];
+
+    auto fg_color = imgui.theme.bg_color;
+    auto bg_color = imgui.theme.fg_color;
+    auto active_color = imgui.theme.active_color;
+    auto border_color = imgui.theme.border_color;
+    auto border_thickness = imgui.theme.border_thickness;
+    auto text_color = imgui.theme.text_color;
+    auto shadow = imgui.theme.shadow_color;
+    auto padding = 1.0f;
+    
+    auto mouse = imgui.ctx.input->mouse.pos2();
+    auto mdelta = imgui.ctx.input->mouse.delta2();
+    auto clicked = imgui.ctx.input->released.mouse_btns[0];
+    auto held = imgui.ctx.input->mouse.buttons[0];
+    
+    bool ctrl_held = c->input->keys[key_id::LEFT_CONTROL] || c->input->keys[key_id::RIGHT_CONTROL];
+    bool shift_held = c->input->keys[key_id::LEFT_SHIFT] || c->input->keys[key_id::RIGHT_SHIFT];
+
+    auto screen = c->screen_rect();
+
+    window_pos = screen.max - window_size;
+
+    math::rect2d_t panel{window_pos, window_pos + window_size};
+
+    
+    using namespace gfx::gui;
+
+    u64 widget_id = imgui.verify_id("entity_panel"_sid);
+    local_persist ztd::entity_type entity_filter = ztd::entity_type::SIZE;
+    local_persist char search_buffer[128];
+    local_persist text_input_state_t text_in{
+        .data = search_buffer,
+        .max_size = array_count(search_buffer)
+    };
+
+    im::begin_drag(imgui);
+
+    {   // draw panel
+        gfx::gui::draw_round_rect_outline(c, panel, 2.0f, fg_color, bg_color, border_thickness);
+        panel.pad(padding + 2.0f);
+
+        math::rect2d_t resize{panel.min - v2f{16.0f}, panel.min};
+
+        auto resize_color = gfx::color::rgba::cream;
+
+        if (resize.contains(mouse)) {
+            resize_color = gfx::color::rgba::yellow;
+            // imgui.hot = widget_id;
+            gfx::gui::draw_rect_outline(c, resize, resize_color, bg_color, border_thickness);
+            if (held) {
+                // imgui.active = widget_id;
+                window_size -= mdelta;
+            } else {
+                // imgui.active = 0;
+            }
+        } else {
+            // imgui.hot = 0;
+        }
+    }
+    {   // draw title
+        auto title_size = gfx::font_get_size(title_font, "Entities");
+        math::rect2d_t title;
+        std::tie(title, panel) = math::cut_top(panel, title_size.y + padding);
+        
+        if (title.contains(mouse)) {
+            // imgui.hot = widget_id;
+            if (held) {
+                // imgui.active = widget_id;
+                window_pos += mdelta;
+            } else {
+                // imgui.active = 0;
+            }
+        } else {
+            // imgui.hot = 0;
+        }
+
+        auto cursor = title.center() - title_size * 0.5f;
+        gfx::gui::draw_round_rect_outline(c, title, 2.0f, fg_color, bg_color, border_thickness);
+        gfx::gui::draw_string(c, "Entities", cursor, text_color, title_font, shadow);
+    }
+    {   // draw search
+        auto text_size = gfx::font_get_size(font, "Any");
+
+        math::rect2d_t search;
+        std::tie(search, panel) = math::cut_top(panel, text_size.y + padding + 4.0f);
+
+        auto active = search.contains(mouse);
+
+        gfx::gui::draw_round_rect(c, search, 2.0f, bg_color);
+        search.pad(border_thickness);
+        gfx::gui::text_box(c, text_in, search, font, text_color, fg_color, active, !text_in.text_size ? std::optional{"Search"sv} : std::nullopt);
+    }
+    {   // draw tabs
+        auto text_size = gfx::font_get_size(font, "Any");
+        
+        auto tab_min_width = panel.size().x / 7.0f;
+
+        math::rect2d_t tabs;
+        std::tie(tabs, panel) = math::cut_top(panel, text_size.y + padding + 4.0f);
+
+        using namespace gfx::color;
+        const gfx::color32 tab_colors[] = {
+            to_color32(v4f{0.9f, 0.9f, 0.9f, 1.0f}),
+            to_color32(v4f{0.1f, 0.1f, 0.9f, 1.0f}),
+            to_color32(v4f{0.1f, 0.9f, 0.1f, 1.0f}),
+            to_color32(v4f{0.9f, 0.1f, 0.1f, 1.0f}),
+            to_color32(v4f{0.9f, 0.1f, 0.9f, 1.0f}),
+            to_color32(v4f{0.9f, 0.9f, 0.1f, 1.0f})
+        };
+
+        u32 tab_count = 0;
+
+        #define draw_tab(name, filter) \
+            math::rect2d_t name; \
+            std::tie(name, tabs) = math::cut_left(tabs, std::max(tab_min_width, text_size.x + 8.0f)); \
+            name.pad(1.0f); \
+            if (name.contains(mouse) && clicked) { entity_filter = filter; } \
+            gfx::gui::draw_round_rect_outline(c, name, 2.0f, to_color32(v4f{0.0f, 0.0f, 0.0f, 0.5f}), entity_filter == filter ? tab_colors[tab_count++] : modulate(tab_colors[tab_count++], 0.1f), border_thickness); \
+            gfx::gui::draw_string(c, #name, name.center() - text_size * 0.5f, text_color, font, shadow)
+
+            draw_tab(any, ztd::entity_type::SIZE);
+            draw_tab(plr, ztd::entity_type::player);
+            draw_tab(env, ztd::entity_type::environment);
+            draw_tab(bad, ztd::entity_type::bad);
+            draw_tab(wep, ztd::entity_type::weapon);
+            draw_tab(itm, ztd::entity_type::item);
+
+        #undef draw_tab
+    }
+    {   // draw entities
+        for(auto* prefab = ee->prefabs.next;
+            prefab != &ee->prefabs;
+            prefab->first_child ? prefab = prefab->first_child : prefab->next ? node_next(prefab) : prefab->parent->next
+        ) {
+            auto has_selected = ee->has_selection(&prefab->transform.origin);
+
+            if (entity_filter != ztd::entity_type::SIZE) {
+                if (prefab->prefab.type != entity_filter) continue;
+            }
+
+            // gfx::gui::im::drag_user_data(imgui, *prefab, "prefab_t");
+
+            auto name_size = gfx::font_get_size(font, 
+                prefab->prefab.type_name.empty() ? 
+                    fmt_sv("Entity: {} ", (void*)prefab):
+                    fmt_sv("{}\0{}"sv, prefab->prefab.type_name.view(), (void*)prefab)
+            );
+
+            math::rect2d_t label;
+            math::rect2d_t del;
+            math::rect2d_t show_children;
+
+            std::tie(label, panel) = math::cut_top(panel, name_size.y + padding + 8.0f);
+            label.pad(padding);
+            std::tie(del, label) = math::cut_left(label, label.size().y);
+            std::tie(show_children, label) = math::cut_right(label, label.size().y);
+
+            // del.pad(2.0f);
+            auto del_color = gfx::color::rgba::dark_red;
+            auto show_color = gfx::color::rgba::cream;
+            auto label_color = fg_color;
+            auto label_text_color = text_color;
+
+            if (del.contains(mouse)) {
+                del_color = gfx::color::rgba::reddish;
+                if (clicked) {
+                    ee->remove_prefab(prefab);
+                }
+            }
+
+            if (show_children.contains(mouse)) {
+                show_color = gfx::color::rgba::yellow;
+                ee->log_error("Not Implemented");
+                // todo
+            }
+
+            // click on entity in list
+            if (label.contains(mouse)) {
+                label_color = gfx::color::modulate(label_color, 1.3f);
+                label_text_color = gfx::color::to_color32(v3f{0.8,0.8,0.2});
+
+                if (clicked) {
+                    if (ee->selection == prefab) {
+                        ee->camera.position = prefab->transform.origin;
+                    }
+                    if (shift_held && ee->selection.prefab) {
+                        ee->selection_stack.push(ee->selection);
+                    } else {
+                        ee->selection_stack.clear();
+                    }
+                    ee->selection = prefab;
+                    ee->entity = &prefab->prefab;
+                    ee->gradient = 0;
+                }
+            }
+
+            if (has_selected) {
+                label_text_color = gfx::color::to_color32(v3f{0.8,0.8,0.2});
+            }
+            
+            gfx::gui::draw_round_rect_outline(c, label, 2.0f, fg_color, bg_color, 1.0f);
+            gfx::gui::draw_round_rect_outline(c, del, 2.0f, del_color, bg_color, 1.0f);
+            gfx::gui::draw_round_rect_outline(c, show_children, 2.0f, show_color, bg_color, 1.0f);
+
+            label.min.x += 4.0f; // pad name
+
+            gfx::gui::draw_string(c, prefab->prefab.type_name.empty() ? 
+                fmt_sv("Entity: {} ", (void*)prefab):
+                fmt_sv("{}\0{}"sv, prefab->prefab.type_name.view(), (void*)prefab), label.min, label_text_color, font, shadow);
+        }
+    }
+    
+    if (im::released_drag(imgui)) {
+        auto drag_event = *imgui.drag_event;
+        if ("prefab_t"sv == drag_event.type_name) {
+            auto* prefab = (instanced_prefab_t*)drag_event.user_data;
+
+            if (drag_event.dropped_id) {
+                if ("delete"sv == drag_event.dropped_type_name) {
+                    ee->remove_prefab(prefab);
+                }
+                if ("prefab_t"sv == drag_event.dropped_type_name) {
+                    auto* dropped_prefab = (instanced_prefab_t*)drag_event.dropped_user_data;
+                    ee->remove_prefab(prefab);
+                    // Todo(Zack): hook up insert with undo system
+                    dlist_insert(dropped_prefab, prefab);
+                }
+            }
+        }
+    }
+
+    im::end_drag(imgui);
+}
 
 inline static void
 entity_editor_render(entity_editor_t* ee) {
     TIMED_FUNCTION;
     using namespace gfx::gui;
-    using namespace std::string_view_literals;
+
+    if (ee->show_editor == false) {
+        return;
+    }
 
     // local_persist char mesh_name[512];
     local_persist bool show_load = false;
@@ -1179,8 +1914,52 @@ entity_editor_render(entity_editor_t* ee) {
     auto* game_state = ee->game_state;
     auto* rs = game_state->render_system;
     auto& imgui = game_state->gui.imgui;
+    auto& theme = imgui.theme;
     auto* input = imgui.ctx.input;
+    auto* c = &imgui.ctx;
     
+    auto r = imgui.ctx.screen_rect();
+    auto scr = r;
+    math::rect2d_t _tr;
+    math::rect2d_t file_panel;
+    math::rect2d_t right_panel;
+    math::rect2d_t bottom_panel;
+    math::rect2d_t viewport;
+    math::rect2d_t world_panel;
+    math::rect2d_t browser;
+
+    math::rect2d_t console_rect{ 
+        math::bottom_left(r) - v2f{0.0f, 260.0f},
+        math::bottom_left(r) + v2f{480.0f, 0.0f},
+    };
+
+    local_persist v2f pos{0.0f};
+    local_persist b32 opened = 1;
+    const f32 console_width = 260.0f;
+    const f32 console_height = 480.0f;
+    // local_persist v2f size = {console_width, 0.0f};
+    auto* font = c->dyn_font[10];
+    std::tie(file_panel, r) = math::cut_top(r, gfx::font_get_size(font, "Load World").y + 2.0f);
+    pos = math::bottom_left(file_panel);
+
+    std::tie(world_panel, r) = math::cut_left(r, console_width);
+    std::tie(_tr, world_panel) = math::cut_bottom(world_panel, console_height);
+
+    local_persist b32 show_entity_list = 1;
+    local_persist v2f entity_window_pos{1600.0f, 0.0f};
+    local_persist v2f entity_window_size{256.0f, 256.0f * 1.5f};
+
+    std::tie(right_panel, r) = math::cut_right(r, entity_window_size.x);
+    std::tie(right_panel, _tr) = math::cut_bottom(right_panel, entity_window_size.y);
+
+    std::tie(_tr, r) = math::cut_bottom(r, console_width); // console height
+
+    viewport.min = math::top_right(world_panel);
+    viewport.max = r.max;
+    
+    browser.min = math::top_right(console_rect);
+    browser.max = math::bottom_left(right_panel);
+
     const auto width = game_state->gui.ctx.screen_size.x;
     
     if (input->pressed.keys[key_id::F1]) {
@@ -1259,11 +2038,14 @@ entity_editor_render(entity_editor_t* ee) {
         }
     }
 
-    local_persist v2f pos{0.0f};
-    local_persist b32 opened = 1;
-    local_persist v2f size = {};
+#if 0
+    world_panel = math::rect2d_t{
+        math::top_right(viewport),
+        math::top_right(right_panel)
+    };
 
-    if (im::begin_panel(imgui, "World Editor", &pos, &size, &opened)) {
+    auto world_panel_size = world_panel.size();
+    if (im::begin_panel(imgui, "World Editor", &pos, &world_panel_size, &opened)) {
         local_persist bool saving = false;
         local_persist bool loading = false;
         im::same_line(imgui);
@@ -1280,15 +2062,15 @@ entity_editor_render(entity_editor_t* ee) {
             loading = save_world_window(imgui, ee, 1);
         }
 
-        if (im::text(imgui, "Add Brush")) {
-            auto gfx_id = rendering::register_entity(rs);
-            auto& mesh_list = ee->csg_world.box_mesh;
-            rendering::set_entity_material(rs, gfx_id, 1);
-            rendering::initialize_entity(rs, gfx_id, mesh_list.meshes[0].vertex_start, mesh_list.meshes[0].index_start);
-            rendering::set_entity_albedo(rs, gfx_id, 32);
+        // if (im::text(imgui, "Add Brush")) {
+        //     auto gfx_id = rendering::register_entity(rs);
+        //     auto& mesh_list = ee->csg_world.box_mesh;
+        //     rendering::set_entity_material(rs, gfx_id, 1);
+        //     rendering::initialize_entity(rs, gfx_id, mesh_list.meshes[0].vertex_start, mesh_list.meshes[0].index_start);
+        //     rendering::set_entity_albedo(rs, gfx_id, 32);
 
-            ee->selection = ee->csg_world.new_box_brush(gfx_id);
-        }
+        //     ee->selection = ee->csg_world.new_box_brush(gfx_id);
+        // }
 
         if (ee->entity == &ee->creating_entity) {
             im::text(imgui, "========= New Prefab ==========");
@@ -1339,7 +2121,7 @@ entity_editor_render(entity_editor_t* ee) {
         
         im::same_line(imgui);
         im::text(imgui, "Type Name: \t"sv);
-        im::text_edit(imgui, ee->entity->type_name.view(), &type_pos, "type_name::edit"_sid);
+        im::text_edit(imgui, ee->entity->type_name.span(), &type_pos, "type_name::edit"_sid);
 
         std::string_view types[]{
             "environment",
@@ -1381,7 +2163,7 @@ entity_editor_render(entity_editor_t* ee) {
             if (im::text(imgui, "-- Mesh Name: \t"sv)) {
                 show_mesh_dialog = true;
             }
-            im::text_edit(imgui, mesh_view, &mesh_pos, "mesh_name::edit"_sid);
+            im::text_edit(imgui, ee->entity->gfx.mesh_name.span(), &mesh_pos, "mesh_name::edit"_sid);
 
             im::same_line(imgui);
             im::text(imgui, "-- Material Id: \t"sv);
@@ -1393,7 +2175,7 @@ entity_editor_render(entity_editor_t* ee) {
             if (im::text(imgui, "-- Albedo Name: "sv)) {
                 show_texture_dialog = true;
             }
-            im::text_edit(imgui, albedo_view, &albedo_write, "albedo_texture::edit"_sid);
+            im::text_edit(imgui, ee->entity->gfx.albedo_texture.span(), &albedo_write, "albedo_texture::edit"_sid);
 
             im::text(imgui, fmt_sv("-- Normal Name: {}"sv, ee->entity->gfx.normal_texture.view()));
             im::text(imgui, fmt_sv("-- Anim Name: {}"sv, ee->entity->gfx.animations.view()));
@@ -1423,22 +2205,22 @@ entity_editor_render(entity_editor_t* ee) {
             physics.flags = (u32)flag;
 
             if (!im::text(imgui, "On Collision")) {
-                std::string_view view{ee->entity->physics->on_collision.name};
+                std::span view{ee->entity->physics->on_collision.name};
                 u64 wp = view.size();
                 im::text_edit(imgui, view, &wp, "on_col"_sid);
             }
             if (!im::text(imgui, "On Collision End")) {
-                std::string_view view{ee->entity->physics->on_collision_end.name};
+                std::span view{ee->entity->physics->on_collision_end.name};
                 u64 wp = view.size();
                 im::text_edit(imgui, view, &wp, "on_col_end"_sid);
             }
             if (!im::text(imgui, "On Trigger")) {
-                std::string_view view{ee->entity->physics->on_trigger.name};
+                std::span view{ee->entity->physics->on_trigger.name};
                 u64 wp = view.size();
                 im::text_edit(imgui, view, &wp, "on_trg"_sid);
             }
             if (!im::text(imgui, "On Trigger End")) {
-                std::string_view view{ee->entity->physics->on_trigger_end.name};
+                std::span view{ee->entity->physics->on_trigger_end.name};
                 u64 wp = view.size();
                 im::text_edit(imgui, view, &wp, "on_trg_end"_sid);
             }
@@ -1716,19 +2498,19 @@ entity_editor_render(entity_editor_t* ee) {
         switch (open_tab = im::tabs(imgui, std::span{tabs}, open_tab)) {
             case "Coroutine"_sid: {
                 open_function_window(ee->entity->coroutine.name);
-                std::string_view view{ee->entity->coroutine.name};
+                std::span view{ee->entity->coroutine.name};
                 u64 wp = view.size();
                 im::text_edit(imgui, view, &wp, "coroutine::edit"_sid);
             } break;
             case "Hit Effect"_sid: {
                 open_function_window(ee->entity->on_hit_effect.name);
-                std::string_view view{ee->entity->on_hit_effect.name};
+                std::span view{ee->entity->on_hit_effect.name};
                 u64 wp = view.size();
                 im::text_edit(imgui, view, &wp, "on_hit::edit"_sid);
             } break;
             case "Spawn Bullet"_sid: {
                 open_function_window(ee->entity->spawn_bullet.name);
-                std::string_view view{ee->entity->spawn_bullet.name};
+                std::span view{ee->entity->spawn_bullet.name};
                 u64 wp = view.size();
                 im::text_edit(imgui, view, &wp, "spawn_bullet::edit"_sid);
             } break;
@@ -1860,9 +2642,9 @@ entity_editor_render(entity_editor_t* ee) {
             ) {
                 undo_count++;
             }
-            for(auto* r = ee->redo_sentinel.next;
-                r != &ee->redo_sentinel;
-                r = r->next
+            for(auto* _r = ee->redo_sentinel.next;
+                _r != &ee->redo_sentinel;
+                _r = _r->next
             ) {
                 redo_count++;
             }
@@ -1890,9 +2672,11 @@ entity_editor_render(entity_editor_t* ee) {
 
         im::text(imgui, fmt_sv("Camera: {}", ee->camera.position));
 
+        v2f size = {};
         im::end_panel(imgui, &pos, &size);
-    }
 
+    }
+#endif
 
     local_persist im::panel_state_t transform_panel{
         .pos = v2f{680.0f, 0.0f},
@@ -1994,15 +2778,95 @@ entity_editor_render(entity_editor_t* ee) {
     }
 
 
-    local_persist b32 show_entity_list = 1;
-    local_persist v2f entity_window_pos{1600.0f, 0.0f};
-    local_persist v2f entity_window_size;
-
     // entity_window_size = {};
 
-    if (im::begin_panel(imgui, "Entities", &entity_window_pos, &entity_window_size, &show_entity_list)) {
+#if 1
+    {
+        // imgui.begin_free_drawing();
+        // gfx::gui::draw_rect(c, scr, imgui.theme.fg_color);
+        // imgui.end_free_drawing();
+
+        draw_console(imgui, &ee->console, console_rect, console_rect.contains(imgui.ctx.input->mouse.pos2()));
+        imgui.begin_free_drawing();
+        defer {
+            imgui.end_free_drawing();
+        };
+        // draw_entity_panel(imgui, ee, right_panel.min, entity_window_size);
+
+        // gfx::gui::draw_rect(c, right_panel, imgui.theme.fg_color);
+        // gfx::gui::draw_rect(c, file_panel, imgui.theme.fg_color);
+        // gfx::gui::draw_rect(c, viewport, 1, math::zero_to(v2f{1.0f}), ~0ui32);
+
+        if constexpr(false)
+        {   // transform panel
+            math::rect2d_t panel{
+                math::bottom_left(world_panel),
+                math::bottom_left(viewport)
+            };
+
+            panel.pad(1.0f);
+            draw_rect_outline(c, panel, theme.bg_color, theme.fg_color, 1.0f);
+
+            cut_string(c, panel, "Transform", imgui.theme, 1, font);
+        }
+
+        if constexpr(false)
+        {   // properties panel
+            math::rect2d_t panel{
+                math::top_right(viewport),
+                math::top_right(right_panel)
+            };
+
+            panel.pad(1.0f);
+            draw_rect_outline(c, panel, theme.bg_color, theme.fg_color, 1.0f);
+
+            cut_string(c, panel, "Properties", imgui.theme, 1, font);
+        }
+
+        // auto world_size = world_panel.size();
+        // draw_world_panel(imgui, ee, world_panel.min, world_size);
+        // draw_browser_panel(imgui, ee, browser);
+
+        draw_entity_panel(imgui, ee, right_panel.min, entity_window_size);
+
+        // {   // save/load
+        //     using namespace gfx::gui::cut_string_result_t;
+        //     auto mouse = imgui.ctx.input->mouse.pos2();
+
+        //     math::rect2d_t label;
+        //     math::rect2d_t panel = file_panel;
+        //     panel.min.x = viewport.min.x;
+
+        //     auto file_state = cut_string(c, panel, "File", theme, 1, font, 0, &label);
+        //     math::rect2d_t p{
+        //         math::bottom_left(label),
+        //         label.max + v2f{128.0f, file_panel.size().y * 2.0f}
+        //     };
+        //     if (file_state ==  hot || p.contains(mouse)) {
+        //         draw_rect_outline(c, p, theme.fg_color, theme.bg_color, 1.0f);
+        //         switch(cut_string(c, p, "Load World", theme, 1, font)) {
+        //             case fire:
+        //                 ee->open_browser(entity_editor_t::browser_type::loadw);
+        //             case hot:
+        //                 ee->tooltip = "Load a world file from resource folder"sv;
+        //             default: break;
+        //         };
+        //         switch(cut_string(c, p, "Save World", theme, 1, font, &file_panel)) {
+        //             case fire:
+        //                 ee->open_browser(entity_editor_t::browser_type::savew);
+        //             case hot:
+        //                 ee->tooltip = "Save a world file to resource folder"sv;
+        //             default: break;
+        //         };
+        //     }
+        // }
+    }
+#endif
+// #else 
+
+    if constexpr( false && im::begin_panel(imgui, "Entities", &world_panel.min, &entity_window_size, &show_entity_list)) {
         entity_window_pos = imgui.ctx.screen_rect().max - entity_window_size;
-        auto theme = imgui.theme;
+        // auto theme = imgui.theme;
 
         im::begin_drag(imgui);
 
@@ -2070,58 +2934,17 @@ entity_editor_render(entity_editor_t* ee) {
             }
         }
 
+
         im::end_drag(imgui);
 
         im::end_panel(imgui, &entity_window_pos, &entity_window_size);
     }
+// #endif
 
-    auto want_to_copy = shift_held;
 
-    if (ee->selection.selection != nullptr) {
-        if (ee->selection.mode == selection_mode::scale) {
-            auto [released, _start] = im::gizmo_scale(imgui, ee->selection, ee->selection, rs->projection * rs->view, ee->snapping);
-            if (released) {
-                if (want_to_copy && ee->selection.prefab) {
-                    auto* dragged = ee->selection.prefab;
-                    auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
-                    dragged->transform.basis = imgui.gizmo_basis_start;
-                } else {
-                    ee->edit_basis(ee->selection, *ee->selection.basis, imgui.gizmo_basis_start);
-                }
-            }
-        } else if (ee->selection.mode == selection_mode::rotation) {
-            auto [released, _start] = im::gizmo_rotate(imgui, ee->selection, ee->selection, rs->projection * rs->view, ee->snapping);
-            if (released) {
-                if (want_to_copy && ee->selection.prefab) {
-                    auto* dragged = ee->selection.prefab;
-                    auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
-                    dragged->transform.basis = imgui.gizmo_basis_start;
-                } else {
-                    ee->edit_basis(ee->selection, *ee->selection.basis, imgui.gizmo_basis_start);
-                }
-            }
-        } else if (ee->selection.mode == selection_mode::pos) {
-            auto space = ee->mode ? im::gizmo_mode::global : im::gizmo_mode::local;
-            auto [released, start] = im::gizmo(imgui, ee->selection, rs->projection * rs->view, ee->snapping, ee->selection.basis?*ee->selection.basis:m33{1.0f}, space);
-            if (released) {
-                if (want_to_copy && ee->selection.prefab) {
-                    auto* dragged = ee->selection.prefab;
-                    auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
-                    dragged->transform.origin = start;
-                } else {
-                    auto delta = *ee->selection.selection - start;
-                    ee->begin_event_group();
-                    defer {
-                        ee->end_event_group();
-                    };
-                    ee->edit_vec3(ee->selection, *ee->selection.selection, start);
-                    for (auto& other_selected: ee->selection_stack.view()) {
-                        ee->edit_vec3(other_selected.selection, *other_selected.selection + delta);
-                    }
-                }
-            }
-        }
-    }
+    
+    auto& projection = ee->projection = glm::perspective(45.0f, viewport.aspect(), 0.1f, 300.0f);
+    projection[1][1] *= -1.0f;
 }
 
 inline static void
@@ -2141,11 +2964,18 @@ entity_editor_update(entity_editor_t* ee) {
     const auto& screen_size = imgui.ctx.screen_size;
     auto& camera = ee->camera;
     auto [mx, my] = input->mouse.pos;
+
+    ee->tooltip.clear();
+
+    if (input->pressed.keys[key_id::BACKTICK]) {
+        ee->show_editor ^= true;
+        input->text.key = 0;
+    }
    
     game_state->render_system->set_view(camera.view(), (u32)game_state->width(), (u32)game_state->height());
 
     auto* rs = game_state->render_system;
-    auto vp = rs->projection * rs->view;
+    auto vp = ee->projection * rs->view;
 
     auto draw = [&](const auto& entity, auto transform, auto id, u32 count, instanced_prefab_t* prefab = 0) {
         if (entity.gfx.mesh_name[0]) {
@@ -2194,7 +3024,97 @@ entity_editor_update(entity_editor_t* ee) {
         }
     };
 
-    entity_editor_render(ee);
+    ImGui_main_editor(ee);
+    {
+        auto r = imgui.ctx.screen_rect();
+        math::rect2d_t console_rect{ 
+            math::bottom_left(r) - v2f{0.0f, 260.0f},
+            math::bottom_left(r) + v2f{480.0f, 0.0f},
+        };
+        local_persist math::rect2d_t right_panel{
+            .min = r.max - v2f{128.0f, 360.0f},
+            .max = r.max
+        };
+
+        draw_console(imgui, &ee->console, console_rect, console_rect.contains(imgui.ctx.input->mouse.pos2()));
+        imgui.begin_free_drawing();
+        defer {
+            imgui.end_free_drawing();
+        };
+        auto rsize = right_panel.size();
+        draw_entity_panel(imgui, ee, right_panel.min, rsize);
+        right_panel.min = right_panel.max - rsize;
+    }
+
+    // entity_editor_render(ee);
+
+    // if (ee->show_editor == false) {
+    //     auto want_to_copy = input->keys[key_id::LEFT_SHIFT];
+
+    //     using namespace gfx::gui;        
+
+    //     if (ee->selection.selection != nullptr) {
+    //         if (ee->selection.mode == selection_mode::scale) {
+    //             auto [released, _start] = im::gizmo_scale(imgui, ee->selection, ee->selection, ee->projection * rs->view, ee->snapping);
+    //             if (released) {
+    //                 if (want_to_copy && ee->selection.prefab) {
+    //                     auto* dragged = ee->selection.prefab;
+    //                     auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
+    //                     dragged->transform.basis = imgui.gizmo_basis_start;
+    //                 } else {
+    //                     ee->edit_basis(ee->selection, *ee->selection.basis, imgui.gizmo_basis_start);
+    //                 }
+    //             }
+    //         } else if (ee->selection.mode == selection_mode::rotation) {
+    //             auto [released, _start] = im::gizmo_rotate(imgui, ee->selection, ee->selection, ee->projection * rs->view, ee->snapping);
+    //             if (released) {
+    //                 if (want_to_copy && ee->selection.prefab) {
+    //                     auto* dragged = ee->selection.prefab;
+    //                     auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
+    //                     dragged->transform.basis = imgui.gizmo_basis_start;
+    //                 } else {
+    //                     ee->edit_basis(ee->selection, *ee->selection.basis, imgui.gizmo_basis_start);
+    //                 }
+    //             }
+    //         } else if (ee->selection.mode == selection_mode::pos) {
+    //             auto space = ee->mode ? im::gizmo_mode::global : im::gizmo_mode::local;
+    //             auto [released, start] = im::gizmo(imgui, ee->selection, ee->projection * rs->view, ee->snapping, ee->selection.basis?*ee->selection.basis:m33{1.0f}, space);
+    //             if (released) {
+    //                 if (want_to_copy && ee->selection.prefab) {
+    //                     auto* dragged = ee->selection.prefab;
+    //                     auto* copied = ee->copy_prefab(ee->selection.prefab); // selects copied, spawns at drag spot
+    //                     dragged->transform.origin = start;
+    //                 } else {
+    //                     auto delta = *ee->selection.selection - start;
+    //                     ee->begin_event_group();
+    //                     defer {
+    //                         ee->end_event_group();
+    //                     };
+    //                     ee->edit_vec3(ee->selection, *ee->selection.selection, start);
+    //                     for (auto& other_selected: ee->selection_stack.view()) {
+    //                         ee->edit_vec3(other_selected.selection, *other_selected.selection + delta);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    if (!ee->tooltip.empty()) {
+        auto cursor = input->mouse.pos2() + v2f{16.0f};
+        auto text_size = gfx::font_get_size(imgui.ctx.font, ee->tooltip.sv());
+
+        math::rect2d_t tooltip_box{
+            cursor,
+            cursor + text_size
+        };
+    
+        imgui.begin_free_drawing();
+            gfx::gui::draw_rect(&imgui.ctx, tooltip_box.pad(-1.0f), gfx::color::to_color32(v4f{0.0f, 0.0f, 0.0f, 0.5f}));
+            gfx::gui::draw_string(&imgui.ctx,  ee->tooltip.sv(), tooltip_box.min, imgui.theme.text_color);
+        imgui.end_free_drawing();
+    }
+
     // draw_gui(ee->game_state->game_memory);
 
     draw(ee->creating_entity, m44{1.0f}, 0, 1);
@@ -2244,25 +3164,6 @@ entity_editor_update(entity_editor_t* ee) {
         }
         draw(p->prefab, p->transform.to_matrix(), p->gfx_id, p->gfx_entity_count, p);
     }
-
-    node_for(auto, ee->csg_world.brushes, brush) {
-        auto mesh_id = ee->csg_world.box_mesh_id;
-        auto material_id = 1;
-        auto gfx_id = brush->gfx_id;
-        auto gfx_count = 1;
-
-        rendering::submit_job(
-            rs, 
-            mesh_id, 
-            material_id, // todo make material per mesh
-            brush->transform.to_matrix(),
-            gfx_id,
-            gfx_count,
-            1,
-            0
-        );
-    }
-
 
     auto capture_input = gfx::gui::im::want_mouse_capture(imgui);
 

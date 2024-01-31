@@ -22,6 +22,8 @@ global_variable b32 gs_debug_camera_active;
 #include "App/Game/Rendering/assets.hpp"
 #include "App/Game/Physics/player_movement.hpp"
 
+#include "App/lua_callbacks.cpp"
+
 // Globals
 // Remove these!
 global_variable f32 gs_reload_time = 0.0f;
@@ -435,36 +437,38 @@ void draw_game_ui_second(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
     auto screen = game_ui->screen;
     auto game_theme = game_ui->game_theme;
 
-    const auto split_width = screen.size().x / 4.0f;
+    // const auto split_width = screen.size().x / 4.0f;
 
-    auto [left_panel, mid_plus_right] = math::cut_left(screen, split_width);
-    auto [right_panel, mid_panel] = math::cut_right(mid_plus_right, split_width);
+    // auto [left_panel, mid_plus_right] = math::cut_left(screen, split_width);
+    // auto [right_panel, mid_panel] = math::cut_right(mid_plus_right, split_width);
 
-    game_theme.action_bar_size = (mid_panel.size().x + game_theme.padding * 2.0f) / 11.0f;
-    auto [action_bar, middle] = math::cut_bottom(right_panel, game_theme.action_bar_size + game_theme.padding*2.0f);
+    // game_theme.action_bar_size = (mid_panel.size().x + game_theme.padding * 2.0f) / 11.0f;
+    // auto [action_bar, middle] = math::cut_bottom(right_panel, game_theme.action_bar_size + game_theme.padding*2.0f);
     
-    auto action_tab = action_bar;
-    action_tab.min.x += action_bar.size().x * 0.38f;
-    action_tab.min.y += action_bar.size().y * 0.38f;
-    action_tab.add(v2f{0.0f, -action_bar.size().y});
+    // auto action_tab = action_bar;
+    // action_tab.min.x += action_bar.size().x * 0.38f;
+    // action_tab.min.y += action_bar.size().y * 0.38f;
+    // action_tab.add(v2f{0.0f, -action_bar.size().y});
 
-//jhere
-    gfx::gui::draw_rect(&imgui.ctx, action_bar, game_theme.action_bar_color);
-    gfx::gui::draw_rect(&imgui.ctx, action_tab, game_theme.action_bar_color);
 
-    const f32 border_size = 4.0f;
-    action_bar.pad(border_size);
-    action_tab.pad(border_size);
-    action_tab.max.y += border_size * 2.0f;
+    // gfx::gui::draw_rect(&imgui.ctx, action_bar, game_theme.action_bar_color);
+    // gfx::gui::draw_rect(&imgui.ctx, action_tab, game_theme.action_bar_color);
 
-    gfx::gui::draw_rect(&imgui.ctx, action_bar, game_theme.action_bar_fg_color);
-    gfx::gui::draw_rect(&imgui.ctx, action_tab, game_theme.action_bar_fg_color);
+    // const f32 border_size = 4.0f;
+    // action_bar.pad(border_size);
+    // action_tab.pad(border_size);
+    // action_tab.max.y += border_size * 2.0f;
 
-    v2f cursor = action_tab.min + 2.0f;
+    // gfx::gui::draw_rect(&imgui.ctx, action_bar, game_theme.action_bar_fg_color);
+    // gfx::gui::draw_rect(&imgui.ctx, action_tab, game_theme.action_bar_fg_color);
+
+    // v2f cursor = action_tab.min + 2.0f;
     auto health_percent = f32(game_ui->health.current) / f32(game_ui->health.max);
-    auto health_bar = action_tab;
+    math::rect2d_t health_bar;
+    health_bar.max = screen.max;
+    health_bar.min = health_bar.max - v2f{256.0f, 34.0f};
     health_bar.pad(4.0f);
-    health_bar.max.y = health_bar.min.y + 32.0f;
+    // health_bar.max.y = health_bar.min.y + 32.0f;
     // gfx::gui::string_render(&imgui.ctx, fmt_sv("Health: {} / {}", game_ui->health.current, game_ui->health.max), &cursor, gfx::color::rgba::light_green);
     gfx::gui::draw_progress_bar(&imgui.ctx,
         health_bar, health_percent,
@@ -476,6 +480,8 @@ void draw_game_ui_second(gfx::gui::im::state_t& imgui, game_ui_t* game_ui) {
         gfx::gui::progress_bar_style::leftround
         // gfx::gui::progress_bar_style::rounded
     );
+    gfx::gui::draw_string(&imgui.ctx, fmt_sv("{} / {}", game_ui->health.current, game_ui->health.max), health_bar.min + v2f{4.0f}, gfx::color::rgba::white);
+
 
     // for (i32 i = 0; i < 10; i++) {
     //     math::rect2d_t box{
@@ -827,6 +833,9 @@ make_noise_texture(arena_t* arena, u32 size) {
     return tex;
 }
 
+#include "imgui.h"
+#include "imgui_impl_vulkan.h"
+#include "App/imgui_themes.cpp"
 void
 app_init_graphics(game_memory_t* game_memory) {
     TIMED_FUNCTION;
@@ -838,6 +847,34 @@ app_init_graphics(game_memory_t* game_memory) {
         game_state->gfx.init(&game_memory->config, memory.arena);
         end_temporary_memory(memory);
     }
+
+    // setup imgui
+    ImGui::SetCurrentContext((ImGuiContext*)game_memory->imgui_context);
+    ImGuiThemeZZDark();
+
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = vk_gfx.instance;
+    init_info.PhysicalDevice = vk_gfx.gpu_device;
+    init_info.Device = vk_gfx.device;
+    init_info.QueueFamily = vk_gfx.graphics_index;
+    init_info.Queue = vk_gfx.gfx_queue;
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPool = vk_gfx.descriptor_pool;
+    init_info.Subpass = 0;
+    init_info.MinImageCount = 2;
+    init_info.ImageCount = (u32)vk_gfx.swap_chain_images.size();
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.Allocator = VK_NULL_HANDLE;
+    init_info.UseDynamicRendering = 1;
+    init_info.ColorAttachmentFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    init_info.CheckVkResultFn = [](VkResult err) {
+        if (err == 0)
+            return;
+        fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+        if (err < 0)
+            abort();
+    };
+    ImGui_ImplVulkan_Init(&init_info, 0);
 
     // make_grid_texture(&game_state->texture_arena, &vk_gfx.null_texture, 256, v3f{0.3f}, v3f{0.6f}, 2.0f);
     // texture_add_border(&vk_gfx.null_texture, v3f{0.9f}, 4);
@@ -977,14 +1014,14 @@ app_init_graphics(game_memory_t* game_memory) {
         auto& rt_compute_pass = rs->frames[0].rt_compute_pass;
 
         rs->shader_cache.load(
-            game_state->main_arena, 
+            &game_state->main_arena, 
             vk_gfx,
             assets::shaders::probe_integrate_comp,
             &rt_compute_pass.descriptor_set_layouts[1],
             1
         );
         rs->shader_cache.load(
-            game_state->main_arena, 
+            &game_state->main_arena, 
             vk_gfx,
             assets::shaders::probe_integrate_depth_comp,
             &rt_compute_pass.descriptor_set_layouts[2],
@@ -992,7 +1029,7 @@ app_init_graphics(game_memory_t* game_memory) {
         );
 
         rs->shader_cache.load(
-            game_state->main_arena, 
+            &game_state->main_arena, 
             vk_gfx,
             assets::shaders::simple_vert,
             mesh_pass.descriptor_layouts,
@@ -1006,7 +1043,7 @@ app_init_graphics(game_memory_t* game_memory) {
         //     anim_pass.descriptor_count
         // );
         rs->shader_cache.load(
-            game_state->main_arena, 
+            &game_state->main_arena, 
             vk_gfx,
             assets::shaders::simple_frag,
             mesh_pass.descriptor_layouts,
@@ -1132,21 +1169,21 @@ app_init_graphics(game_memory_t* game_memory) {
         make_material("dirt", gfx::material_t::plastic(gfx::color::v4::dirt));
 
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::screen_vert,
             rs->get_frame_data().postprocess_pass.descriptor_layouts,
             rs->get_frame_data().postprocess_pass.descriptor_count
         );
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::invert_frag,
             rs->get_frame_data().postprocess_pass.descriptor_layouts,
             rs->get_frame_data().postprocess_pass.descriptor_count
         );
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::tonemap_frag,
             rs->get_frame_data().postprocess_pass.descriptor_layouts,
@@ -1154,7 +1191,7 @@ app_init_graphics(game_memory_t* game_memory) {
         );
 
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::upscale_frag,
             rs->get_frame_data().bloom_pass.descriptor_layouts,
@@ -1162,7 +1199,7 @@ app_init_graphics(game_memory_t* game_memory) {
         );
 
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::downsample_frag,
             rs->get_frame_data().bloom_pass.descriptor_layouts,
@@ -1170,7 +1207,7 @@ app_init_graphics(game_memory_t* game_memory) {
         );
 
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::gui_vert,
             game_state->render_system->pipelines.gui.set_layouts,
@@ -1178,7 +1215,7 @@ app_init_graphics(game_memory_t* game_memory) {
         );
 
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::gui_frag,
             game_state->render_system->pipelines.gui.set_layouts,
@@ -1186,7 +1223,7 @@ app_init_graphics(game_memory_t* game_memory) {
         );
 
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::skybox_vert,
             game_state->render_system->pipelines.sky.set_layouts,
@@ -1194,14 +1231,14 @@ app_init_graphics(game_memory_t* game_memory) {
         );
 
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::skybox_frag,
             game_state->render_system->pipelines.sky.set_layouts,
             game_state->render_system->pipelines.sky.set_count
         );
         rs->shader_cache.load(
-            rs->arena, 
+            &rs->arena, 
             vk_gfx,
             assets::shaders::voidsky_frag,
             game_state->render_system->pipelines.sky.set_layouts,
@@ -1417,6 +1454,9 @@ app_on_init(game_memory_t* game_memory) {
                 case debug_watcher_type::FLOAT32:
                     *watch_var->as_f32 = value;
                     break;
+                case debug_watcher_type::CBOOL:
+                    *watch_var->as_cbool = (bool)value;
+                    break;
                 case debug_watcher_type::FLOAT64:
                     *watch_var->as_f64 = value;
                     break;
@@ -1487,6 +1527,39 @@ app_on_init(game_memory_t* game_memory) {
             assert(!"No Args");
         }
     }, console);
+
+    console_add_command(console, "luaf", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        auto* game_state = (game_state_t*)console->user_data;
+        auto* world = (ztd::world_t*)game_state->game_world;
+
+        auto args = console->get_args();
+        if (args) { // args = "select <>"
+            auto file = utl::read_text_file(&world->frame_arena.get(), *args);
+            auto err = world->L.dostr(file.sv());
+            if (err) {
+                console_log(console, 
+                    fmt::format("{}", *err), gfx::color::rgba::red, 0,0,0
+                );
+            }
+        } else {
+            assert(!"No Args");
+        }
+    }, console);
+
+    console_add_command(console, "lua", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        auto* game_state = (game_state_t*)console->user_data;
+        auto* world = (ztd::world_t*)game_state->game_world;
+
+        auto args = console->get_args();
+        if (args) { // args = "select <>"
+            world->L.dostr(*args);
+        } else {
+            assert(!"No Args");
+        }
+    }, console);
+
 
     console_add_command(console, "view", [](void* data) {
         auto* console = (debug_console_t*)data;
@@ -1606,6 +1679,7 @@ app_on_init(game_memory_t* game_memory) {
             //auto [type_name, _] = utl::cut_left(name, " ");
             ztd::entity_type type = ztd::entity_type::SIZE;
             switch(sid(name)) {
+                case "all"_sid: break;
                 case "player"_sid: type = ztd::entity_type::player; break;
                 case "bad"_sid: type = ztd::entity_type::bad; break;
                 case "item"_sid: type = ztd::entity_type::item; break;
@@ -1618,7 +1692,7 @@ app_on_init(game_memory_t* game_memory) {
             u64 count = 0;
             range_u64(i, 0, world->entity_capacity) {
                 if (world->entities[i].is_alive()) {
-                    if (world->entities[i].type == type) {
+                    if (name == "all"sv || world->entities[i].type == type) {
                         console_log(console, fmt_sv(
                             "Matched[{}]: {} - {}",
                             count++,
@@ -1685,8 +1759,45 @@ app_on_init(game_memory_t* game_memory) {
                 return;
             }
         }
-        
     }, console);
+
+    console_add_command(console, "cputest", [](void* data) {
+        // auto* console = (debug_console_t*)data;
+        constexpr u64 test_count = 500'000;
+        arena_t arena = {};
+        volatile auto* b = (u8*)push_bytes(&arena, test_count);
+
+        {
+            utl::profile_t p{"CPU"};
+            range_u64(j,0, 1000) {
+                range_u64(i, 0, test_count) {
+                    b[i] = 0xff;
+                }
+            }
+        }
+        arena_clear(&arena);
+    }, console);
+
+    console_add_command(console, "gputest", [](void* data) {
+        auto* console = (debug_console_t*)data;
+        auto* game_state = (game_state_t*)console->user_data;
+
+        constexpr u64 test_count = 500'000;
+        gfx::vul::storage_buffer_t<u8, test_count> gpu_buffer;
+        game_state->gfx.create_storage_buffer(&gpu_buffer);
+        volatile auto* b = &gpu_buffer.pool[0];
+
+        {
+            utl::profile_t p{"GPU"};
+            range_u64(j,0, 1000) {
+                range_u64(i, 0, test_count) {
+                    b[i] = 0xff;
+                }
+            }
+        }
+        game_state->gfx.destroy_data_buffer(gpu_buffer);
+    }, console);
+
 
     CLOG("Enter a command");
 
@@ -1710,7 +1821,8 @@ app_on_init(game_memory_t* game_memory) {
     app_init_graphics(game_memory);
 
     game_state->game_world = ztd::world_init(game_state, physics);
-
+    load_engine_functions(game_state->game_world->L);
+    // game_state->game_world->L.dostr("_world = _Level()");
 
 
     gs_debug_camera.camera = &game_state->game_world->camera;
@@ -1782,12 +1894,25 @@ app_on_init(game_memory_t* game_memory) {
         #undef usage
     }
 
+    CLOG("luaf res/lua/test1.lua");
 
+}
+
+
+// Todo: Remove this
+static entity_editor_t* get_entity_editor(game_memory_t* game_state) {
+    local_persist entity_editor_t ee{get_game_state(game_state)};
+    return &ee;
 }
 
 export_fn(void) 
 app_on_deinit(game_memory_t* game_memory) {
     game_state_t* game_state = get_game_state(game_memory);
+
+    if (game_state->game_world) {
+        ztd::world_destroy_all(game_state->game_world);
+        ztd::world_free(game_state->game_world);
+    }
 
     gfx::vul::state_t& vk_gfx = game_state->gfx;
     vkDeviceWaitIdle(vk_gfx.device);
@@ -1798,6 +1923,20 @@ app_on_deinit(game_memory_t* game_memory) {
     vk_gfx.cleanup();
     ztd_info(__FUNCTION__, "Graphics API cleaned up");
 
+    arena_clear(&game_state->debug_state->arena);
+    arena_clear(&game_state->debug_state->watch_arena);
+    arena_clear(&game_state->texture_arena);
+    arena_clear(&game_state->mesh_arena);
+    arena_clear(&game_state->main_arena);
+    arena_clear(&game_state->gui.imgui.perm_arena);
+    arena_clear(&game_state->gui.imgui.frame_arena);
+
+    auto* ee = get_entity_editor(game_memory);
+
+    arena_clear(&ee->arena);
+    arena_clear(&ee->undo_arena);
+    
+
     game_state->~game_state_t();
 }
 
@@ -1807,6 +1946,8 @@ app_on_unload(game_memory_t* game_memory) {
     game_state_t* game_state = get_game_state(game_memory);
     
     game_state->modding.loader.unload_library();
+
+    load_engine_functions(game_state->game_world->L);
     // game_state->render_system->ticket.lock();
 }
 
@@ -1869,6 +2010,8 @@ app_on_input(game_state_t* game_state, app_input_t* input) {
         ztd::world_destroy_all(game_state->game_world);
         ztd::world_free(game_state->game_world);
         game_state->game_world = ztd::world_init(game_state, game_state->game_memory->physics);
+        
+        load_engine_functions(game_state->game_world->L);
 
         gs_debug_camera.camera = &game_state->game_world->camera;
 
@@ -1917,6 +2060,12 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
     auto* world = game_state->game_world;
     
     ztd::world_update(world, dt);
+
+    // world->L.push_tablefn("_world", "update");
+    // world->L.push_float(dt);
+    // world->L.callf(2);
+    world->L.dostr(fmt_sv("_world.update({})", dt));
+    // world->L.dostr("_world:update()");
 
     // DEBUG_DIAGRAM_(v3f{axis::right * 50.0f}, 0.01f);
 
@@ -2128,6 +2277,8 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         // world->player->camera_controller.transform.origin = world->player->physics.rigidbody->position + 
         //     axis::up * world->player->camera_controller.head_height + axis::up * world->player->camera_controller.head_offset;
         // world->player->camera_controller.translate(v3f{0.0f});
+
+        rendering::set_player_position(rs, world->player->global_transform().origin);
     
         DEBUG_SET_FOCUS(world->player->global_transform().origin);
     }
@@ -2330,7 +2481,7 @@ void game_on_gameplay(game_state_t* game_state, app_input_t* input, f32 dt) {
         }
         if (DEBUG_STATE.console->open_percent > 0.0f) {
             local_persist v2f cpos = v2f{400.0, 0.0f};
-            draw_console(imgui, DEBUG_STATE.console, &cpos);
+            draw_console(imgui, DEBUG_STATE.console, imgui.ctx.screen_rect(), true);
         }
 #endif
 
@@ -2683,14 +2834,14 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
             depthStencilAttachment.clearValue.depthStencil = { 1.0f,  0 };
 
-            VkRenderingInfoKHR renderingInfo{};
+            VkRenderingInfoKHR renderingInfo = {};
             renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
             renderingInfo.renderArea = { 0, 0, rs->width, rs->height };
             renderingInfo.layerCount = 1;
             renderingInfo.colorAttachmentCount = 1;
             renderingInfo.pColorAttachments = &colorAttachment;
-            renderingInfo.pDepthAttachment = &depthStencilAttachment;
-            renderingInfo.pStencilAttachment = &depthStencilAttachment;
+            // renderingInfo.pDepthAttachment = &depthStencilAttachment;
+            // renderingInfo.pStencilAttachment = &depthStencilAttachment;
 
             khr.vkCmdBeginRenderingKHR(command_buffer, &renderingInfo);
         }
@@ -2717,6 +2868,8 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             gfx::vul::end_debug_marker(command_buffer);
             gfx::vul::begin_debug_marker(command_buffer, "UI Pass");
 
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer);
+
             VkColorBlendEquationEXT blend_fn[1];
             blend_fn[0] = gfx::vul::utl::alpha_blending();
             VkBool32 fb_blend[1] { true };
@@ -2725,6 +2878,7 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             
             ext.vkCmdSetDepthTestEnableEXT(command_buffer, VK_TRUE);
             ext.vkCmdSetDepthWriteEnableEXT(command_buffer, VK_TRUE);
+
 
             vkCmdBindDescriptorSets(command_buffer, 
                 VK_PIPELINE_BIND_POINT_GRAPHICS, game_state->render_system->pipelines.gui.layout,
@@ -2839,6 +2993,9 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
 
         khr.vkCmdEndRenderingKHR(command_buffer);
         gfx::vul::end_debug_marker(command_buffer);
+        
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
 
         gfx::vul::utl::insert_image_memory_barrier(
             command_buffer,
@@ -2852,6 +3009,7 @@ game_on_render(game_memory_t* game_memory, u32 image_index) {
             VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
         
         VK_OK(vkEndCommandBuffer(command_buffer));
+
         present_frame(game_state, command_buffer, image_index, frame_count);
     }
 }
@@ -2864,11 +3022,6 @@ main_menu_on_update(game_memory_t* game_memory) {
 global_variable u64 scene_state = 1;
 
 
-
-inline entity_editor_t* get_entity_editor(game_memory_t* game_state) {
-    local_persist entity_editor_t ee{get_game_state(game_state)};
-    return &ee;
-}
 
 export_fn(void) 
 app_on_render(game_memory_t* game_memory) {
@@ -2921,6 +3074,12 @@ app_on_update(game_memory_t* game_memory) {
     u32 image_index = wait_for_frame(game_state);
     rendering::begin_frame(game_state->render_system);
 
+    ImGui_ImplVulkan_NewFrame();
+    ImGui::NewFrame();
+
+    local_persist bool SHOW_IMGUI_DEMO; DEBUG_WATCH(&SHOW_IMGUI_DEMO);
+    if (SHOW_IMGUI_DEMO) ImGui::ShowDemoWindow(&SHOW_IMGUI_DEMO);
+
     begin_gui(game_state);
 
     switch (scene_state) {
@@ -2936,6 +3095,8 @@ app_on_update(game_memory_t* game_memory) {
             scene_state = 1;
             break;
     }
+
+    ImGui::Render();
 
     game_on_render(game_memory, image_index);
     game_state->render_system->frame_count++;

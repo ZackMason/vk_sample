@@ -293,7 +293,7 @@ public:
         link_t shaders[64<<2]{};
 
         void reload_all(
-            arena_t arena,
+            arena_t* arena,
             gfx::vul::state_t vk_gfx
         ) {
             range_u64(i, 0, array_count(shaders)) {
@@ -317,7 +317,7 @@ public:
         }
 
         u64 load(
-            arena_t arena,
+            arena_t* arena,
             const gfx::vul::state_t& vk_gfx,
             const char* filename,
             VkShaderStageFlagBits stage,
@@ -353,7 +353,7 @@ public:
         }
 
         u64 load(
-            arena_t arena,
+            arena_t* arena,
             const gfx::vul::state_t& vk_gfx,
             const gfx::shader_description_t& shader_description,
             VkDescriptorSetLayout* descriptor_set_layouts,
@@ -1006,6 +1006,9 @@ public:
         rs->vk_gfx->destroy_data_buffer(rs->environment_storage_buffer);
         rs->vk_gfx->destroy_data_buffer(rs->point_light_storage_buffer);
         rs->permanent_descriptor_allocator->cleanup();
+
+        arena_clear(&rs->arena);
+        arena_clear(&rs->frame_arena);
     }
 
     template <size_t Size = gigabytes(1)>
@@ -2142,6 +2145,13 @@ public:
     void set_entity_instance_data(system_t* rs, gfx_entity_id id, u32 offset, u32 count) {
         rs->scene_context->get_entity(id).instance_offset = offset;
         rs->scene_context->get_entity(id).instance_count = count;
+    }
+
+    void set_player_position(system_t* rs, v3f pos) {
+        return;
+        auto& settings = rs->light_probe_settings_buffer.pool[0];
+        auto offset = -(pos - (settings.aabb_min + settings.aabb_max) * 0.5f);
+        rs->light_probe_settings_buffer.pool[0].scroll_offset = v3i(offset/settings.grid_size);
     }
 
     #include "raytrace_pass.hpp"

@@ -19,6 +19,8 @@ struct LightProbeSettings {
     vec3 aabb_min;
     vec3 aabb_max;
 
+    ivec3 scroll_offset;
+
     uvec3 dim;
     vec3 grid_size;
     float hysteresis;
@@ -53,7 +55,8 @@ vec3 light_probe_local_pos_normalized(LightProbeSettings settings, vec3 p) {
 
 // funkiness here with saturate
 ivec3 light_probe_probe_index(LightProbeSettings settings, vec3 p) {
-    return clamp(ivec3(floor(light_probe_local_pos_normalized(settings, p) * vec3(settings.dim))), ivec3(0), ivec3(settings.dim-1));
+    ivec3 probe_coord = ivec3(floor(light_probe_local_pos_normalized(settings, p) * vec3(settings.dim)));
+    return clamp((probe_coord + settings.scroll_offset /* + ivec3(settings.dim)*/) % ivec3(settings.dim), ivec3(0), ivec3(settings.dim-1));
 }
 
 // line bug is effected by dir

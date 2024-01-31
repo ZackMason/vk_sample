@@ -407,7 +407,7 @@ BRAIN_BEHAVIOR_FUNCTION(person_behavior) {
         }
     }
 
-    // brain->person.tree.tick(dt, &blkbrd);
+    brain->person.tree.tick(dt, &blkbrd);
 
     v3f move = blkbrd.move;
 

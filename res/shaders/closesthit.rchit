@@ -58,8 +58,7 @@ layout(buffer_reference, scalar) buffer Materials {Material m[]; };
 
 hitAttributeEXT vec3 attribs;
 
-layout( push_constant ) uniform constants
-{
+layout( push_constant ) uniform constants {
     mat4 kRandomRotation;
     uint64_t kScenePtr;
     uint kFrame;
@@ -67,8 +66,7 @@ layout( push_constant ) uniform constants
     // uint kScenePtr[2];
 };
 
-void main()
-{
+void main() {
     vec3 direction = data.direction.xyz;
     // MeshDesc mesh = uMeshDesc.i[gl_InstanceCustomIndexEXT];
     uint id = gl_InstanceCustomIndexEXT;

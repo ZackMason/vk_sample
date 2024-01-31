@@ -51,79 +51,28 @@ cast_transform(const math::transform_t& transform) {
 }
 
 class arena_heap_t : public physx::PxAllocatorCallback {
-    struct mem_block_t {
-        std::byte*      data{nullptr};
-        size_t          size{0};
-        mem_block_t*    next{nullptr};
-    };
     std::mutex mut{};
-    mem_block_t* heap{nullptr};
-    mem_block_t* empty_block{nullptr};
 
 public:
-    arena_t heap_arena{};
-    arena_t arena{};
-    
-    arena_heap_t(size_t size) {
-        arena = arena_create(size);        
-        heap_arena = arena_create(kilobytes(128));
+    ~arena_heap_t() {
+        arena_clear(&allocator.arena);
     }
 
-private:
-    size_t* get_size(std::byte* ptr) const noexcept {
-        return &((size_t*)ptr)[-1];
-    }
+    utl::allocator_t allocator{};
+
 
     void* allocate(size_t size, const char* type_name, const char* file_name, int line) override final {
         TIMED_FUNCTION;
         std::lock_guard lock{mut};
 
-        // if (type_name) {
-        //     ztd_info("px::alloc", "{}::allocate: {} bytes from {}:{}", type_name, size, file_name, line);
-        // } else {
-        //     ztd_info("px::alloc", "typeless::allocate: {} bytes from {}:{}", size, file_name, line);
-        // }
-
-        // todo(zack): search for freed blocks
-        mem_block_t* prev{0};
-        node_for(mem_block_t, heap, n) {
-            if (n->size >= size) {
-                if (prev) {
-                    prev->next = n->next;
-                } else { 
-                    heap = n->next;
-                }
-                auto* temp_data = n->data;
-                *n = {};
-                node_push(n, empty_block);
-                
-                return temp_data;
-            }
-            prev = n;
-        }
-
-        arena.top = align16(arena.top);
-        auto* ptr = push_bytes(&arena, size + sizeof(size_t)*2) + sizeof(size_t)*2;
-        *get_size(ptr) = size;
-        return ptr;
+        return allocator.allocate(size);
     }
 
     void deallocate(void* ptr) override final {
         TIMED_FUNCTION;
         std::lock_guard lock{mut};
-        
-        mem_block_t* block{};
-        if (empty_block) {
-            node_pop(block, empty_block);
-        } else {
-            tag_struct(block, mem_block_t, &heap_arena);
-        }
-        block->data = (std::byte*)ptr;
-        block->size = *get_size(block->data); // need to find a way to get size......
-        block->next = heap;
-        heap = block;
 
-        // ztd_info("px::free", "deallocate: {} bytes", block->size);
+        allocator.free(ptr);
     }
 };
 

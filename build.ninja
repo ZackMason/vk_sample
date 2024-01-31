@@ -4,19 +4,22 @@ include libs.ninja
 
 ## physics flags are hard coded
 ## Release Flags
-OptimizationFlags = /DNDEBUG /O2 /Zi /fp:fast /arch:AVX2
+OptimizationFlags = /DNDEBUG /O2 /Zi /fp:fast /Gm- /Gy /Gw /arch:AVX2
 
 ## Fast Debug
-#OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /O2 /fp:fast /arch:AVX2
+#OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /Gm- /Gy /Gw /O2 /fp:fast /arch:AVX2
 
 ## Debug
-OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /Od /fp:fast /arch:AVX2
+OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /Gm- /Gy /Gw /Od /fp:fast /arch:AVX2
+
+## Hot Debug
+#OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /Gm- /Gy /Gw /Od /fp:fast /arch:AVX2
 
 ## Sanatized
-#OptimizationFlags = /UNDEBUG /DEBUG /Zi /Od /fp:fast /arch:AVX2 /fsanitize=address
+#OptimizationFlags = /UNDEBUG /DEBUG:full /Zi /Gm- /Gy /Gw /Od /fp:fast /arch:AVX2 /fsanitize=address
 
 cflags = -FC -WX -W4 -wd4127 -wd4100 -wd4201 -wd4505 -wd4702 -wd4701 -wd4189 -MD -EHa /std:c++20
-lflags = -incremental:no -opt:ref user32.lib gdi32.lib shell32.lib /nologo /NOIMPLIB /NOEXP
+lflags = -incremental:no -opt:noref user32.lib gdi32.lib shell32.lib /nologo /NOIMPLIB /NOEXP /FUNCTIONPADMIN /OPT:NOICF
 sdl_lflags = SDL2.lib SDL2_mixer.lib SDL2main.lib
 
 FMODInclude=/I $FMOD_SDK\api\core\inc /I $FMOD_SDK\api\studio\inc 
@@ -70,7 +73,7 @@ rule end_build_profile
 build build\ztd_platform.obj: compile_cpp src\ztd_platform.cpp
   outputs = $out
   opt_flags = $OptimizationFlags -DZTD_INTERNAL=1
-  include_flags = /I include /I include\vendor /I include\vendor\SDL /I $VULKAN_SDK\include
+  include_flags = /I include /I include\vendor /I include\vendor\SDL /I $VULKAN_SDK\include /I Z:/imgui /I Z:/imgui/backends
   link_flags = $lflags /LIBPATH:$VULKAN_SDK\lib /LIBPATH:lib\debug vulkan-1.lib $sdl_lflags glfw3.lib
   random = $out.rnd
 
@@ -83,19 +86,19 @@ build build\ztd_physics.obj: compile_cpp src\ztd_physics.cpp
 build build\vendor_build.obj: compile_cpp src\vendor\vendor_build.cpp
   outputs = $out
   opt_flags = $OptimizationFlags
-  include_flags = /I src\vendor /I include\vendor\Detour /I include\vendor\Recast 
-  link_flags = $lflags
+  include_flags = /I src\vendor /I include\vendor\Detour /I include\vendor\Recast /I Z:/imgui /I Z:/imgui/backends /I $VULKAN_SDK\include /I include/vendor
+  link_flags = $lflags /LIBPATH:lib\debug glfw3.lib
 
 build build\cultist.obj: compile_cpp src\cultist.cpp
   outputs = $out
   opt_flags = $OptimizationFlags -DZTD_INTERNAL=1
-  include_flags = /I include /I include\vendor /I $VULKAN_SDK\include $FMODInclude
-  link_flags = $lflags
+  include_flags = /I include /I include\vendor /I $VULKAN_SDK\include $FMODInclude /I Z://luau/VM/include/ /I Z://luau/Compiler/include/ /I Z:/imgui /I Z:/imgui/backends
+  link_flags = $lflags 
   
 build build\cultist.dll: link_dll build\cultist.obj build\vendor_build.obj
   outputs = $out
   opt_flags = $OptimizationFlags -DZTD_INTERNAL=1
-  link_flags = $lflags /LIBPATH:$VULKAN_SDK\lib /LIBPATH:lib\debug vulkan-1.lib $FMODLink
+  link_flags = $lflags /LIBPATH:$VULKAN_SDK\lib /LIBPATH:lib\debug vulkan-1.lib $FMODLink /LIBPATH:Z://luau/cmake/RelWithDebInfo/ Luau.Compiler.lib Luau.VM.lib Luau.CodeGen.lib Luau.Ast.lib
   random = $out.rnd
 
 build build\ztd_physics.dll: link_dll build\ztd_physics.obj
@@ -117,7 +120,11 @@ build build\tests.obj: compile_cpp tests\tests.cpp
 build build\tests.exe: link_exe build\tests.obj
     outputs = $out
     link_flags = $lflags /LIBPATH:lib\debug $sdl_lflags
+  
+build build\imgui.obj: compile_cpp src\vendor\imgui\imgui_lib.cpp
+    outputs = $out
     
+
 
 default build\game.exe 
 #default build\tests.exe

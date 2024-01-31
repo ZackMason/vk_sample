@@ -1064,7 +1064,7 @@ void draw_worlds(auto* game_state, auto& imgui) {
                 auto filename = entry.path().string();
                 if (entry.is_directory()) {
                     continue;
-                } else if (entry.is_regular_file() && utl::has_extension(filename, "ztd")) {
+                } else if (entry.is_regular_file() && (utl::has_extension(filename, "zyy") || utl::has_extension(filename, "zmap"))) {
                     if (im::text(imgui, filename)) {
                         tag_array(auto* str, char, &world->arena, filename.size()+1);
                         utl::copy(str, filename.c_str(), filename.size()+1);
@@ -1411,6 +1411,7 @@ draw_gui(game_memory_t* game_memory) {
         &game_state->render_system->arena,
         &game_state->render_system->frame_arena,
         game_state->game_world->physics->arena,
+        &game_state->game_world->L.user_data.allocator.arena
     };
     utl::pool_base_t* display_pools[] = {
         &game_state->render_system->scene_context->vertices.pool,
@@ -1443,6 +1444,7 @@ draw_gui(game_memory_t* game_memory) {
         "- Rendering Arena",
         "- Rendering Frame Arena",
         "- Physics Arena",
+        "- Lua Allocator",
     };
     const char* display_pool_names[] = {
         "- 3D Vertex",
@@ -1826,7 +1828,7 @@ draw_gui(game_memory_t* game_memory) {
                     if (im::text(imgui, "Reload Shaders"sv)) {
                         std::system("ninja");
                         game_state->render_system->shader_cache.reload_all(
-                            game_state->render_system->arena,
+                            &game_state->render_system->arena,
                             game_state->gfx
                         );
                     }

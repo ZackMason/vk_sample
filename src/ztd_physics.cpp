@@ -46,6 +46,16 @@ init_physx(api_t* api, arena_t* arena) {
     tag_struct(physx_backend_t* backend, physx_backend_t, arena);
     api->backend = physx_init_backend(backend, arena);
 
+    api->cleanup = [](api_t* a){
+        auto* backend = (physx_backend_t*)a->backend;
+
+        if(backend->state) {
+            arena_clear(&backend->state->default_allocator.allocator.arena);
+        } else {
+            ztd_error(__FUNCTION__, "Error on cleanup, backend state is null");            
+        }
+    };
+
     api->simulate           = physx_simulate;
     api->set_rigidbody      = physx_set_rigidbody;
     api->sync_rigidbody     = physx_sync_rigidbody;

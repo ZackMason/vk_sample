@@ -20,11 +20,6 @@ namespace physics {
     };
 
     struct physx_state_t {
-        physx_state_t(size_t size) 
-            : default_allocator{size}
-        {
-        }
-        
         arena_heap_t    default_allocator;
         error_callback_t error_callback;
         physx::PxFoundation* foundation{nullptr};
@@ -57,130 +52,6 @@ namespace physics {
         // state.cooking = PxCreateCooking(PX_PHYSICS_VERSION, *state.foundation, PxCookingParams(state.physics->getTolerancesScale()));
         // assert(state.cooking);
     }
-
-    struct physics_world_t;
-
-    struct rigid_body_t {
-        physx_state_t*          state;
-
-        bool is_dynamic = false;
-        union {
-            physx::PxRigidActor*    rigid{nullptr};
-            physx::PxRigidDynamic*  dynamic;
-        };
-        physx::PxController*    controller{nullptr};
-        physx::PxShape*         shape{nullptr};
-        physx::PxMaterial*      material{nullptr};
-        physics_shape_type      type{};
-
-        v3f velocity{};
-        v3f angular_velocity{};
-
-        void create_character(physics_world_t* physx_world);
-
-        void apply_impulse_to_center(v3f i) {
-            dynamic->addForce({i.x, i.y, i.z}, physx::PxForceMode::eIMPULSE);
-        }
-
-        void set_angular_velocity(v3f v) {
-            angular_velocity = v;            
-            dynamic->setAngularVelocity({v.x,v.y,v.z}, true);
-        }
-
-        void set_velocity(v3f v) {
-            velocity = v;
-            dynamic->setLinearVelocity({v.x,v.y,v.z}, true);
-        }
-
-        void load_capsule(float radius, float height) {
-            type = physics_shape_type::CAPSULE;
-        }
-
-        void load_sphere(float radius, const math::transform_t& transform) {
-            type = physics_shape_type::SPHERE;
-
-            physx::PxVec3 p;
-            
-            p.x = transform.origin.x;
-            p.y = transform.origin.y;
-            p.z = transform.origin.z;
-
-            const auto temp_q = transform.get_orientation();
-            physx::PxQuat q{ temp_q.x, temp_q.y, temp_q.z, temp_q.w };
-
-            physx::PxTransform t(p, q);
-            
-            material = state->physics->createMaterial(0.5f, 0.5f, 0.1f);
-            if (is_dynamic) {
-                dynamic = state->physics->createRigidDynamic(t);
-                shape = physx::PxRigidActorExt::createExclusiveShape(*dynamic, physx::PxSphereGeometry(1.0f), *material);
-            } else {
-                rigid = state->physics->createRigidStatic(t);
-                shape = physx::PxRigidActorExt::createExclusiveShape(*rigid, physx::PxSphereGeometry(1.0f), *material);
-            }
-        }
-
-        void load(std::byte* data, size_t size, const math::transform_t& transform) {
-            switch(type) {
-                case physics_shape_type::SPHERE:
-                    load_sphere(1.0f, transform);
-                    break;
-                case physics_shape_type::TRIMESH:
-                    load_trimesh(data, size, transform);
-                    break;
-                case physics_shape_type::CONVEX:
-                    load_convex(data, size, transform);
-                    break;
-                default:
-                    ztd_warn("rigidbody", "Failed to load shape");
-            }
-        }
-        void load_trimesh(std::byte* data, size_t size, const math::transform_t& transform) {
-            assert(state);
-            physx::PxVec3 p;
-            p.x = transform.origin.x;
-            p.y = transform.origin.y;
-            p.z = transform.origin.z;
-
-            const auto temp_q = transform.get_orientation();
-            physx::PxQuat q{ temp_q.x, temp_q.y, temp_q.z, temp_q.w };
-
-            physx::PxTransform t(p, q);
-            
-            rigid = state->physics->createRigidStatic(t);
-            assert(rigid);
-
-            material = state->physics->createMaterial(0.5f, 0.5f, 0.1f);
-            physx::PxDefaultMemoryInputData input((u8*)data, safe_truncate_u64(size));
-            auto tri_mesh = state->physics->createTriangleMesh(input);
-        
-            shape = physx::PxRigidActorExt::createExclusiveShape(*rigid, physx::PxTriangleMeshGeometry(tri_mesh), *material);
-            type = physics_shape_type::TRIMESH;
-        }
-
-        void load_convex(std::byte* data, size_t size, const math::transform_t& transform) {
-            assert(state);
-            physx::PxVec3 p;
-            p.x = transform.origin.x;
-            p.y = transform.origin.y;
-            p.z = transform.origin.z;
-
-            const auto temp_q = transform.get_orientation();
-            physx::PxQuat q{ temp_q.x, temp_q.y, temp_q.z, temp_q.w };
-
-            physx::PxTransform t(p, q);
-            
-            dynamic = state->physics->createRigidDynamic(t);
-            assert(dynamic);
-
-            material = state->physics->createMaterial(0.5f, 0.5f, 0.1f);
-            physx::PxDefaultMemoryInputData input((u8*)data, safe_truncate_u64(size));
-            auto convex_mesh = state->physics->createConvexMesh(input);
-        
-            shape = physx::PxRigidActorExt::createExclusiveShape(*dynamic, physx::PxConvexMeshGeometry(convex_mesh), *material);
-            type = physics_shape_type::CONVEX;
-        }
-    };
 
 
     struct physics_world_t {
@@ -224,20 +95,5 @@ namespace physics {
         assert(world->controller_manager);
     }
 
-
-    void rigid_body_t::create_character(physics_world_t* physx_world) {
-        physx::PxMaterial* mat = state->physics->createMaterial(0.5f, 0.5f, 0.1f);
-
-        physx::PxCapsuleControllerDesc desc;
-        desc.height = 1.5f;
-        desc.radius = 1.0f;
-        desc.climbingMode = physx::PxCapsuleClimbingMode::eEASY;
-        desc.behaviorCallback = nullptr;
-        desc.reportCallback = nullptr;
-        desc.material = mat;
-
-        controller = physx_world->controller_manager->createController(desc);
-        assert(controller);
-    }
 
 };

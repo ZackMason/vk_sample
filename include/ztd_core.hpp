@@ -159,7 +159,7 @@ using m44 = glm::mat4x4;
 using string_id_t = u64;
 using sid_t = string_id_t;
 
-static const quat quat_identity{v3f{0.0f, 0.0f, 0.0f}};
+constexpr static const quat quat_identity{1.0f, 0.0f, 0.0f, 0.0f};
 static const m33  mat3_identity{1.0f};
 static const m44  mat4_identity{1.0f};
 
@@ -268,6 +268,9 @@ struct stack_string
     //     return buffer;
     // }
     
+    constexpr std::string_view sv() const {
+        return view();
+    }
     constexpr std::string_view view() const {
         return std::string_view{buffer};
     }
@@ -315,6 +318,20 @@ struct stack_string
         return *this;
     }
 
+    constexpr stack_string<N, CharType>& operator=(std::string_view str) {
+        size_t s = str.size();
+        assert(s < N);
+
+        if (s < N) {
+            for (size_t i = 0; i < s; ++i) {
+                buffer[i] = str[i];
+            }
+            buffer[s] = '\0';
+        }
+
+        return *this;
+    }
+
     constexpr stack_string<N, CharType>& operator=(const char* str) {
         size_t s = std::strlen(str);
         assert(s < N);
@@ -346,6 +363,10 @@ struct stack_string
 
     constexpr operator bool() const {
         return buffer[0] != 0;
+    }
+
+    constexpr std::span<CharType, N> span() {
+        return std::span<CharType, N>{buffer};
     }
 };
 
@@ -410,6 +431,13 @@ struct fmt::formatter<glm::vec<3, T>>
 struct arena_settings_t {
     size_t alignment{16};
     size_t minimum_block_size{kilobytes(1)}; // tune this
+
+    using allocation_function = void*(*)(size_t);
+    using free_function = void(*)(void*);
+
+    allocation_function allocate{0};
+    free_function       free{0};
+
     u8     fixed{0};
 };
 
@@ -489,19 +517,13 @@ using temp_arena_t = arena_t;
 #define export_dll __declspec(dllexport)
 #define export_fn(rt_type) no_mangle export_dll rt_type __cdecl
 
+template<typename Fn>
 struct _auto_deferer_t {
     std::function<void(void)> fn;
 
-    template<typename Fn>
     _auto_deferer_t(Fn _fn) 
         : fn{_fn}
     {
-    }
-
-    template<typename Fn>
-    _auto_deferer_t& operator=(Fn _fn) {
-        fn = _fn;
-        return *this;
     }
 
     ~_auto_deferer_t() {
@@ -793,6 +815,9 @@ struct app_input_t {
         v2f pos2() const noexcept {
             return v2f{pos[0], pos[1]};
         }
+        v2f delta2() const noexcept {
+            return v2f{delta[0], delta[1]};
+        }
 
         // preserved, everything above here is reset every frame    
         f32 delta[2];
@@ -1041,6 +1066,8 @@ struct game_memory_t {
 
     void* game_state{0};
 
+    void* imgui_context{0};
+
     physics::api_t* physics{nullptr};
 };
 
@@ -1092,6 +1119,10 @@ u32 node_count(auto* node) {
     return result;
 }
 
+#define dlist_for(sen, ele) \
+    for (auto* (ele) = (sen).next;  \
+        (ele) != &(sen);            \
+        node_next((ele)))
 #define dlist_remove(ele) \
     (ele)->prev->next = (ele)->next; \
     (ele)->next->prev = (ele)->prev;
@@ -1154,6 +1185,11 @@ struct node_t {
 // allocators
 
 namespace utl {
+
+template <typename T>
+std::optional<T> cond(b32 x, T&& v) {
+    return x ? std::optional<T>{v} : std::nullopt;
+}
 
 std::string_view trim_filename(std::string_view str, char slash = '\\') {
     return str.substr(str.find_last_of(slash) + 1);
@@ -1381,7 +1417,7 @@ push_bytes(arena_t* arena, size_t bytes) {
     if (!arena->settings.fixed) {
         if (arena->top + bytes >= arena->size) [[unlikely]] {
             umm block_size = std::max(bytes + sizeof(arena_block_footer_t), arena->settings.minimum_block_size);
-            block_size = std::max(block_size, kilobytes(4));
+            block_size = std::max(block_size, kilobytes(64));
             
             // arena->settings.minimum_block_size = std::max(block_size, arena->settings.minimum_block_size);
 
@@ -1394,8 +1430,13 @@ push_bytes(arena_t* arena, size_t bytes) {
             footer.size = arena->size;
             footer.used = arena->top;
 
-            assert(Platform.allocate);
-            arena->start = (std::byte*)Platform.allocate(block_size);
+            if (!arena->settings.allocate) {
+                assert(Platform.allocate);
+                arena->settings.allocate = Platform.allocate;
+                arena->settings.free = Platform.free;
+            }
+
+            arena->start = (std::byte*)arena->settings.allocate(block_size);
             assert(arena->start);
             arena->top = 0;
             arena->size = block_size - sizeof(arena_block_footer_t);
@@ -1533,11 +1574,11 @@ arena_free_block(arena_t* arena) {
     arena->top = footer->used;
     arena->size = footer->size;
 
-    assert(Platform.free);
+    assert(arena->settings.free);
 
     arena->block_count--;
 
-    Platform.free(block);
+    arena->settings.free(block);
 }
 
 inline void
@@ -1633,19 +1674,67 @@ struct allocator_t {
         // ztd_info(__FUNCTION__, "{} free blocks", dlist_count(free_blocks));
         dlist_range(&free_blocks, block) {
             if (block->size < size) { continue; }
+            // if (block->size < size || size*2 < block->size) { continue; }
 
-            dlist_remove(block);
+            if (block->size == size || arena.settings.fixed) {
+                dlist_remove(block);
 
-            dlist_insert_as_last(&used_blocks, block);
+                dlist_insert_as_last(&used_blocks, block);
 
-            return block->start;
+                utl::memzero(block->start, block->size);
+
+                return block->start;
+            } else {
+#if 1
+
+                if (arena.settings.alignment) {
+                    // todo
+                    // assert(((u64)block->start & (arena.settings.alignment-1)) == 0);
+                    // auto aligned_size = align_2n(size, arena.settings.alignment);
+                    // new_block->start = (u8*)block->start + aligned_size;
+                    // // new_block->start = (void*)align_2n((u64)new_block->start, arena.settings.alignment);
+                    // // i64 offset = (u8*)new_block->start - (u8*)block->start;
+                    // // assert(offset > 0);
+                    // assert(aligned_size < block->size);
+
+                    // new_block->size = block->size - aligned_size;
+                    // block->size = size;
+
+                    // utl::memzero(new_block->start, new_block->size);
+
+                    // assert(new_block->size);
+                } else {
+                    tag_struct(auto* new_block, memory_block_t, block_arena);
+                    new_block->start = (u8*)block->start + size;
+                    assert(block->size > size);
+                    new_block->size = block->size - size;
+                    
+                    block->size = size;
+                    assert(block->size);
+                    assert(new_block->size);
+                    dlist_insert_as_last(&free_blocks, new_block);
+                }
+#endif
+                
+                dlist_remove(block);
+
+                dlist_insert_as_last(&used_blocks, block);
+
+                utl::memzero(block->start, size);
+
+                return block->start;
+            }
         }
         // if we reach here, theres no free blocks that fit
 
         tag_struct(auto* new_block, memory_block_t, block_arena);            
-        auto* data = push_bytes(&arena, size); // TODO(zack): breaks mesh allocators if you tag
-        // using allocator_memory_t = std::byte;
-        // tag_array(auto* data, allocator_memory_t, &arena, size);
+        std::byte* data;
+        if (arena.settings.fixed) {
+            data = push_bytes(&arena, size); // TODO(zack): breaks mesh allocators if you tag
+        } else {
+            using allocator_memory_t = std::byte;
+            tag_array(data, allocator_memory_t, &arena, size);
+        }
 
         utl::memzero(data, size);
 
@@ -2097,7 +2186,7 @@ struct pool_t : pool_base_t {
     // note(zack): calls T dtor
     void clear() {
         if constexpr (!std::is_trivially_destructible_v<T>) {
-            for (size_t i = 0; i < count; i++) {
+            for (size_t i = 0; i < count(); i++) {
                 (data() + i)->~T();
             }
         }
@@ -2521,6 +2610,7 @@ namespace packing {
 
 };
 
+#if defined(ZTD_GRAPHICS)
 
 namespace gfx {
 // note(zack): this is in core because it will probably be loaded 
@@ -3213,8 +3303,8 @@ namespace color {
         return color3{to_color4(c)};
     }
     
-    constexpr color32 modulate(color32 c, f32 f) {
-        return to_color32(to_color4(c)*f);
+    constexpr color32 modulate(color32 c, f32 f, std::optional<f32> a = std::nullopt) {
+        return to_color32(to_color4(c)*v4f{f,f,f,a?*a:f});
     }
     constexpr color32 modulate(color32 c, v4f v) {
         return to_color32(to_color4(c)*v);
@@ -3504,7 +3594,7 @@ namespace gui {
         u64   max_size = 0;
     };
 
-    void text_input(text_input_state_t& text_input, char key) {
+    void text_insert_key(text_input_state_t& text_input, char key) {
         if (key > 0) {
             if (text_input.text_size + 1 < text_input.max_size) {
                 if (text_input.text_position == text_input.text_size) {
@@ -3570,11 +3660,38 @@ namespace gui {
         }
     }
 
+    b32 text_input(app_input_t* input, text_input_state_t& text_input, std::optional<std::string_view> placeholder = std::nullopt) {
+        auto key = input->keyboard_input();
+        auto entered = input->pressed.keys[key_id::ENTER];
+        auto deleted = input->pressed.keys[key_id::BACKSPACE];
+        auto ctrl  = input->keys[key_id::LEFT_CONTROL];
+        auto left  = input->pressed.keys[key_id::LEFT];
+        auto right = input->pressed.keys[key_id::RIGHT];
+        auto tab   = input->pressed.keys[key_id::TAB];
+
+        if (tab && placeholder) {
+            text_paste(text_input, *placeholder, true);
+        }
+        if (left) { 
+            text_cursor_left(text_input);
+        } else if (right) {
+            text_cursor_right(text_input);
+        }
+
+        text_insert_key(text_input, key);
+        
+        if (deleted) {
+            text_delete(text_input, ctrl);
+        }
+        return entered;
+    }
+
     struct ctx_t {
         utl::pool_t<vertex_t>* vertices;
         utl::pool_t<u32>* indices;
         gfx::font_t* font;
         app_input_t* input;
+        v2f screen_pos{0.0f};
         v2f screen_size{};
 
         f32 depth{0.0f};
@@ -3601,8 +3718,8 @@ namespace gui {
 
         math::rect2d_t screen_rect() const {
             return math::rect2d_t{
-                v2f{0.0f},
-                screen_size
+                screen_pos,
+                screen_pos + screen_size
             };
         }
 
@@ -3663,6 +3780,7 @@ namespace gui {
         }
     };
 
+
     enum eTypeFlag {
         eTypeFlag_Theme,
         eTypeFlag_Panel,
@@ -3685,12 +3803,13 @@ namespace gui {
         color32 shadow_color{color::rgba::black};
 
         f32 padding{1.0f};
+        f32 hpad{1.0f};
         f32 margin{1.0f};
         f32 border_radius{6.0f};
         f32 title_height{8.0f};
     };
 
-
+    
     struct text_t;
     struct image_t;
     struct button_t;
@@ -4297,8 +4416,8 @@ namespace gui {
         u32 outline_color,
         f32 thickness
     ) {
-        draw_rect(ctx, box, color);
-        draw_rect(ctx, box.pad(thickness), outline_color); 
+        draw_rect(ctx, box, outline_color); 
+        draw_rect(ctx, box.pad(thickness), color);
     }
 
     inline void
@@ -4420,6 +4539,141 @@ namespace gui {
         }
     }
 
+    namespace theme_mask_t {
+        enum ENUM : u64 {
+            none, 
+            no_border = 1
+        };
+    };
+
+    namespace cut_string_result_t {
+        enum ENUM : u32 {
+            none, hot, active, fire
+        };
+    };
+
+    cut_string_result_t::ENUM cut_string(
+        ctx_t* c, 
+        math::rect2d_t& r,
+        std::string_view text,
+        gfx::color32 text_color,
+        gfx::color32 fg_color = 0,
+        gfx::color32 border_color = 0,
+        f32 border_size = 2.0f,
+        v2f padding = v2f{2.0f},
+        gfx::font_t* font = 0,
+        gfx::color32 shadow = 0,
+        math::rect2d_t* outrect = 0,
+        math::rect2d_t* thisrect = 0
+    ) {
+        math::rect2d_t label;
+        math::rect2d_t _tr;
+
+        auto s0 = font_get_size(font, text);
+        std::tie(label, r) = math::cut_top(r, s0.y + padding.y);
+
+        // if (outrect)                                                                        
+        std::tie(label, outrect?*outrect:_tr) = math::cut_left(label, s0.x + padding.x);
+
+        if (thisrect) {
+            *thisrect = label;
+        }
+        
+        if (fg_color && border_color) {
+            draw_rect_outline(c, label, fg_color, border_color, border_size);
+        }
+        draw_string(c, text, label.min, text_color, font, shadow);
+
+        u32 mask = ((!!label.contains(c->input->mouse.pos2())) << 1) | !!c->input->released.mouse_btns[0];
+        using namespace cut_string_result_t;
+        switch(mask) {
+            case 0: return none;
+            case 1: return active;
+            case 2: return hot;
+            case 3: return fire;
+        };
+        return none;
+    }
+
+    cut_string_result_t::ENUM cut_string(
+        ctx_t* c, 
+        math::rect2d_t& r,
+        std::string_view text,
+        const theme_t& theme,
+        u32 mask = 0,
+        gfx::font_t* font = 0,
+        math::rect2d_t* outrect = 0,
+        math::rect2d_t* thisrect = 0
+    ) {
+        assert(font);
+        return cut_string(c, r, text, theme.text_color, theme.fg_color, !(mask & 1) ? theme.border_color : 0, theme.border_thickness, v2f{theme.hpad, theme.padding}, font, theme.shadow_color, outrect, thisrect);
+        // return cut_string(c, r, text, theme.text_color, theme.fg_color, theme.border_color, theme.border_thickness, v2f{theme.hpad, theme.padding}, font, theme.shadow_color, outrect);
+    }
+    
+
+    b32 text_box(
+        ctx_t* c, 
+        text_input_state_t& text_in,
+        // math::rect2d_t& r,
+        const math::rect2d_t& text_box,
+        gfx::font_t* font,
+        gfx::color32 text_color,
+        gfx::color32 text_box_color,
+        b32 active,
+        std::optional<std::string_view> placeholder = std::nullopt,
+        gfx::color32 guess_text_color = gfx::color::rgba::yellow
+    ) {
+        draw_rect(c, text_box, text_box_color);
+
+        if (placeholder) {
+            if (!active) {
+                guess_text_color = gfx::color::modulate(guess_text_color, v4f{0.7f});
+            }
+            draw_string(c, *placeholder, text_box.min, guess_text_color);
+        }
+        draw_string(c, text_in.data, text_box.min, text_color);
+
+        auto pos_size = gfx::font_get_size(c->font, std::string_view{text_in.data, text_in.text_position});
+        auto [before_cursor, after_cursor] = math::cut_left(text_box, pos_size.x);
+
+        if (active) {
+            math::rect2d_t cursor;
+            cursor.min = math::top_right(before_cursor);
+            cursor.max = before_cursor.max;
+            cursor.min.x -= 3.0f;
+            draw_rect(c, cursor, gfx::color::rgba::yellow);
+        }
+
+        return active ? text_input(c->input, text_in, placeholder) : false;
+    }
+
+    
+    b32 float_box(
+        ctx_t* c, 
+        const math::rect2d_t& rect,
+        gfx::font_t* font,
+        gfx::color32 text_color,
+        gfx::color32 text_box_color,
+        b32 active,
+        f32* value
+    ) {
+        local_persist char text[64] = {};
+        local_persist text_input_state_t text_in {
+            .data = text,
+            .max_size = array_count(text)
+        };
+
+        if (active) {
+            text_paste(text_in, fmt_sv("{}", *value), 0);
+        }
+
+        auto r = text_box(c, text_in, rect, font, text_color, text_box_color, active);
+
+        if (r) {
+            std::from_chars(text_in.data, text_in.data + text_in.text_size + 1, *value);
+        }
+        return r;
+    }
 
     namespace im {
         constexpr u64 id_ignore_clear_flag = 0b1;
@@ -6920,6 +7174,143 @@ namespace gui {
         inline bool
         text_edit(
             state_t& imgui, 
+            std::span<char> text,
+            size_t* position,
+            sid_t txt_id_ = 0,
+            bool* toggle_state = 0         
+        ) {
+            const sid_t txt_id = imgui.verify_id(txt_id_ ? txt_id_ : sid(text));
+            bool result = toggle_state ? *toggle_state : false;
+
+            constexpr f32 text_pad = 4.0f;
+            const auto min_size = font_get_size(imgui.ctx.font, "Hello world");
+            const auto font_size = font_get_size(imgui.ctx.font, std::string_view{text.data()});
+            v2f temp_cursor = imgui.panel->draw_cursor;
+            const f32 start_x = imgui.panel->draw_cursor.x;
+            temp_cursor.x += text_pad + imgui.theme.padding;
+
+            math::rect2d_t text_box;
+            text_box.expand(temp_cursor);
+            text_box.expand(temp_cursor + min_size);
+            text_box.expand(temp_cursor + font_size + v2f{32.0f, 0.0f});
+            imgui.panel->update_cursor_max(text_box.max);
+
+            const auto [x,y] = imgui.ctx.input->mouse.pos;
+            if (imgui.validate_position(v2f{x,y}) && text_box.contains(v2f{x,y})) {
+                imgui.hot = txt_id;
+            } else if (imgui.hot.id == txt_id) {
+                imgui.hot = 0;
+            }
+
+            if (imgui.active.id == txt_id) {
+                // imgui.hot = txt_id;
+                local_persist text_input_state_t text_in;
+                text_in.data = (char*)text.data();
+                text_in.text_size = std::string_view{text_in.data}.size();
+                text_in.max_size = text.size();
+                text_in.text_position = *position;
+                result = gfx::gui::text_box(&imgui.ctx, text_in, text_box, imgui.ctx.font, imgui.theme.text_color, imgui.theme.fg_color, 1);
+                if(result) {
+                    imgui.active = 0;
+                }
+                *position = text_in.text_position;
+            } else {
+                text_input_state_t text_in;
+                text_in.data = (char*)text.data();
+                text_in.text_size = std::string_view{text_in.data}.size();
+                text_in.max_size = text.size();
+                text_in.text_position = *position;
+                gfx::gui::text_box(&imgui.ctx, text_in, text_box, imgui.ctx.font, imgui.theme.text_color, imgui.theme.fg_color, 0);
+                *position = text_in.text_position;
+            }
+            // if (imgui.active.id == txt_id) {
+            //     auto key = imgui.ctx.input->keyboard_input();
+            //     if (key > 0) {                    
+            //         const_cast<char&>(text[(*position)++]) = key;
+            //         imgui.hot = txt_id;
+            //     } else if ((*position) && imgui.ctx.input->pressed.keys[key_id::BACKSPACE]) {
+            //         (*position)--;
+            //         const_cast<char&>(text[(*position)]) = '\0';
+            //         imgui.hot = txt_id;
+            //     }
+            //     if (imgui.ctx.input->pressed.keys[key_id::ENTER]) {
+            //         imgui.active = 0;
+            //         result = true;
+            //     }
+            // }
+            if (imgui.ctx.input->mouse.buttons[0]) {
+                if (imgui.hot.id == txt_id) {
+                    imgui.active = txt_id;
+                } else {
+                    imgui.active = 0;
+                }
+            }
+
+            // if (*position != 0) {
+            //     const auto bar_pad = v2f{4.0f, 0.0f};
+            //     draw_line(&imgui.ctx, temp_cursor + v2f{font_size.x, 0.0f} + bar_pad, temp_cursor + font_size + bar_pad, 2.0f, imgui.theme.fg_color);
+            // }
+
+            
+            auto bg_color = imgui.theme.bg_color;
+            if (imgui.hot.id == txt_id) {
+                bg_color = color::lerp(bg_color, color::modulate(imgui.theme.fg_color, 0.3f), sin(imgui.ctx.input->time * 2.0f) * 0.5f + 0.5f);
+            }
+            
+            // text_box.pull(v2f{2.0f});
+            // draw_round_rect(&imgui.ctx, text_box, 4.0f, imgui.theme.fg_color, 10);
+            // text_box.pull(v2f{-2.0f});
+            // draw_round_rect(&imgui.ctx, text_box, 4.0f, bg_color, 10);
+            
+            // auto shadow_cursor = temp_cursor + imgui.theme.shadow_distance;
+            // draw_string(&imgui.ctx, text, &shadow_cursor, imgui.theme.shadow_color);
+            // draw_string(&imgui.ctx, text, &temp_cursor, imgui.hot.id == txt_id ? imgui.theme.active_color : imgui.theme.text_color);
+            temp_cursor.y += min_size.y;
+            
+            constexpr b32 show_clear = 1;
+            if constexpr (show_clear) {
+                auto tr = math::top_right(text_box);
+                auto clear_space_top = tr - v2f{16.0f, -2.0f};
+                auto clear_space_bottom = text_box.max - v2f{16.0f, 2.0f};
+                auto clear_color = color::modulate(imgui.theme.fg_color, 0.5);
+                auto cx0 = clear_space_top + v2f{3.0f, 1.0f};
+                auto cx1 = cx0 + v2f{10.0f, 0.0f};
+                auto cx2 = clear_space_bottom + v2f{3.0f, -1.0f};
+                auto cx3 = cx2 + v2f{10.0f, 0.0f};
+                draw_line(&imgui.ctx, clear_space_top, clear_space_bottom, 2.0f, clear_color);
+
+                math::rect2d_t clear_box{
+                    .min = cx0,
+                    .max = cx3
+                };
+
+                if (imgui.validate_position(v2f{x,y}) && clear_box.contains(v2f{x,y})) { 
+                    clear_color = color::modulate(imgui.theme.active_color, 0.5);
+                    if (imgui.ctx.input->mouse.buttons[0] && *position) {
+                        utl::memzero((void*)text.data(), text.size());
+                        *position = 0;
+                    }
+                }
+
+                draw_line(&imgui.ctx, cx0, cx3, 1.0f, clear_color);
+                draw_line(&imgui.ctx, cx1, cx2, 1.0f, clear_color);
+            }
+
+
+            if (imgui.next_same_line) {
+                imgui.next_same_line = false;
+                imgui.panel->draw_cursor.x += font_size.x;
+            } else {
+                imgui.panel->draw_cursor.y = temp_cursor.y + imgui.theme.padding;
+                imgui.panel->draw_cursor.x = imgui.panel->min.x + imgui.theme.padding;
+                // imgui.panel->draw_cursor.x = imgui.panel->saved_cursor.x;
+            }
+            return result;
+        }
+
+        inline bool
+        text_edit2(
+            state_t& imgui, 
             std::string_view text,
             size_t* position,
             sid_t txt_id_ = 0,
@@ -7517,6 +7908,7 @@ namespace gui {
     };
 }; // namespace gui
 
+
 #include "stb/stb_truetype.h"
 
 struct font_t {
@@ -7622,6 +8014,7 @@ font_get_glyph(font_t* font, f32 x, f32 y, char c, char nc = 0)
 }
 #endif
 
+
 struct vertex_t;
 
 inline v2f 
@@ -7725,8 +8118,9 @@ font_render(
 }
 
 
-
 }; // namespace gfx
+
+#endif // ZTD_GRAPHICS
 
 namespace utl {
 
@@ -8483,7 +8877,7 @@ struct memory_blob_t {
         
         advance(sizeof(T));
 
-        T t;
+        T t{};
         utl::copy(&t, (T*)(data + t_offset), sizeof(T));
 
         return t;
@@ -8868,7 +9262,7 @@ namespace magic {
 
 constexpr auto make_magic(const char key[8]) {
     u64 res=0;
-    for(size_t i=0;i<4;i++) { res = (res<<8) | key[i];}
+    for(size_t i=0;i<8;i++) { res = (res<<8) | key[i];}
     return res;
 }
     constexpr u64 meta = 0xfeedbeeff04edead;
@@ -9190,6 +9584,10 @@ buffer<u8> read_bin_file(arena_t* arena, std::string_view filename) {
     
     std::ifstream file{filename.data(), std::ios::binary};
 
+    if (file.is_open() == false) {
+        return result;
+    }
+
     file.seekg(0, std::ios::end);
     const size_t file_size = file.tellg();
     file.seekg(0, std::ios::beg);
@@ -9380,7 +9778,7 @@ auto over_time(auto&& fn, f32 dt) {
 //     return buffer;
 // }
 
-
+#if defined(ZTD_GRAPHICS)
 template<>
 void utl::memory_blob_t::serialize<gfx::color::gradient_t>(arena_t* arena, const gfx::color::gradient_t& gradient) {
     serialize<u64>(arena, 0);
@@ -9407,3 +9805,4 @@ utl::memory_blob_t::deserialize<gfx::color::gradient_t>(arena_t* arena) {
     return gradient;
 }
 
+#endif

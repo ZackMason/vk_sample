@@ -17,6 +17,8 @@
 
 res/res.pack
 
+LivePP/
+
 # Fortran module files
 *.mod
 *.smod

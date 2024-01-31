@@ -1,10 +1,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
 
+#define ZTD_GRAPHICS
 
 #include "ztd_core.hpp"
 #include "khr/spirv_reflect.h"
-#include "khr/spirv_reflect.c"
+
 
 namespace ztd {
 
@@ -39,6 +40,7 @@ global_variable f32 bloom_filter_radius = 0.0025f;
 // auto ztd_error(std::string_view cat, std::string_view str, Args&& ... args) {
 //     console_log(DEBUG_STATE.console, fmt_sv(fmt_sv("[error][{}]: {}\n", cat, str), std::forward<Args>(args)...), gfx::color::rgba::red);
 // }
+#include "App/lua_modding.cpp"
 
 
 #include "App/game_state.hpp"

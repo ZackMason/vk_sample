@@ -24,8 +24,8 @@ namespace sound_event {
 
 namespace fmod_sound {
 
-    // #define assert_success(exp) (exp)
-    #define assert_success(exp) assert((exp) == 0)
+    #define assert_success(exp) (exp)
+    // #define assert_success(exp) if ((exp) == 0) return;
 
     using sound_instance_t = FMOD::Studio::EventInstance;
 
@@ -114,7 +114,8 @@ namespace fmod_sound {
         tag_struct(auto* engine, sound_engine_t, memory.arena);
 
         FMOD::Studio::System* system = NULL;
-        assert_success( FMOD::Studio::System::create(&system) );
+        auto err = FMOD::Studio::System::create(&system);
+        assert_success(err);
         engine->fmod.system = system;
 
         // // The example Studio project is authored for 5.1 sound, so set up the system output mode to match
